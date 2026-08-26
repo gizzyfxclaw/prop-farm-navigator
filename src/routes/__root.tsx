@@ -7,10 +7,21 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { StoreProvider } from "../lib/store";
+
+const NAV = [
+  { to: "/", label: "Engine" },
+  { to: "/validator", label: "Validator" },
+  { to: "/accounts", label: "Accounts" },
+  { to: "/journal", label: "Journal" },
+  { to: "/live", label: "Live MT5" },
+  { to: "/settings", label: "Settings" },
+] as const;
 
 function NotFoundComponent() {
   return (
@@ -44,9 +55,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">This page didn't load</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
@@ -62,7 +71,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           </button>
           <a
             href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            className="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
             Go home
           </a>
@@ -77,19 +86,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "GizzyFx — Institutional Prop Farming Terminal" },
+      {
+        name: "description",
+        content:
+          "Dual-account hedge calculator, prop firm validator and MetaApi Cloud execution terminal for prop farming.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: appCss,
+        href: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
@@ -114,13 +126,61 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function Clock() {
+  const [now, setNow] = useState<string>("--:--:--");
+  useEffect(() => {
+    const tick = () =>
+      setNow(
+        new Date().toLocaleTimeString("en-GB", { timeZone: "UTC", hour12: false }) + " UTC",
+      );
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return <span className="font-mono text-xs text-muted-foreground">{now}</span>;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <StoreProvider>
+        <div className="min-h-screen bg-background">
+          <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
+              <Link to="/" className="flex items-center gap-2">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary font-mono text-sm font-bold text-primary-foreground">
+                  G
+                </span>
+                <span className="text-sm font-bold tracking-[0.16em] text-foreground">GIZZYFX</span>
+              </Link>
+              <nav className="flex flex-1 flex-wrap items-center gap-1">
+                {NAV.map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    activeOptions={{ exact: item.to === "/" }}
+                    className="rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    activeProps={{ className: "bg-secondary !text-foreground" }}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+              <Clock />
+            </div>
+          </header>
+          <main className="mx-auto max-w-6xl px-4 py-6">
+            <Outlet />
+          </main>
+          <footer className="mx-auto max-w-6xl px-4 py-8 text-[11.5px] text-muted-foreground">
+            <b className="text-foreground">GIZZYFX</b> · Institutional terminal — dual-account hedge
+            calculator, validator and MetaApi Cloud execution. Educational use; trade at your own risk.
+          </footer>
+        </div>
+        <Toaster theme="dark" position="top-center" />
+      </StoreProvider>
     </QueryClientProvider>
   );
 }
