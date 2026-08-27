@@ -32,6 +32,8 @@ export const Route = createFileRoute("/")({
 function EnginePage() {
   const { engine, setEngine, accounts, meta, addTrade } = useStore();
   const r = useEngine();
+  const selectedAccount = useSelectedAccount();
+  const liveAccounts = useLiveAccounts();
   const [live, setLive] = useState<{ price: number; label: string } | null>(null);
   const [status, setStatus] = useState<{ tone: "green" | "red" | "amber"; text: string } | null>(null);
   const [busy, setBusy] = useState<"price" | "trade" | null>(null);
