@@ -324,12 +324,19 @@ function EnginePage() {
               </tbody>
             </table>
           </div>
+          {Number(r.exnessLots.toFixed(2)) < 0.01 && (
+            <p className="mt-3 text-[10.5px] text-destructive">
+              Exness lot rounds to 0.00 — below the 0.01 broker minimum. Raise the desired profit on blow, lower the
+              prop risk, or use a Cent account so the fuel size becomes tradable.
+            </p>
+          )}
           {engine.exnessAccountType === "Cent" && (
             <p className="mt-3 text-[10.5px] text-primary">
               Exness lots are cent lots (1 cent lot = 1/100 standard lot); pip value used is $
               {r.exnessPipValue.toFixed(2)}.
             </p>
           )}
+
         </Card>
 
         <Card title="Risk per trade">
