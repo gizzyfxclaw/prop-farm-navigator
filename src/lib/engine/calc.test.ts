@@ -41,10 +41,10 @@ describe("engine", () => {
     expect(r.propTpPips).toBe(60);
     expect(r.exnessSlPips).toBe(60);
     expect(r.exnessTpPips).toBe(30);
-    expect(r.propSl).toBeCloseTo(1.0847, 5);
-    expect(r.propTp).toBeCloseTo(1.0856, 5);
-    expect(r.exnessSl).toBeCloseTo(1.0856, 5);
-    expect(r.exnessTp).toBeCloseTo(1.0847, 5);
+    expect(r.propSl).toBeCloseTo(1.082, 5);
+    expect(r.propTp).toBeCloseTo(1.091, 5);
+    expect(r.exnessSl).toBeCloseTo(1.091, 5);
+    expect(r.exnessTp).toBeCloseTo(1.082, 5);
     expect(r.propLots).toBeCloseTo(50 / (30 * 10), 6);
   });
 
@@ -58,12 +58,14 @@ describe("engine", () => {
   it("uses worst-case R:R of 2 for phase 1 capital even at 1:1.5", () => {
     const r = calculate({ ...base, rr: 1.5 });
     const win = 28.6 / 6;
+    // At 1:1.5 it takes 4 wins to clear the $300 target.
+    expect(r.winsToPass).toBe(4);
     expect(r.phase1.exnessWinTarget).toBeCloseTo(win, 6);
     expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 2, 6);
-    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 2 * 3, 6);
-    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 2 * 3 * 1.2, 6);
-    expect(r.phase1TotalSpent).toBeCloseTo(28.6 + win * 2 * 3 * 1.2, 6);
-    expect(r.phase1Leftover).toBeCloseTo(win * 2 * 3 * 0.2, 6);
+    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 2 * 4, 6);
+    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 2 * 4 * 1.2, 6);
+    expect(r.phase1TotalSpent).toBeCloseTo(28.6 + win * 2 * 4 * 1.2, 6);
+    expect(r.phase1Leftover).toBeCloseTo(win * 2 * 4 * 0.2, 6);
   });
 
   it("carries phase 1 into phase 2 without recharging the fee", () => {

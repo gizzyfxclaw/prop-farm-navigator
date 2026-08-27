@@ -74,7 +74,10 @@ function LivePage() {
     const res = await cancelPendingOrder({
       data: { token: meta.token, accountId: meta.exnessAccountId, orderId },
     });
-    if (!res.ok) return toast.error(res.error);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
     toast.success("Pending order cancelled.");
     void refresh();
   }
@@ -83,7 +86,10 @@ function LivePage() {
     const res = await closePosition({
       data: { token: meta.token, accountId: meta.exnessAccountId, positionId },
     });
-    if (!res.ok) return toast.error(res.error);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
     toast.success("Position closed.");
     void refresh();
   }
