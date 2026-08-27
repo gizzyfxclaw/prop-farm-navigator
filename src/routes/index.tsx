@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { Alert, Badge, Button, Card, Field, Row, Select, TextInput } from "@/components/terminal/ui";
 import { money, pendingOrderType, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
 import { fetchQuote, placePendingOrder } from "@/lib/metaapi.functions";
-import { useStore } from "@/lib/store";
+import { useSelectedAccount, useStore } from "@/lib/store";
 import { useEngine } from "@/lib/useEngine";
+import { useLiveAccounts } from "@/lib/useLiveAccounts";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -30,6 +32,8 @@ export const Route = createFileRoute("/")({
 function EnginePage() {
   const { engine, setEngine, accounts, meta, addTrade } = useStore();
   const r = useEngine();
+  const selectedAccount = useSelectedAccount();
+  const liveAccounts = useLiveAccounts();
   const [live, setLive] = useState<{ price: number; label: string } | null>(null);
   const [status, setStatus] = useState<{ tone: "green" | "red" | "amber"; text: string } | null>(null);
   const [busy, setBusy] = useState<"price" | "trade" | null>(null);
@@ -73,12 +77,18 @@ function EnginePage() {
       toast.error("Exness lot size rounds below the 0.01 broker minimum. Increase the recovery target.");
       return;
     }
+    const balance = liveAccounts.exness.snapshot;
+    if (balance && balance.freeMargin <= 0) {
+      toast.error("Live Exness free margin is zero — fund the account before placing the order.");
+      return;
+    }
     const actionType = pendingOrderType(r.exnessDirection, r.entryPrice, live.price);
     const summary = `${actionType.replace("ORDER_TYPE_", "")} ${symbol} ${volume} lots @ ${formatPrice(
       r.entryPrice,
       dec,
     )} · SL ${formatPrice(r.exnessSl, dec)} · TP ${formatPrice(r.exnessTp, dec)}`;
-    if (!window.confirm(`Place this pending order on Exness?\n\n${summary}`)) return;
+    const equityLine = balance ? `\nLive equity ${money(balance.equity)} · free margin ${money(balance.freeMargin)}` : "";
+    if (!window.confirm(`Place this pending order on Exness?\n\n${summary}${equityLine}`)) return;
 
     setBusy("trade");
     const res = await placePendingOrder({
