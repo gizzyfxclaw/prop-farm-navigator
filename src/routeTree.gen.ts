@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as JournalRouteImport } from './routes/journal'
+import { Route as LiveRouteImport } from './routes/live'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ValidatorRouteImport } from './routes/validator'
 
@@ -30,6 +31,11 @@ const JournalRoute = JournalRouteImport.update({
   path: '/journal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LiveRoute = LiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
   '/journal': typeof JournalRoute
+  '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
   '/journal': typeof JournalRoute
+  '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
 }
@@ -60,21 +68,31 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
   '/journal': typeof JournalRoute
+  '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/accounts' | '/journal' | '/settings' | '/validator'
+  fullPaths:
+    '/' | '/accounts' | '/journal' | '/live' | '/settings' | '/validator'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/accounts' | '/journal' | '/settings' | '/validator'
-  id: '__root__' | '/' | '/accounts' | '/journal' | '/settings' | '/validator'
+  to: '/' | '/accounts' | '/journal' | '/live' | '/settings' | '/validator'
+  id:
+    | '__root__'
+    | '/'
+    | '/accounts'
+    | '/journal'
+    | '/live'
+    | '/settings'
+    | '/validator'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountsRoute: typeof AccountsRoute
   JournalRoute: typeof JournalRoute
+  LiveRoute: typeof LiveRoute
   SettingsRoute: typeof SettingsRoute
   ValidatorRoute: typeof ValidatorRoute
 }
@@ -102,6 +120,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/live': {
+      id: '/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -123,6 +148,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountsRoute: AccountsRoute,
   JournalRoute: JournalRoute,
+  LiveRoute: LiveRoute,
   SettingsRoute: SettingsRoute,
   ValidatorRoute: ValidatorRoute,
 }
