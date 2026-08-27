@@ -74,7 +74,7 @@ export interface Quote {
   bid: number;
   ask: number;
   mid: number;
-  time?: string;
+  time?: string | undefined;
 }
 
 export const fetchQuote = createServerFn({ method: "POST" })
@@ -94,16 +94,16 @@ export const fetchQuote = createServerFn({ method: "POST" })
   );
 
 export interface AccountSnapshot {
-  broker?: string;
-  currency?: string;
-  server?: string;
+  broker?: string | undefined;
+  currency?: string | undefined;
+  server?: string | undefined;
   balance: number;
   equity: number;
   margin: number;
   freeMargin: number;
-  leverage?: number;
-  name?: string;
-  login?: number;
+  leverage?: number | undefined;
+  name?: string | undefined;
+  login?: number | undefined;
 }
 
 export const fetchAccountInformation = createServerFn({ method: "POST" })
@@ -132,11 +132,11 @@ export interface PositionRow {
   type: string;
   volume: number;
   openPrice: number;
-  currentPrice?: number;
-  stopLoss?: number;
-  takeProfit?: number;
+  currentPrice?: number | undefined;
+  stopLoss?: number | undefined;
+  takeProfit?: number | undefined;
   profit: number;
-  time?: string;
+  time?: string | undefined;
 }
 
 export interface OrderRow {
@@ -145,9 +145,9 @@ export interface OrderRow {
   type: string;
   volume: number;
   openPrice: number;
-  stopLoss?: number;
-  takeProfit?: number;
-  time?: string;
+  stopLoss?: number | undefined;
+  takeProfit?: number | undefined;
+  time?: string | undefined;
 }
 
 export const fetchOpenState = createServerFn({ method: "POST" })
@@ -188,8 +188,8 @@ export const fetchOpenState = createServerFn({ method: "POST" })
 
 export interface DealRow {
   id: string;
-  orderId?: string;
-  positionId?: string;
+  orderId?: string | undefined;
+  positionId?: string | undefined;
   symbol: string;
   type: string;
   volume: number;
@@ -198,7 +198,7 @@ export interface DealRow {
   commission: number;
   swap: number;
   time: string;
-  entryType?: string;
+  entryType?: string | undefined;
 }
 
 export const fetchHistoryDeals = createServerFn({ method: "POST" })
@@ -250,7 +250,7 @@ export const placePendingOrder = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(
-    async ({ data }): Promise<ApiResult<{ orderId: string; positionId?: string; message?: string }>> =>
+    async ({ data }): Promise<ApiResult<{ orderId: string; positionId?: string | undefined; message?: string | undefined }>> =>
       guard(async () => {
         const response = await clientApi<Record<string, unknown>>(data, "/trade", {
           method: "POST",
@@ -274,7 +274,7 @@ export const placePendingOrder = createServerFn({ method: "POST" })
 
 export const cancelPendingOrder = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => credentials.extend({ orderId: z.string().min(1) }).parse(input))
-  .handler(async ({ data }): Promise<ApiResult<{ message?: string }>> =>
+  .handler(async ({ data }): Promise<ApiResult<{ message?: string | undefined }>> =>
     guard(async () => {
       const response = await clientApi<Record<string, unknown>>(data, "/trade", {
         method: "POST",
@@ -286,7 +286,7 @@ export const cancelPendingOrder = createServerFn({ method: "POST" })
 
 export const closePosition = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => credentials.extend({ positionId: z.string().min(1) }).parse(input))
-  .handler(async ({ data }): Promise<ApiResult<{ message?: string }>> =>
+  .handler(async ({ data }): Promise<ApiResult<{ message?: string | undefined }>> =>
     guard(async () => {
       const response = await clientApi<Record<string, unknown>>(data, "/trade", {
         method: "POST",
