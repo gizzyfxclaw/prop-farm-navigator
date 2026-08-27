@@ -77,12 +77,18 @@ function EnginePage() {
       toast.error("Exness lot size rounds below the 0.01 broker minimum. Increase the recovery target.");
       return;
     }
+    const balance = liveAccounts.exness.snapshot;
+    if (balance && balance.freeMargin <= 0) {
+      toast.error("Live Exness free margin is zero — fund the account before placing the order.");
+      return;
+    }
     const actionType = pendingOrderType(r.exnessDirection, r.entryPrice, live.price);
     const summary = `${actionType.replace("ORDER_TYPE_", "")} ${symbol} ${volume} lots @ ${formatPrice(
       r.entryPrice,
       dec,
     )} · SL ${formatPrice(r.exnessSl, dec)} · TP ${formatPrice(r.exnessTp, dec)}`;
-    if (!window.confirm(`Place this pending order on Exness?\n\n${summary}`)) return;
+    const equityLine = balance ? `\nLive equity ${money(balance.equity)} · free margin ${money(balance.freeMargin)}` : "";
+    if (!window.confirm(`Place this pending order on Exness?\n\n${summary}${equityLine}`)) return;
 
     setBusy("trade");
     const res = await placePendingOrder({
