@@ -1,0 +1,18 @@
+name = "prop-farm-navigator"
+main = ".output/server/index.mjs"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static assets served from Nitro's public output directory
+[assets]
+directory = ".output/public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "prop-farm-navigator-db"
+database_id = "d727a172-e3de-44f6-a7eb-c9b9604dced2"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "4562a4fb86e148138a8234883c48d39e"

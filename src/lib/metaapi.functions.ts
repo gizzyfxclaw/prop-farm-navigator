@@ -8,9 +8,15 @@ import { z } from "zod";
 
 const PROVISIONING = "https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai";
 
+// In-process region cache: accountId → region string.
+// Lives for the lifetime of the server process so repeated calls skip the provisioning round-trip.
+const _regionCache = new Map<string, string>();
+
 const credentials = z.object({
   token: z.string().min(10),
   accountId: z.string().min(3),
+  /** Optional override — bypasses the provisioning region lookup entirely. */
+  clientApiUrl: z.string().url().optional(),
 });
 
 type Cred = z.infer<typeof credentials>;
@@ -32,12 +38,16 @@ async function readError(res: Response): Promise<string> {
 }
 
 async function accountRegion(cred: Cred): Promise<string> {
+  const cached = _regionCache.get(cred.accountId);
+  if (cached) return cached;
   const res = await fetch(`${PROVISIONING}/users/current/accounts/${cred.accountId}`, {
     headers: { "auth-token": cred.token },
   });
   if (!res.ok) throw new Error(await readError(res));
   const acc = (await res.json()) as { region?: string };
-  return acc.region || "new-york";
+  const region = acc.region || "new-york";
+  _regionCache.set(cred.accountId, region);
+  return region;
 }
 
 async function clientApi<T>(
@@ -45,8 +55,13 @@ async function clientApi<T>(
   path: string,
   init?: { method?: string; body?: unknown },
 ): Promise<T> {
-  const region = await accountRegion(cred);
-  const host = `https://mt-client-api-v1.${region}.agiliumtrade.agiliumtrade.ai`;
+  let host: string;
+  if (cred.clientApiUrl) {
+    host = cred.clientApiUrl.replace(/\/$/, "");
+  } else {
+    const region = await accountRegion(cred);
+    host = `https://mt-client-api-v1.${region}.agiliumtrade.ai`;
+  }
   const res = await fetch(`${host}/users/current/accounts/${cred.accountId}${path}`, {
     method: init?.method ?? "GET",
     headers: {

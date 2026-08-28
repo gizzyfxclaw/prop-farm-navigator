@@ -42,6 +42,8 @@ export interface EngineInputs {
   /** Phase 2 carry-over overrides. When omitted the Phase 1 chain supplies them. */
   carryPhase1TotalSpent?: number | null;
   carryPhase1Leftover?: number | null;
+  /** Recovery override: replaces the computed exnessWinTarget for lot-size calculation only. */
+  exnessWinTargetOverride?: number | null;
 }
 
 export interface PhaseChain {
@@ -194,7 +196,11 @@ export function calculate(input: EngineInputs): EngineResult {
   const exnessPipValue = input.exnessAccountType === "Cent" ? pipValue / 100 : pipValue;
 
   const propLots = propRiskUsd / (propSlPips * pipValue);
-  const exnessLots = active.exnessWinTarget / (exnessTpPips * exnessPipValue);
+  const effectiveWinTarget =
+    input.exnessWinTargetOverride != null && input.exnessWinTargetOverride > 0
+      ? input.exnessWinTargetOverride
+      : active.exnessWinTarget;
+  const exnessLots = effectiveWinTarget / (exnessTpPips * exnessPipValue);
 
   const slDistance = propSlPips * spec.pipSize;
   const tpDistance = propTpPips * spec.pipSize;

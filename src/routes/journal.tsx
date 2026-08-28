@@ -17,7 +17,7 @@ import { Badge, Button, Card, Field, Select, Stat, TextInput } from "@/component
 import { money, tradePnl, type Direction } from "@/lib/engine/calc";
 import { PAIRS } from "@/lib/engine/pairs";
 import { useStore, type JournalTrade } from "@/lib/store";
-import { useEngine } from "@/lib/useEngine";
+import { useEngineWithRecovery } from "@/lib/useEngine";
 
 export const Route = createFileRoute("/journal")({
   head: () => ({
@@ -40,13 +40,18 @@ export const Route = createFileRoute("/journal")({
 
 function JournalPage() {
   const { journal, addTrade, updateTrade, deleteTrade, clearJournal, engine } = useStore();
-  const r = useEngine();
+  const { result: r, recovery } = useEngineWithRecovery();
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [pair, setPair] = useState<string>(engine.pair);
   const [dir, setDir] = useState<Direction>(engine.direction);
+  const [actualPropPnl, setActualPropPnl] = useState("");
+  const [actualExPnl, setActualExPnl] = useState("");
 
   function log(result: "WIN" | "LOSS") {
-    const pnl = tradePnl(r, result === "WIN", engine.rr);
+    const derived = tradePnl(r, result === "WIN", engine.rr);
+    const propPnl = actualPropPnl !== "" ? Number(actualPropPnl) : derived.propPnl;
+    const exPnl = actualExPnl !== "" ? Number(actualExPnl) : derived.exPnl;
+    const netPnl = propPnl + exPnl;
     const now = new Date();
     addTrade({
       id: `${now.getTime()}`,
@@ -55,9 +60,9 @@ function JournalPage() {
       pair,
       dir,
       result,
-      propPnl: pnl.propPnl,
-      exPnl: pnl.exPnl,
-      netPnl: pnl.netPnl,
+      propPnl,
+      exPnl,
+      netPnl,
       details: {
         entry: r.entryPrice,
         propSl: r.propSl,
@@ -70,13 +75,20 @@ function JournalPage() {
         phase: r.phase,
       },
     });
-    toast.success(`${result} logged — net ${money(pnl.netPnl, true)}`);
+    setActualPropPnl("");
+    setActualExPnl("");
+    toast.success(`${result} logged — net ${money(netPnl, true)}`);
   }
 
   function settle(trade: JournalTrade, result: "WIN" | "LOSS") {
     const rr = trade.details?.rr ?? engine.rr;
-    const pnl = tradePnl(r, result === "WIN", rr);
-    updateTrade(trade.id, { result, propPnl: pnl.propPnl, exPnl: pnl.exPnl, netPnl: pnl.netPnl });
+    const derived = tradePnl(r, result === "WIN", rr);
+    updateTrade(trade.id, {
+      result,
+      propPnl: derived.propPnl,
+      exPnl: derived.exPnl,
+      netPnl: derived.netPnl,
+    });
   }
 
   const closed = journal.filter((t) => t.result !== "OPEN");
@@ -153,6 +165,58 @@ function JournalPage() {
             </Button>
           </div>
         </div>
+        <p className="mt-3 text-[11.5px] text-muted-foreground">
+          Override actual P&amp;L below (leave blank to use engine values):
+        </p>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          <Field label="Actual Prop P&L ($)" hint="e.g. +125.00 or -62.50">
+            <TextInput
+              type="number"
+              step="0.01"
+              value={actualPropPnl}
+              onChange={(e) => setActualPropPnl(e.target.value)}
+              placeholder={`engine: ${money(tradePnl(r, true, engine.rr).propPnl, true)}`}
+            />
+          </Field>
+          <Field label="Actual Exness P&L ($)" hint="e.g. -250.00 or +125.00">
+            <TextInput
+              type="number"
+              step="0.01"
+              value={actualExPnl}
+              onChange={(e) => setActualExPnl(e.target.value)}
+              placeholder={`engine: ${money(tradePnl(r, true, engine.rr).exPnl, true)}`}
+            />
+          </Field>
+        </div>
+      </Card>
+
+      <Card title="Next steps">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat label="Wins left" value={recovery.remainingWins} />
+          <Stat label="Losses left" value={recovery.remainingLosses} />
+          <Stat
+            label="Exness balance"
+            value={money(recovery.actualExnessBalance)}
+            tone={recovery.actualExnessBalance >= 0 ? "text-success" : "text-destructive"}
+          />
+          <Stat
+            label={recovery.adjustmentNeeded ? "Adjusted win target ⚡" : "Win target"}
+            value={money(recovery.newExnessWinTarget ?? r.exnessWinTarget)}
+            tone={recovery.adjustmentNeeded ? "text-amber-400" : undefined}
+          />
+        </div>
+        {recovery.adjustmentNeeded && recovery.newExnessWinTarget != null && (
+          <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-400">
+            Recovery shortfall {money(recovery.recoveryShortfall)} — Exness lots auto-adjusted to hit{" "}
+            {money(recovery.newExnessWinTarget)} per win across {recovery.remainingLosses} remaining prop{" "}
+            {recovery.remainingLosses === 1 ? "loss" : "losses"}.
+          </p>
+        )}
+        {!recovery.adjustmentNeeded && recovery.recoveryShortfall <= 0 && closed.length > 0 && (
+          <p className="mt-3 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
+            Recovery target met — Exness has earned enough to cover fee + desired profit.
+          </p>
+        )}
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
