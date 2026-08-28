@@ -1,0 +1,14 @@
+name = "prop-farm-navigator"
+main = ".output/server/index.mjs"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static assets served from Nitro's public output directory
+[assets]
+directory = ".output/public"
+binding = "ASSETS"
+
+# Custom domain — must be a zone in your Cloudflare account
+[[routes]]
+pattern = "gizzyfxstrategy.dpdns.org/*"
+zone_name = "dpdns.org"
