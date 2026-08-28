@@ -174,6 +174,8 @@ function EnginePage() {
         )}
       </Card>
 
+      <LiveAccountsPanel live={liveAccounts} result={r} account={selectedAccount} />
+
       <Card
         title="Inputs"
         badge={<Badge tone={engine.phase === 1 ? "blue" : "amber"}>Phase {engine.phase}</Badge>}
@@ -275,7 +277,7 @@ function EnginePage() {
             <>
               <Field
                 label="Phase 1 total spent ($)"
-                hint={`Auto: ${money(r.phase1.bufferedExnessCapital + r.targetUsd * 0)}`}
+                hint={`Auto: ${money(r.phase1TotalSpent)}`}
               >
                 <TextInput
                   type="number"
