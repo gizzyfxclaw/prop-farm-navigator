@@ -7,8 +7,3 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = ".output/public"
 binding = "ASSETS"
-
-# Custom domain — must be a zone in your Cloudflare account
-[[routes]]
-pattern = "gizzyfxstrategy.dpdns.org/*"
-zone_name = "dpdns.org"
