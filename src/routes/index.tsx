@@ -277,7 +277,7 @@ function EnginePage() {
             <>
               <Field
                 label="Phase 1 total spent ($)"
-                hint={`Auto: ${money(r.phase1.bufferedExnessCapital + r.targetUsd * 0)}`}
+                hint={`Auto: ${money(r.phase1TotalSpent)}`}
               >
                 <TextInput
                   type="number"
