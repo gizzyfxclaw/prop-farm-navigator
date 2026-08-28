@@ -11,10 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsRouteImport } from './routes/accounts'
+import { Route as HermesRouteImport } from './routes/hermes'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ValidatorRouteImport } from './routes/validator'
+import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
+import { Route as ApiHermesJournalRouteImport } from './routes/api/hermes/journal'
+import { Route as ApiHermesKnowledgeRouteImport } from './routes/api/hermes/knowledge'
+import { Route as ApiHermesNotesRouteImport } from './routes/api/hermes/notes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -24,6 +29,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccountsRoute = AccountsRouteImport.update({
   id: '/accounts',
   path: '/accounts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HermesRoute = HermesRouteImport.update({
+  id: '/hermes',
+  path: '/hermes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JournalRoute = JournalRouteImport.update({
@@ -46,55 +56,121 @@ const ValidatorRoute = ValidatorRouteImport.update({
   path: '/validator',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesAccountsRoute = ApiHermesAccountsRouteImport.update({
+  id: '/api/hermes/accounts',
+  path: '/api/hermes/accounts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHermesJournalRoute = ApiHermesJournalRouteImport.update({
+  id: '/api/hermes/journal',
+  path: '/api/hermes/journal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHermesKnowledgeRoute = ApiHermesKnowledgeRouteImport.update({
+  id: '/api/hermes/knowledge',
+  path: '/api/hermes/knowledge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHermesNotesRoute = ApiHermesNotesRouteImport.update({
+  id: '/api/hermes/notes',
+  path: '/api/hermes/notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
+  '/api/hermes/accounts': typeof ApiHermesAccountsRoute
+  '/api/hermes/journal': typeof ApiHermesJournalRoute
+  '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
+  '/api/hermes/notes': typeof ApiHermesNotesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
+  '/api/hermes/accounts': typeof ApiHermesAccountsRoute
+  '/api/hermes/journal': typeof ApiHermesJournalRoute
+  '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
+  '/api/hermes/notes': typeof ApiHermesNotesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
+  '/api/hermes/accounts': typeof ApiHermesAccountsRoute
+  '/api/hermes/journal': typeof ApiHermesJournalRoute
+  '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
+  '/api/hermes/notes': typeof ApiHermesNotesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/accounts' | '/journal' | '/live' | '/settings' | '/validator'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/accounts' | '/journal' | '/live' | '/settings' | '/validator'
-  id:
-    | '__root__'
     | '/'
     | '/accounts'
+    | '/hermes'
     | '/journal'
     | '/live'
     | '/settings'
     | '/validator'
+    | '/api/hermes/accounts'
+    | '/api/hermes/journal'
+    | '/api/hermes/knowledge'
+    | '/api/hermes/notes'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/accounts'
+    | '/hermes'
+    | '/journal'
+    | '/live'
+    | '/settings'
+    | '/validator'
+    | '/api/hermes/accounts'
+    | '/api/hermes/journal'
+    | '/api/hermes/knowledge'
+    | '/api/hermes/notes'
+  id:
+    | '__root__'
+    | '/'
+    | '/accounts'
+    | '/hermes'
+    | '/journal'
+    | '/live'
+    | '/settings'
+    | '/validator'
+    | '/api/hermes/accounts'
+    | '/api/hermes/journal'
+    | '/api/hermes/knowledge'
+    | '/api/hermes/notes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountsRoute: typeof AccountsRoute
+  HermesRoute: typeof HermesRoute
   JournalRoute: typeof JournalRoute
   LiveRoute: typeof LiveRoute
   SettingsRoute: typeof SettingsRoute
   ValidatorRoute: typeof ValidatorRoute
+  ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
+  ApiHermesJournalRoute: typeof ApiHermesJournalRoute
+  ApiHermesKnowledgeRoute: typeof ApiHermesKnowledgeRoute
+  ApiHermesNotesRoute: typeof ApiHermesNotesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -111,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/accounts'
       fullPath: '/accounts'
       preLoaderRoute: typeof AccountsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hermes': {
+      id: '/hermes'
+      path: '/hermes'
+      fullPath: '/hermes'
+      preLoaderRoute: typeof HermesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/journal': {
@@ -141,16 +224,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ValidatorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/accounts': {
+      id: '/api/hermes/accounts'
+      path: '/api/hermes/accounts'
+      fullPath: '/api/hermes/accounts'
+      preLoaderRoute: typeof ApiHermesAccountsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/journal': {
+      id: '/api/hermes/journal'
+      path: '/api/hermes/journal'
+      fullPath: '/api/hermes/journal'
+      preLoaderRoute: typeof ApiHermesJournalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/knowledge': {
+      id: '/api/hermes/knowledge'
+      path: '/api/hermes/knowledge'
+      fullPath: '/api/hermes/knowledge'
+      preLoaderRoute: typeof ApiHermesKnowledgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/notes': {
+      id: '/api/hermes/notes'
+      path: '/api/hermes/notes'
+      fullPath: '/api/hermes/notes'
+      preLoaderRoute: typeof ApiHermesNotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountsRoute: AccountsRoute,
+  HermesRoute: HermesRoute,
   JournalRoute: JournalRoute,
   LiveRoute: LiveRoute,
   SettingsRoute: SettingsRoute,
   ValidatorRoute: ValidatorRoute,
+  ApiHermesAccountsRoute: ApiHermesAccountsRoute,
+  ApiHermesJournalRoute: ApiHermesJournalRoute,
+  ApiHermesKnowledgeRoute: ApiHermesKnowledgeRoute,
+  ApiHermesNotesRoute: ApiHermesNotesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
