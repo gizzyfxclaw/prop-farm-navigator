@@ -1,12 +1,26 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Direction, ExnessAccountType, PropAccount } from "./engine/calc";
 import type { PairSymbol } from "./engine/pairs";
+import {
+  loadJournal,
+  loadSettings,
+  upsertTrade,
+  deleteTradeServer,
+  clearJournalServer,
+  saveAccounts,
+  saveEngine,
+  saveMeta,
+} from "./db.functions";
 
 /**
- * Local persistence layer.
+ * Persistence layer.
  *
- * All reads/writes funnel through `journalStorage` / `keyValueStorage`, so swapping
- * the browser adapter for a Cloudflare-backed adapter later is a single change here.
+ * localStorage provides instant, offline-capable reads/writes.
+ * Cloudflare D1 (journal) and KV (settings) back up all data server-side
+ * so it persists across devices and browser clears.
+ *
+ * On mount: load from server, merge with localStorage (server wins on conflict).
+ * On mutations: write to localStorage immediately, fire server write in background.
  */
 
 export interface JournalTrade {
@@ -64,7 +78,6 @@ const KEYS = {
   journal: "gizzyfx.journal",
   meta: "gizzyfx.metaapi",
   engine: "gizzyfx.engine",
-  unlocked: "gizzyfx.unlocked",
 } as const;
 
 interface StorageAdapter {
@@ -92,7 +105,6 @@ export const browserStorage: StorageAdapter = {
   },
 };
 
-/** Swap this to a Cloudflare-backed adapter to sync across devices. */
 export const storage: StorageAdapter = browserStorage;
 
 const PRESET_LADDER: { size: number; fee: number; targetPct: number; ddPct: number }[] = [
@@ -172,18 +184,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [journal, setJournal] = useState<JournalTrade[]>([]);
 
   useEffect(() => {
+    // Step 1: hydrate from localStorage immediately for instant UI.
     const storedAccounts = storage.read<PropAccount[]>(KEYS.accounts, defaultAccounts());
-    const list = storedAccounts.length ? storedAccounts : defaultAccounts();
-    setAccounts(list);
-    setEngineState({ ...defaultEngine(list[0]?.id ?? "preset-5000"), ...storage.read<Partial<EngineSettings>>(KEYS.engine, {}) });
+    const localAccounts = storedAccounts.length ? storedAccounts : defaultAccounts();
+    setAccounts(localAccounts);
+    setEngineState({ ...defaultEngine(localAccounts[0]?.id ?? "preset-5000"), ...storage.read<Partial<EngineSettings>>(KEYS.engine, {}) });
     setMetaState({ ...defaultMeta(), ...storage.read<Partial<MetaApiSettings>>(KEYS.meta, {}) });
     setJournal(storage.read<JournalTrade[]>(KEYS.journal, []));
     setHydrated(true);
+
+    // Step 2: fetch from server (D1 + KV) and replace if data exists there.
+    Promise.all([loadJournal(), loadSettings()]).then(([serverJournal, serverSettings]) => {
+      if (serverJournal.length > 0) {
+        setJournal(serverJournal);
+        storage.write(KEYS.journal, serverJournal);
+      }
+      if (serverSettings.accounts && serverSettings.accounts.length > 0) {
+        setAccounts(serverSettings.accounts);
+        storage.write(KEYS.accounts, serverSettings.accounts);
+      }
+      if (serverSettings.engine) {
+        setEngineState((prev) => {
+          const next = { ...prev, ...serverSettings.engine };
+          storage.write(KEYS.engine, next);
+          return next;
+        });
+      }
+      if (serverSettings.meta) {
+        setMetaState((prev) => {
+          const next = { ...prev, ...serverSettings.meta };
+          storage.write(KEYS.meta, next);
+          return next;
+        });
+      }
+    }).catch(() => {
+      // Server load failed — keep local data, no action needed.
+    });
   }, []);
 
   const persistAccounts = useCallback((next: PropAccount[]) => {
     setAccounts(next);
     storage.write(KEYS.accounts, next);
+    saveAccounts({ data: { accounts: JSON.stringify(next) } }).catch(() => {});
   }, []);
 
   const persistJournal = useCallback((next: JournalTrade[]) => {
@@ -205,6 +247,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setEngineState((prev) => {
           const next = { ...prev, ...patch };
           storage.write(KEYS.engine, next);
+          saveEngine({ data: { engine: JSON.stringify(next) } }).catch(() => {});
           return next;
         });
       },
@@ -213,14 +256,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setMetaState((prev) => {
           const next = { ...prev, ...patch };
           storage.write(KEYS.meta, next);
+          saveMeta({ data: { meta: JSON.stringify(next) } }).catch(() => {});
           return next;
         });
       },
       journal,
-      addTrade: (trade) => persistJournal([...journal, trade]),
-      updateTrade: (id, patch) => persistJournal(journal.map((t) => (t.id === id ? { ...t, ...patch } : t))),
-      deleteTrade: (id) => persistJournal(journal.filter((t) => t.id !== id)),
-      clearJournal: () => persistJournal([]),
+      addTrade: (trade) => {
+        persistJournal([...journal, trade]);
+        upsertTrade({ data: trade }).catch(() => {});
+      },
+      updateTrade: (id, patch) => {
+        const next = journal.map((t) => (t.id === id ? { ...t, ...patch } : t));
+        persistJournal(next);
+        const updated = next.find((t) => t.id === id);
+        if (updated) upsertTrade({ data: updated }).catch(() => {});
+      },
+      deleteTrade: (id) => {
+        persistJournal(journal.filter((t) => t.id !== id));
+        deleteTradeServer({ data: { id } }).catch(() => {});
+      },
+      clearJournal: () => {
+        persistJournal([]);
+        clearJournalServer().catch(() => {});
+      },
     }),
     [hydrated, accounts, engine, meta, journal, persistAccounts, persistJournal],
   );
