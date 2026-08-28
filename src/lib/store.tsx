@@ -39,6 +39,8 @@ export interface MetaApiSettings {
   exnessAccountId: string;
   propAccountId: string;
   exnessSymbolSuffix: string;
+  /** Explicit client API base URL — set this to https://mt-client-api-v1.{region}.agiliumtrade.ai */
+  clientApiUrl: string;
 }
 
 export interface EngineSettings {
@@ -141,6 +143,7 @@ const defaultMeta = (): MetaApiSettings => ({
   exnessAccountId: "",
   propAccountId: "",
   exnessSymbolSuffix: "",
+  clientApiUrl: "https://mt-client-api-v1.london.agiliumtrade.ai",
 });
 
 interface StoreValue {

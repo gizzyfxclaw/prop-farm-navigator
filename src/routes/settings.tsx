@@ -35,19 +35,22 @@ function SettingsPage() {
       return;
     }
     setBusy(true);
-    const res = await fetchAccountInformation({ data: { token: meta.token, accountId } });
+    const res = await fetchAccountInformation({
+      data: { token: meta.token, accountId, clientApiUrl: meta.clientApiUrl || undefined },
+    });
     setBusy(false);
     if (!res.ok) {
       setStatus({ level: "red", title: `${label} connection failed`, detail: res.error });
       return;
     }
     const a = res.data;
+    const urlNote = meta.clientApiUrl ? ` · via ${meta.clientApiUrl}` : "";
     setStatus({
       level: "green",
       title: `${label} connected`,
       detail: `${a.broker ?? "broker"} · ${a.server ?? "server"} · login ${a.login ?? "-"} · balance ${a.balance} ${
         a.currency ?? ""
-      }`,
+      }${urlNote}`,
     });
   }
 
@@ -100,6 +103,16 @@ function SettingsPage() {
               placeholder="(none)"
             />
           </Field>
+          <Field
+            label="MetaApi client API URL"
+            hint="Override the auto-resolved region URL. Format: https://mt-client-api-v1.{region}.agiliumtrade.ai"
+          >
+            <TextInput
+              value={meta.clientApiUrl}
+              onChange={(e) => setMeta({ clientApiUrl: e.target.value })}
+              placeholder="https://mt-client-api-v1.london.agiliumtrade.ai"
+            />
+          </Field>
           <div className="flex flex-wrap gap-2">
             <Button disabled={busy} onClick={() => test(meta.exnessAccountId, "Exness")}>
               {busy ? "Testing…" : "Test Exness connection"}
@@ -116,6 +129,7 @@ function SettingsPage() {
         <Row label="Exness account" value={meta.exnessAccountId || "not set"} />
         <Row label="Prop account" value={meta.propAccountId || "not set"} />
         <Row label="Symbol suffix" value={meta.exnessSymbolSuffix || "none"} />
+        <Row label="Client API URL" value={meta.clientApiUrl || "auto (region lookup)"} />
       </Card>
     </div>
   );
