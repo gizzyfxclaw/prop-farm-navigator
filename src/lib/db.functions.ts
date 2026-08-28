@@ -6,42 +6,10 @@
  * after every mutation (fire-and-forget).
  */
 import { createServerFn } from "@tanstack/react-start";
-import { getEvent } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { getCFEnv } from "./cloudflare-env";
 import type { JournalTrade, MetaApiSettings, EngineSettings } from "./store";
 import type { PropAccount } from "./engine/calc";
-
-// ---------------------------------------------------------------------------
-// Cloudflare env helper
-// ---------------------------------------------------------------------------
-
-interface CFEnv {
-  DB: {
-    prepare: (sql: string) => {
-      bind: (...params: unknown[]) => {
-        run: () => Promise<unknown>;
-        all: <T = unknown>() => Promise<{ results: T[] }>;
-        first: <T = unknown>() => Promise<T | null>;
-      };
-    };
-    exec: (sql: string) => Promise<unknown>;
-  };
-  KV: {
-    get: (key: string) => Promise<string | null>;
-    put: (key: string, value: string) => Promise<void>;
-    delete: (key: string) => Promise<void>;
-  };
-}
-
-function cfEnv(): CFEnv | null {
-  try {
-    const event = getEvent();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (event?.context as any)?.cloudflare?.env ?? null;
-  } catch {
-    return null;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // KV keys
@@ -88,7 +56,7 @@ function rowToTrade(row: DbRow): JournalTrade {
 }
 
 export const loadJournal = createServerFn({ method: "GET" }).handler(async (): Promise<JournalTrade[]> => {
-  const env = cfEnv();
+  const env = getCFEnv();
   if (!env) return [];
   const { results } = await env.DB.prepare(
     "SELECT * FROM journal_trades ORDER BY created_at ASC",
@@ -116,7 +84,7 @@ const tradeInput = z.object({
 export const upsertTrade = createServerFn({ method: "POST" })
   .validator(tradeInput)
   .handler(async ({ data: t }) => {
-    const env = cfEnv();
+    const env = getCFEnv();
     if (!env) return;
     await env.DB.prepare(
       `INSERT INTO journal_trades (id, date, time, pair, dir, result, prop_pnl, ex_pnl, net_pnl, ticket, note, details)
@@ -139,13 +107,13 @@ export const upsertTrade = createServerFn({ method: "POST" })
 export const deleteTradeServer = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.string() }))
   .handler(async ({ data }) => {
-    const env = cfEnv();
+    const env = getCFEnv();
     if (!env) return;
     await env.DB.prepare("DELETE FROM journal_trades WHERE id = ?").bind(data.id).run();
   });
 
 export const clearJournalServer = createServerFn({ method: "POST" }).handler(async () => {
-  const env = cfEnv();
+  const env = getCFEnv();
   if (!env) return;
   await env.DB.prepare("DELETE FROM journal_trades").bind().run();
 });
@@ -155,7 +123,7 @@ export const clearJournalServer = createServerFn({ method: "POST" }).handler(asy
 // ---------------------------------------------------------------------------
 
 export const loadSettings = createServerFn({ method: "GET" }).handler(async () => {
-  const env = cfEnv();
+  const env = getCFEnv();
   if (!env) return { accounts: null, engine: null, meta: null };
   const [a, e, m] = await Promise.all([
     env.KV.get(KV_ACCOUNTS),
@@ -172,7 +140,7 @@ export const loadSettings = createServerFn({ method: "GET" }).handler(async () =
 export const saveAccounts = createServerFn({ method: "POST" })
   .validator(z.object({ accounts: z.string() }))
   .handler(async ({ data }) => {
-    const env = cfEnv();
+    const env = getCFEnv();
     if (!env) return;
     await env.KV.put(KV_ACCOUNTS, data.accounts);
   });
@@ -180,7 +148,7 @@ export const saveAccounts = createServerFn({ method: "POST" })
 export const saveEngine = createServerFn({ method: "POST" })
   .validator(z.object({ engine: z.string() }))
   .handler(async ({ data }) => {
-    const env = cfEnv();
+    const env = getCFEnv();
     if (!env) return;
     await env.KV.put(KV_ENGINE, data.engine);
   });
@@ -188,7 +156,7 @@ export const saveEngine = createServerFn({ method: "POST" })
 export const saveMeta = createServerFn({ method: "POST" })
   .validator(z.object({ meta: z.string() }))
   .handler(async ({ data }) => {
-    const env = cfEnv();
+    const env = getCFEnv();
     if (!env) return;
     await env.KV.put(KV_META, data.meta);
   });
