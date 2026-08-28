@@ -174,6 +174,8 @@ function EnginePage() {
         )}
       </Card>
 
+      <LiveAccountsPanel live={liveAccounts} result={r} account={selectedAccount} />
+
       <Card
         title="Inputs"
         badge={<Badge tone={engine.phase === 1 ? "blue" : "amber"}>Phase {engine.phase}</Badge>}
