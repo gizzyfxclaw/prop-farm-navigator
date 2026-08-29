@@ -16,7 +16,6 @@ import { Route as JournalRouteImport } from './routes/journal'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ValidatorRouteImport } from './routes/validator'
-import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
 import { Route as ApiHermesJournalRouteImport } from './routes/api/hermes/journal'
 import { Route as ApiHermesKnowledgeRouteImport } from './routes/api/hermes/knowledge'
@@ -57,11 +56,6 @@ const ValidatorRoute = ValidatorRouteImport.update({
   path: '/validator',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiHermesDebugRoute = ApiHermesDebugRouteImport.update({
-  id: '/api/hermes/_debug',
-  path: '/api/hermes',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiHermesAccountsRoute = ApiHermesAccountsRouteImport.update({
   id: '/api/hermes/accounts',
   path: '/api/hermes/accounts',
@@ -91,7 +85,6 @@ export interface FileRoutesByFullPath {
   '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
-  '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
@@ -105,7 +98,6 @@ export interface FileRoutesByTo {
   '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
-  '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
@@ -120,7 +112,6 @@ export interface FileRoutesById {
   '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
-  '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
@@ -136,7 +127,6 @@ export interface FileRouteTypes {
     | '/live'
     | '/settings'
     | '/validator'
-    | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
@@ -150,7 +140,6 @@ export interface FileRouteTypes {
     | '/live'
     | '/settings'
     | '/validator'
-    | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
@@ -164,7 +153,6 @@ export interface FileRouteTypes {
     | '/live'
     | '/settings'
     | '/validator'
-    | '/api/hermes/_debug'
     | '/api/hermes/accounts'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
@@ -179,7 +167,6 @@ export interface RootRouteChildren {
   LiveRoute: typeof LiveRoute
   SettingsRoute: typeof SettingsRoute
   ValidatorRoute: typeof ValidatorRoute
-  ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
   ApiHermesJournalRoute: typeof ApiHermesJournalRoute
   ApiHermesKnowledgeRoute: typeof ApiHermesKnowledgeRoute
@@ -237,13 +224,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ValidatorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/hermes/_debug': {
-      id: '/api/hermes/_debug'
-      path: '/api/hermes'
-      fullPath: '/api/hermes'
-      preLoaderRoute: typeof ApiHermesDebugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/hermes/accounts': {
       id: '/api/hermes/accounts'
       path: '/api/hermes/accounts'
@@ -283,7 +263,6 @@ const rootRouteChildren: RootRouteChildren = {
   LiveRoute: LiveRoute,
   SettingsRoute: SettingsRoute,
   ValidatorRoute: ValidatorRoute,
-  ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
   ApiHermesJournalRoute: ApiHermesJournalRoute,
   ApiHermesKnowledgeRoute: ApiHermesKnowledgeRoute,

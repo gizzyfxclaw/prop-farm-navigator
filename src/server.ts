@@ -45,9 +45,18 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+interface RequestWithCloudflareRuntime {
+  runtime?: { cloudflare?: { env?: CFEnv } };
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
-    const cfEnv = env as CFEnv;
+    // Nitro's cloudflare-module preset dispatches most requests through a
+    // lazily-imported "ssr" service whose fetch(req) call drops the env/ctx
+    // arguments — env only arrives here via the `runtime.cloudflare.env`
+    // property Nitro attaches to the (shared-by-reference) Request object
+    // upstream. Fall back to the direct param in case that ever changes.
+    const cfEnv = (request as unknown as RequestWithCloudflareRuntime).runtime?.cloudflare?.env ?? (env as CFEnv);
     const runRequest = async () => {
       try {
         const handler = await getServerEntry();
