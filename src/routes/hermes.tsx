@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, Field, Row, Select } from "@/components/terminal/ui";
 import { TradingViewChart } from "@/components/terminal/tradingview-chart";
 import { PAIRS, PAIR_SPECS } from "@/lib/engine/pairs";
+import { extractPdfText } from "@/lib/pdf-extract";
 import {
   addHermesRequest,
   addKnowledgeDoc,
@@ -49,6 +50,9 @@ function HermesPage() {
   const [askPair, setAskPair] = useState<string>("EURUSD");
   const [askNote, setAskNote] = useState("");
   const [asking, setAsking] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [lastTaughtTitle, setLastTaughtTitle] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
     const [d, n, r, s] = await Promise.all([
@@ -76,10 +80,41 @@ function HermesPage() {
     setBusy(true);
     await addKnowledgeDoc({ data: { title: title.trim(), content: content.trim() } });
     setBusy(false);
+    setLastTaughtTitle(title.trim());
     setTitle("");
     setContent("");
     toast.success("Added — Trading Agent will pick this up on its next check.");
     refresh();
+  }
+
+  async function handlePdfPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file later
+    if (!file) return;
+    setExtracting(true);
+    try {
+      const text = await extractPdfText(file);
+      if (!text) {
+        toast.error("Couldn't find any text in that PDF (scanned/image-only PDFs aren't supported yet).");
+        return;
+      }
+      setTitle((prev) => prev || file.name.replace(/\.pdf$/i, ""));
+      setContent(text);
+      toast.success(`Extracted ${text.length.toLocaleString()} characters — review below, then add it.`);
+    } catch (err) {
+      toast.error("Couldn't read that PDF. Is it a valid, unencrypted file?");
+      console.error(err);
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  function discussUrl(docTitle: string) {
+    const prompt =
+      `I just taught you a new strategy document titled "${docTitle}" via the Trading Agent knowledge base. ` +
+      `Call get_knowledge_docs, read it in full, and then ask me clarifying questions one at a time until ` +
+      `you're confident you understand how to apply it — then summarize what you learned back to me.`;
+    return `https://hermes.gizzyfxstrategy.dpdns.org/?q=${encodeURIComponent(prompt)}`;
   }
 
   async function remove(id: string) {
@@ -193,6 +228,7 @@ function HermesPage() {
                   <div className="flex items-center gap-2">
                     <Badge tone="blue">{s.pair}</Badge>
                     <Badge tone={s.direction === "long" ? "green" : "red"}>{s.direction.toUpperCase()}</Badge>
+                    {s.order_type && <Badge tone="neutral">{s.order_type.replace(/_/g, " ")}</Badge>}
                   </div>
                   <span className="text-[11px] text-muted-foreground">
                     {new Date(s.created_at).toLocaleString()}
@@ -215,6 +251,33 @@ function HermesPage() {
 
       <Card title="Teach Trading Agent" badge={<Badge tone="blue">Knowledge base</Badge>}>
         <div className="space-y-3">
+          {lastTaughtTitle && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+              <span className="text-[13px] text-foreground">
+                Taught <strong>{lastTaughtTitle}</strong>. Want it to actually learn it?
+              </span>
+              <a href={discussUrl(lastTaughtTitle)} target="_blank" rel="noreferrer">
+                <Button variant="ghost" className="h-9 text-[12px]">
+                  Discuss with Trading Agent ↗
+                </Button>
+              </a>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={handlePdfPick}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={extracting}>
+              {extracting ? "Extracting..." : "Upload a PDF"}
+            </Button>
+            <span className="text-[12px] text-muted-foreground">
+              Text is extracted right in your browser — the file itself is never uploaded anywhere.
+            </span>
+          </div>
           <Field label="Title">
             <input
               className="h-11 w-full rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30"
@@ -223,12 +286,12 @@ function HermesPage() {
               placeholder="e.g. Order Blocks — Chapter 4"
             />
           </Field>
-          <Field label="Content" hint="Paste the text (from a PDF, notes, a strategy writeup, anything).">
+          <Field label="Content" hint="Paste text, or upload a PDF above to fill this in automatically.">
             <textarea
               className={textareaClass}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Paste strategy text here..."
+              placeholder="Paste strategy text here, or upload a PDF above..."
             />
           </Field>
           <div className="flex justify-end">

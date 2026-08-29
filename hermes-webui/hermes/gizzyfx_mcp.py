@@ -61,6 +61,16 @@ TOOLS = [
                 "tp3": {"type": "number", "description": "Take profit 3 (optional)"},
                 "rr": {"type": "number", "description": "Risk:reward (auto-calculated if omitted)"},
                 "rationale": {"type": "string", "description": "Why this setup is valid"},
+                "order_type": {
+                    "type": "string",
+                    "enum": ["MARKET", "BUY_LIMIT", "BUY_STOP", "SELL_LIMIT", "SELL_STOP"],
+                    "description": (
+                        "Pending vs instant execution. Use MARKET if entry is at/very near the "
+                        "current live price. Otherwise pick the correct pending type: entry below "
+                        "current price on a long -> BUY_LIMIT, entry above on a long -> BUY_STOP; "
+                        "entry above current price on a short -> SELL_LIMIT, entry below -> SELL_STOP."
+                    ),
+                },
             },
             "required": ["pair", "direction", "entry", "sl", "tp1"],
         },
@@ -100,13 +110,14 @@ async def call_tool(name, arguments):
         elif name == "post_trade_setup":
             body = {"pair": arguments["pair"], "direction": arguments["direction"],
                     "entry": arguments["entry"], "sl": arguments["sl"], "tp1": arguments["tp1"]}
-            for k in ("request_id", "tp2", "tp3", "rr", "rationale"):
+            for k in ("request_id", "tp2", "tp3", "rr", "rationale", "order_type"):
                 if k in arguments:
                     body[k] = arguments[k]
             data = _post("/api/hermes/setups", body)
             result = (f"Trade setup posted (id={data.get('id')}). "
                       f"Entry={arguments['entry']} SL={arguments['sl']} TP1={arguments['tp1']} "
-                      f"direction={arguments['direction']}. Levels are now drawn on the chart.")
+                      f"direction={arguments['direction']} order_type={arguments.get('order_type','(unspecified)')}. "
+                      f"Levels are now drawn on the chart.")
 
         else:
             result = f"Unknown tool: {name}"

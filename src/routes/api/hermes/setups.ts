@@ -19,6 +19,8 @@ const setupInput = z.object({
   tp3: z.number().optional(),
   rr: z.number().optional(),
   rationale: z.string().optional(),
+  /** Pending vs instant execution — see calc.ts's pendingOrderType for the same logic. */
+  order_type: z.enum(["MARKET", "BUY_LIMIT", "BUY_STOP", "SELL_LIMIT", "SELL_STOP"]).optional(),
 });
 
 export const Route = createFileRoute("/api/hermes/setups")({
@@ -54,8 +56,8 @@ export const Route = createFileRoute("/api/hermes/setups")({
         const id = crypto.randomUUID();
 
         await env.DB.prepare(
-          `INSERT INTO hermes_setups (id, request_id, pair, direction, entry, sl, tp1, tp2, tp3, rr, rationale)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO hermes_setups (id, request_id, pair, direction, entry, sl, tp1, tp2, tp3, rr, rationale, order_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
           .bind(
             id,
@@ -69,6 +71,7 @@ export const Route = createFileRoute("/api/hermes/setups")({
             body.tp3 ?? null,
             body.rr ?? null,
             body.rationale ?? null,
+            body.order_type ?? null,
           )
           .run();
 

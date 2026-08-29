@@ -96,6 +96,7 @@ export interface HermesSetup {
   tp3: number | null;
   rr: number | null;
   rationale: string | null;
+  order_type: string | null;
   created_at: string;
 }
 
