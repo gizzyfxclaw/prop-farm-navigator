@@ -74,3 +74,42 @@ export const loadHermesNotes = createServerFn({ method: "GET" }).handler(
     return results;
   },
 );
+
+export interface AnalysisRequest {
+  id: string;
+  pair: string;
+  note: string | null;
+  status: string;
+  created_at: string;
+  fulfilled_at: string | null;
+}
+
+const analysisRequestInput = z.object({
+  pair: z.string().min(1),
+  note: z.string().optional(),
+});
+
+export const requestAnalysis = createServerFn({ method: "POST" })
+  .validator(analysisRequestInput)
+  .handler(async ({ data }) => {
+    const env = getCFEnv();
+    if (!env) return;
+    await env.DB.prepare(
+      "INSERT INTO hermes_requests (id, pair, note, status) VALUES (?, ?, ?, 'pending')",
+    )
+      .bind(crypto.randomUUID(), data.pair, data.note ?? null)
+      .run();
+  });
+
+export const loadAnalysisRequests = createServerFn({ method: "GET" }).handler(
+  async (): Promise<AnalysisRequest[]> => {
+    const env = getCFEnv();
+    if (!env) return [];
+    const { results } = await env.DB.prepare(
+      "SELECT * FROM hermes_requests ORDER BY created_at DESC LIMIT 50",
+    )
+      .bind()
+      .all<AnalysisRequest>();
+    return results;
+  },
+);

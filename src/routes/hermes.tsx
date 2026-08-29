@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, Field, Row, Select } from "@/components/terminal/ui";
@@ -9,8 +9,11 @@ import {
   deleteKnowledgeDoc,
   loadHermesNotes,
   loadKnowledgeDocs,
+  loadAnalysisRequests,
+  requestAnalysis,
   type HermesNote,
   type KnowledgeDoc,
+  type AnalysisRequest,
 } from "@/lib/hermes-db.functions";
 
 const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
@@ -34,16 +37,21 @@ const textareaClass =
 function HermesPage() {
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [notes, setNotes] = useState<HermesNote[]>([]);
+  const [requests, setRequests] = useState<AnalysisRequest[]>([]);
   const [chartPair, setChartPair] = useState<string>("EURUSD");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [reqPair, setReqPair] = useState<string>("EURUSD");
+  const [reqNote, setReqNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reqBusy, setReqBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function refresh() {
-    const [d, n] = await Promise.all([loadKnowledgeDocs(), loadHermesNotes()]);
+    const [d, n, r] = await Promise.all([loadKnowledgeDocs(), loadHermesNotes(), loadAnalysisRequests()]);
     setDocs(d);
     setNotes(n);
+    setRequests(r);
     setLoading(false);
   }
 
@@ -70,10 +78,22 @@ function HermesPage() {
     refresh();
   }
 
+  async function submitRequest() {
+    setReqBusy(true);
+    await requestAnalysis({ data: { pair: reqPair, note: reqNote.trim() || undefined } });
+    setReqBusy(false);
+    setReqNote("");
+    toast.success(`Analysis request for ${reqPair} queued — the Trading Agent will pick it up shortly.`);
+    refresh();
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
+          <Link to="/" className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground mb-1">
+            ← Engine
+          </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Trading Agent</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
             Strategy material you teach it, and its market analysis log. The agent reads from here —
@@ -112,6 +132,50 @@ function HermesPage() {
           when it writes an analysis note below.
         </p>
       </section>
+
+      {/* Request Analysis */}
+      <Card title="Request Analysis" badge={<Badge tone="green">Ask the agent</Badge>}>
+        <p className="mb-3 text-[13px] text-muted-foreground">
+          Pick a pair and optionally add a note. The Trading Agent will pick up your request, analyse
+          the chart, and post a note to the log below.
+        </p>
+        <div className="space-y-3">
+          <Field label="Pair">
+            <Select value={reqPair} onChange={(e) => setReqPair(e.target.value)} className="h-11 w-full">
+              {PAIRS.map((p) => (
+                <option key={p} value={p}>{PAIR_SPECS[p].label}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Instruction (optional)" hint="e.g. 'Check for order blocks on H4' or leave blank.">
+            <textarea
+              className={textareaClass}
+              style={{ minHeight: "80px" }}
+              value={reqNote}
+              onChange={(e) => setReqNote(e.target.value)}
+              placeholder="Any specific focus for the analysis..."
+            />
+          </Field>
+          <div className="flex justify-end">
+            <Button onClick={submitRequest} disabled={reqBusy}>
+              {reqBusy ? "Sending..." : "Request Analysis"}
+            </Button>
+          </div>
+        </div>
+        {requests.length > 0 && (
+          <div className="mt-4 border-t border-border pt-4 space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Recent requests</p>
+            {requests.slice(0, 5).map((r) => (
+              <div key={r.id} className="flex items-center gap-3 text-[12px]">
+                <Badge tone={r.status === "pending" ? "blue" : "neutral"}>{r.status}</Badge>
+                <span className="font-mono font-medium text-foreground">{r.pair}</span>
+                {r.note && <span className="text-muted-foreground truncate max-w-[200px]">{r.note}</span>}
+                <span className="ml-auto text-muted-foreground">{new Date(r.created_at).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card title="Teach Trading Agent" badge={<Badge tone="blue">Knowledge base</Badge>}>
         <div className="space-y-3">
