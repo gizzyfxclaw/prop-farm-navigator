@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { setCookie } from "@tanstack/react-start/server";
 import { useState } from "react";
@@ -33,7 +33,7 @@ const loginFn = createServerFn({ method: "POST" })
     });
 
     const dest = data.next && data.next.startsWith("/") ? data.next : "/";
-    throw redirect({ href: dest });
+    return { ok: true as const, dest };
   });
 
 // ── Server action: clear the session (logout) ───────────────────────────────
@@ -51,7 +51,6 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const router = useRouter();
   const search = Route.useSearch() as Record<string, string | undefined>;
   const next = search["next"];
 
@@ -64,13 +63,19 @@ function LoginPage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const result = await loginFn({ data: { email, password, next: next ?? "/" } });
-    if (!result.ok) {
-      setError(result.error);
+    try {
+      const result = await loginFn({ data: { email, password, next: next ?? "/" } });
+      if (!result.ok) {
+        setError(result.error);
+        setBusy(false);
+        return;
+      }
+      // Full page reload so the new cookie is sent with the request
+      window.location.href = result.dest;
+    } catch {
+      setError("Sign in failed. Please try again.");
       setBusy(false);
-      return;
     }
-    await router.invalidate();
   }
 
   return (
