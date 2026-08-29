@@ -1,9 +1,9 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest, setCookie } from "@tanstack/react-start/server";
+import { setCookie } from "@tanstack/react-start/server";
 import { useState } from "react";
 import { getCFEnv } from "../lib/cloudflare-env";
-import { signSession, parseSessionToken, verifySession } from "../lib/auth";
+import { signSession } from "../lib/auth";
 import { LogoMark, LogoWordmark } from "../components/brand/logo";
 
 // ── Server action: validate credentials and issue a session cookie ──────────
@@ -42,20 +42,11 @@ export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
   throw redirect({ href: "/login" as string });
 });
 
-// ── Route loader: bounce already-authenticated users to / ───────────────────
+// ── Route ───────────────────────────────────────────────────────────────────
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [{ title: "Sign in — GizzyFx" }],
   }),
-  beforeLoad: async () => {
-    const req = getRequest();
-    const env = getCFEnv();
-    const secret = env?.AUTH_SECRET;
-    if (!secret) return;
-    const token = parseSessionToken(req.headers.get("cookie"));
-    const email = token ? await verifySession(token, secret) : null;
-    if (email) throw redirect({ href: "/" as string });
-  },
   component: LoginPage,
 });
 
