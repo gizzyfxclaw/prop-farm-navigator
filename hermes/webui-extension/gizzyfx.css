@@ -1,38 +1,122 @@
 /**
- * GizzyFx chrome for Hermes WebUI.
+ * GizzyFx chrome for Hermes WebUI — three switchable themes:
+ *   data-skin="gizzyfx"        Electric Cyan/Teal  (default)
+ *   data-skin="gizzyfx-blue"   Dark Blue
+ *   data-skin="gizzyfx-purple" Original Purple
  *
- * The colour palette itself is registered from gizzyfx.js as a proper WebUI
- * skin (Settings → Appearance → GizzyFx). This stylesheet only adds the
- * pieces a skin cannot express: the brand watermark, the glass/glow surface
- * treatment, and the navigation bar back to the Engine.
+ * All theme-specific colours are driven by CSS custom properties
+ * (--gz-orb1, --gz-orb2, --gz-grid, --gz-nav-border, --gz-nav-shadow,
+ *  --gz-link-glow, --gz-nav-bg) set per-skin below, so the shared
+ * structural rules only appear once.
  *
- * Everything is scoped to :root[data-skin="gizzyfx"] so selecting a different
- * skin leaves the stock WebUI appearance completely untouched.
+ * Select a skin via Settings → Appearance in Hermes WebUI.
  */
 
-/* ── Brand watermark behind the app shell ──────────────────────────── */
-:root[data-skin="gizzyfx"] body::before {
+/* ══════════════════════════════════════════════════════════════════════
+   THEME: Electric Cyan / Teal  (gizzyfx)
+   ══════════════════════════════════════════════════════════════════════ */
+:root[data-skin="gizzyfx"] {
+  --gz-bg:          #061520;
+  --gz-grid:        oklch(0.775 0.148 198 / 0.035);
+  --gz-orb1:        oklch(0.775 0.148 198 / 0.07);
+  --gz-orb2:        oklch(0.820 0.155 180 / 0.055);
+  --gz-mark-ring:   %2300c8e8;
+  --gz-mark-arrow:  %2300e5c8;
+  --gz-nav-bg:      oklch(0.075 0.028 212 / 0.90);
+  --gz-nav-border:  oklch(0.775 0.148 198 / 0.22);
+  --gz-nav-shadow:  oklch(0.775 0.148 198 / 0.12);
+  --gz-nav-accent:  oklch(0.820 0.155 180 / 0.70);
+  --gz-link-color:  oklch(0.775 0.148 198);
+  --gz-link-glow:   oklch(0.775 0.148 198 / 0.40);
+  --gz-link-hover-bg: oklch(0.775 0.148 198 / 0.12);
+  --gz-link-hover-shadow: oklch(0.775 0.148 198 / 0.20);
+  --gz-focus-ring:  oklch(0.775 0.148 198 / 0.65);
+  --gz-muted:       oklch(0.580 0.055 200);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THEME: Dark Blue  (gizzyfx-blue)
+   ══════════════════════════════════════════════════════════════════════ */
+:root[data-skin="gizzyfx-blue"] {
+  --gz-bg:          #05080f;
+  --gz-grid:        oklch(0.623 0.214 259 / 0.035);
+  --gz-orb1:        oklch(0.623 0.214 259 / 0.07);
+  --gz-orb2:        oklch(0.707 0.165 254 / 0.055);
+  --gz-mark-ring:   %233b82f6;
+  --gz-mark-arrow:  %2360a5fa;
+  --gz-nav-bg:      oklch(0.072 0.025 260 / 0.90);
+  --gz-nav-border:  oklch(0.623 0.214 259 / 0.22);
+  --gz-nav-shadow:  oklch(0.623 0.214 259 / 0.12);
+  --gz-nav-accent:  oklch(0.707 0.165 254 / 0.70);
+  --gz-link-color:  oklch(0.707 0.165 254);
+  --gz-link-glow:   oklch(0.623 0.214 259 / 0.40);
+  --gz-link-hover-bg: oklch(0.623 0.214 259 / 0.12);
+  --gz-link-hover-shadow: oklch(0.623 0.214 259 / 0.20);
+  --gz-focus-ring:  oklch(0.623 0.214 259 / 0.65);
+  --gz-muted:       oklch(0.540 0.080 258);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THEME: Purple  (gizzyfx-purple)
+   ══════════════════════════════════════════════════════════════════════ */
+:root[data-skin="gizzyfx-purple"] {
+  --gz-bg:          #0a0713;
+  --gz-grid:        oklch(0.692 0.194 295 / 0.035);
+  --gz-orb1:        oklch(0.692 0.194 295 / 0.065);
+  --gz-orb2:        oklch(0.748 0.173 296 / 0.05);
+  --gz-mark-ring:   %23a78bfa;
+  --gz-mark-arrow:  %23f472b6;
+  --gz-nav-bg:      oklch(0.075 0.020 295 / 0.88);
+  --gz-nav-border:  oklch(0.692 0.194 295 / 0.20);
+  --gz-nav-shadow:  oklch(0.692 0.194 295 / 0.10);
+  --gz-nav-accent:  oklch(0.748 0.173 296 / 0.70);
+  --gz-link-color:  oklch(0.748 0.173 296);
+  --gz-link-glow:   oklch(0.692 0.194 295 / 0.40);
+  --gz-link-hover-bg: oklch(0.692 0.194 295 / 0.12);
+  --gz-link-hover-shadow: oklch(0.692 0.194 295 / 0.20);
+  --gz-focus-ring:  oklch(0.692 0.194 295 / 0.65);
+  --gz-muted:       oklch(0.560 0.080 294);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SHARED STRUCTURAL RULES  (apply to all three skins)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Animated grid background ──────────────────────────────────────── */
+:root[data-skin^="gizzyfx"] body {
+  background-color: var(--gz-bg) !important;
+  background-image:
+    linear-gradient(var(--gz-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--gz-grid) 1px, transparent 1px) !important;
+  background-size: 48px 48px !important;
+  animation: gz-grid-drift 60s linear infinite;
+}
+
+@keyframes gz-grid-drift {
+  0%   { background-position: 0 0, 0 0; }
+  100% { background-position: 48px 48px, 48px 48px; }
+}
+
+/* ── Ambient glow orbs ─────────────────────────────────────────────── */
+:root[data-skin^="gizzyfx"] body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(
-      circle at 12% 8%,
-      rgba(167, 139, 250, 0.065) 0%,
-      transparent 55%
-    ),
-    radial-gradient(
-      circle at 88% 92%,
-      rgba(167, 139, 250, 0.05) 0%,
-      transparent 55%
-    );
+    radial-gradient(circle at 12% 8%,  var(--gz-orb1) 0%, transparent 55%),
+    radial-gradient(circle at 88% 92%, var(--gz-orb2) 0%, transparent 55%);
+  animation: gz-orb-pulse 12s ease-in-out infinite;
 }
 
-/* The mark itself — an inlined SVG of the GizzyFx badge, centred and faded.
-   data: URIs are fine here because this file is served same-origin. */
-:root[data-skin="gizzyfx"] body::after {
+@keyframes gz-orb-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.75; }
+}
+
+/* ── Brand watermark — each skin gets its own coloured SVG ─────────── */
+:root[data-skin^="gizzyfx"] body::after {
   content: "";
   position: fixed;
   inset: 0;
@@ -42,6 +126,39 @@
   background-repeat: no-repeat;
   background-position: center;
   background-size: min(42vw, 380px);
+  animation: gizzyfx-breathe 14s ease-in-out infinite;
+}
+
+/* Cyan watermark */
+:root[data-skin="gizzyfx"] body::after {
+  background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>\
+<circle cx='50' cy='50' r='47' fill='%23040e14'/>\
+<circle cx='50' cy='50' r='45' stroke='%2300c8e8' stroke-width='5' fill='none'/>\
+<rect x='24' y='46' width='9' height='22' rx='1.5' fill='%2317c95c'/>\
+<rect x='38' y='34' width='9' height='30' rx='1.5' fill='%23e8433f'/>\
+<rect x='52' y='40' width='9' height='24' rx='1.5' fill='%2317c95c'/>\
+<path d='M22 76 C 42 76, 60 66, 72 42' stroke='%2300e5c8' stroke-width='8' stroke-linecap='round' fill='none'/>\
+<path d='M62 30 L82 36 L72 53 Z' fill='%2300e5c8'/>\
+</svg>");
+}
+
+/* Blue watermark */
+:root[data-skin="gizzyfx-blue"] body::after {
+  background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>\
+<circle cx='50' cy='50' r='47' fill='%23030712'/>\
+<circle cx='50' cy='50' r='45' stroke='%233b82f6' stroke-width='5' fill='none'/>\
+<rect x='24' y='46' width='9' height='22' rx='1.5' fill='%2317c95c'/>\
+<rect x='38' y='34' width='9' height='30' rx='1.5' fill='%23e8433f'/>\
+<rect x='52' y='40' width='9' height='24' rx='1.5' fill='%2317c95c'/>\
+<path d='M22 76 C 42 76, 60 66, 72 42' stroke='%2360a5fa' stroke-width='8' stroke-linecap='round' fill='none'/>\
+<path d='M62 30 L82 36 L72 53 Z' fill='%2360a5fa'/>\
+</svg>");
+}
+
+/* Purple watermark */
+:root[data-skin="gizzyfx-purple"] body::after {
   background-image: url("data:image/svg+xml;utf8,\
 <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>\
 <circle cx='50' cy='50' r='47' fill='%23050807'/>\
@@ -52,26 +169,18 @@
 <path d='M22 76 C 42 76, 60 66, 72 42' stroke='%23f472b6' stroke-width='8' stroke-linecap='round' fill='none'/>\
 <path d='M62 30 L82 36 L72 53 Z' fill='%23f472b6'/>\
 </svg>");
-  animation: gizzyfx-breathe 14s ease-in-out infinite;
 }
 
 @keyframes gizzyfx-breathe {
-  0%,
-  100% {
-    opacity: 0.045;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.07;
-    transform: scale(1.02);
-  }
+  0%, 100% { opacity: 0.045; transform: scale(1); }
+  50%       { opacity: 0.07;  transform: scale(1.02); }
 }
 
-/* Keep the real app above the ambient layers. */
-:root[data-skin="gizzyfx"] #app,
-:root[data-skin="gizzyfx"] main,
-:root[data-skin="gizzyfx"] [class*="sidebar"],
-:root[data-skin="gizzyfx"] [class*="composer"] {
+/* Keep real app above ambient layers. */
+:root[data-skin^="gizzyfx"] #app,
+:root[data-skin^="gizzyfx"] main,
+:root[data-skin^="gizzyfx"] [class*="sidebar"],
+:root[data-skin^="gizzyfx"] [class*="composer"] {
   position: relative;
   z-index: 1;
 }
@@ -87,19 +196,31 @@
   gap: 6px;
   padding: 5px;
   border-radius: 12px;
-  background: rgba(12, 9, 22, 0.88);
-  border: 1px solid rgba(167, 139, 250, 0.20);
+  background: var(--gz-nav-bg, oklch(0.075 0.028 212 / 0.90));
+  border: 1px solid var(--gz-nav-border, oklch(0.775 0.148 198 / 0.22));
   box-shadow:
-    0 6px 26px rgba(0, 0, 0, 0.5),
-    0 0 18px rgba(167, 139, 250, 0.10);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  font-family:
-    "Geist",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+    0 6px 26px oklch(0 0 0 / 0.5),
+    0 0 18px var(--gz-nav-shadow, oklch(0.775 0.148 198 / 0.12));
+  backdrop-filter: blur(14px) saturate(1.6);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Top accent line */
+#gizzyfx-nav::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--gz-nav-accent, oklch(0.820 0.155 180 / 0.70)),
+    transparent
+  );
+  border-radius: 1px;
 }
 
 .gizzyfx-nav-link {
@@ -112,17 +233,19 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   text-decoration: none;
-  color: #b4a8cd;
+  color: var(--gz-muted, oklch(0.580 0.055 200));
   white-space: nowrap;
   transition:
     background-color 0.18s ease,
     color 0.18s ease,
-    transform 0.18s ease;
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .gizzyfx-nav-link:hover {
-  background: rgba(167, 139, 250, 0.12);
-  color: #ebe7f5;
+  background: var(--gz-link-hover-bg);
+  color: oklch(0.950 0.012 200);
+  box-shadow: 0 0 12px var(--gz-link-hover-shadow);
 }
 
 .gizzyfx-nav-link:active {
@@ -130,46 +253,41 @@
 }
 
 .gizzyfx-nav-link:focus-visible {
-  outline: 2px solid rgba(167, 139, 250, 0.65);
+  outline: 2px solid var(--gz-focus-ring);
   outline-offset: 2px;
 }
 
 .gizzyfx-nav-primary {
-  color: #c4b5fd;
+  color: var(--gz-link-color);
+  text-shadow: 0 0 10px var(--gz-link-glow);
 }
 
 .gizzyfx-nav-primary svg {
   display: block;
   flex-shrink: 0;
+  filter: drop-shadow(0 0 4px var(--gz-link-glow));
 }
 
 /* Collapse to icon-only on narrow screens. */
 @media (max-width: 640px) {
-  #gizzyfx-nav {
-    right: 10px;
-    top: 10px;
-  }
-  .gizzyfx-nav-link:not(.gizzyfx-nav-primary) {
-    display: none;
-  }
-  .gizzyfx-nav-primary span {
-    display: none;
-  }
+  #gizzyfx-nav { right: 10px; top: 10px; }
+  .gizzyfx-nav-link:not(.gizzyfx-nav-primary) { display: none; }
+  .gizzyfx-nav-primary span { display: none; }
 }
 
-/* ── Surface polish, matching the terminal's glass cards ───────────── */
-:root[data-skin="gizzyfx"] [class*="card"],
-:root[data-skin="gizzyfx"] [class*="panel"] {
-  backdrop-filter: blur(12px) saturate(1.3);
-  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+/* ── Surface polish ─────────────────────────────────────────────────── */
+:root[data-skin^="gizzyfx"] [class*="card"],
+:root[data-skin^="gizzyfx"] [class*="panel"] {
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
 }
 
-/* Respect a reduced-motion preference. */
+/* Respect reduced-motion preference. */
 @media (prefers-reduced-motion: reduce) {
-  :root[data-skin="gizzyfx"] body::after {
+  :root[data-skin^="gizzyfx"] body,
+  :root[data-skin^="gizzyfx"] body::before,
+  :root[data-skin^="gizzyfx"] body::after {
     animation: none;
   }
-  .gizzyfx-nav-link {
-    transition: none;
-  }
+  .gizzyfx-nav-link { transition: none; }
 }

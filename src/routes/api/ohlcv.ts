@@ -13,15 +13,22 @@ export const Route = createFileRoute("/api/ohlcv")({
         const pair = (url.searchParams.get("pair") ?? "EURUSD").toUpperCase().replace("/", "");
         const interval = url.searchParams.get("interval") ?? "1h";
 
+        const limitParam = parseInt(url.searchParams.get("limit") ?? "0", 10);
+
+        // Yahoo Finance max ranges per interval (forex pairs)
         const rangeMap: Record<string, string> = {
-          "5m": "5d", "15m": "14d", "30m": "30d",
-          "1h": "7d", "4h": "30d", "1d": "6mo", "1w": "1y",
+          "5m": "7d", "15m": "60d", "30m": "60d",
+          "1h": "730d",  // up to 2 years of hourly data
+          "4h": "730d",  // aggregate from 1h — same max range
+          "1d": "10y",   // 10 years of daily data
+          "1w": "10y",   // 10 years (aggregated from daily)
         };
+        // 4h is not a native Yahoo interval — fetch 1h and aggregate
         const yahooIntervalMap: Record<string, string> = {
           "5m": "5m", "15m": "15m", "30m": "30m",
           "1h": "1h", "4h": "1h", "1d": "1d", "1w": "1d",
         };
-        const range = rangeMap[interval] ?? "7d";
+        const range = rangeMap[interval] ?? "730d";
         const yahooInterval = yahooIntervalMap[interval] ?? "1h";
         const symbol = `${pair}=X`;
 
@@ -88,24 +95,43 @@ export const Route = createFileRoute("/api/ohlcv")({
           bars.push({ time, open, high, low, close });
         }
 
+        // Helper to aggregate a chunk of bars into one candle
+        const rollUp = (chunk: Bar[]): Bar | null => {
+          const first = chunk[0];
+          const last = chunk[chunk.length - 1];
+          if (!first || !last) return null;
+          return {
+            time: first.time,
+            open: first.open,
+            high: Math.max(...chunk.map((c) => c.high)),
+            low: Math.min(...chunk.map((c) => c.low)),
+            close: last.close,
+          };
+        };
+
+        // Aggregate 1h bars into 4h candles (slots at 0h, 4h, 8h, 12h, 16h, 20h UTC)
+        if (interval === "4h") {
+          const grouped = new Map<number, Bar[]>();
+          for (const b of bars) {
+            const dt = new Date(b.time * 1000);
+            const slotHour = Math.floor(dt.getUTCHours() / 4) * 4;
+            dt.setUTCHours(slotHour, 0, 0, 0);
+            const key = dt.getTime() / 1000;
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key)!.push(b);
+          }
+          const aggregated: Bar[] = [];
+          for (const [time, chunk] of Array.from(grouped.entries()).sort((a, b) => a[0] - b[0])) {
+            const candle = rollUp(chunk);
+            if (candle) aggregated.push({ ...candle, time });
+          }
+          bars = aggregated;
+        }
+
         // Aggregate daily bars into weekly candles (Yahoo has no forex 1w feed)
         if (interval === "1w") {
-          const rollUp = (chunk: Bar[]): Bar | null => {
-            const first = chunk[0];
-            const last = chunk[chunk.length - 1];
-            if (!first || !last) return null;
-            return {
-              time: first.time,
-              open: first.open,
-              high: Math.max(...chunk.map((c) => c.high)),
-              low: Math.min(...chunk.map((c) => c.low)),
-              close: last.close,
-            };
-          };
-
           const weekly: Bar[] = [];
           let chunk: Bar[] = [];
-
           for (const b of bars) {
             const isWeekStart = new Date(b.time * 1000).getUTCDay() === 1; // Monday
             if (isWeekStart && chunk.length) {
@@ -117,13 +143,21 @@ export const Route = createFileRoute("/api/ohlcv")({
           }
           const tail = rollUp(chunk);
           if (tail) weekly.push(tail);
-
           bars = weekly;
         }
 
+        // Apply limit if requested (0 = no limit, capped at 5000 max)
+        if (limitParam > 0) {
+          const cap = Math.min(limitParam, 5000);
+          bars = bars.slice(-cap);
+        }
+
+        const totalBars = bars.length;
+        const cacheSeconds = interval === "1d" || interval === "1w" ? 3600 : 60;
+
         return Response.json(
-          { bars },
-          { headers: { "Cache-Control": "public, max-age=60" } },
+          { bars, total: totalBars, interval, pair },
+          { headers: { "Cache-Control": `public, max-age=${cacheSeconds}` } },
         );
       },
     },
