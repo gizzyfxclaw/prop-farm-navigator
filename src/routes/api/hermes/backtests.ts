@@ -4,12 +4,14 @@ import { getCFEnv } from "@/lib/cloudflare-env";
 import { requireHermesAuth } from "@/lib/hermes-auth";
 
 /**
- * Approximate, LLM-narrated strategy walkthroughs — NOT a statistically
- * rigorous backtest. Strategies here are free text (taught via PDF/notes),
- * not executable rules, so Hermes reasons through a bounded recent window
- * of candles rather than running a deterministic simulation over years of
- * history. The `narrative` field must own that limitation explicitly; the
- * UI surfaces it too so the win rate is never read as more than it is.
+ * Two kinds of result land here:
+ *  - Deterministic: posted by the no-agent backtest script against a
+ *    `strategy_rules` row — a real candle-by-candle simulation over real
+ *    TradingView history. `deterministic=1`, `rule_id`/`timeframe` set.
+ *  - Approximate: LLM-narrated walkthroughs for strategies with no
+ *    structured rule yet (free text isn't executable) — a bounded recent
+ *    window, not a statistically rigorous backtest. `narrative` must own
+ *    that limitation explicitly; the UI surfaces it too.
  */
 const backtestInput = z.object({
   request_id: z.string().optional(),
@@ -19,6 +21,12 @@ const backtestInput = z.object({
   wins: z.number().int().nonnegative(),
   losses: z.number().int().nonnegative(),
   narrative: z.string().min(1),
+  deterministic: z.boolean().default(false),
+  rule_id: z.string().optional(),
+  timeframe: z.string().optional(),
+  max_drawdown_pct: z.number().optional(),
+  avg_rr: z.number().optional(),
+  bars_used: z.number().int().optional(),
 });
 
 export const Route = createFileRoute("/api/hermes/backtests")({
@@ -56,8 +64,9 @@ export const Route = createFileRoute("/api/hermes/backtests")({
 
         await env.DB.prepare(
           `INSERT INTO hermes_backtests
-           (id, request_id, pair, period_description, trades_analyzed, wins, losses, win_rate, narrative)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, request_id, pair, period_description, trades_analyzed, wins, losses, win_rate, narrative,
+            deterministic, rule_id, timeframe, max_drawdown_pct, avg_rr, bars_used)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
           .bind(
             id,
@@ -69,6 +78,12 @@ export const Route = createFileRoute("/api/hermes/backtests")({
             body.losses,
             winRate,
             body.narrative,
+            body.deterministic ? 1 : 0,
+            body.rule_id ?? null,
+            body.timeframe ?? null,
+            body.max_drawdown_pct ?? null,
+            body.avg_rr ?? null,
+            body.bars_used ?? null,
           )
           .run();
 

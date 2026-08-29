@@ -39,6 +39,18 @@ TOOLS = [
     Tool(name="get_understanding", description="Fetch the current whole-knowledge-base synthesis (if one exists) — your last combined understanding across ALL taught docs, plus any noted contradictions.", inputSchema={"type":"object","properties":{},"required":[]}),
     Tool(name="post_understanding", description="Publish an updated whole-knowledge-base synthesis after reviewing ALL knowledge docs together (not just the newest one). Call this from the periodic review job, not after teaching a single document.", inputSchema={"type":"object","properties":{"summary":{"type":"string","description":"Your combined understanding of the strategy material as a whole"},"contradictions":{"type":"string","description":"Anything that conflicts between documents, or between a document and prior understanding. Omit if none."},"doc_count":{"type":"integer","description":"How many knowledge docs this synthesis covers"}},"required":["summary","doc_count"]}),
     Tool(name="get_ohlcv_data", description="Fetch OHLCV candlestick data for a forex pair.", inputSchema={"type":"object","properties":{"pair":{"type":"string","description":"e.g. EURUSD"},"interval":{"type":"string","enum":["1h","1d"],"default":"1h"}},"required":["pair"]}),
+    Tool(
+        name="get_strategy_rules",
+        description=(
+            "List structured, machine-executable strategy definitions (the codified counterpart "
+            "to free-text knowledge docs). A backtest request with a rule_id is handled entirely "
+            "by a separate deterministic script (real candle-by-candle simulation over tvremix "
+            "history, no LLM) — it will already be gone from get_pending_requests by the time you "
+            "see it. Use this tool to check whether a strategy the human is discussing already has "
+            "a rule, or to see what a rule's mechanical definition actually says."
+        ),
+        inputSchema={"type": "object", "properties": {}, "required": []},
+    ),
     Tool(name="post_analysis_step", description="Post one analysis step with chart drawings. User sees drawings appear live. Call multiple times as you progress (step 0,1,2...). Drawing types: hline, trendline, zone, marker.", inputSchema={"type":"object","properties":{"request_id":{"type":"string"},"pair":{"type":"string"},"step":{"type":"integer"},"step_label":{"type":"string","description":"Short label shown live e.g. 'Identifying swing highs'"},"drawings":{"type":"array","items":{"type":"object"},"description":"Array of drawing objects. hline:{type,price,label,color,style}. trendline:{type,p1time,p1price,p2time,p2price,label,color}. zone:{type,topPrice,bottomPrice,label,color}. marker:{type,time,position,label,color,markerType}"},"summary":{"type":"string"}},"required":["request_id","pair","step","step_label"]}),
     Tool(name="mark_request_fulfilled", description="Mark a request done after posting all steps.", inputSchema={"type":"object","properties":{"request_id":{"type":"string"}},"required":["request_id"]}),
     Tool(
@@ -176,6 +188,16 @@ async def call_tool(name, arguments):
                 body["contradictions"] = arguments["contradictions"]
             data = _post("/api/hermes/understanding", body)
             result = f"Understanding synthesis posted (id={data.get('id')})."
+        elif name == "get_strategy_rules":
+            data = _get("/api/hermes/strategy-rules")
+            rules = data.get("rules", [])
+            result = "No structured strategy rules defined yet." if not rules else "\n".join(
+                f"id={r['id']} title={r['title']!r} active={bool(r['active'])} direction={r['direction']} "
+                f"entry={r['entry_type']}({r['entry_params']}) sl={r['sl_type']}:{r['sl_value']} "
+                f"tp={r['tp_type']}:{r['tp_value']} default_timeframe={r['default_timeframe']} "
+                f"knowledge_doc_id={r.get('knowledge_doc_id')}"
+                for r in rules
+            )
         elif name == "get_ohlcv_data":
             pair = arguments["pair"].upper().replace("/","")
             interval = arguments.get("interval","1h")

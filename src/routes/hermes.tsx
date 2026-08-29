@@ -9,23 +9,37 @@ import { resizeImageToDataUrl } from "@/lib/image-resize";
 import {
   addHermesRequest,
   addKnowledgeDoc,
+  addStrategyRule,
   deleteHermesNote,
   deleteHermesRequest,
   deleteHermesSetup,
   deleteKnowledgeDoc,
+  deleteStrategyRule,
   loadHermesBacktests,
   loadHermesNotes,
   loadHermesRequests,
   loadHermesSetups,
   loadHermesUnderstanding,
   loadKnowledgeDocs,
+  loadStrategyRules,
+  setStrategyRuleActive,
   type HermesBacktest,
   type HermesNote,
   type HermesRequest,
   type HermesSetup,
   type HermesUnderstanding,
   type KnowledgeDoc,
+  type StrategyRule,
 } from "@/lib/hermes-db.functions";
+
+const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W", "1M"];
+
+const ENTRY_TYPE_LABEL: Record<StrategyRule["entry_type"], string> = {
+  sma_cross: "SMA crossover",
+  ema_cross: "EMA crossover",
+  rsi: "RSI overbought/oversold",
+  breakout: "N-bar breakout",
+};
 
 const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
 
@@ -67,18 +81,39 @@ function HermesPage() {
   const [lastTaughtTitle, setLastTaughtTitle] = useState<string | null>(null);
   const [btPair, setBtPair] = useState<string>("EURUSD");
   const [btNote, setBtNote] = useState("");
+  const [btRuleId, setBtRuleId] = useState<string>("");
+  const [btTimeframe, setBtTimeframe] = useState<string>("1h");
   const [requestingBacktest, setRequestingBacktest] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chartInputRef = useRef<HTMLInputElement>(null);
 
+  const [rules, setRules] = useState<StrategyRule[]>([]);
+  const [ruleTitle, setRuleTitle] = useState("");
+  const [ruleDocId, setRuleDocId] = useState<string>("");
+  const [ruleDirection, setRuleDirection] = useState<"long" | "short" | "both">("both");
+  const [ruleEntryType, setRuleEntryType] = useState<StrategyRule["entry_type"]>("sma_cross");
+  const [ruleFast, setRuleFast] = useState("10");
+  const [ruleSlow, setRuleSlow] = useState("50");
+  const [ruleRsiPeriod, setRuleRsiPeriod] = useState("14");
+  const [ruleOversold, setRuleOversold] = useState("30");
+  const [ruleOverbought, setRuleOverbought] = useState("70");
+  const [ruleLookback, setRuleLookback] = useState("20");
+  const [ruleSlType, setRuleSlType] = useState<"atr" | "fixed_pips">("atr");
+  const [ruleSlValue, setRuleSlValue] = useState("2");
+  const [ruleTpType, setRuleTpType] = useState<"rr_multiple" | "fixed_pips">("rr_multiple");
+  const [ruleTpValue, setRuleTpValue] = useState("2");
+  const [ruleTimeframe, setRuleTimeframe] = useState("1h");
+  const [addingRule, setAddingRule] = useState(false);
+
   async function refresh() {
-    const [d, n, r, s, u, b] = await Promise.all([
+    const [d, n, r, s, u, b, sr] = await Promise.all([
       loadKnowledgeDocs(),
       loadHermesNotes(),
       loadHermesRequests(),
       loadHermesSetups(),
       loadHermesUnderstanding(),
       loadHermesBacktests(),
+      loadStrategyRules(),
     ]);
     setDocs(d);
     setNotes(n);
@@ -86,6 +121,7 @@ function HermesPage() {
     setSetups(s);
     setUnderstanding(u);
     setBacktests(b);
+    setRules(sr);
     setLoading(false);
   }
 
@@ -162,11 +198,70 @@ function HermesPage() {
   async function requestBacktest() {
     setRequestingBacktest(true);
     await addHermesRequest({
-      data: { pair: btPair, note: btNote.trim() || undefined, request_type: "backtest" },
+      data: {
+        pair: btPair,
+        note: btNote.trim() || undefined,
+        request_type: "backtest",
+        rule_id: btRuleId || undefined,
+        timeframe: btTimeframe,
+      },
     });
     setRequestingBacktest(false);
     setBtNote("");
-    toast.success("Sent — results will appear below once the Trading Agent works through it.");
+    toast.success(
+      btRuleId
+        ? "Sent — the deterministic backtest engine picks these up every few minutes."
+        : "Sent — results will appear below once the Trading Agent works through it.",
+    );
+    refresh();
+  }
+
+  function entryParamsForForm(): Record<string, number> {
+    switch (ruleEntryType) {
+      case "sma_cross":
+      case "ema_cross":
+        return { fast: Number(ruleFast), slow: Number(ruleSlow) };
+      case "rsi":
+        return { period: Number(ruleRsiPeriod), oversold: Number(ruleOversold), overbought: Number(ruleOverbought) };
+      case "breakout":
+        return { lookback: Number(ruleLookback) };
+    }
+  }
+
+  async function submitRule() {
+    if (!ruleTitle.trim()) {
+      toast.error("Give the strategy a title first.");
+      return;
+    }
+    setAddingRule(true);
+    await addStrategyRule({
+      data: {
+        knowledge_doc_id: ruleDocId || undefined,
+        title: ruleTitle.trim(),
+        direction: ruleDirection,
+        entry_type: ruleEntryType,
+        entry_params: entryParamsForForm(),
+        sl_type: ruleSlType,
+        sl_value: Number(ruleSlValue),
+        tp_type: ruleTpType,
+        tp_value: Number(ruleTpValue),
+        default_timeframe: ruleTimeframe,
+      },
+    });
+    setAddingRule(false);
+    setRuleTitle("");
+    toast.success("Strategy saved — pick it from the backtest panel to run a real simulation.");
+    refresh();
+  }
+
+  async function removeRule(id: string) {
+    await deleteStrategyRule({ data: { id } });
+    if (btRuleId === id) setBtRuleId("");
+    refresh();
+  }
+
+  async function toggleRule(rule: StrategyRule) {
+    await setStrategyRuleActive({ data: { id: rule.id, active: !rule.active } });
     refresh();
   }
 
@@ -322,14 +417,222 @@ function HermesPage() {
         </div>
       </Card>
 
-      <Card title="Request a Backtest" badge={<Badge tone="amber">Approximate</Badge>}>
+      <Card title="Strategy Rules" badge={<Badge tone="neutral">{rules.length}</Badge>}>
+        <div className="space-y-4">
+          <p className="text-[12px] text-muted-foreground">
+            Codify a taught strategy as executable rules so it can be backtested for real —
+            candle-by-candle, over actual TradingView history — instead of narrated by the agent.
+            Only mechanical strategies (moving averages, RSI, breakouts) can be expressed this
+            way; pure price-action/discretionary strategies stay in the free-form knowledge base.
+          </p>
+
+          {rules.length > 0 && (
+            <div className="space-y-2">
+              {rules.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">{r.title}</p>
+                      <Badge tone={r.active ? "green" : "neutral"}>{r.active ? "active" : "inactive"}</Badge>
+                    </div>
+                    <p className="mt-1 text-[12px] text-muted-foreground">
+                      {ENTRY_TYPE_LABEL[r.entry_type]} · {r.direction} · default {r.default_timeframe} · SL{" "}
+                      {r.sl_type === "atr" ? `${r.sl_value}x ATR` : `${r.sl_value} pips`} · TP{" "}
+                      {r.tp_type === "rr_multiple" ? `${r.tp_value}R` : `${r.tp_value} pips`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" className="h-8 px-2 text-[11px]" onClick={() => toggleRule(r)}>
+                      {r.active ? "Deactivate" : "Activate"}
+                    </Button>
+                    <Button variant="ghost" className="h-8 px-2 text-[11px]" onClick={() => removeRule(r.id)}>
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-3 rounded-xl border border-border p-3">
+            <div className="flex flex-wrap gap-3">
+              <Field label="Title" hint="Shown in the backtest strategy picker.">
+                <input
+                  className="h-11 w-64 rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30"
+                  value={ruleTitle}
+                  onChange={(e) => setRuleTitle(e.target.value)}
+                  placeholder="e.g. 50/200 EMA trend cross"
+                />
+              </Field>
+              <Field label="Linked doc" hint="Optional — the taught strategy this encodes.">
+                <Select value={ruleDocId} onChange={(e) => setRuleDocId(e.target.value)} className="h-11 w-56">
+                  <option value="">(none)</option>
+                  {docs.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.title}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Direction">
+                <Select
+                  value={ruleDirection}
+                  onChange={(e) => setRuleDirection(e.target.value as typeof ruleDirection)}
+                  className="h-11 w-32"
+                >
+                  <option value="both">Both</option>
+                  <option value="long">Long only</option>
+                  <option value="short">Short only</option>
+                </Select>
+              </Field>
+              <Field label="Default timeframe">
+                <Select value={ruleTimeframe} onChange={(e) => setRuleTimeframe(e.target.value)} className="h-11 w-28">
+                  {TIMEFRAMES.map((tf) => (
+                    <option key={tf} value={tf}>
+                      {tf}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-3">
+              <Field label="Entry rule">
+                <Select
+                  value={ruleEntryType}
+                  onChange={(e) => setRuleEntryType(e.target.value as StrategyRule["entry_type"])}
+                  className="h-11 w-52"
+                >
+                  <option value="sma_cross">SMA crossover</option>
+                  <option value="ema_cross">EMA crossover</option>
+                  <option value="rsi">RSI overbought/oversold</option>
+                  <option value="breakout">N-bar breakout</option>
+                </Select>
+              </Field>
+              {(ruleEntryType === "sma_cross" || ruleEntryType === "ema_cross") && (
+                <>
+                  <Field label="Fast period">
+                    <input
+                      type="number"
+                      className="h-11 w-24 rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                      value={ruleFast}
+                      onChange={(e) => setRuleFast(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Slow period">
+                    <input
+                      type="number"
+                      className="h-11 w-24 rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                      value={ruleSlow}
+                      onChange={(e) => setRuleSlow(e.target.value)}
+                    />
+                  </Field>
+                </>
+              )}
+              {ruleEntryType === "rsi" && (
+                <>
+                  <Field label="Period">
+                    <input
+                      type="number"
+                      className="h-11 w-24 rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                      value={ruleRsiPeriod}
+                      onChange={(e) => setRuleRsiPeriod(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Oversold">
+                    <input
+                      type="number"
+                      className="h-11 w-24 rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                      value={ruleOversold}
+                      onChange={(e) => setRuleOversold(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Overbought">
+                    <input
+                      type="number"
+                      className="h-11 w-24 rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                      value={ruleOverbought}
+                      onChange={(e) => setRuleOverbought(e.target.value)}
+                    />
+                  </Field>
+                </>
+              )}
+              {ruleEntryType === "breakout" && (
+                <Field label="Lookback (bars)">
+                  <input
+                    type="number"
+                    className="h-11 w-24 rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                    value={ruleLookback}
+                    onChange={(e) => setRuleLookback(e.target.value)}
+                  />
+                </Field>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-end gap-3">
+              <Field label="Stop loss">
+                <Select value={ruleSlType} onChange={(e) => setRuleSlType(e.target.value as typeof ruleSlType)} className="h-11 w-36">
+                  <option value="atr">ATR multiple</option>
+                  <option value="fixed_pips">Fixed pips</option>
+                </Select>
+              </Field>
+              <input
+                type="number"
+                step="0.1"
+                className="h-11 w-24 rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                value={ruleSlValue}
+                onChange={(e) => setRuleSlValue(e.target.value)}
+              />
+              <Field label="Take profit">
+                <Select value={ruleTpType} onChange={(e) => setRuleTpType(e.target.value as typeof ruleTpType)} className="h-11 w-36">
+                  <option value="rr_multiple">R:R multiple</option>
+                  <option value="fixed_pips">Fixed pips</option>
+                </Select>
+              </Field>
+              <input
+                type="number"
+                step="0.1"
+                className="h-11 w-24 rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                value={ruleTpValue}
+                onChange={(e) => setRuleTpValue(e.target.value)}
+              />
+              <div className="flex-1" />
+              <Button onClick={submitRule} disabled={addingRule}>
+                {addingRule ? "Saving..." : "Add strategy rule"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card
+        title="Request a Backtest"
+        badge={
+          btRuleId ? (
+            <Badge tone="green">Deterministic</Badge>
+          ) : (
+            <Badge tone="amber">Approximate</Badge>
+          )
+        }
+      >
         <div className="space-y-3">
-          <Alert level="amber" title="Not a rigorous backtest">
-            Strategies here are taught as free text, not executable rules — the Trading Agent
-            walks through a bounded recent window of candles narrating hypothetical trades, it
-            doesn't run a deterministic simulation over years of history. Treat the win rate as a
-            rough, small-sample read, not a statistically reliable number.
-          </Alert>
+          {btRuleId ? (
+            <Alert level="green" title="Real simulation">
+              This strategy is defined as executable rules — the backtest engine walks every
+              candle in the chosen timeframe's TradingView history mechanically and computes a
+              real win rate, R:R, and max drawdown. No LLM judgment involved.
+            </Alert>
+          ) : (
+            <Alert level="amber" title="Not a rigorous backtest">
+              No strategy selected below, so this falls back to the Trading Agent narrating a
+              judgment call over a bounded recent window of candles — not a deterministic
+              simulation over years of history. Define a strategy in Strategy Rules above to get
+              a real backtest instead.
+            </Alert>
+          )}
           <div className="flex flex-wrap gap-3">
             <Field label="Pair">
               <Select value={btPair} onChange={(e) => setBtPair(e.target.value)} className="h-11 w-40">
@@ -340,8 +643,37 @@ function HermesPage() {
                 ))}
               </Select>
             </Field>
+            <Field label="Strategy" hint="Switch which taught strategy to test.">
+              <Select
+                value={btRuleId}
+                onChange={(e) => setBtRuleId(e.target.value)}
+                className="h-11 w-56"
+              >
+                <option value="">Free-form (agent judgment)</option>
+                {rules
+                  .filter((r) => r.active)
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.title}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <Field label="Timeframe">
+              <Select
+                value={btTimeframe}
+                onChange={(e) => setBtTimeframe(e.target.value)}
+                className="h-11 w-28"
+              >
+                {TIMEFRAMES.map((tf) => (
+                  <option key={tf} value={tf}>
+                    {tf}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </div>
-          <Field label="Note" hint="Optional — which strategy/doc, and timeframe, to focus on.">
+          <Field label="Note" hint="Optional — anything specific to focus on.">
             <input
               className="h-11 w-full rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30"
               value={btNote}
@@ -358,21 +690,34 @@ function HermesPage() {
       </Card>
 
       {backtests.length > 0 && (
-        <Card title="Backtest results" badge={<Badge tone="amber">Approximate</Badge>}>
+        <Card title="Backtest results" badge={<Badge tone="neutral">{backtests.length}</Badge>}>
           <div className="space-y-3">
             {backtests.map((b) => (
               <div key={b.id} className="rounded-xl border border-border p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <Badge tone="blue">{b.pair}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge tone="blue">{b.pair}</Badge>
+                    {b.timeframe && <Badge tone="neutral">{b.timeframe}</Badge>}
+                    {b.deterministic ? (
+                      <Badge tone="green">Deterministic</Badge>
+                    ) : (
+                      <Badge tone="amber">Approximate</Badge>
+                    )}
+                  </div>
                   <span className="text-[11px] text-muted-foreground">
                     {new Date(b.created_at).toLocaleString()}
                   </span>
                 </div>
                 <p className="mt-1 text-[12px] text-muted-foreground">{b.period_description}</p>
-                <div className="mt-2 grid grid-cols-3 gap-2">
+                <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
                   <Stat label="Win rate" value={`${Math.round(b.win_rate * 100)}%`} />
                   <Stat label="Trades" value={b.trades_analyzed} />
                   <Stat label="W / L" value={`${b.wins} / ${b.losses}`} />
+                  {b.avg_rr != null && <Stat label="Avg R:R" value={b.avg_rr.toFixed(2)} />}
+                  {b.max_drawdown_pct != null && (
+                    <Stat label="Max drawdown" value={`${b.max_drawdown_pct.toFixed(1)}%`} />
+                  )}
+                  {b.bars_used != null && <Stat label="Bars used" value={b.bars_used} />}
                 </div>
                 <p className="mt-2 text-[13px] text-foreground">{b.narrative}</p>
               </div>

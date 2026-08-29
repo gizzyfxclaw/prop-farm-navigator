@@ -110,6 +110,10 @@ export interface HermesRequest {
   status: "pending" | "fulfilled";
   created_at: string;
   fulfilled_at: string | null;
+  /** Set on a backtest request to run the deterministic engine against this strategy_rules row. */
+  rule_id: string | null;
+  /** Candle interval for a backtest request, e.g. "1h", "4h", "1D". */
+  timeframe: string | null;
 }
 
 export interface HermesBacktest {
@@ -123,6 +127,12 @@ export interface HermesBacktest {
   win_rate: number;
   narrative: string;
   created_at: string;
+  deterministic: number;
+  rule_id: string | null;
+  timeframe: string | null;
+  max_drawdown_pct: number | null;
+  avg_rr: number | null;
+  bars_used: number | null;
 }
 
 export const loadHermesBacktests = createServerFn({ method: "GET" }).handler(
@@ -137,6 +147,92 @@ export const loadHermesBacktests = createServerFn({ method: "GET" }).handler(
     return results;
   },
 );
+
+export interface StrategyRule {
+  id: string;
+  knowledge_doc_id: string | null;
+  title: string;
+  direction: "long" | "short" | "both";
+  entry_type: "sma_cross" | "ema_cross" | "rsi" | "breakout";
+  entry_params: string;
+  sl_type: "atr" | "fixed_pips";
+  sl_value: number;
+  tp_type: "rr_multiple" | "fixed_pips";
+  tp_value: number;
+  default_timeframe: string;
+  active: number;
+  created_at: string;
+}
+
+export const loadStrategyRules = createServerFn({ method: "GET" }).handler(
+  async (): Promise<StrategyRule[]> => {
+    const env = getCFEnv();
+    if (!env) return [];
+    const { results } = await env.DB.prepare(
+      "SELECT * FROM strategy_rules ORDER BY created_at DESC",
+    )
+      .bind()
+      .all<StrategyRule>();
+    return results;
+  },
+);
+
+const strategyRuleInput = z.object({
+  knowledge_doc_id: z.string().optional(),
+  title: z.string().min(1),
+  direction: z.enum(["long", "short", "both"]).default("both"),
+  entry_type: z.enum(["sma_cross", "ema_cross", "rsi", "breakout"]),
+  entry_params: z.record(z.string(), z.number()),
+  sl_type: z.enum(["atr", "fixed_pips"]),
+  sl_value: z.number().positive(),
+  tp_type: z.enum(["rr_multiple", "fixed_pips"]),
+  tp_value: z.number().positive(),
+  default_timeframe: z.string().default("1h"),
+});
+
+export const addStrategyRule = createServerFn({ method: "POST" })
+  .validator(strategyRuleInput)
+  .handler(async ({ data }) => {
+    const env = getCFEnv();
+    if (!env) return;
+    await env.DB.prepare(
+      `INSERT INTO strategy_rules
+       (id, knowledge_doc_id, title, direction, entry_type, entry_params, sl_type, sl_value, tp_type, tp_value, default_timeframe)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        data.knowledge_doc_id ?? null,
+        data.title,
+        data.direction,
+        data.entry_type,
+        JSON.stringify(data.entry_params),
+        data.sl_type,
+        data.sl_value,
+        data.tp_type,
+        data.tp_value,
+        data.default_timeframe,
+      )
+      .run();
+  });
+
+export const deleteStrategyRule = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    const env = getCFEnv();
+    if (!env) return;
+    await env.DB.prepare("DELETE FROM strategy_rules WHERE id = ?").bind(data.id).run();
+  });
+
+export const setStrategyRuleActive = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string(), active: z.boolean() }))
+  .handler(async ({ data }) => {
+    const env = getCFEnv();
+    if (!env) return;
+    await env.DB.prepare("UPDATE strategy_rules SET active = ? WHERE id = ?")
+      .bind(data.active ? 1 : 0, data.id)
+      .run();
+  });
 
 export interface HermesSetup {
   id: string;
@@ -174,6 +270,8 @@ const requestInput = z.object({
   // Capped well under D1's row-size limit — the client resizes/compresses before sending.
   chart_image: z.string().max(1_500_000).optional(),
   request_type: z.enum(["analysis", "backtest"]).default("analysis"),
+  rule_id: z.string().optional(),
+  timeframe: z.string().optional(),
 });
 
 export const addHermesRequest = createServerFn({ method: "POST" })
@@ -182,7 +280,7 @@ export const addHermesRequest = createServerFn({ method: "POST" })
     const env = getCFEnv();
     if (!env) return;
     await env.DB.prepare(
-      "INSERT INTO hermes_requests (id, pair, note, user_analysis, chart_image, request_type) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO hermes_requests (id, pair, note, user_analysis, chart_image, request_type, rule_id, timeframe) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
       .bind(
         crypto.randomUUID(),
@@ -191,6 +289,8 @@ export const addHermesRequest = createServerFn({ method: "POST" })
         data.user_analysis ?? null,
         data.chart_image ?? null,
         data.request_type,
+        data.rule_id ?? null,
+        data.timeframe ?? null,
       )
       .run();
   });
