@@ -1,46 +1,12 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { setCookie } from "@tanstack/react-start/server";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { getCFEnv } from "../lib/cloudflare-env";
-import { signSession } from "../lib/auth";
 import { LogoMark, LogoWordmark } from "../components/brand/logo";
 
-// ── Server action: validate credentials and issue a session cookie ──────────
-const loginFn = createServerFn({ method: "POST" })
-  .validator((d: unknown) => d as { email: string; password: string; next: string })
-  .handler(async ({ data }) => {
-    const env = getCFEnv();
-    const expectedEmail = (env?.AUTH_EMAIL ?? "").toLowerCase();
-    const expectedPassword = env?.AUTH_PASSWORD ?? "";
-    const secret = env?.AUTH_SECRET ?? "";
-
-    if (
-      !secret ||
-      data.email.toLowerCase() !== expectedEmail ||
-      data.password !== expectedPassword
-    ) {
-      return { ok: false as const, error: "Invalid email or password." };
-    }
-
-    const token = await signSession(data.email, secret);
-    setCookie("gfx_session", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7,
-      path: "/",
-    });
-
-    const dest = data.next && data.next.startsWith("/") ? data.next : "/";
-    return { ok: true as const, dest };
-  });
-
 // ── Server action: clear the session (logout) ───────────────────────────────
-export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
-  setCookie("gfx_session", "", { httpOnly: true, secure: true, sameSite: "strict", maxAge: 0, path: "/" });
-  throw redirect({ href: "/login" as string });
-});
+export async function logoutFn() {
+  await fetch("/api/auth/logout", { method: "POST" });
+  window.location.href = "/login";
+}
 
 // ── Route ───────────────────────────────────────────────────────────────────
 export const Route = createFileRoute("/login")({
@@ -64,14 +30,19 @@ function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const result = await loginFn({ data: { email, password, next: next ?? "/" } });
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, next: next ?? "/" }),
+      });
+      const result = await res.json() as { ok: boolean; dest?: string; error?: string };
       if (!result.ok) {
-        setError(result.error);
+        setError(result.error ?? "Invalid email or password.");
         setBusy(false);
         return;
       }
       // Full page reload so the new cookie is sent with the request
-      window.location.href = result.dest;
+      window.location.href = result.dest ?? "/";
     } catch {
       setError("Sign in failed. Please try again.");
       setBusy(false);

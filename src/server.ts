@@ -3,7 +3,7 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { envStorage, type CFEnv } from "./lib/cloudflare-env";
-import { parseSessionToken, verifySession } from "./lib/auth";
+import { parseSessionToken, verifySession, signSession, buildSessionCookie, clearSessionCookie } from "./lib/auth";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -52,12 +52,45 @@ interface RequestWithCloudflareRuntime {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
-    // Nitro's cloudflare-module preset dispatches most requests through a
-    // lazily-imported "ssr" service whose fetch(req) call drops the env/ctx
-    // arguments — env only arrives here via the `runtime.cloudflare.env`
-    // property Nitro attaches to the (shared-by-reference) Request object
-    // upstream. Fall back to the direct param in case that ever changes.
     const cfEnv = (request as unknown as RequestWithCloudflareRuntime).runtime?.cloudflare?.env ?? (env as CFEnv);
+
+    // ── Raw auth endpoints (bypass TanStack Start entirely) ───────────────
+    const url = new URL(request.url);
+
+    if (request.method === "POST" && url.pathname === "/api/auth/login") {
+      try {
+        const { email, password, next } = await request.json() as { email: string; password: string; next: string };
+        const expectedEmail = (cfEnv?.AUTH_EMAIL ?? "").toLowerCase();
+        const expectedPassword = cfEnv?.AUTH_PASSWORD ?? "";
+        const secret = cfEnv?.AUTH_SECRET ?? "";
+        if (!secret || email.toLowerCase() !== expectedEmail || password !== expectedPassword) {
+          return new Response(JSON.stringify({ ok: false, error: "Invalid email or password." }), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        const token = await signSession(email, secret);
+        const dest = next && next.startsWith("/") ? next : "/";
+        return new Response(JSON.stringify({ ok: true, dest }), {
+          headers: {
+            "Content-Type": "application/json",
+            "Set-Cookie": buildSessionCookie(token),
+          },
+        });
+      } catch {
+        return new Response(JSON.stringify({ ok: false, error: "Sign in failed." }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/auth/logout") {
+      return new Response(null, {
+        status: 302,
+        headers: { "Location": `${url.origin}/login`, "Set-Cookie": clearSessionCookie() },
+      });
+    }
+
     // ── Auth gate ─────────────────────────────────────────────────────────
     // Only enforced when AUTH_SECRET is configured; skips /login and static
     // assets so the login page itself is always reachable.
