@@ -74,3 +74,68 @@ export const loadHermesNotes = createServerFn({ method: "GET" }).handler(
     return results;
   },
 );
+
+export interface HermesRequest {
+  id: string;
+  pair: string;
+  note: string | null;
+  status: "pending" | "fulfilled";
+  created_at: string;
+  fulfilled_at: string | null;
+}
+
+export interface HermesSetup {
+  id: string;
+  request_id: string | null;
+  pair: string;
+  direction: "long" | "short";
+  entry: number;
+  sl: number;
+  tp1: number;
+  tp2: number | null;
+  tp3: number | null;
+  rr: number | null;
+  rationale: string | null;
+  created_at: string;
+}
+
+export const loadHermesRequests = createServerFn({ method: "GET" }).handler(
+  async (): Promise<HermesRequest[]> => {
+    const env = getCFEnv();
+    if (!env) return [];
+    const { results } = await env.DB.prepare(
+      "SELECT * FROM hermes_requests ORDER BY created_at DESC LIMIT 50",
+    )
+      .bind()
+      .all<HermesRequest>();
+    return results;
+  },
+);
+
+const requestInput = z.object({
+  pair: z.string().min(1),
+  note: z.string().optional(),
+});
+
+export const addHermesRequest = createServerFn({ method: "POST" })
+  .validator(requestInput)
+  .handler(async ({ data }) => {
+    const env = getCFEnv();
+    if (!env) return;
+    await env.DB.prepare("INSERT INTO hermes_requests (id, pair, note) VALUES (?, ?, ?)")
+      .bind(crypto.randomUUID(), data.pair, data.note ?? null)
+      .run();
+  });
+
+export const loadHermesSetups = createServerFn({ method: "GET" }).handler(
+  async (): Promise<HermesSetup[]> => {
+    const env = getCFEnv();
+    if (!env) return [];
+    const { results } = await env.DB.prepare(
+      "SELECT * FROM hermes_setups ORDER BY created_at DESC LIMIT 50",
+    )
+      .bind()
+      .all<HermesSetup>();
+    return results;
+  },
+);

@@ -5,11 +5,16 @@ import { Badge, Button, Card, Field, Row, Select } from "@/components/terminal/u
 import { TradingViewChart } from "@/components/terminal/tradingview-chart";
 import { PAIRS, PAIR_SPECS } from "@/lib/engine/pairs";
 import {
+  addHermesRequest,
   addKnowledgeDoc,
   deleteKnowledgeDoc,
   loadHermesNotes,
+  loadHermesRequests,
+  loadHermesSetups,
   loadKnowledgeDocs,
   type HermesNote,
+  type HermesRequest,
+  type HermesSetup,
   type KnowledgeDoc,
 } from "@/lib/hermes-db.functions";
 
@@ -34,16 +39,28 @@ const textareaClass =
 function HermesPage() {
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [notes, setNotes] = useState<HermesNote[]>([]);
+  const [requests, setRequests] = useState<HermesRequest[]>([]);
+  const [setups, setSetups] = useState<HermesSetup[]>([]);
   const [chartPair, setChartPair] = useState<string>("EURUSD");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [askPair, setAskPair] = useState<string>("EURUSD");
+  const [askNote, setAskNote] = useState("");
+  const [asking, setAsking] = useState(false);
 
   async function refresh() {
-    const [d, n] = await Promise.all([loadKnowledgeDocs(), loadHermesNotes()]);
+    const [d, n, r, s] = await Promise.all([
+      loadKnowledgeDocs(),
+      loadHermesNotes(),
+      loadHermesRequests(),
+      loadHermesSetups(),
+    ]);
     setDocs(d);
     setNotes(n);
+    setRequests(r);
+    setSetups(s);
     setLoading(false);
   }
 
@@ -67,6 +84,15 @@ function HermesPage() {
 
   async function remove(id: string) {
     await deleteKnowledgeDoc({ data: { id } });
+    refresh();
+  }
+
+  async function ask() {
+    setAsking(true);
+    await addHermesRequest({ data: { pair: askPair, note: askNote.trim() || undefined } });
+    setAsking(false);
+    setAskNote("");
+    toast.success("Sent — the Trading Agent will pick this up on its next check.");
     refresh();
   }
 
@@ -112,6 +138,80 @@ function HermesPage() {
           when it writes an analysis note below.
         </p>
       </section>
+
+      <Card title="Ask the Trading Agent" badge={<Badge tone="blue">Analysis request</Badge>}>
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-3">
+            <Field label="Pair">
+              <Select value={askPair} onChange={(e) => setAskPair(e.target.value)} className="h-11 w-40">
+                {PAIRS.map((p) => (
+                  <option key={p} value={p}>
+                    {PAIR_SPECS[p].label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <Field label="Note" hint="Optional — anything specific you want it to look at.">
+            <input
+              className="h-11 w-full rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30"
+              value={askNote}
+              onChange={(e) => setAskNote(e.target.value)}
+              placeholder="e.g. check for a 4H order block near current price"
+            />
+          </Field>
+          <div className="flex justify-end">
+            <Button onClick={ask} disabled={asking}>
+              {asking ? "Sending..." : "Request analysis"}
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {requests.length > 0 && (
+        <Card title="Requests" badge={<Badge tone="neutral">{requests.length}</Badge>}>
+          <div className="space-y-2">
+            {requests.map((r) => (
+              <div key={r.id} className="flex items-center justify-between gap-3 rounded-xl border border-border p-3">
+                <div className="flex items-center gap-2">
+                  <Badge tone="blue">{r.pair}</Badge>
+                  {r.note && <span className="text-[13px] text-foreground">{r.note}</span>}
+                </div>
+                <Badge tone={r.status === "pending" ? "amber" : "green"}>{r.status}</Badge>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {setups.length > 0 && (
+        <Card title="Trade setups" badge={<Badge tone="green">{setups.length}</Badge>}>
+          <div className="space-y-3">
+            {setups.map((s) => (
+              <div key={s.id} className="rounded-xl border border-border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Badge tone="blue">{s.pair}</Badge>
+                    <Badge tone={s.direction === "long" ? "green" : "red"}>{s.direction.toUpperCase()}</Badge>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">
+                    {new Date(s.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <Row label="Entry" value={s.entry} />
+                  <Row label="SL" value={s.sl} tone="neg" />
+                  <Row label="TP1" value={s.tp1} tone="pos" />
+                  {s.rr != null && <Row label="R:R" value={s.rr} />}
+                  {s.tp2 != null && <Row label="TP2" value={s.tp2} tone="pos" />}
+                  {s.tp3 != null && <Row label="TP3" value={s.tp3} tone="pos" />}
+                </div>
+                {s.rationale && <p className="mt-2 text-[13px] text-foreground">{s.rationale}</p>}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card title="Teach Trading Agent" badge={<Badge tone="blue">Knowledge base</Badge>}>
         <div className="space-y-3">

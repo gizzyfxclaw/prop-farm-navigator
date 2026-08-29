@@ -20,6 +20,8 @@ import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accou
 import { Route as ApiHermesJournalRouteImport } from './routes/api/hermes/journal'
 import { Route as ApiHermesKnowledgeRouteImport } from './routes/api/hermes/knowledge'
 import { Route as ApiHermesNotesRouteImport } from './routes/api/hermes/notes'
+import { Route as ApiHermesRequestsRouteImport } from './routes/api/hermes/requests'
+import { Route as ApiHermesSetupsRouteImport } from './routes/api/hermes/setups'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +78,16 @@ const ApiHermesNotesRoute = ApiHermesNotesRouteImport.update({
   path: '/api/hermes/notes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesRequestsRoute = ApiHermesRequestsRouteImport.update({
+  id: '/api/hermes/requests',
+  path: '/api/hermes/requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHermesSetupsRoute = ApiHermesSetupsRouteImport.update({
+  id: '/api/hermes/setups',
+  path: '/api/hermes/setups',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +101,8 @@ export interface FileRoutesByFullPath {
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
+  '/api/hermes/requests': typeof ApiHermesRequestsRoute
+  '/api/hermes/setups': typeof ApiHermesSetupsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,6 +116,8 @@ export interface FileRoutesByTo {
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
+  '/api/hermes/requests': typeof ApiHermesRequestsRoute
+  '/api/hermes/setups': typeof ApiHermesSetupsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,6 +132,8 @@ export interface FileRoutesById {
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
+  '/api/hermes/requests': typeof ApiHermesRequestsRoute
+  '/api/hermes/setups': typeof ApiHermesSetupsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,6 +149,8 @@ export interface FileRouteTypes {
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
+    | '/api/hermes/requests'
+    | '/api/hermes/setups'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,6 +164,8 @@ export interface FileRouteTypes {
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
+    | '/api/hermes/requests'
+    | '/api/hermes/setups'
   id:
     | '__root__'
     | '/'
@@ -157,6 +179,8 @@ export interface FileRouteTypes {
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
+    | '/api/hermes/requests'
+    | '/api/hermes/setups'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -171,6 +195,8 @@ export interface RootRouteChildren {
   ApiHermesJournalRoute: typeof ApiHermesJournalRoute
   ApiHermesKnowledgeRoute: typeof ApiHermesKnowledgeRoute
   ApiHermesNotesRoute: typeof ApiHermesNotesRoute
+  ApiHermesRequestsRoute: typeof ApiHermesRequestsRoute
+  ApiHermesSetupsRoute: typeof ApiHermesSetupsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -252,6 +278,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHermesNotesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/requests': {
+      id: '/api/hermes/requests'
+      path: '/api/hermes/requests'
+      fullPath: '/api/hermes/requests'
+      preLoaderRoute: typeof ApiHermesRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/setups': {
+      id: '/api/hermes/setups'
+      path: '/api/hermes/setups'
+      fullPath: '/api/hermes/setups'
+      preLoaderRoute: typeof ApiHermesSetupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -267,6 +307,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHermesJournalRoute: ApiHermesJournalRoute,
   ApiHermesKnowledgeRoute: ApiHermesKnowledgeRoute,
   ApiHermesNotesRoute: ApiHermesNotesRoute,
+  ApiHermesRequestsRoute: ApiHermesRequestsRoute,
+  ApiHermesSetupsRoute: ApiHermesSetupsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
