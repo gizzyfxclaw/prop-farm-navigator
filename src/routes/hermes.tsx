@@ -45,7 +45,6 @@ const ENTRY_TYPE_LABEL: Record<StrategyRule["entry_type"], string> = {
   custom: "Custom (Hermes judgment)",
 };
 
-const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
 /** How often to re-poll for the agent's analysis steps while a request is pending. */
 const POLL_INTERVAL_MS = 3000;
 
@@ -449,9 +448,9 @@ function HermesPage() {
             it never places trades.
           </p>
         </div>
-        <a href={HERMES_CONSOLE_URL} target="_blank" rel="noreferrer">
-          <Button variant="ghost">Open Agent Console ↗</Button>
-        </a>
+        <Link to="/console">
+          <Button variant="ghost">Open Agent Console</Button>
+        </Link>
       </div>
 
       {/* Live chart — TradingView for manual work, Analysis view for the agent's drawings */}

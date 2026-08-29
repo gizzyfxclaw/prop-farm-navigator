@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { Alert, Badge, Button, Card, Field, Row, Select, TextInput } from "@/components/terminal/ui";
 import { money, pendingOrderType, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
 import { fetchQuote, placePendingOrder } from "@/lib/metaapi.functions";
+import { marketStatus } from "@/lib/market-hours";
 import { useSelectedAccount, useStore } from "@/lib/store";
 import { useEngine } from "@/lib/useEngine";
 import { useLiveAccounts } from "@/lib/useLiveAccounts";
@@ -37,6 +38,13 @@ function EnginePage() {
   const [live, setLive] = useState<{ price: number; label: string } | null>(null);
   const [status, setStatus] = useState<{ tone: "green" | "red" | "amber"; text: string } | null>(null);
   const [busy, setBusy] = useState<"price" | "trade" | "trade-prop" | null>(null);
+  // Re-evaluated each minute so the countdown and the disabled state stay honest
+  // without the page needing a reload across the Friday close / Sunday open.
+  const [market, setMarket] = useState(() => marketStatus());
+  useEffect(() => {
+    const id = window.setInterval(() => setMarket(marketStatus()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const dec = r.decimals;
   const symbol = engine.pair + meta.exnessSymbolSuffix;
@@ -73,6 +81,10 @@ function EnginePage() {
 
     if (!meta.token || !accountId) {
       toast.error(`Add your MetaApi token and ${legLabel} account ID in Settings first.`);
+      return;
+    }
+    if (!market.open) {
+      toast.error(`Market closed — reopens ${market.changesIn}. The broker would reject this order.`);
       return;
     }
     if (r.verdict.level === "red") {
@@ -410,14 +422,41 @@ function EnginePage() {
         </p>
       </Card>
 
-      <Card title="Automated execution">
+      <Card
+        title="Automated execution"
+        badge={
+          <Badge tone={market.open ? "green" : "amber"}>
+            {market.open ? "Market open" : "Market closed"}
+          </Badge>
+        }
+      >
         <Alert level={r.verdict.level} title={r.verdict.title}>
           {r.verdict.detail}
         </Alert>
+
+        {/* Say up front whether a press will reach the broker at all. */}
+        <div
+          className={`mt-3 rounded-lg border p-3 text-[12px] ${
+            market.open
+              ? "border-success/30 bg-success/5 text-foreground/80"
+              : "border-warning/40 bg-warning/10 text-foreground/80"
+          }`}
+        >
+          <p>
+            <span className={market.open ? "font-semibold text-success" : "font-semibold text-warning"}>
+              {market.open ? "Trades will execute." : "Trades will not execute."}
+            </span>{" "}
+            {market.detail}
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            {market.open ? "Market closes" : "Market reopens"} {market.changesIn} —{" "}
+            {market.changesAt.toUTCString().slice(0, 22)} UTC.
+          </p>
+        </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <Button
             onClick={() => void onExecute("exness")}
-            disabled={busy !== null || r.verdict.level === "red"}
+            disabled={busy !== null || r.verdict.level === "red" || !market.open}
           >
             {busy === "trade"
               ? "Placing…"
@@ -426,7 +465,7 @@ function EnginePage() {
           <Button
             variant="ghost"
             onClick={() => void onExecute("prop")}
-            disabled={busy !== null || r.verdict.level === "red" || !meta.propAccountId}
+            disabled={busy !== null || r.verdict.level === "red" || !market.open || !meta.propAccountId}
             title={
               meta.propAccountId
                 ? "Place the prop leg of the hedge"

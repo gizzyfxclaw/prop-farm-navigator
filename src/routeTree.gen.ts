@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsRouteImport } from './routes/accounts'
+import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as HermesRouteImport } from './routes/hermes'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as LiveRouteImport } from './routes/live'
@@ -37,6 +38,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccountsRoute = AccountsRouteImport.update({
   id: '/accounts',
   path: '/accounts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConsoleRoute = ConsoleRouteImport.update({
+  id: '/console',
+  path: '/console',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HermesRoute = HermesRouteImport.update({
@@ -128,6 +134,7 @@ const ApiHermesUnderstandingRoute = ApiHermesUnderstandingRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
@@ -171,6 +179,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accounts'
+    | '/console'
     | '/hermes'
     | '/journal'
     | '/live'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accounts'
+    | '/console'
     | '/hermes'
     | '/journal'
     | '/live'
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accounts'
+    | '/console'
     | '/hermes'
     | '/journal'
     | '/live'
@@ -258,6 +270,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountsRoute: typeof AccountsRoute
+  ConsoleRoute: typeof ConsoleRoute
   HermesRoute: typeof HermesRoute
   JournalRoute: typeof JournalRoute
   LiveRoute: typeof LiveRoute
@@ -291,6 +304,13 @@ declare module '@tanstack/react-router' {
       path: '/accounts'
       fullPath: '/accounts'
       preLoaderRoute: typeof AccountsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/console': {
+      id: '/console'
+      path: '/console'
+      fullPath: '/console'
+      preLoaderRoute: typeof ConsoleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hermes': {
@@ -418,6 +438,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountsRoute: AccountsRoute,
+  ConsoleRoute: ConsoleRoute,
   HermesRoute: HermesRoute,
   JournalRoute: JournalRoute,
   LiveRoute: LiveRoute,
