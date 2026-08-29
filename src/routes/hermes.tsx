@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, Field, Row, Select } from "@/components/terminal/ui";
-import { TradingViewChart } from "@/components/terminal/tradingview-chart";
+import { LWChart, type Drawing, type OHLCBar } from "@/components/terminal/lwchart";
 import { PAIRS, PAIR_SPECS } from "@/lib/engine/pairs";
 import {
   addKnowledgeDoc,
@@ -10,13 +10,16 @@ import {
   loadHermesNotes,
   loadKnowledgeDocs,
   loadAnalysisRequests,
+  loadAnalysisSteps,
   requestAnalysis,
+  type AnalysisRequest,
+  type AnalysisStep,
   type HermesNote,
   type KnowledgeDoc,
-  type AnalysisRequest,
 } from "@/lib/hermes-db.functions";
 
 const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
+const POLL_INTERVAL_MS = 3000;
 
 export const Route = createFileRoute("/hermes")({
   head: () => ({
@@ -32,23 +35,60 @@ export const Route = createFileRoute("/hermes")({
 });
 
 const textareaClass =
-  "w-full min-h-[160px] rounded-xl border border-border bg-input px-3 py-2 font-mono text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30";
+  "w-full min-h-[80px] rounded-xl border border-border bg-input px-3 py-2 font-mono text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30";
+
+/** Merge drawings from all steps (later steps can add more drawings). */
+function mergeDrawings(steps: AnalysisStep[]): Drawing[] {
+  const all: Drawing[] = [];
+  for (const s of steps) {
+    try {
+      const arr = JSON.parse(s.drawings) as Drawing[];
+      all.push(...arr);
+    } catch {
+      // ignore malformed JSON
+    }
+  }
+  return all;
+}
 
 function HermesPage() {
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [notes, setNotes] = useState<HermesNote[]>([]);
   const [requests, setRequests] = useState<AnalysisRequest[]>([]);
+  const [steps, setSteps] = useState<AnalysisStep[]>([]);
+
+  // Chart
   const [chartPair, setChartPair] = useState<string>("EURUSD");
+  const [bars, setBars] = useState<OHLCBar[]>([]);
+  const [barsLoading, setBarsLoading] = useState(false);
+  const [drawings, setDrawings] = useState<Drawing[]>([]);
+
+  // Teach KB
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+
+  // Request analysis
   const [reqPair, setReqPair] = useState<string>("EURUSD");
   const [reqNote, setReqNote] = useState("");
+
+  // Busy states
   const [busy, setBusy] = useState(false);
   const [reqBusy, setReqBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Polling
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ---------- data loading ----------
+
   async function refresh() {
-    const [d, n, r] = await Promise.all([loadKnowledgeDocs(), loadHermesNotes(), loadAnalysisRequests()]);
+    const [d, n, r] = await Promise.all([
+      loadKnowledgeDocs(),
+      loadHermesNotes(),
+      loadAnalysisRequests(),
+    ]);
     setDocs(d);
     setNotes(n);
     setRequests(r);
@@ -58,6 +98,58 @@ function HermesPage() {
   useEffect(() => {
     refresh();
   }, []);
+
+  // Fetch OHLCV bars whenever pair changes
+  useEffect(() => {
+    let cancelled = false;
+    setBarsLoading(true);
+    setBars([]);
+    fetch(`/api/ohlcv?pair=${chartPair}&interval=1h`)
+      .then((r) => r.json())
+      .then((data: { bars?: OHLCBar[] }) => {
+        if (!cancelled) setBars(data.bars ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Could not load chart data.");
+      })
+      .finally(() => {
+        if (!cancelled) setBarsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chartPair]);
+
+  // ---------- analysis polling ----------
+
+  async function pollSteps(requestId: string) {
+    const fresh = await loadAnalysisSteps({ data: { requestId } });
+    setSteps(fresh);
+    setDrawings(mergeDrawings(fresh));
+
+    // Check if request is now fulfilled
+    const freshRequests = await loadAnalysisRequests();
+    setRequests(freshRequests);
+    const req = freshRequests.find((r) => r.id === requestId);
+
+    if (req && req.status === "pending") {
+      pollTimerRef.current = setTimeout(() => pollSteps(requestId), POLL_INTERVAL_MS);
+    } else {
+      setAnalyzing(false);
+      if (req?.status === "fulfilled") {
+        toast.success("Analysis complete — drawings are live on the chart.");
+        refresh();
+      }
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, []);
+
+  // ---------- actions ----------
 
   async function submit() {
     if (!title.trim() || !content.trim()) {
@@ -81,23 +173,48 @@ function HermesPage() {
   async function submitRequest() {
     setReqBusy(true);
     await requestAnalysis({ data: { pair: reqPair, note: reqNote.trim() || undefined } });
+
+    // Load the just-created request to get its id
+    const freshRequests = await loadAnalysisRequests();
+    setRequests(freshRequests);
+    const newest = freshRequests[0];
+
     setReqBusy(false);
     setReqNote("");
-    toast.success(`Analysis request for ${reqPair} queued — the Trading Agent will pick it up shortly.`);
-    refresh();
+
+    if (newest) {
+      setActiveRequestId(newest.id);
+      setSteps([]);
+      setDrawings([]);
+      setAnalyzing(true);
+      setChartPair(reqPair); // switch chart to requested pair
+      toast.success(
+        `Analysis request for ${reqPair} sent — watch the chart as the agent works.`,
+      );
+      // Start polling
+      pollTimerRef.current = setTimeout(() => pollSteps(newest.id), POLL_INTERVAL_MS);
+    }
   }
+
+  const activeRequest = requests.find((r) => r.id === activeRequestId);
+  const latestStepLabel = steps.length ? steps[steps.length - 1].step_label : null;
+  const latestSummary = steps.find((s) => s.summary)?.summary ?? null;
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link to="/" className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground mb-1">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground mb-1"
+          >
             ← Engine
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Trading Agent</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Strategy material you teach it, and its market analysis log. The agent reads from here —
-            it never places trades.
+            Strategy material you teach it, and its market analysis log. The agent reads from here
+            — it never places trades.
           </p>
         </div>
         <a href={HERMES_CONSOLE_URL} target="_blank" rel="noreferrer">
@@ -105,15 +222,27 @@ function HermesPage() {
         </a>
       </div>
 
-      {/* Live chart — full-bleed inside card, tall on all screens */}
+      {/* Live chart */}
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
+        {/* Chart header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <span className="text-[13px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-            Live Chart
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-[13px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+              Live Chart
+            </span>
+            {analyzing && (
+              <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+                <span className="block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                {latestStepLabel ?? "Analysing…"}
+              </span>
+            )}
+          </div>
           <Select
             value={chartPair}
-            onChange={(e) => setChartPair(e.target.value)}
+            onChange={(e) => {
+              setChartPair(e.target.value);
+              setDrawings([]); // clear drawings on pair switch
+            }}
             className="h-9 w-36"
           >
             {PAIRS.map((p) => (
@@ -123,60 +252,124 @@ function HermesPage() {
             ))}
           </Select>
         </div>
-        {/* Chart fills viewport height minus header/nav/padding on mobile */}
+
+        {/* Chart fills remaining viewport height */}
         <div className="h-[calc(100svh-220px)] min-h-[360px] max-h-[680px]">
-          <TradingViewChart pair={chartPair} height="100%" />
+          <LWChart bars={bars} drawings={drawings} height="100%" loading={barsLoading} />
         </div>
+
+        {/* Analysis step log — shows live as agent works */}
+        {steps.length > 0 && (
+          <div className="border-t border-border px-5 py-3 space-y-1.5 max-h-40 overflow-y-auto">
+            {steps.map((s, i) => (
+              <div key={s.id} className="flex items-start gap-2 text-[12px]">
+                <span className="mt-0.5 shrink-0 rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  {i + 1}
+                </span>
+                <span className="text-foreground">{s.step_label ?? "Step"}</span>
+                {s.summary && (
+                  <span className="text-muted-foreground">— {s.summary}</span>
+                )}
+                {(() => {
+                  try {
+                    const arr = JSON.parse(s.drawings) as Drawing[];
+                    return arr.length ? (
+                      <Badge tone="blue" className="ml-auto shrink-0">
+                        {arr.length} drawing{arr.length > 1 ? "s" : ""}
+                      </Badge>
+                    ) : null;
+                  } catch {
+                    return null;
+                  }
+                })()}
+              </div>
+            ))}
+          </div>
+        )}
+
         <p className="px-5 py-3 text-[12px] text-muted-foreground border-t border-border">
-          Full drawing toolbar — mark up levels directly here. Same data the Trading Agent pulls
-          when it writes an analysis note below.
+          {drawings.length > 0
+            ? `${drawings.length} drawing${drawings.length > 1 ? "s" : ""} from agent analysis are shown on this chart.`
+            : "Request an analysis below — the agent's drawings will appear on this chart in real time."}
         </p>
       </section>
 
       {/* Request Analysis */}
-      <Card title="Request Analysis" badge={<Badge tone="green">Ask the agent</Badge>}>
+      <Card
+        title="Request Analysis"
+        badge={
+          <Badge tone={analyzing ? "green" : "blue"}>
+            {analyzing ? "Analysing…" : "Ask the agent"}
+          </Badge>
+        }
+      >
         <p className="mb-3 text-[13px] text-muted-foreground">
-          Pick a pair and optionally add a note. The Trading Agent will pick up your request, analyse
-          the chart, and post a note to the log below.
+          Pick a pair and optionally add a focus note. The Trading Agent will analyse the chart
+          using your strategy material and draw its findings live above.
         </p>
         <div className="space-y-3">
           <Field label="Pair">
-            <Select value={reqPair} onChange={(e) => setReqPair(e.target.value)} className="h-11 w-full">
+            <Select
+              value={reqPair}
+              onChange={(e) => setReqPair(e.target.value)}
+              className="h-11 w-full"
+            >
               {PAIRS.map((p) => (
-                <option key={p} value={p}>{PAIR_SPECS[p].label}</option>
+                <option key={p} value={p}>
+                  {PAIR_SPECS[p].label}
+                </option>
               ))}
             </Select>
           </Field>
-          <Field label="Instruction (optional)" hint="e.g. 'Check for order blocks on H4' or leave blank.">
+          <Field
+            label="Instruction (optional)"
+            hint="e.g. 'Check for order blocks on H4' or leave blank."
+          >
             <textarea
               className={textareaClass}
-              style={{ minHeight: "80px" }}
               value={reqNote}
               onChange={(e) => setReqNote(e.target.value)}
               placeholder="Any specific focus for the analysis..."
             />
           </Field>
           <div className="flex justify-end">
-            <Button onClick={submitRequest} disabled={reqBusy}>
-              {reqBusy ? "Sending..." : "Request Analysis"}
+            <Button onClick={submitRequest} disabled={reqBusy || analyzing}>
+              {reqBusy ? "Sending…" : analyzing ? "Analysing…" : "Request Analysis"}
             </Button>
           </div>
         </div>
+
+        {/* Recent requests mini-log */}
         {requests.length > 0 && (
           <div className="mt-4 border-t border-border pt-4 space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Recent requests</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Recent requests
+            </p>
             {requests.slice(0, 5).map((r) => (
               <div key={r.id} className="flex items-center gap-3 text-[12px]">
                 <Badge tone={r.status === "pending" ? "blue" : "neutral"}>{r.status}</Badge>
                 <span className="font-mono font-medium text-foreground">{r.pair}</span>
-                {r.note && <span className="text-muted-foreground truncate max-w-[200px]">{r.note}</span>}
-                <span className="ml-auto text-muted-foreground">{new Date(r.created_at).toLocaleString()}</span>
+                {r.note && (
+                  <span className="text-muted-foreground truncate max-w-[220px]">{r.note}</span>
+                )}
+                <span className="ml-auto text-muted-foreground shrink-0">
+                  {new Date(r.created_at).toLocaleString()}
+                </span>
               </div>
             ))}
           </div>
         )}
+
+        {/* Show latest summary if available */}
+        {latestSummary && (
+          <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
+            <p className="text-[12px] font-semibold text-primary mb-1">Agent summary</p>
+            <p className="text-[13px] text-foreground">{latestSummary}</p>
+          </div>
+        )}
       </Card>
 
+      {/* Teach KB */}
       <Card title="Teach Trading Agent" badge={<Badge tone="blue">Knowledge base</Badge>}>
         <div className="space-y-3">
           <Field label="Title">
@@ -187,9 +380,12 @@ function HermesPage() {
               placeholder="e.g. Order Blocks — Chapter 4"
             />
           </Field>
-          <Field label="Content" hint="Paste the text (from a PDF, notes, a strategy writeup, anything).">
+          <Field
+            label="Content"
+            hint="Paste the text (from a PDF, notes, a strategy writeup, anything)."
+          >
             <textarea
-              className={textareaClass}
+              className={`${textareaClass} min-h-[160px]`}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Paste strategy text here..."
@@ -203,6 +399,7 @@ function HermesPage() {
         </div>
       </Card>
 
+      {/* Knowledge base list */}
       <Card title="Knowledge base" badge={<Badge tone="neutral">{docs.length} docs</Badge>}>
         {loading ? (
           <p className="text-[13px] text-muted-foreground">Loading...</p>
@@ -215,9 +412,15 @@ function HermesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-foreground">{d.title}</p>
-                    <p className="mt-1 text-[12px] text-muted-foreground line-clamp-2">{d.content}</p>
+                    <p className="mt-1 text-[12px] text-muted-foreground line-clamp-2">
+                      {d.content}
+                    </p>
                   </div>
-                  <Button variant="ghost" className="h-8 px-2 text-[11px]" onClick={() => remove(d.id)}>
+                  <Button
+                    variant="ghost"
+                    className="h-8 px-2 text-[11px]"
+                    onClick={() => remove(d.id)}
+                  >
                     Remove
                   </Button>
                 </div>
@@ -228,12 +431,13 @@ function HermesPage() {
         )}
       </Card>
 
+      {/* Agent analysis log */}
       <Card title="Agent analysis log" badge={<Badge tone="green">{notes.length} notes</Badge>}>
         {loading ? (
           <p className="text-[13px] text-muted-foreground">Loading...</p>
         ) : notes.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">
-            No analysis yet — the Trading Agent writes here after reviewing charts via tvremix.
+            No analysis yet — the Trading Agent writes here after reviewing charts.
           </p>
         ) : (
           <div className="space-y-3">

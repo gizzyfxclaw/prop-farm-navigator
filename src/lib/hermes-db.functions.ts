@@ -113,3 +113,27 @@ export const loadAnalysisRequests = createServerFn({ method: "GET" }).handler(
     return results;
   },
 );
+
+export interface AnalysisStep {
+  id: string;
+  request_id: string;
+  pair: string;
+  step: number;
+  step_label: string | null;
+  drawings: string; // JSON string
+  summary: string | null;
+  created_at: string;
+}
+
+export const loadAnalysisSteps = createServerFn({ method: "GET" })
+  .validator(z.object({ requestId: z.string() }))
+  .handler(async ({ data }): Promise<AnalysisStep[]> => {
+    const env = getCFEnv();
+    if (!env) return [];
+    const { results } = await env.DB.prepare(
+      "SELECT * FROM hermes_analysis WHERE request_id = ? ORDER BY step ASC",
+    )
+      .bind(data.requestId)
+      .all<AnalysisStep>();
+    return results;
+  });
