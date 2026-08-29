@@ -1,0 +1,8 @@
+[Unit]
+Description=Sync hermes-webui/ from GitHub to /opt/hermes-webui
+
+[Service]
+Type=oneshot
+ExecStart=/home/ubuntu/hermes-webui-sync/deploy.sh
+StandardOutput=journal
+StandardError=journal

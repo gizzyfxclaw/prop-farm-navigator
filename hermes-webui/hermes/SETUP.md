@@ -32,6 +32,7 @@ redeploys the Cloudflare Worker.
 | The gizzyfx MCP server block in `~/.hermes/config.yaml` | ❌ manual, once per VPS (`setup.sh`) |
 | The `.env` additions in `/opt/hermes-webui/.env` | ❌ manual, once per VPS |
 | Restarting `hermes-webui.service` after a code change | ✅ done by the sync's deploy.sh, but only when it detected a change — restart manually after running `setup.sh` or editing `.env` yourself |
+| Console iframe-embedding patch (`api/helpers.py`) surviving a sync | ✅ `deploy.sh` reapplies it after every sync — but only once you've run it manually the first time (step 6) |
 
 ## Fresh VPS, step by step
 
@@ -55,47 +56,37 @@ git — it only ever belongs in `~/.hermes/config.yaml` on the VPS.
 ### 3. Install `hermes-webui-sync` on the new VPS
 This is what keeps `/opt/hermes-webui` (a pre-existing hermes-webui install —
 setting *that* up is outside this doc's scope) up to date with this repo's
-`hermes-webui/` folder.
+`hermes-webui/` folder. The real, working script and systemd units are
+checked into this repo at [`ops/hermes-webui-sync/`](../../ops/hermes-webui-sync/)
+— copy them straight across:
 ```bash
 mkdir -p ~/hermes-webui-sync
-cp <this repo>/hermes-webui-sync-deploy.sh ~/hermes-webui-sync/deploy.sh  # see note below
+cp <this repo>/ops/hermes-webui-sync/deploy.sh ~/hermes-webui-sync/deploy.sh
 chmod +x ~/hermes-webui-sync/deploy.sh
 echo "<a GitHub PAT with read access to this repo>" > ~/hermes-webui-sync/token
 chmod 600 ~/hermes-webui-sync/token
-```
-> Note: `deploy.sh` itself isn't currently checked into this repo (it's
-> VPS-only tooling) — copy it from an existing VPS, or recreate it from the
-> description above: it does a sparse `git clone --filter=blob:none --sparse`
-> of just `hermes-webui/`, diffs `OLD_SHA..NEW_SHA` for that path, and if
-> changed, checks it out and `rsync -a --exclude='VENDORED.md'`s it into
-> `/opt/hermes-webui/`, then `systemctl --user restart hermes-webui.service`.
 
-Then install the timer that runs it every 5 minutes:
-```bash
 mkdir -p ~/.config/systemd/user
-cat > ~/.config/systemd/user/hermes-webui-sync.service <<'EOF'
-[Unit]
-Description=Sync hermes-webui/ from GitHub to /opt/hermes-webui
-[Service]
-Type=oneshot
-ExecStart=/home/ubuntu/hermes-webui-sync/deploy.sh
-StandardOutput=journal
-StandardError=journal
-EOF
-cat > ~/.config/systemd/user/hermes-webui-sync.timer <<'EOF'
-[Unit]
-Description=Poll for hermes-webui/ changes on GitHub every 5 minutes
-[Timer]
-OnBootSec=1min
-OnUnitActiveSec=5min
-Persistent=true
-[Install]
-WantedBy=timers.target
-EOF
+cp <this repo>/ops/hermes-webui-sync/hermes-webui-sync.service ~/.config/systemd/user/
+cp <this repo>/ops/hermes-webui-sync/hermes-webui-sync.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now hermes-webui-sync.timer
 systemctl --user start hermes-webui-sync.service   # run it once immediately
 ```
+`deploy.sh` does a sparse `git clone --filter=blob:none --sparse` of just
+`hermes-webui/`, diffs `OLD_SHA..NEW_SHA` for that path, and if changed,
+checks it out and `rsync -a --exclude='VENDORED.md'`s it into
+`/opt/hermes-webui/`, then reapplies the console iframe-embedding patch
+(step 6 below) — which also restarts `hermes-webui.service`.
+
+> **Gotcha:** the iframe-embedding patch (step 6) lives only in the live
+> `/opt/hermes-webui/api/helpers.py` file, not in git — every rsync from a
+> pristine upstream `hermes-webui/api/` overwrites it back to
+> `frame-ancestors 'none'`, silently breaking the embedded console in the
+> GizzyFx app's Console tab. `deploy.sh` now reapplies the patch after every
+> sync automatically (fixed 2026-08-29) so this shouldn't recur — but if the
+> console ever "was working, now isn't" right after a deploy, this is the
+> first thing to check: re-run step 6 below.
 
 ### 4. Wire the MCP server
 Once the sync has run at least once (`ls /opt/hermes-webui/hermes/` should
@@ -115,7 +106,21 @@ HERMES_WEBUI_PREFILL_MESSAGES_SCRIPT=/opt/hermes-webui/hermes/prefill.sh
 HERMES_WEBUI_CSP_CONNECT_EXTRA=https://gizzyfxstrategy.dpdns.org
 ```
 
-### 6. Restart and verify
+### 6. Allow the embedded console to load
+The console ships with `frame-ancestors 'none'` + `X-Frame-Options: DENY` by
+design (framing it is a real clickjacking risk otherwise). To let the
+GizzyFx app's Console tab embed it:
+```bash
+bash /opt/hermes-webui/hermes/webui-extension/allow-embedding.sh
+```
+This patches the live `/opt/hermes-webui/api/helpers.py` (backs it up first)
+to allow exactly `https://gizzyfxstrategy.dpdns.org` and restarts the
+service. `deploy.sh` reapplies this automatically after every sync (see the
+gotcha in step 3) — you should only need to run it by hand the first time,
+or if you ever see the Console tab show "Console refused to embed."
+Revert with `... allow-embedding.sh --revert`.
+
+### 7. Restart and verify
 ```bash
 systemctl --user restart hermes-webui.service
 ```
