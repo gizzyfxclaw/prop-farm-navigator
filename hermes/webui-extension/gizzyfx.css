@@ -80,7 +80,7 @@
 #gizzyfx-nav {
   position: fixed;
   right: 14px;
-  bottom: 14px;
+  top: 14px;
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -143,11 +143,11 @@
   flex-shrink: 0;
 }
 
-/* Collapse to icon-only on narrow screens so it never covers the composer. */
+/* Collapse to icon-only on narrow screens. */
 @media (max-width: 640px) {
   #gizzyfx-nav {
     right: 10px;
-    bottom: 76px;
+    top: 10px;
   }
   .gizzyfx-nav-link:not(.gizzyfx-nav-primary) {
     display: none;
