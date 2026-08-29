@@ -12,6 +12,10 @@ const noteInput = z.object({
   pair: z.string().optional(),
   summary: z.string().min(1),
   details: z.unknown().optional(),
+  /** Links this note back to the request it's answering, when applicable. */
+  request_id: z.string().optional(),
+  /** Verdict on the human's own submitted analysis, when the request included one. */
+  verdict: z.enum(["match", "diverge", "partial"]).optional(),
 });
 
 export const Route = createFileRoute("/api/hermes/notes")({
@@ -47,9 +51,16 @@ export const Route = createFileRoute("/api/hermes/notes")({
         const id = crypto.randomUUID();
 
         await env.DB.prepare(
-          "INSERT INTO hermes_notes (id, pair, summary, details) VALUES (?, ?, ?, ?)",
+          "INSERT INTO hermes_notes (id, pair, summary, details, request_id, verdict) VALUES (?, ?, ?, ?, ?, ?)",
         )
-          .bind(id, body.pair ?? null, body.summary, body.details != null ? JSON.stringify(body.details) : null)
+          .bind(
+            id,
+            body.pair ?? null,
+            body.summary,
+            body.details != null ? JSON.stringify(body.details) : null,
+            body.request_id ?? null,
+            body.verdict ?? null,
+          )
           .run();
 
         return Response.json({ id }, { status: 201 });

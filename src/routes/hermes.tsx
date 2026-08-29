@@ -52,6 +52,7 @@ function HermesPage() {
   const [loading, setLoading] = useState(true);
   const [askPair, setAskPair] = useState<string>("EURUSD");
   const [askNote, setAskNote] = useState("");
+  const [askAnalysis, setAskAnalysis] = useState("");
   const [asking, setAsking] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [lastTaughtTitle, setLastTaughtTitle] = useState<string | null>(null);
@@ -129,12 +130,30 @@ function HermesPage() {
 
   async function ask() {
     setAsking(true);
-    await addHermesRequest({ data: { pair: askPair, note: askNote.trim() || undefined } });
+    await addHermesRequest({
+      data: {
+        pair: askPair,
+        note: askNote.trim() || undefined,
+        user_analysis: askAnalysis.trim() || undefined,
+      },
+    });
     setAsking(false);
     setAskNote("");
+    setAskAnalysis("");
     toast.success("Sent — the Trading Agent will pick this up on its next check.");
     refresh();
   }
+
+  const verdictTone: Record<string, "green" | "red" | "amber"> = {
+    match: "green",
+    diverge: "red",
+    partial: "amber",
+  };
+  const verdictLabel: Record<string, string> = {
+    match: "Matches strategy",
+    diverge: "Diverges from strategy",
+    partial: "Partially matches",
+  };
 
   return (
     <div className="space-y-6">
@@ -200,6 +219,18 @@ function HermesPage() {
               placeholder="e.g. check for a 4H order block near current price"
             />
           </Field>
+          <Field
+            label="Your analysis"
+            hint="Optional — what you think is happening. The agent checks it against the taught strategy and tells you if it agrees."
+          >
+            <textarea
+              className={textareaClass}
+              style={{ minHeight: 100 }}
+              value={askAnalysis}
+              onChange={(e) => setAskAnalysis(e.target.value)}
+              placeholder="e.g. I think price is forming a double top at 1.0920, expecting a reversal down to the 1.0850 order block..."
+            />
+          </Field>
           <div className="flex justify-end">
             <Button onClick={ask} disabled={asking}>
               {asking ? "Sending..." : "Request analysis"}
@@ -210,16 +241,45 @@ function HermesPage() {
 
       {requests.length > 0 && (
         <Card title="Requests" badge={<Badge tone="neutral">{requests.length}</Badge>}>
-          <div className="space-y-2">
-            {requests.map((r) => (
-              <div key={r.id} className="flex items-center justify-between gap-3 rounded-xl border border-border p-3">
-                <div className="flex items-center gap-2">
-                  <Badge tone="blue">{r.pair}</Badge>
-                  {r.note && <span className="text-[13px] text-foreground">{r.note}</span>}
+          <div className="space-y-3">
+            {requests.map((r) => {
+              const replies = notes.filter((n) => n.request_id === r.id);
+              return (
+                <div key={r.id} className="rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Badge tone="blue">{r.pair}</Badge>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(r.created_at).toLocaleString()}
+                      </span>
+                      <Badge tone={r.status === "pending" ? "amber" : "green"}>{r.status}</Badge>
+                    </div>
+                  </div>
+                  {r.note && <p className="mt-2 text-[13px] text-foreground">{r.note}</p>}
+                  {r.user_analysis && (
+                    <div className="mt-2 rounded-lg bg-muted/50 p-2.5">
+                      <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                        Your analysis
+                      </p>
+                      <p className="mt-1 text-[13px] text-foreground">{r.user_analysis}</p>
+                    </div>
+                  )}
+                  {replies.map((n) => (
+                    <div key={n.id} className="mt-2 border-l-2 border-primary/40 pl-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                          Trading Agent
+                        </span>
+                        {n.verdict && (
+                          <Badge tone={verdictTone[n.verdict]}>{verdictLabel[n.verdict]}</Badge>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[13px] text-foreground">{n.summary}</p>
+                    </div>
+                  ))}
                 </div>
-                <Badge tone={r.status === "pending" ? "amber" : "green"}>{r.status}</Badge>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}
@@ -363,16 +423,21 @@ function HermesPage() {
         )}
       </Card>
 
-      <Card title="Agent analysis log" badge={<Badge tone="green">{notes.length} notes</Badge>}>
+      <Card
+        title="Agent analysis log"
+        badge={<Badge tone="green">{notes.filter((n) => !n.request_id).length} notes</Badge>}
+      >
         {loading ? (
           <p className="text-[13px] text-muted-foreground">Loading...</p>
-        ) : notes.length === 0 ? (
+        ) : notes.filter((n) => !n.request_id).length === 0 ? (
           <p className="text-[13px] text-muted-foreground">
-            No analysis yet — the Trading Agent writes here after reviewing charts via tvremix.
+            No ambient analysis yet — replies to your requests appear threaded above instead.
           </p>
         ) : (
           <div className="space-y-3">
-            {notes.map((n) => (
+            {notes
+              .filter((n) => !n.request_id)
+              .map((n) => (
               <div key={n.id} className="rounded-xl border border-border p-3">
                 <div className="flex items-center justify-between gap-3">
                   {n.pair && <Badge tone="blue">{n.pair}</Badge>}

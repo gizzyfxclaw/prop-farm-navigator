@@ -21,6 +21,8 @@ export interface HermesNote {
   pair: string | null;
   summary: string;
   details: string | null;
+  request_id: string | null;
+  verdict: "match" | "diverge" | "partial" | null;
   created_at: string;
 }
 
@@ -100,6 +102,8 @@ export interface HermesRequest {
   id: string;
   pair: string;
   note: string | null;
+  /** The human's own read on the market, for the agent to check against the taught strategy. */
+  user_analysis: string | null;
   status: "pending" | "fulfilled";
   created_at: string;
   fulfilled_at: string | null;
@@ -137,6 +141,7 @@ export const loadHermesRequests = createServerFn({ method: "GET" }).handler(
 const requestInput = z.object({
   pair: z.string().min(1),
   note: z.string().optional(),
+  user_analysis: z.string().optional(),
 });
 
 export const addHermesRequest = createServerFn({ method: "POST" })
@@ -144,8 +149,10 @@ export const addHermesRequest = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const env = getCFEnv();
     if (!env) return;
-    await env.DB.prepare("INSERT INTO hermes_requests (id, pair, note) VALUES (?, ?, ?)")
-      .bind(crypto.randomUUID(), data.pair, data.note ?? null)
+    await env.DB.prepare(
+      "INSERT INTO hermes_requests (id, pair, note, user_analysis) VALUES (?, ?, ?, ?)",
+    )
+      .bind(crypto.randomUUID(), data.pair, data.note ?? null, data.user_analysis ?? null)
       .run();
   });
 

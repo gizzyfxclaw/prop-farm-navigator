@@ -41,7 +41,28 @@ TOOLS = [
     Tool(name="get_ohlcv_data", description="Fetch OHLCV candlestick data for a forex pair.", inputSchema={"type":"object","properties":{"pair":{"type":"string","description":"e.g. EURUSD"},"interval":{"type":"string","enum":["1h","1d"],"default":"1h"}},"required":["pair"]}),
     Tool(name="post_analysis_step", description="Post one analysis step with chart drawings. User sees drawings appear live. Call multiple times as you progress (step 0,1,2...). Drawing types: hline, trendline, zone, marker.", inputSchema={"type":"object","properties":{"request_id":{"type":"string"},"pair":{"type":"string"},"step":{"type":"integer"},"step_label":{"type":"string","description":"Short label shown live e.g. 'Identifying swing highs'"},"drawings":{"type":"array","items":{"type":"object"},"description":"Array of drawing objects. hline:{type,price,label,color,style}. trendline:{type,p1time,p1price,p2time,p2price,label,color}. zone:{type,topPrice,bottomPrice,label,color}. marker:{type,time,position,label,color,markerType}"},"summary":{"type":"string"}},"required":["request_id","pair","step","step_label"]}),
     Tool(name="mark_request_fulfilled", description="Mark a request done after posting all steps.", inputSchema={"type":"object","properties":{"request_id":{"type":"string"}},"required":["request_id"]}),
-    Tool(name="post_analysis_note", description="Write a summary note to the Trading Agent log on the website.", inputSchema={"type":"object","properties":{"pair":{"type":"string"},"summary":{"type":"string"}},"required":["pair","summary"]}),
+    Tool(
+        name="post_analysis_note",
+        description=(
+            "Write a summary note to the Trading Agent log. If replying to a request that "
+            "included the user's own analysis, pass request_id and verdict so it threads under "
+            "their request on the site instead of appearing as a separate ambient note."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "pair": {"type": "string"},
+                "summary": {"type": "string"},
+                "request_id": {"type": "string", "description": "Set when replying to a specific request"},
+                "verdict": {
+                    "type": "string",
+                    "enum": ["match", "diverge", "partial"],
+                    "description": "Only when the request included the user's own analysis: does it match the taught strategy?",
+                },
+            },
+            "required": ["pair", "summary"],
+        },
+    ),
     Tool(
         name="post_trade_setup",
         description=(
@@ -88,7 +109,16 @@ async def call_tool(name, arguments):
         if name == "get_pending_requests":
             data = _get("/api/hermes/requests", {"status":"pending"})
             reqs = data.get("requests",[])
-            result = "No pending requests." if not reqs else "\n".join([f"id={r['id']} pair={r['pair']} note={r.get('note','(none)')} created={r['created_at']}" for r in reqs])
+            if not reqs:
+                result = "No pending requests."
+            else:
+                lines = []
+                for r in reqs:
+                    line = f"id={r['id']} pair={r['pair']} note={r.get('note','(none)')} created={r['created_at']}"
+                    if r.get("user_analysis"):
+                        line += f"\n  USER'S OWN ANALYSIS (check this against the taught strategy, then state a verdict): {r['user_analysis']}"
+                    lines.append(line)
+                result = "\n".join(lines)
         elif name == "get_knowledge_docs":
             data = _get("/api/hermes/knowledge")
             docs = data.get("docs",[])
@@ -121,7 +151,11 @@ async def call_tool(name, arguments):
             _patch("/api/hermes/requests", {"id":arguments["request_id"],"status":"fulfilled"})
             result = f"Request {arguments['request_id']} marked fulfilled."
         elif name == "post_analysis_note":
-            data = _post("/api/hermes/notes", {"pair":arguments["pair"],"summary":arguments["summary"]})
+            body = {"pair": arguments["pair"], "summary": arguments["summary"]}
+            for k in ("request_id", "verdict"):
+                if k in arguments:
+                    body[k] = arguments[k]
+            data = _post("/api/hermes/notes", body)
             result = f"Note posted (id={data.get('id')})."
         elif name == "post_trade_setup":
             body = {"pair": arguments["pair"], "direction": arguments["direction"],
