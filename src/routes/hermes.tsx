@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Badge, Button, Card, Field, Row, Select } from "@/components/terminal/ui";
+import { Alert, Badge, Button, Card, Field, Row, Select } from "@/components/terminal/ui";
 import { TradingViewChart } from "@/components/terminal/tradingview-chart";
 import { PAIRS, PAIR_SPECS } from "@/lib/engine/pairs";
 import { extractPdfText } from "@/lib/pdf-extract";
@@ -12,10 +12,12 @@ import {
   loadHermesNotes,
   loadHermesRequests,
   loadHermesSetups,
+  loadHermesUnderstanding,
   loadKnowledgeDocs,
   type HermesNote,
   type HermesRequest,
   type HermesSetup,
+  type HermesUnderstanding,
   type KnowledgeDoc,
 } from "@/lib/hermes-db.functions";
 
@@ -42,6 +44,7 @@ function HermesPage() {
   const [notes, setNotes] = useState<HermesNote[]>([]);
   const [requests, setRequests] = useState<HermesRequest[]>([]);
   const [setups, setSetups] = useState<HermesSetup[]>([]);
+  const [understanding, setUnderstanding] = useState<HermesUnderstanding | null>(null);
   const [chartPair, setChartPair] = useState<string>("EURUSD");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -55,16 +58,18 @@ function HermesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
-    const [d, n, r, s] = await Promise.all([
+    const [d, n, r, s, u] = await Promise.all([
       loadKnowledgeDocs(),
       loadHermesNotes(),
       loadHermesRequests(),
       loadHermesSetups(),
+      loadHermesUnderstanding(),
     ]);
     setDocs(d);
     setNotes(n);
     setRequests(r);
     setSetups(s);
+    setUnderstanding(u);
     setLoading(false);
   }
 
@@ -300,6 +305,37 @@ function HermesPage() {
             </Button>
           </div>
         </div>
+      </Card>
+
+      <Card
+        title="Current understanding"
+        badge={
+          understanding ? (
+            <Badge tone="neutral">
+              synthesized from {understanding.doc_count} doc{understanding.doc_count === 1 ? "" : "s"}
+            </Badge>
+          ) : undefined
+        }
+      >
+        {!understanding ? (
+          <p className="text-[13px] text-muted-foreground">
+            Not synthesized yet — the Trading Agent reviews the whole knowledge base on a
+            schedule (not per-document) and writes its combined understanding here, flagging
+            anything contradictory between docs.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {understanding.contradictions && (
+              <Alert level="amber" title="Contradictions flagged">
+                {understanding.contradictions}
+              </Alert>
+            )}
+            <p className="whitespace-pre-wrap text-[13px] text-foreground">{understanding.summary}</p>
+            <p className="text-[11px] text-muted-foreground">
+              Last reviewed {new Date(understanding.created_at).toLocaleString()}
+            </p>
+          </div>
+        )}
       </Card>
 
       <Card title="Knowledge base" badge={<Badge tone="neutral">{docs.length} docs</Badge>}>

@@ -75,6 +75,27 @@ export const loadHermesNotes = createServerFn({ method: "GET" }).handler(
   },
 );
 
+export interface HermesUnderstanding {
+  id: string;
+  summary: string;
+  contradictions: string | null;
+  doc_count: number;
+  created_at: string;
+}
+
+export const loadHermesUnderstanding = createServerFn({ method: "GET" }).handler(
+  async (): Promise<HermesUnderstanding | null> => {
+    const env = getCFEnv();
+    if (!env) return null;
+    const row = await env.DB.prepare(
+      "SELECT * FROM hermes_understanding ORDER BY created_at DESC LIMIT 1",
+    )
+      .bind()
+      .first<HermesUnderstanding>();
+    return row ?? null;
+  },
+);
+
 export interface HermesRequest {
   id: string;
   pair: string;
