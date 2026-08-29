@@ -82,7 +82,7 @@ function LoginPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "oklch(0.062 0.018 292)",
+        background: "oklch(0.068 0.025 210)",
         padding: "1rem",
       }}
     >
@@ -91,12 +91,12 @@ function LoginPage() {
         <div style={{
           position: "absolute", top: "-10%", left: "-5%",
           width: "60vw", height: "60vw", borderRadius: "50%",
-          background: "radial-gradient(circle, oklch(0.680 0.230 295 / 0.06) 0%, transparent 70%)",
+          background: "radial-gradient(circle, oklch(0.775 0.148 198 / 0.07) 0%, transparent 70%)",
         }} />
         <div style={{
           position: "absolute", bottom: "-15%", right: "-10%",
           width: "50vw", height: "50vw", borderRadius: "50%",
-          background: "radial-gradient(circle, oklch(0.680 0.230 295 / 0.04) 0%, transparent 70%)",
+          background: "radial-gradient(circle, oklch(0.775 0.148 198 / 0.05) 0%, transparent 70%)",
         }} />
       </div>
 
@@ -109,23 +109,23 @@ function LoginPage() {
 
         {/* Card */}
         <div style={{
-          background: "oklch(0.100 0.022 292 / 0.90)",
-          border: "1px solid oklch(0.680 0.230 295 / 0.18)",
+          background: "oklch(0.095 0.028 212 / 0.92)",
+          border: "1px solid oklch(0.775 0.148 198 / 0.20)",
           borderRadius: 20,
           padding: "2rem",
           backdropFilter: "blur(20px) saturate(1.5)",
-          boxShadow: "0 8px 40px oklch(0 0 0 / 0.50), 0 0 0 1px oklch(0.680 0.230 295 / 0.06) inset",
+          boxShadow: "0 8px 40px oklch(0 0 0 / 0.50), 0 0 0 1px oklch(0.775 0.148 198 / 0.07) inset",
         }}>
-          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "oklch(0.945 0.020 292)", letterSpacing: "-0.01em" }}>
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "oklch(0.950 0.012 200)", letterSpacing: "-0.01em" }}>
             Sign in
           </h1>
-          <p style={{ margin: "6px 0 24px", fontSize: 13, color: "oklch(0.600 0.025 292)" }}>
+          <p style={{ margin: "6px 0 24px", fontSize: 13, color: "oklch(0.580 0.055 200)" }}>
             GizzyFx Institutional Terminal
           </p>
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.680 0.025 292)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.580 0.055 200)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
                 Email
               </label>
               <input
@@ -135,18 +135,18 @@ function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{
-                  height: 44, borderRadius: 12, border: "1px solid oklch(0.680 0.230 295 / 0.22)",
-                  background: "oklch(0.076 0.015 292)", color: "oklch(0.945 0.020 292)",
+                  height: 44, borderRadius: 12, border: "1px solid oklch(0.775 0.148 198 / 0.22)",
+                  background: "oklch(0.085 0.020 212)", color: "oklch(0.950 0.012 200)",
                   padding: "0 14px", fontSize: 14, fontFamily: "'Geist', system-ui, sans-serif",
                   outline: "none",
                 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(0.680 0.230 295 / 0.60)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(0.680 0.230 295 / 0.22)"; }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(0.775 0.148 198 / 0.65)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(0.775 0.148 198 / 0.22)"; }}
               />
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.680 0.025 292)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.580 0.055 200)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
                 Password
               </label>
               <input
@@ -156,13 +156,13 @@ function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{
-                  height: 44, borderRadius: 12, border: "1px solid oklch(0.680 0.230 295 / 0.22)",
-                  background: "oklch(0.076 0.015 292)", color: "oklch(0.945 0.020 292)",
+                  height: 44, borderRadius: 12, border: "1px solid oklch(0.775 0.148 198 / 0.22)",
+                  background: "oklch(0.085 0.020 212)", color: "oklch(0.950 0.012 200)",
                   padding: "0 14px", fontSize: 14, fontFamily: "'Geist', system-ui, sans-serif",
                   outline: "none",
                 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(0.680 0.230 295 / 0.60)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(0.680 0.230 295 / 0.22)"; }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(0.775 0.148 198 / 0.65)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(0.775 0.148 198 / 0.22)"; }}
               />
             </div>
 
@@ -185,9 +185,9 @@ function LoginPage() {
                 cursor: busy || locked ? "default" : "pointer",
                 background: locked
                   ? "oklch(0.350 0.080 50)"
-                  : busy ? "oklch(0.400 0.100 295)" : "oklch(0.600 0.230 295)",
+                  : busy ? "oklch(0.400 0.080 210)" : "oklch(0.775 0.148 198)",
                 color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em",
-                boxShadow: busy || locked ? "none" : "0 0 18px oklch(0.680 0.230 295 / 0.35)",
+                boxShadow: busy || locked ? "none" : "0 0 18px oklch(0.775 0.148 198 / 0.40)",
                 transition: "all 0.18s ease",
               }}
             >
@@ -196,7 +196,7 @@ function LoginPage() {
           </form>
         </div>
 
-        <p style={{ marginTop: 20, textAlign: "center", fontSize: 11, color: "oklch(0.420 0.015 292)" }}>
+        <p style={{ marginTop: 20, textAlign: "center", fontSize: 11, color: "oklch(0.420 0.025 200)" }}>
           GizzyFx — Institutional Prop Farming Terminal
         </p>
       </div>
