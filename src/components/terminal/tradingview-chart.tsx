@@ -31,11 +31,14 @@ export function TradingViewChart({ pair, height = 480 }: Props) {
       style: "1",
       locale: "en",
       hide_top_toolbar: false,
+      hide_side_toolbar: false,
       hide_legend: false,
       save_image: false,
       calendar: false,
       hide_volume: false,
       support_host: "https://www.tradingview.com",
+      withdateranges: true,
+      allow_symbol_change: true,
     });
 
     container.appendChild(script);
