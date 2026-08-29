@@ -57,10 +57,6 @@ def _patch(path, body):
     r = httpx.patch(f"{API_URL}{path}", headers=HEADERS, json=body, timeout=15)
     r.raise_for_status(); return r.json()
 
-def _get_public(path, params=None):
-    r = httpx.get(f"{API_URL}{path}", params=params, timeout=15)
-    r.raise_for_status(); return r.json()
-
 server = Server("gizzyfx-trading-terminal")
 
 TOOLS = [
@@ -68,7 +64,26 @@ TOOLS = [
     Tool(name="get_knowledge_docs", description="Fetch all strategy documents the user has taught. Read these before analysing any pair.", inputSchema={"type":"object","properties":{},"required":[]}),
     Tool(name="get_understanding", description="Fetch the current whole-knowledge-base synthesis (if one exists) — your last combined understanding across ALL taught docs, plus any noted contradictions.", inputSchema={"type":"object","properties":{},"required":[]}),
     Tool(name="post_understanding", description="Publish an updated whole-knowledge-base synthesis after reviewing ALL knowledge docs together (not just the newest one). Call this from the periodic review job, not after teaching a single document.", inputSchema={"type":"object","properties":{"summary":{"type":"string","description":"Your combined understanding of the strategy material as a whole"},"contradictions":{"type":"string","description":"Anything that conflicts between documents, or between a document and prior understanding. Omit if none."},"doc_count":{"type":"integer","description":"How many knowledge docs this synthesis covers"}},"required":["summary","doc_count"]}),
-    Tool(name="get_ohlcv_data", description="Fetch OHLCV candlestick data for a forex pair.", inputSchema={"type":"object","properties":{"pair":{"type":"string","description":"e.g. EURUSD"},"interval":{"type":"string","enum":["1h","1d"],"default":"1h"}},"required":["pair"]}),
+    Tool(
+        name="get_ohlcv_data",
+        description=(
+            "Fetch real historical OHLCV candles for a forex pair from tvremix (TradingView "
+            "data), via the gizzyfx server's own connection — use this instead of calling "
+            "tvremix's own get_ohlcv tool directly, which requires interactive approval and will "
+            "silently fail in a cron/unattended run. Keep `count` modest (a few hundred) for "
+            "free-form judgment backtests to control context cost; a named custom strategy "
+            "backtest can go higher."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "pair": {"type": "string", "description": "e.g. EURUSD"},
+                "interval": {"type": "string", "enum": ["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W", "1M"], "default": "1h"},
+                "count": {"type": "integer", "description": "Number of bars, max 5000. Default 300.", "default": 300},
+            },
+            "required": ["pair"],
+        },
+    ),
     Tool(
         name="get_strategy_rules",
         description=(
@@ -305,9 +320,17 @@ async def call_tool(name, arguments):
         elif name == "get_ohlcv_data":
             pair = arguments["pair"].upper().replace("/","")
             interval = arguments.get("interval","1h")
-            data = _get_public("/api/ohlcv", {"pair":pair,"interval":interval})
-            bars = data.get("bars",[])
-            result = f"No data for {pair}." if not bars else f"{len(bars)} bars for {pair}@{interval}. Latest 10:\ntime open high low close\n" + "\n".join([f"{b['time']} {b['open']:.5f} {b['high']:.5f} {b['low']:.5f} {b['close']:.5f}" for b in bars[-10:]]) + f"\n\nAll bars JSON:\n{json.dumps(bars)}"
+            count = min(int(arguments.get("count", 300)), 5000)
+            o, h, l, c, t = await _fetch_tv_bars(pair, interval, count=count)
+            if not c:
+                result = f"No data for {pair}."
+            else:
+                bars = [{"time": t[i], "open": o[i], "high": h[i], "low": l[i], "close": c[i]} for i in range(len(c))]
+                result = (
+                    f"{len(bars)} real bars for {pair}@{interval}. Latest 10:\ntime open high low close\n"
+                    + "\n".join(f"{b['time']} {b['open']:.5f} {b['high']:.5f} {b['low']:.5f} {b['close']:.5f}" for b in bars[-10:])
+                    + f"\n\nAll bars JSON:\n{json.dumps(bars)}"
+                )
         elif name == "post_analysis_step":
             body = {"request_id":arguments["request_id"],"pair":arguments["pair"],"step":arguments["step"],"step_label":arguments.get("step_label",""),"drawings":arguments.get("drawings",[]),"summary":arguments.get("summary")}
             data = _post("/api/hermes/analysis", body)
