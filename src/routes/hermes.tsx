@@ -5,9 +5,13 @@ import { Alert, Badge, Button, Card, Field, Row, Select } from "@/components/ter
 import { TradingViewChart } from "@/components/terminal/tradingview-chart";
 import { PAIRS, PAIR_SPECS } from "@/lib/engine/pairs";
 import { extractPdfText } from "@/lib/pdf-extract";
+import { resizeImageToDataUrl } from "@/lib/image-resize";
 import {
   addHermesRequest,
   addKnowledgeDoc,
+  deleteHermesNote,
+  deleteHermesRequest,
+  deleteHermesSetup,
   deleteKnowledgeDoc,
   loadHermesNotes,
   loadHermesRequests,
@@ -53,10 +57,13 @@ function HermesPage() {
   const [askPair, setAskPair] = useState<string>("EURUSD");
   const [askNote, setAskNote] = useState("");
   const [askAnalysis, setAskAnalysis] = useState("");
+  const [askImage, setAskImage] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [resizingImage, setResizingImage] = useState(false);
   const [lastTaughtTitle, setLastTaughtTitle] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chartInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
     const [d, n, r, s, u] = await Promise.all([
@@ -119,13 +126,44 @@ function HermesPage() {
     const prompt =
       `I just taught you a new strategy document titled "${docTitle}" via the Trading Agent knowledge base. ` +
       `Call get_knowledge_docs, read it in full, and then ask me clarifying questions one at a time until ` +
-      `you're confident you understand how to apply it — then summarize what you learned back to me.`;
+      `you're confident you understand how to apply it. Once you do, use honcho_conclude (peer: "ai") to ` +
+      `save a durable one-line takeaway so you recall this in future sessions too, then summarize what you learned back to me.`;
     return `https://hermes.gizzyfxstrategy.dpdns.org/?q=${encodeURIComponent(prompt)}`;
   }
 
   async function remove(id: string) {
     await deleteKnowledgeDoc({ data: { id } });
     refresh();
+  }
+
+  async function removeRequest(id: string) {
+    await deleteHermesRequest({ data: { id } });
+    refresh();
+  }
+
+  async function removeNote(id: string) {
+    await deleteHermesNote({ data: { id } });
+    refresh();
+  }
+
+  async function removeSetup(id: string) {
+    await deleteHermesSetup({ data: { id } });
+    refresh();
+  }
+
+  async function handleChartPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setResizingImage(true);
+    try {
+      setAskImage(await resizeImageToDataUrl(file));
+    } catch (err) {
+      toast.error("Couldn't read that image.");
+      console.error(err);
+    } finally {
+      setResizingImage(false);
+    }
   }
 
   async function ask() {
@@ -135,11 +173,13 @@ function HermesPage() {
         pair: askPair,
         note: askNote.trim() || undefined,
         user_analysis: askAnalysis.trim() || undefined,
+        chart_image: askImage ?? undefined,
       },
     });
     setAsking(false);
     setAskNote("");
     setAskAnalysis("");
+    setAskImage(null);
     toast.success("Sent — the Trading Agent will pick this up on its next check.");
     refresh();
   }
@@ -231,6 +271,30 @@ function HermesPage() {
               placeholder="e.g. I think price is forming a double top at 1.0920, expecting a reversal down to the 1.0850 order block..."
             />
           </Field>
+          <input
+            ref={chartInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleChartPick}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => chartInputRef.current?.click()}
+              disabled={resizingImage}
+            >
+              {resizingImage ? "Processing..." : askImage ? "Replace chart image" : "Attach chart image"}
+            </Button>
+            {askImage && (
+              <>
+                <img src={askImage} alt="Attached chart" className="h-11 w-16 rounded-lg object-cover" />
+                <Button variant="ghost" className="h-9 text-[12px]" onClick={() => setAskImage(null)}>
+                  Remove
+                </Button>
+              </>
+            )}
+          </div>
           <div className="flex justify-end">
             <Button onClick={ask} disabled={asking}>
               {asking ? "Sending..." : "Request analysis"}
@@ -253,6 +317,13 @@ function HermesPage() {
                         {new Date(r.created_at).toLocaleString()}
                       </span>
                       <Badge tone={r.status === "pending" ? "amber" : "green"}>{r.status}</Badge>
+                      <Button
+                        variant="ghost"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={() => removeRequest(r.id)}
+                      >
+                        Remove
+                      </Button>
                     </div>
                   </div>
                   {r.note && <p className="mt-2 text-[13px] text-foreground">{r.note}</p>}
@@ -263,6 +334,13 @@ function HermesPage() {
                       </p>
                       <p className="mt-1 text-[13px] text-foreground">{r.user_analysis}</p>
                     </div>
+                  )}
+                  {r.chart_image && (
+                    <img
+                      src={r.chart_image}
+                      alt="Attached chart"
+                      className="mt-2 max-h-64 w-full rounded-lg border border-border object-contain"
+                    />
                   )}
                   {replies.map((n) => (
                     <div key={n.id} className="mt-2 border-l-2 border-primary/40 pl-3">
@@ -295,9 +373,14 @@ function HermesPage() {
                     <Badge tone={s.direction === "long" ? "green" : "red"}>{s.direction.toUpperCase()}</Badge>
                     {s.order_type && <Badge tone="neutral">{s.order_type.replace(/_/g, " ")}</Badge>}
                   </div>
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(s.created_at).toLocaleString()}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground">
+                      {new Date(s.created_at).toLocaleString()}
+                    </span>
+                    <Button variant="ghost" className="h-7 px-2 text-[11px]" onClick={() => removeSetup(s.id)}>
+                      Remove
+                    </Button>
+                  </div>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Row label="Entry" value={s.entry} />
@@ -441,9 +524,14 @@ function HermesPage() {
               <div key={n.id} className="rounded-xl border border-border p-3">
                 <div className="flex items-center justify-between gap-3">
                   {n.pair && <Badge tone="blue">{n.pair}</Badge>}
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(n.created_at).toLocaleString()}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground">
+                      {new Date(n.created_at).toLocaleString()}
+                    </span>
+                    <Button variant="ghost" className="h-7 px-2 text-[11px]" onClick={() => removeNote(n.id)}>
+                      Remove
+                    </Button>
+                  </div>
                 </div>
                 <p className="mt-2 text-[13px] text-foreground">{n.summary}</p>
               </div>

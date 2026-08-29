@@ -4,7 +4,7 @@ try:
     import httpx
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
-    from mcp.types import TextContent, Tool
+    from mcp.types import TextContent, ImageContent, Tool
 except ImportError as e:
     print(f"Missing: {e}\nRun: pip install 'mcp>=1.28,<2' httpx", file=sys.stderr); sys.exit(1)
 
@@ -110,15 +110,21 @@ async def call_tool(name, arguments):
             data = _get("/api/hermes/requests", {"status":"pending"})
             reqs = data.get("requests",[])
             if not reqs:
-                result = "No pending requests."
-            else:
-                lines = []
-                for r in reqs:
-                    line = f"id={r['id']} pair={r['pair']} note={r.get('note','(none)')} created={r['created_at']}"
-                    if r.get("user_analysis"):
-                        line += f"\n  USER'S OWN ANALYSIS (check this against the taught strategy, then state a verdict): {r['user_analysis']}"
-                    lines.append(line)
-                result = "\n".join(lines)
+                return [TextContent(type="text", text="No pending requests.")]
+            content = []
+            for r in reqs:
+                line = f"id={r['id']} pair={r['pair']} note={r.get('note','(none)')} created={r['created_at']}"
+                if r.get("user_analysis"):
+                    line += f"\n  USER'S OWN ANALYSIS (check this against the taught strategy, then state a verdict): {r['user_analysis']}"
+                content.append(TextContent(type="text", text=line))
+                img = r.get("chart_image")
+                if img and img.startswith("data:image/"):
+                    mime, _, b64 = img.partition(";base64,")
+                    mime = mime.removeprefix("data:")
+                    if b64:
+                        content.append(TextContent(type="text", text=f"  ^ chart image attached to request {r['id']}:"))
+                        content.append(ImageContent(type="image", data=b64, mimeType=mime))
+            return content
         elif name == "get_knowledge_docs":
             data = _get("/api/hermes/knowledge")
             docs = data.get("docs",[])

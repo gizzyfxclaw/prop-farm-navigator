@@ -104,6 +104,8 @@ export interface HermesRequest {
   note: string | null;
   /** The human's own read on the market, for the agent to check against the taught strategy. */
   user_analysis: string | null;
+  /** Data URL (base64) of an attached chart screenshot, resized/compressed client-side. */
+  chart_image: string | null;
   status: "pending" | "fulfilled";
   created_at: string;
   fulfilled_at: string | null;
@@ -142,6 +144,8 @@ const requestInput = z.object({
   pair: z.string().min(1),
   note: z.string().optional(),
   user_analysis: z.string().optional(),
+  // Capped well under D1's row-size limit — the client resizes/compresses before sending.
+  chart_image: z.string().max(1_500_000).optional(),
 });
 
 export const addHermesRequest = createServerFn({ method: "POST" })
@@ -150,10 +154,44 @@ export const addHermesRequest = createServerFn({ method: "POST" })
     const env = getCFEnv();
     if (!env) return;
     await env.DB.prepare(
-      "INSERT INTO hermes_requests (id, pair, note, user_analysis) VALUES (?, ?, ?, ?)",
+      "INSERT INTO hermes_requests (id, pair, note, user_analysis, chart_image) VALUES (?, ?, ?, ?, ?)",
     )
-      .bind(crypto.randomUUID(), data.pair, data.note ?? null, data.user_analysis ?? null)
+      .bind(
+        crypto.randomUUID(),
+        data.pair,
+        data.note ?? null,
+        data.user_analysis ?? null,
+        data.chart_image ?? null,
+      )
       .run();
+  });
+
+export const deleteHermesRequest = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    const env = getCFEnv();
+    if (!env) return;
+    await env.DB.prepare("DELETE FROM hermes_notes WHERE request_id = ?").bind(data.id).run();
+    await env.DB.prepare("UPDATE hermes_setups SET request_id = NULL WHERE request_id = ?")
+      .bind(data.id)
+      .run();
+    await env.DB.prepare("DELETE FROM hermes_requests WHERE id = ?").bind(data.id).run();
+  });
+
+export const deleteHermesNote = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    const env = getCFEnv();
+    if (!env) return;
+    await env.DB.prepare("DELETE FROM hermes_notes WHERE id = ?").bind(data.id).run();
+  });
+
+export const deleteHermesSetup = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    const env = getCFEnv();
+    if (!env) return;
+    await env.DB.prepare("DELETE FROM hermes_setups WHERE id = ?").bind(data.id).run();
   });
 
 export const loadHermesSetups = createServerFn({ method: "GET" }).handler(
