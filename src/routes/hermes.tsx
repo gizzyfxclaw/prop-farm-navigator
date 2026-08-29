@@ -11,11 +11,13 @@ import {
   loadKnowledgeDocs,
   loadAnalysisRequests,
   loadAnalysisSteps,
+  loadTradeSetups,
   requestAnalysis,
   type AnalysisRequest,
   type AnalysisStep,
   type HermesNote,
   type KnowledgeDoc,
+  type TradeSetup,
 } from "@/lib/hermes-db.functions";
 
 const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
@@ -38,7 +40,7 @@ const textareaClass =
   "w-full min-h-[80px] rounded-xl border border-border bg-input px-3 py-2 font-mono text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30";
 
 /** Merge drawings from all steps (later steps can add more drawings). */
-function mergeDrawings(steps: AnalysisStep[]): Drawing[] {
+function mergeDrawings(steps: AnalysisStep[], setup: TradeSetup | null): Drawing[] {
   const all: Drawing[] = [];
   for (const s of steps) {
     try {
@@ -48,6 +50,14 @@ function mergeDrawings(steps: AnalysisStep[]): Drawing[] {
       // ignore malformed JSON
     }
   }
+  // Auto-draw trade setup levels on top of analysis drawings
+  if (setup) {
+    all.push({ type: "hline", price: setup.entry, label: `Entry ${setup.direction.toUpperCase()}`, color: "#f59e0b", style: "solid" });
+    all.push({ type: "hline", price: setup.sl, label: "SL", color: "#ef4444", style: "dashed" });
+    all.push({ type: "hline", price: setup.tp1, label: "TP1", color: "#22c55e", style: "dashed" });
+    if (setup.tp2) all.push({ type: "hline", price: setup.tp2, label: "TP2", color: "#86efac", style: "dotted" });
+    if (setup.tp3) all.push({ type: "hline", price: setup.tp3, label: "TP3", color: "#bbf7d0", style: "dotted" });
+  }
   return all;
 }
 
@@ -56,6 +66,7 @@ function HermesPage() {
   const [notes, setNotes] = useState<HermesNote[]>([]);
   const [requests, setRequests] = useState<AnalysisRequest[]>([]);
   const [steps, setSteps] = useState<AnalysisStep[]>([]);
+  const [setups, setSetups] = useState<TradeSetup[]>([]);
 
   // Chart
   const [chartPair, setChartPair] = useState<string>("EURUSD");
@@ -84,14 +95,16 @@ function HermesPage() {
   // ---------- data loading ----------
 
   async function refresh() {
-    const [d, n, r] = await Promise.all([
+    const [d, n, r, s] = await Promise.all([
       loadKnowledgeDocs(),
       loadHermesNotes(),
       loadAnalysisRequests(),
+      loadTradeSetups(),
     ]);
     setDocs(d);
     setNotes(n);
     setRequests(r);
+    setSetups(s);
     setLoading(false);
   }
 
@@ -123,13 +136,19 @@ function HermesPage() {
   // ---------- analysis polling ----------
 
   async function pollSteps(requestId: string) {
-    const fresh = await loadAnalysisSteps({ data: { requestId } });
+    const [fresh, freshRequests, freshSetups] = await Promise.all([
+      loadAnalysisSteps({ data: { requestId } }),
+      loadAnalysisRequests(),
+      loadTradeSetups(),
+    ]);
     setSteps(fresh);
-    setDrawings(mergeDrawings(fresh));
-
-    // Check if request is now fulfilled
-    const freshRequests = await loadAnalysisRequests();
     setRequests(freshRequests);
+    setSetups(freshSetups);
+
+    // Use the most recent setup for the active pair
+    const latestSetup = freshSetups.find((s) => s.request_id === requestId) ?? null;
+    setDrawings(mergeDrawings(fresh, latestSetup));
+
     const req = freshRequests.find((r) => r.id === requestId);
 
     if (req && req.status === "pending") {
@@ -137,7 +156,7 @@ function HermesPage() {
     } else {
       setAnalyzing(false);
       if (req?.status === "fulfilled") {
-        toast.success("Analysis complete — drawings are live on the chart.");
+        toast.success("Analysis complete — trade setup and drawings are live on the chart.");
         refresh();
       }
     }
@@ -365,6 +384,109 @@ function HermesPage() {
           <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
             <p className="text-[12px] font-semibold text-primary mb-1">Agent summary</p>
             <p className="text-[13px] text-foreground">{latestSummary}</p>
+          </div>
+        )}
+      </Card>
+
+      {/* Trade Setups */}
+      <Card
+        title="Trade Setups"
+        badge={<Badge tone={setups.length > 0 ? "green" : "neutral"}>{setups.length} setups</Badge>}
+      >
+        {loading ? (
+          <p className="text-[13px] text-muted-foreground">Loading...</p>
+        ) : setups.length === 0 ? (
+          <p className="text-[13px] text-muted-foreground">
+            No setups yet — the Trading Agent will post entry, SL, and TP levels here after analysis.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {setups.map((s) => {
+              const isLong = s.direction === "long";
+              const rrLabel = s.rr ? `${s.rr.toFixed(2)}R` : null;
+              return (
+                <div key={s.id} className="rounded-xl border border-border p-4">
+                  {/* Header row */}
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Badge tone="blue">{s.pair}</Badge>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide ${
+                          isLong
+                            ? "bg-green-500/10 text-green-400"
+                            : "bg-red-500/10 text-red-400"
+                        }`}
+                      >
+                        {isLong ? "▲ LONG" : "▼ SHORT"}
+                      </span>
+                      {rrLabel && (
+                        <span className="rounded bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                          {rrLabel}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      {new Date(s.created_at).toLocaleString()}
+                    </span>
+                  </div>
+
+                  {/* Price levels grid */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2 text-center">
+                      <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider mb-0.5">Entry</p>
+                      <p className="font-mono text-[13px] font-bold text-amber-300">{s.entry.toFixed(5)}</p>
+                    </div>
+                    <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-2 text-center">
+                      <p className="text-[10px] text-red-400 font-semibold uppercase tracking-wider mb-0.5">Stop Loss</p>
+                      <p className="font-mono text-[13px] font-bold text-red-300">{s.sl.toFixed(5)}</p>
+                    </div>
+                    <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-2 text-center">
+                      <p className="text-[10px] text-green-400 font-semibold uppercase tracking-wider mb-0.5">TP 1</p>
+                      <p className="font-mono text-[13px] font-bold text-green-300">{s.tp1.toFixed(5)}</p>
+                    </div>
+                  </div>
+
+                  {/* TP2 / TP3 */}
+                  {(s.tp2 || s.tp3) && (
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {s.tp2 && (
+                        <div className="rounded-lg bg-green-500/5 border border-green-500/10 p-2 text-center">
+                          <p className="text-[10px] text-green-500 font-semibold uppercase tracking-wider mb-0.5">TP 2</p>
+                          <p className="font-mono text-[12px] text-green-400">{s.tp2.toFixed(5)}</p>
+                        </div>
+                      )}
+                      {s.tp3 && (
+                        <div className="rounded-lg bg-green-500/5 border border-green-500/10 p-2 text-center">
+                          <p className="text-[10px] text-green-500 font-semibold uppercase tracking-wider mb-0.5">TP 3</p>
+                          <p className="font-mono text-[12px] text-green-400">{s.tp3.toFixed(5)}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Rationale */}
+                  {s.rationale && (
+                    <p className="text-[12px] text-muted-foreground border-t border-border pt-2 mt-2">
+                      {s.rationale}
+                    </p>
+                  )}
+
+                  {/* Load onto chart button */}
+                  <div className="flex justify-end mt-2">
+                    <Button
+                      variant="ghost"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => {
+                        setChartPair(s.pair);
+                        setDrawings(mergeDrawings(steps, s));
+                      }}
+                    >
+                      Load on chart ↗
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </Card>

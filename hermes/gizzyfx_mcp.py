@@ -10,6 +10,7 @@ Tools provided:
   post_analysis_step      — post one analysis step + drawings to the terminal
   mark_request_fulfilled  — mark a request complete after analysis is done
   post_analysis_note      — write a summary note to the agent analysis log
+  post_trade_setup        — post entry, SL, and TP levels as a trade setup card
 
 Drawing JSON schema (for post_analysis_step):
   { "type": "hline",     "price": 1.0850, "label": "Weekly res", "color": "#ef4444", "style": "solid"|"dashed"|"dotted" }
@@ -193,6 +194,59 @@ TOOLS: list[Tool] = [
             "required": ["pair", "summary"],
         },
     ),
+    Tool(
+        name="post_trade_setup",
+        description=(
+            "Post a structured trade setup card to the trading terminal after completing analysis. "
+            "The entry, SL, and TP levels appear as a trade card on the site AND are automatically "
+            "drawn on the live chart as horizontal lines. Call this as the final step, after "
+            "mark_request_fulfilled and post_analysis_note."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "request_id": {
+                    "type": "string",
+                    "description": "The request id from get_pending_requests (optional but links the setup to the request)",
+                },
+                "pair": {"type": "string", "description": "e.g. EURUSD"},
+                "direction": {
+                    "type": "string",
+                    "enum": ["long", "short"],
+                    "description": "Trade direction based on your analysis bias",
+                },
+                "entry": {
+                    "type": "number",
+                    "description": "Entry price level",
+                },
+                "sl": {
+                    "type": "number",
+                    "description": "Stop loss price level",
+                },
+                "tp1": {
+                    "type": "number",
+                    "description": "First take profit level (mandatory)",
+                },
+                "tp2": {
+                    "type": "number",
+                    "description": "Second take profit level (optional)",
+                },
+                "tp3": {
+                    "type": "number",
+                    "description": "Third take profit level (optional)",
+                },
+                "rr": {
+                    "type": "number",
+                    "description": "Risk:reward ratio (optional — calculated automatically from entry/sl/tp1 if omitted)",
+                },
+                "rationale": {
+                    "type": "string",
+                    "description": "One or two sentences explaining why this setup is valid based on the strategy",
+                },
+            },
+            "required": ["pair", "direction", "entry", "sl", "tp1"],
+        },
+    ),
 ]
 
 
@@ -272,6 +326,31 @@ async def call_tool(name: str, arguments: dict):
             body = {"pair": arguments["pair"], "summary": arguments["summary"]}
             data = _post("/api/hermes/notes", body)
             result = f"Analysis note posted (id={data.get('id')})."
+
+        elif name == "post_trade_setup":
+            body = {
+                "pair": arguments["pair"],
+                "direction": arguments["direction"],
+                "entry": arguments["entry"],
+                "sl": arguments["sl"],
+                "tp1": arguments["tp1"],
+            }
+            if "request_id" in arguments:
+                body["request_id"] = arguments["request_id"]
+            if "tp2" in arguments:
+                body["tp2"] = arguments["tp2"]
+            if "tp3" in arguments:
+                body["tp3"] = arguments["tp3"]
+            if "rr" in arguments:
+                body["rr"] = arguments["rr"]
+            if "rationale" in arguments:
+                body["rationale"] = arguments["rationale"]
+            data = _post("/api/hermes/setups", body)
+            result = (
+                f"Trade setup posted (id={data.get('id')}). "
+                f"Entry={arguments['entry']} SL={arguments['sl']} TP1={arguments['tp1']} "
+                f"direction={arguments['direction']}. Levels are now drawn on the chart."
+            )
 
         else:
             result = f"Unknown tool: {name}"

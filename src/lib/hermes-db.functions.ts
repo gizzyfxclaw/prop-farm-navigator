@@ -137,3 +137,31 @@ export const loadAnalysisSteps = createServerFn({ method: "GET" })
       .all<AnalysisStep>();
     return results;
   });
+
+export interface TradeSetup {
+  id: string;
+  request_id: string | null;
+  pair: string;
+  direction: "long" | "short";
+  entry: number;
+  sl: number;
+  tp1: number;
+  tp2: number | null;
+  tp3: number | null;
+  rr: number | null;
+  rationale: string | null;
+  created_at: string;
+}
+
+export const loadTradeSetups = createServerFn({ method: "GET" }).handler(
+  async (): Promise<TradeSetup[]> => {
+    const env = getCFEnv();
+    if (!env) return [];
+    const { results } = await env.DB.prepare(
+      "SELECT * FROM hermes_setups ORDER BY created_at DESC LIMIT 20",
+    )
+      .bind()
+      .all<TradeSetup>();
+    return results;
+  },
+);
