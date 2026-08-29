@@ -1,5 +1,15 @@
 # Prop Farm Navigator
 
+## Hermes Trading Agent setup
+
+Setting up the Hermes integration on a new VPS (or debugging why Hermes
+can't see the knowledge base / strategy rules)? See
+[`hermes-webui/hermes/SETUP.md`](hermes-webui/hermes/SETUP.md) — it covers
+the full path from a bare VPS to a working Hermes agent, what's automatic
+vs. a one-time manual step, and how to verify it's actually wired up.
+
+---
+
 This is the project and working on so I want everything to now be connected to meta API cloud so I want both the account stat and details shoe to be derived from meta API and let everything be functioning let the Lost size and everything be calculated accordingly and well calculated with no errors and mistake and if I want to execute the trade into execute the trade in the exness account using the exact blood size to be used and entry with stop loss with the exact risk to be taken I want you to improve this file and make it very professional and let all the calculation and everything be working accurately and also in the calculator I want to be able to select the exact prop account that I want to work with and if they calculation calculus it will calculate everything based on the prop account I selected and to be showing me the correct exact total capital needed for the strategy to work perfectly this is the calculation prompt of how the machine works Here is the ultimate, exhaustive prompt. This is written specifically to be fed into an advanced AI coding agent (like Cursor, Devin, or Claude 3.5). 
 
 

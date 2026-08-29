@@ -97,6 +97,82 @@ TOOLS = [
         inputSchema={"type": "object", "properties": {}, "required": []},
     ),
     Tool(
+        name="save_strategy_from_chat",
+        description=(
+            "Save a trading strategy the user just taught you in this chat as a knowledge document. "
+            "Call this whenever the user explains, teaches, or corrects a strategy or rule — do not "
+            "wait to be asked. Distil what they said into a clear title and structured content "
+            "(overview, entry rules, SL/TP rules, timeframes, pairs, confluences, notes). The user "
+            "sees it immediately in their Trading Agent knowledge base."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Short descriptive title, e.g. 'Parallel Channel Breakout'"},
+                "content": {"type": "string", "description": "Full structured write-up of the strategy"},
+            },
+            "required": ["title", "content"],
+        },
+    ),
+    Tool(
+        name="save_strategy_rule",
+        description=(
+            "Codify a taught strategy as a structured rule so it shows up in the backtest picker. "
+            "Use entry_type='custom' with custom_rules for discretionary/judgment strategies (most "
+            "chat-taught ones — run_deterministic_backtest can't execute these, do the backtest "
+            "yourself by judgment and post_backtest_result with deterministic=false). Use a "
+            "mechanical type (sma_cross, ema_cross, rsi, breakout) with entry_params only when the "
+            "strategy is explicitly indicator-based — those CAN be run for real via "
+            "run_deterministic_backtest. Returns the rule id; keep it for request_backtest."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "knowledge_doc_id": {"type": "string", "description": "id from save_strategy_from_chat, if any"},
+                "title": {"type": "string"},
+                "direction": {"type": "string", "enum": ["long", "short", "both"]},
+                "entry_type": {"type": "string", "enum": ["sma_cross", "ema_cross", "rsi", "breakout", "custom"]},
+                "entry_params": {
+                    "type": "object",
+                    "description": (
+                        "Mechanical params only. sma_cross/ema_cross: {fast, slow}. "
+                        "rsi: {period, oversold, overbought}. breakout: {lookback}. custom: {}."
+                    ),
+                },
+                "custom_rules": {
+                    "type": "string",
+                    "description": "Required when entry_type='custom' — full plain-English entry logic.",
+                },
+                "sl_type": {"type": "string", "enum": ["atr", "fixed_pips"]},
+                "sl_value": {"type": "number", "description": "ATR multiplier or fixed pips"},
+                "tp_type": {"type": "string", "enum": ["rr_multiple", "fixed_pips"]},
+                "tp_value": {"type": "number", "description": "R:R ratio (e.g. 2.0) or fixed pips"},
+                "default_timeframe": {"type": "string", "description": "e.g. '1h', '5m'"},
+            },
+            "required": ["title", "direction", "entry_type", "sl_type", "sl_value", "tp_type", "tp_value", "default_timeframe"],
+        },
+    ),
+    Tool(
+        name="request_backtest",
+        description=(
+            "Queue a backtest request in the terminal so a strategy just discussed/codified is "
+            "traceable in the Trading Agent tab. For a mechanical rule (not entry_type=custom), "
+            "still call run_deterministic_backtest yourself right away and post_backtest_result — "
+            "don't just queue and wait. For entry_type=custom rules, queuing records intent; run the "
+            "judgment backtest yourself and post_backtest_result with deterministic=false."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "pair": {"type": "string", "description": "e.g. EURUSD, GBPUSD"},
+                "note": {"type": "string", "description": "Brief description of what's being tested"},
+                "timeframe": {"type": "string", "default": "1h"},
+                "rule_id": {"type": "string", "description": "Optional: id from save_strategy_rule"},
+            },
+            "required": ["pair", "note"],
+        },
+    ),
+    Tool(
         name="run_deterministic_backtest",
         description=(
             "Run a REAL backtest: fetches real historical candles for `pair` at `timeframe` from "
@@ -284,6 +360,33 @@ async def call_tool(name, arguments):
                 return base
 
             result = "No structured strategy rules defined yet." if not rules else "\n".join(_fmt_rule(r) for r in rules)
+        elif name == "save_strategy_from_chat":
+            data = _post("/api/hermes/knowledge", {
+                "title": arguments["title"], "content": arguments["content"], "source": "hermes_chat",
+            })
+            result = f"Strategy saved to knowledge base (id={data.get('id')}). Title: {arguments['title']!r}. Visible immediately in the Trading Agent tab."
+        elif name == "save_strategy_rule":
+            body = {
+                "title": arguments["title"], "direction": arguments["direction"],
+                "entry_type": arguments["entry_type"], "entry_params": arguments.get("entry_params", {}),
+                "sl_type": arguments["sl_type"], "sl_value": arguments["sl_value"],
+                "tp_type": arguments["tp_type"], "tp_value": arguments["tp_value"],
+                "default_timeframe": arguments["default_timeframe"],
+            }
+            for k in ("custom_rules", "knowledge_doc_id"):
+                if k in arguments:
+                    body[k] = arguments[k]
+            data = _post("/api/hermes/strategy-rules", body)
+            result = f"Strategy rule created (id={data.get('id')}) — {arguments['title']!r}, entry_type={arguments['entry_type']}. Use this id with request_backtest / run_deterministic_backtest."
+        elif name == "request_backtest":
+            body = {
+                "pair": arguments["pair"].upper().replace("/", ""), "note": arguments["note"],
+                "request_type": "backtest", "timeframe": arguments.get("timeframe", "1h"),
+            }
+            if "rule_id" in arguments:
+                body["rule_id"] = arguments["rule_id"]
+            data = _post("/api/hermes/requests", body)
+            result = f"Backtest queued (id={data.get('id')}) for {body['pair']} @ {body['timeframe']}."
         elif name == "run_deterministic_backtest":
             pair = arguments["pair"].upper().replace("/", "")
             timeframe = arguments["timeframe"]

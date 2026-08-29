@@ -143,7 +143,13 @@ export default {
         url.pathname.startsWith("/_build/") ||
         url.pathname.startsWith("/assets/") ||
         url.pathname === "/favicon.svg" ||
-        url.pathname === "/favicon.ico";
+        url.pathname === "/favicon.ico" ||
+        // Machine endpoints authenticate themselves (x-hermes-key shared
+        // secret, or fully public by design) — the human session cookie
+        // gate must not shadow them, or the Hermes agent gets redirected
+        // to /login on every call instead of ever reaching its own auth.
+        url.pathname.startsWith("/api/hermes/") ||
+        url.pathname === "/api/ohlcv";
 
       if (!isPublic) {
         const token = parseSessionToken(request.headers.get("cookie"));
