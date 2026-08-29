@@ -12,7 +12,34 @@
   var ENGINE_URL = "https://gizzyfxstrategy.dpdns.org";
   var AGENT_URL = ENGINE_URL + "/hermes";
 
-  /* ── 1. Register the GizzyFx skin ─────────────────────────────────
+  /* ── 1. Make GizzyFx the default skin, once ───────────────────────
+   * Seeded exactly once per browser, and only while the console is still on
+   * the stock appearance. After that the picker always wins: choose another
+   * skin and this never touches it again.
+   *
+   * Core cooperates with this — an unregistered non-built-in skin in
+   * localStorage is preserved verbatim through boot (its lsSkinIsPendingExt
+   * path) and applied once registerHermesSkin() below runs.
+   */
+  var SEED_KEY = "gizzyfx-skin-seeded";
+
+  function seedDefaultSkin() {
+    try {
+      if (localStorage.getItem(SEED_KEY)) return;
+      localStorage.setItem(SEED_KEY, "1");
+      var current = localStorage.getItem("hermes-skin");
+      if (!current || current === "default") {
+        localStorage.setItem("hermes-skin", "gizzyfx");
+        document.documentElement.dataset.skin = "gizzyfx";
+      }
+    } catch (e) {
+      // Private mode / storage disabled — the skin is still selectable by hand.
+    }
+  }
+
+  seedDefaultSkin();
+
+  /* ── 2. Register the GizzyFx skin ─────────────────────────────────
    * Token names and value shapes are restricted by WebUI core; these all
    * sit inside the documented allowlist.
    */
@@ -74,7 +101,7 @@
     }, 150);
   }
 
-  /* ── 2. Persistent "back to Engine" navigation ──────────────────── */
+  /* ── 3. Persistent "back to Engine" navigation ──────────────────── */
 
   var MARK_SVG =
     '<svg viewBox="0 0 100 100" width="18" height="18" aria-hidden="true">' +

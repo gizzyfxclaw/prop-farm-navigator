@@ -11,7 +11,7 @@ nothing in the hermes-webui source tree is modified and updates won't clobber it
 
 | | |
 |---|---|
-| **GizzyFx skin** | Registered through `window.registerHermesSkin()`, so it appears in **Settings → Appearance** next to the built-in skins and persists like any other. Dark-only. |
+| **GizzyFx skin** | Registered through `window.registerHermesSkin()`, so it appears in **Settings → Appearance** next to the built-in skins and persists like any other. Dark-only. Applied automatically on first visit — see below. |
 | **Brand watermark** | The GizzyFx badge, faded behind the app shell, on a very slow breathing cycle. |
 | **Navigation bar** | Bottom-right: **Engine** and **Trading Agent** links back to the terminal. Collapses to an icon on narrow screens. |
 
@@ -27,8 +27,15 @@ cd hermes/webui-extension
 bash install.sh
 ```
 
-Then hard-reload the console (Ctrl/Cmd + Shift + R) and pick
-**Settings → Appearance → Skin → GizzyFx**.
+Then hard-reload the console (Ctrl/Cmd + Shift + R). The skin applies itself
+on first visit; no need to pick it manually.
+
+### Default-skin behaviour
+
+The extension seeds `localStorage["hermes-skin"]` once per browser, and only
+while the console is still on the stock appearance. Pick any other skin
+afterwards and the extension never overrides it again — the picker always wins.
+To go back, choose **GizzyFx** in Settings → Appearance like any other skin.
 
 The script copies the two assets to `~/.hermes/webui-extension/`, sets the three
 `HERMES_WEBUI_EXTENSION_*` variables in `/opt/hermes-webui/.env` (backing the
