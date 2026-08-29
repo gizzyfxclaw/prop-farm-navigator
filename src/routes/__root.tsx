@@ -154,6 +154,30 @@ function RootComponent() {
   const router = useRouter();
   const pathname = router.state.location.pathname;
 
+  // Login page is a full-screen standalone — skip the app shell.
+  if (pathname === "/login") {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <StoreProvider>
+          <Outlet />
+          <Toaster
+            theme="dark"
+            position="top-center"
+            toastOptions={{
+              style: {
+                background: "oklch(0.148 0.026 292 / 0.95)",
+                border: "1px solid oklch(0.680 0.230 295 / 0.25)",
+                color: "oklch(0.945 0.020 292)",
+                boxShadow: "0 0 20px oklch(0.680 0.230 295 / 0.15)",
+                backdropFilter: "blur(16px)",
+              },
+            }}
+          />
+        </StoreProvider>
+      </QueryClientProvider>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <StoreProvider>
