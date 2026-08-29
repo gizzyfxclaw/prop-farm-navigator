@@ -454,8 +454,11 @@ function HermesPage() {
       </div>
 
       {/* Live chart — TradingView for manual work, Analysis view for the agent's drawings */}
-      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
-        <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2.5">
+      <section
+        className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_12px_rgba(0,0,0,0.25)]"
+        style={{ height: "calc(100svh - 200px)", minHeight: 380 }}
+      >
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2.5">
           {/* Which chart */}
           <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background/60 p-0.5">
             <button
@@ -525,7 +528,7 @@ function HermesPage() {
           )}
         </div>
 
-        <div className={`${analyzing ? "scanline" : ""} h-[calc(100svh-240px)] min-h-[320px] max-h-[680px]`}>
+        <div className={`${analyzing ? "scanline" : ""} min-h-0 flex-1`}>
           {chartMode === "tv" ? (
             <TradingViewChart pair={chartPair} height="100%" />
           ) : (
@@ -535,7 +538,7 @@ function HermesPage() {
 
         {/* Step log — fills in live as the agent posts each phase */}
         {chartMode === "lw" && steps.length > 0 && (
-          <div className="max-h-40 space-y-1.5 overflow-y-auto border-t border-border px-5 py-3">
+          <div className="max-h-40 shrink-0 space-y-1.5 overflow-y-auto border-t border-border px-5 py-3">
             {steps.map((s, i) => (
               <div key={s.id} className="animate-in flex items-start gap-2 text-[12px]">
                 <span className="mt-0.5 shrink-0 rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
@@ -548,7 +551,7 @@ function HermesPage() {
           </div>
         )}
 
-        <p className="border-t border-border px-5 py-3 text-[12px] text-muted-foreground">
+        <p className="shrink-0 border-t border-border px-5 py-3 text-[12px] text-muted-foreground">
           {chartMode === "tv"
             ? "Full TradingView toolbar — mark up levels directly here. Switches to the analysis view automatically when you ask the agent for an analysis."
             : drawings.length > 0
