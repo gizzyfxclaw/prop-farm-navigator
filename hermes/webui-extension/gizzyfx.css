@@ -20,12 +20,12 @@
   background-image:
     radial-gradient(
       circle at 12% 8%,
-      rgba(27, 255, 122, 0.055) 0%,
+      rgba(167, 139, 250, 0.065) 0%,
       transparent 55%
     ),
     radial-gradient(
       circle at 88% 92%,
-      rgba(27, 255, 122, 0.04) 0%,
+      rgba(167, 139, 250, 0.05) 0%,
       transparent 55%
     );
 }
@@ -45,12 +45,12 @@
   background-image: url("data:image/svg+xml;utf8,\
 <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>\
 <circle cx='50' cy='50' r='47' fill='%23050807'/>\
-<circle cx='50' cy='50' r='45' stroke='%231bff7a' stroke-width='5' fill='none'/>\
+<circle cx='50' cy='50' r='45' stroke='%23a78bfa' stroke-width='5' fill='none'/>\
 <rect x='24' y='46' width='9' height='22' rx='1.5' fill='%2317c95c'/>\
 <rect x='38' y='34' width='9' height='30' rx='1.5' fill='%23e8433f'/>\
 <rect x='52' y='40' width='9' height='24' rx='1.5' fill='%2317c95c'/>\
-<path d='M22 76 C 42 76, 60 66, 72 42' stroke='%235cff9d' stroke-width='8' stroke-linecap='round' fill='none'/>\
-<path d='M62 30 L82 36 L72 53 Z' fill='%237dffb4'/>\
+<path d='M22 76 C 42 76, 60 66, 72 42' stroke='%23f472b6' stroke-width='8' stroke-linecap='round' fill='none'/>\
+<path d='M62 30 L82 36 L72 53 Z' fill='%23f472b6'/>\
 </svg>");
   animation: gizzyfx-breathe 14s ease-in-out infinite;
 }
@@ -87,11 +87,11 @@
   gap: 6px;
   padding: 5px;
   border-radius: 12px;
-  background: rgba(8, 14, 11, 0.86);
-  border: 1px solid rgba(27, 255, 122, 0.18);
+  background: rgba(12, 9, 22, 0.88);
+  border: 1px solid rgba(167, 139, 250, 0.20);
   box-shadow:
     0 6px 26px rgba(0, 0, 0, 0.5),
-    0 0 18px rgba(27, 255, 122, 0.08);
+    0 0 18px rgba(167, 139, 250, 0.10);
   backdrop-filter: blur(14px) saturate(1.4);
   -webkit-backdrop-filter: blur(14px) saturate(1.4);
   font-family:
@@ -112,7 +112,7 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   text-decoration: none;
-  color: #a8c0b3;
+  color: #b4a8cd;
   white-space: nowrap;
   transition:
     background-color 0.18s ease,
@@ -121,8 +121,8 @@
 }
 
 .gizzyfx-nav-link:hover {
-  background: rgba(27, 255, 122, 0.1);
-  color: #e6f2ea;
+  background: rgba(167, 139, 250, 0.12);
+  color: #ebe7f5;
 }
 
 .gizzyfx-nav-link:active {
@@ -130,12 +130,12 @@
 }
 
 .gizzyfx-nav-link:focus-visible {
-  outline: 2px solid rgba(27, 255, 122, 0.6);
+  outline: 2px solid rgba(167, 139, 250, 0.65);
   outline-offset: 2px;
 }
 
 .gizzyfx-nav-primary {
-  color: #5cff9d;
+  color: #c4b5fd;
 }
 
 .gizzyfx-nav-primary svg {

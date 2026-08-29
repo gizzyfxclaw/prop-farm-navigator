@@ -18,11 +18,11 @@ export function Card({
     <section
       className={cn("card-neon lift rounded-xl p-5", className)}
       style={{
-        background: "oklch(0.110 0.012 145 / 0.72)",
+        background: "oklch(0.128 0.024 292 / 0.72)",
         backdropFilter: "blur(16px) saturate(1.4)",
         WebkitBackdropFilter: "blur(16px) saturate(1.4)",
-        border: "1px solid oklch(0.780 0.220 145 / 0.13)",
-        boxShadow: "0 0 12px oklch(0.780 0.220 145 / 0.08), inset 0 1px 0 oklch(1 0 0 / 0.04)",
+        border: "1px solid oklch(0.680 0.230 295 / 0.13)",
+        boxShadow: "0 0 12px oklch(0.680 0.230 295 / 0.08), inset 0 1px 0 oklch(1 0 0 / 0.04)",
       }}
     >
       {(title || badge) && (
@@ -122,7 +122,7 @@ export function Button({
   const variants = {
     primary:
       "btn-sweep bg-gradient-to-br from-primary to-primary/80 text-primary-foreground " +
-      "shadow-[0_0_20px_oklch(0.780_0.220_145_/_0.30)] hover:shadow-[0_0_28px_oklch(0.780_0.220_145_/_0.45)]",
+      "shadow-[0_0_20px_oklch(0.680_0.230_295_/_0.30)] hover:shadow-[0_0_28px_oklch(0.680_0.230_295_/_0.45)]",
     ghost:
       "border border-border bg-secondary/60 text-foreground backdrop-blur-sm " +
       "hover:bg-secondary hover:border-primary/30",
@@ -130,7 +130,7 @@ export function Button({
       "bg-destructive/15 border border-destructive/35 text-destructive hover:bg-destructive/25",
     success:
       "btn-sweep bg-gradient-to-br from-success to-success/80 text-background " +
-      "shadow-[0_0_20px_oklch(0.780_0.220_145_/_0.30)]",
+      "shadow-[0_0_20px_oklch(0.680_0.230_295_/_0.30)]",
   } as const;
 
   return (
@@ -217,10 +217,10 @@ export function Stat({
     <div
       className="lift rounded-xl p-4"
       style={{
-        background: "oklch(0.110 0.012 145 / 0.72)",
+        background: "oklch(0.128 0.024 292 / 0.72)",
         backdropFilter: "blur(16px) saturate(1.4)",
         WebkitBackdropFilter: "blur(16px) saturate(1.4)",
-        border: "1px solid oklch(0.780 0.220 145 / 0.13)",
+        border: "1px solid oklch(0.680 0.230 295 / 0.13)",
       }}
     >
       <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">

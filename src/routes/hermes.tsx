@@ -478,7 +478,7 @@ function HermesPage() {
             >
               {analyzing ? (
                 <span className="flex items-center gap-1.5">
-                  <span className="ping-ring block h-1.5 w-1.5 rounded-full bg-primary" />
+                  <span className="ping-ring block h-1.5 w-1.5 rounded-full bg-highlight" />
                   Analysis
                 </span>
               ) : (
@@ -520,7 +520,7 @@ function HermesPage() {
           )}
 
           {analyzing && (
-            <span className="ml-auto text-[11px] font-medium text-primary">
+            <span className="ml-auto text-[11px] font-medium text-highlight">
               {steps[steps.length - 1]?.step_label ?? "Analysing…"}
             </span>
           )}

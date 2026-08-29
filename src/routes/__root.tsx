@@ -34,14 +34,14 @@ function GlowOrbs() {
         top: "-10%", left: "-5%",
         width: "60vw", height: "60vw",
         borderRadius: "50%",
-        background: "radial-gradient(circle, oklch(0.780 0.220 145 / 0.055) 0%, transparent 70%)",
+        background: "radial-gradient(circle, oklch(0.680 0.230 295 / 0.055) 0%, transparent 70%)",
       }} />
       <div style={{
         position: "absolute",
         bottom: "-15%", right: "-10%",
         width: "50vw", height: "50vw",
         borderRadius: "50%",
-        background: "radial-gradient(circle, oklch(0.780 0.220 145 / 0.040) 0%, transparent 70%)",
+        background: "radial-gradient(circle, oklch(0.680 0.230 295 / 0.040) 0%, transparent 70%)",
       }} />
     </div>
   );
@@ -165,10 +165,10 @@ function RootComponent() {
           <header
             className="sticky top-0 z-30"
             style={{
-              background: "oklch(0.075 0.010 145 / 0.82)",
+              background: "oklch(0.085 0.020 292 / 0.82)",
               backdropFilter: "blur(24px) saturate(1.6)",
               WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-              borderBottom: "1px solid oklch(0.780 0.220 145 / 0.12)",
+              borderBottom: "1px solid oklch(0.680 0.230 295 / 0.12)",
               boxShadow: "0 4px 32px oklch(0 0 0 / 0.40)",
             }}
           >
@@ -199,8 +199,8 @@ function RootComponent() {
                     activeProps={{
                       className: "relative whitespace-nowrap rounded-md px-3 py-1.5 text-[12.5px] font-medium tracking-wide text-primary",
                       style: {
-                        background: "oklch(0.780 0.220 145 / 0.10)",
-                        boxShadow: "0 0 12px oklch(0.780 0.220 145 / 0.15)",
+                        background: "oklch(0.680 0.230 295 / 0.10)",
+                        boxShadow: "0 0 12px oklch(0.680 0.230 295 / 0.15)",
                       }
                     }}
                   >
@@ -219,7 +219,7 @@ function RootComponent() {
           {/* ── Footer ─────────────────────────────────────────── */}
           <footer
             className="mx-auto max-w-6xl px-4 py-8"
-            style={{ borderTop: "1px solid oklch(0.780 0.220 145 / 0.08)" }}
+            style={{ borderTop: "1px solid oklch(0.680 0.230 295 / 0.08)" }}
           >
             <div className="flex flex-wrap items-center justify-between gap-4">
               <p className="text-[11px] text-muted-foreground">
@@ -236,10 +236,10 @@ function RootComponent() {
           position="top-center"
           toastOptions={{
             style: {
-              background: "oklch(0.130 0.015 145 / 0.95)",
-              border: "1px solid oklch(0.780 0.220 145 / 0.25)",
-              color: "oklch(0.940 0.018 145)",
-              boxShadow: "0 0 20px oklch(0.780 0.220 145 / 0.15)",
+              background: "oklch(0.148 0.026 292 / 0.95)",
+              border: "1px solid oklch(0.680 0.230 295 / 0.25)",
+              color: "oklch(0.945 0.020 292)",
+              boxShadow: "0 0 20px oklch(0.680 0.230 295 / 0.15)",
               backdropFilter: "blur(16px)",
             },
           }}

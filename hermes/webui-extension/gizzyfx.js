@@ -24,44 +24,44 @@
       value: "gizzyfx",
       label: "GizzyFx",
       scheme: "dark", // the palette is built for a dark base only
-      colors: ["#0a0f0c", "#1bff7a", "#c8d2d8"],
+      colors: ["#0a0713", "#a78bfa", "#f472b6"],
       tokens: {
-        "--bg": "#070b09",
-        "--surface": "#0e1512",
-        "--surface2": "#131c17",
-        "--surface-subtle": "#0b1210",
-        "--sidebar": "#080d0b",
-        "--sidebar-text": "#8fa89a",
+        "--bg": "#0a0713",
+        "--surface": "#141020",
+        "--surface2": "#1b1529",
+        "--surface-subtle": "#100c1b",
+        "--sidebar": "#0c0916",
+        "--sidebar-text": "#9b8fb8",
 
-        "--text": "#e6f2ea",
-        "--text2": "#a8c0b3",
-        "--muted": "#6d8579",
+        "--text": "#ebe7f5",
+        "--text2": "#b4a8cd",
+        "--muted": "#7d719a",
 
-        "--accent": "#1bff7a",
-        "--accent-hover": "#12e065",
-        "--accent-contrast": "#04120a",
-        "--accent-text": "#5cff9d",
-        "--accent-bg": "rgba(27, 255, 122, 0.09)",
-        "--accent-bg-strong": "rgba(27, 255, 122, 0.18)",
-        "--accent-rgb": "27, 255, 122",
-        "--accent2": "#5cff9d",
-        "--accent3": "#0a8f3f",
+        "--accent": "#a78bfa",
+        "--accent-hover": "#8b5cf6",
+        "--accent-contrast": "#0a0713",
+        "--accent-text": "#c4b5fd",
+        "--accent-bg": "rgba(167, 139, 250, 0.10)",
+        "--accent-bg-strong": "rgba(167, 139, 250, 0.20)",
+        "--accent-rgb": "167, 139, 250",
+        "--accent2": "#c4b5fd",
+        "--accent3": "#f472b6",
 
-        "--border": "rgba(27, 255, 122, 0.14)",
-        "--border2": "rgba(27, 255, 122, 0.24)",
-        "--hover-bg": "rgba(27, 255, 122, 0.06)",
+        "--border": "rgba(167, 139, 250, 0.16)",
+        "--border2": "rgba(167, 139, 250, 0.28)",
+        "--hover-bg": "rgba(167, 139, 250, 0.07)",
 
-        "--code-bg": "#080e0b",
-        "--code-text": "#c9e8d6",
+        "--code-bg": "#0c0916",
+        "--code-text": "#d6cbf0",
 
-        "--user-bubble": "#132019",
-        "--assistant-bubble": "#0d1411",
+        "--user-bubble": "#1d1730",
+        "--assistant-bubble": "#131024",
 
-        "--success": "#1bff7a",
+        "--success": "#34d399",
         "--warning": "#ffc247",
         "--danger": "#ff5f56",
-        "--info": "#5cff9d",
-        "--link": "#5cff9d",
+        "--info": "#c4b5fd",
+        "--link": "#c4b5fd",
       },
     });
   }
@@ -79,13 +79,13 @@
   var MARK_SVG =
     '<svg viewBox="0 0 100 100" width="18" height="18" aria-hidden="true">' +
     '<circle cx="50" cy="50" r="47" fill="#050807"/>' +
-    '<circle cx="50" cy="50" r="45" stroke="#1bff7a" stroke-width="6" fill="none"/>' +
+    '<circle cx="50" cy="50" r="45" stroke="#a78bfa" stroke-width="6" fill="none"/>' +
     '<rect x="24" y="46" width="9" height="22" rx="1.5" fill="#17c95c"/>' +
     '<rect x="38" y="34" width="9" height="30" rx="1.5" fill="#e8433f"/>' +
     '<rect x="52" y="40" width="9" height="24" rx="1.5" fill="#17c95c"/>' +
-    '<path d="M22 76 C 42 76, 60 66, 72 42" stroke="#5cff9d" stroke-width="8" ' +
+    '<path d="M22 76 C 42 76, 60 66, 72 42" stroke="#f472b6" stroke-width="8" ' +
     'stroke-linecap="round" fill="none"/>' +
-    '<path d="M62 30 L82 36 L72 53 Z" fill="#7dffb4"/>' +
+    '<path d="M62 30 L82 36 L72 53 Z" fill="#f472b6"/>' +
     "</svg>";
 
   function buildNav() {
