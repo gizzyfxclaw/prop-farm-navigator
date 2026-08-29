@@ -11,6 +11,10 @@ Tools provided:
   mark_request_fulfilled  — mark a request complete after analysis is done
   post_analysis_note      — write a summary note to the agent analysis log
   post_trade_setup        — post entry, SL, and TP levels as a trade setup card
+  save_strategy_from_chat — save a strategy discussed in chat as a knowledge doc
+  save_strategy_rule      — codify a strategy as a structured rule for backtests
+  request_backtest        — queue a backtest request for a strategy/pair
+  update_understanding    — save a synthesised summary of all knowledge docs
 
 Drawing JSON schema (for post_analysis_step):
   { "type": "hline",     "price": 1.0850, "label": "Weekly res", "color": "#ef4444", "style": "solid"|"dashed"|"dotted" }
@@ -247,6 +251,170 @@ TOOLS: list[Tool] = [
             "required": ["pair", "direction", "entry", "sl", "tp1"],
         },
     ),
+    Tool(
+        name="save_strategy_from_chat",
+        description=(
+            "Save a trading strategy that the user described in this chat as a knowledge document "
+            "in the GizzyFx Trading Agent. Call this whenever the user explains, teaches, or describes "
+            "a trading strategy, methodology, concept, or set of rules in the conversation. "
+            "Distil what they said into a clear title and structured content, then call this tool "
+            "to persist it. The user will see it immediately in their Trading Agent knowledge base."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Short descriptive title, e.g. 'Order Block Breakout Strategy' or 'London Session Scalp Rules'",
+                },
+                "content": {
+                    "type": "string",
+                    "description": (
+                        "Full structured write-up of the strategy. Include: "
+                        "overview, market structure rules, entry conditions, stop loss rules, "
+                        "take profit targets, timeframes, pairs, and any extra notes the user mentioned."
+                    ),
+                },
+                "source": {
+                    "type": "string",
+                    "description": "Leave as 'hermes_chat' (default) to mark this as extracted from conversation.",
+                    "default": "hermes_chat",
+                },
+            },
+            "required": ["title", "content"],
+        },
+    ),
+    Tool(
+        name="save_strategy_rule",
+        description=(
+            "Codify a strategy discussed in chat as a structured rule that can be backtested "
+            "by the GizzyFx deterministic engine. Call this after save_strategy_from_chat when "
+            "the strategy has clear, machine-readable entry/exit conditions. "
+            "Use entry_type='custom' with custom_rules for most chat-derived strategies "
+            "(the LLM engine interprets the rules). Use the mechanical types (sma_cross, ema_cross, "
+            "rsi, breakout) only when the strategy is explicitly indicator-based."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Rule name, e.g. 'OB Breakout Long'",
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": ["long", "short", "both"],
+                    "description": "Trade direction this rule applies to",
+                },
+                "entry_type": {
+                    "type": "string",
+                    "enum": ["sma_cross", "ema_cross", "rsi", "breakout", "custom"],
+                    "description": "Use 'custom' for most chat-derived strategies.",
+                },
+                "entry_params": {
+                    "type": "object",
+                    "description": (
+                        "Parameters for mechanical entry types. "
+                        "sma_cross/ema_cross: {fast, slow}. rsi: {period, oversold, overbought}. "
+                        "breakout: {lookback}. custom: {} (empty object)."
+                    ),
+                },
+                "custom_rules": {
+                    "type": "string",
+                    "description": (
+                        "Required when entry_type='custom'. Full plain-English description of entry rules "
+                        "the LLM backtest engine will use to judge each trade: what must be true on the "
+                        "chart before entering, confluences required, invalidation conditions."
+                    ),
+                },
+                "sl_type": {
+                    "type": "string",
+                    "enum": ["atr", "fixed_pips"],
+                    "description": "Stop loss calculation method. Use 'atr' for ATR-based, 'fixed_pips' for fixed pip distance.",
+                },
+                "sl_value": {
+                    "type": "number",
+                    "description": "ATR multiplier (e.g. 1.5) or fixed pips (e.g. 20)",
+                },
+                "tp_type": {
+                    "type": "string",
+                    "enum": ["rr_multiple", "fixed_pips"],
+                    "description": "Take profit method. Use 'rr_multiple' for risk:reward ratio.",
+                },
+                "tp_value": {
+                    "type": "number",
+                    "description": "R:R ratio (e.g. 2.0 for 1:2) or fixed pips",
+                },
+                "default_timeframe": {
+                    "type": "string",
+                    "description": "e.g. '1h', '4h', '1d'",
+                },
+            },
+            "required": ["title", "direction", "entry_type", "sl_type", "sl_value", "tp_type", "tp_value", "default_timeframe"],
+        },
+    ),
+    Tool(
+        name="request_backtest",
+        description=(
+            "Queue a backtest request in the GizzyFx terminal so the strategy just discussed "
+            "gets backtested against real historical data. Call this after save_strategy_rule. "
+            "The user will see the backtest appear in their Trading Agent tab and the results "
+            "will populate once the engine runs."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "pair": {
+                    "type": "string",
+                    "description": "Forex pair to backtest, e.g. EURUSD, GBPUSD",
+                },
+                "note": {
+                    "type": "string",
+                    "description": "Brief description of what to backtest, e.g. 'OB breakout strategy from chat session'",
+                },
+                "timeframe": {
+                    "type": "string",
+                    "description": "Candle timeframe, e.g. '1h', '4h', '1d'",
+                    "default": "1h",
+                },
+                "rule_id": {
+                    "type": "string",
+                    "description": "Optional: the id returned by save_strategy_rule to link the backtest to that rule",
+                },
+            },
+            "required": ["pair", "note"],
+        },
+    ),
+    Tool(
+        name="update_understanding",
+        description=(
+            "Save an updated synthesised summary of everything the user has taught the Trading Agent "
+            "across all knowledge docs. Call this after adding a new strategy doc to reflect the "
+            "updated knowledge base. Include any contradictions between strategies you noticed."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "summary": {
+                    "type": "string",
+                    "description": (
+                        "Comprehensive plain-English synthesis of all strategy knowledge: "
+                        "core methodology, key confluences, preferred pairs/sessions, "
+                        "risk management rules, and overall trading philosophy."
+                    ),
+                },
+                "contradictions": {
+                    "type": "string",
+                    "description": "Optional: any contradictions or conflicts found between the docs. Leave blank if none.",
+                },
+                "doc_count": {
+                    "type": "integer",
+                    "description": "Total number of knowledge documents currently in the knowledge base.",
+                },
+            },
+            "required": ["summary", "doc_count"],
+        },
+    ),
 ]
 
 
@@ -350,6 +518,73 @@ async def call_tool(name: str, arguments: dict):
                 f"Trade setup posted (id={data.get('id')}). "
                 f"Entry={arguments['entry']} SL={arguments['sl']} TP1={arguments['tp1']} "
                 f"direction={arguments['direction']}. Levels are now drawn on the chart."
+            )
+
+        elif name == "save_strategy_from_chat":
+            body = {
+                "title": arguments["title"],
+                "content": arguments["content"],
+                "source": arguments.get("source", "hermes_chat"),
+            }
+            data = _post("/api/hermes/knowledge", body)
+            result = (
+                f"Strategy saved to knowledge base (id={data.get('id')}). "
+                f"Title: '{arguments['title']}'. "
+                f"Visible immediately in the Trading Agent knowledge base on the site."
+            )
+
+        elif name == "save_strategy_rule":
+            entry_type = arguments["entry_type"]
+            body = {
+                "title": arguments["title"],
+                "direction": arguments["direction"],
+                "entry_type": entry_type,
+                "entry_params": arguments.get("entry_params", {}),
+                "sl_type": arguments["sl_type"],
+                "sl_value": arguments["sl_value"],
+                "tp_type": arguments["tp_type"],
+                "tp_value": arguments["tp_value"],
+                "default_timeframe": arguments["default_timeframe"],
+            }
+            if "custom_rules" in arguments:
+                body["custom_rules"] = arguments["custom_rules"]
+            if "knowledge_doc_id" in arguments:
+                body["knowledge_doc_id"] = arguments["knowledge_doc_id"]
+            data = _post("/api/hermes/strategy-rules", body)
+            result = (
+                f"Strategy rule created (id={data.get('id')}). "
+                f"Title: '{arguments['title']}' | direction={arguments['direction']} | "
+                f"entry_type={entry_type} | tf={arguments['default_timeframe']}. "
+                f"Use this id with request_backtest to queue a backtest."
+            )
+
+        elif name == "request_backtest":
+            body = {
+                "pair": arguments["pair"].upper().replace("/", ""),
+                "note": arguments["note"],
+                "request_type": "backtest",
+                "timeframe": arguments.get("timeframe", "1h"),
+            }
+            if "rule_id" in arguments:
+                body["rule_id"] = arguments["rule_id"]
+            data = _post("/api/hermes/requests", body)
+            result = (
+                f"Backtest queued (id={data.get('id')}) for {body['pair']} @ {body['timeframe']}. "
+                f"The user will see it in their Trading Agent tab. "
+                f"Results will appear once the backtest engine processes it."
+            )
+
+        elif name == "update_understanding":
+            body = {
+                "summary": arguments["summary"],
+                "doc_count": arguments["doc_count"],
+            }
+            if arguments.get("contradictions"):
+                body["contradictions"] = arguments["contradictions"]
+            data = _post("/api/hermes/understanding", body)
+            result = (
+                f"Knowledge synthesis updated (id={data.get('id')}). "
+                f"Covers {arguments['doc_count']} doc(s). Visible in the Trading Agent tab."
             )
 
         else:
