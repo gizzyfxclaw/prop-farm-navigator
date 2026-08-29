@@ -1,19 +1,49 @@
 #!/usr/bin/env python3
-import json, os, sys
+import datetime, json, os, sys
 try:
     import httpx
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
     from mcp.types import TextContent, ImageContent, Tool
 except ImportError as e:
     print(f"Missing: {e}\nRun: pip install 'mcp>=1.28,<2' httpx", file=sys.stderr); sys.exit(1)
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from gizzyfx_backtest_engine import simulate, PIP_SIZE, TV_SYMBOL, period_description
+
 API_URL = os.environ.get("GIZZYFX_API_URL", "").rstrip("/")
 API_KEY  = os.environ.get("GIZZYFX_API_KEY", "")
 if not API_URL or not API_KEY:
     print("ERROR: Set GIZZYFX_API_URL and GIZZYFX_API_KEY", file=sys.stderr); sys.exit(1)
 
+TVREMIX_URL = os.environ.get("TVREMIX_URL", "https://tvremix.xyz/api/mcp/v1")
+TVREMIX_API_KEY = os.environ.get("TVREMIX_API_KEY", "")
+
 HEADERS = {"x-hermes-key": API_KEY, "Content-Type": "application/json"}
+
+async def _fetch_tv_bars(pair, timeframe, count=5000):
+    symbol = TV_SYMBOL.get(pair, f"FX:{pair}")
+    async with streamablehttp_client(
+        TVREMIX_URL, headers={"Authorization": f"Bearer {TVREMIX_API_KEY}"}
+    ) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            result = await session.call_tool(
+                "get_ohlcv", {"symbol": symbol, "interval": timeframe, "count": count}
+            )
+            if getattr(result, "isError", False):
+                raise RuntimeError(str(result.content))
+            data = json.loads(result.content[0].text)
+            bars = data["bars"]
+            return (
+                [b["o"] for b in bars],
+                [b["h"] for b in bars],
+                [b["l"] for b in bars],
+                [b["c"] for b in bars],
+                [b["t"] for b in bars],
+            )
 
 def _get(path, params=None):
     r = httpx.get(f"{API_URL}{path}", headers=HEADERS, params=params, timeout=15)
@@ -50,6 +80,28 @@ TOOLS = [
             "a rule, or to see what a rule's mechanical definition actually says."
         ),
         inputSchema={"type": "object", "properties": {}, "required": []},
+    ),
+    Tool(
+        name="run_deterministic_backtest",
+        description=(
+            "Run a REAL backtest: fetches real historical candles for `pair` at `timeframe` from "
+            "tvremix (TradingView data), then mechanically walks `rule_id`'s entry/exit rules "
+            "candle-by-candle (no judgment calls, no LLM math) and returns real trade stats. "
+            "Call this instead of eyeballing candles yourself whenever the backtest request has "
+            "a rule_id (check get_strategy_rules first to see what's defined). After this "
+            "returns, call post_backtest_result with deterministic=true and the exact numbers "
+            "this tool gave you — don't round or editorialize the stats, just report them, though "
+            "you should still write a normal narrative summarizing what happened."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "rule_id": {"type": "string"},
+                "pair": {"type": "string", "description": "e.g. EURUSD"},
+                "timeframe": {"type": "string", "description": "1m, 5m, 15m, 30m, 1h, 4h, 1D, 1W, or 1M"},
+            },
+            "required": ["rule_id", "pair", "timeframe"],
+        },
     ),
     Tool(name="post_analysis_step", description="Post one analysis step with chart drawings. User sees drawings appear live. Call multiple times as you progress (step 0,1,2...). Drawing types: hline, trendline, zone, marker.", inputSchema={"type":"object","properties":{"request_id":{"type":"string"},"pair":{"type":"string"},"step":{"type":"integer"},"step_label":{"type":"string","description":"Short label shown live e.g. 'Identifying swing highs'"},"drawings":{"type":"array","items":{"type":"object"},"description":"Array of drawing objects. hline:{type,price,label,color,style}. trendline:{type,p1time,p1price,p2time,p2price,label,color}. zone:{type,topPrice,bottomPrice,label,color}. marker:{type,time,position,label,color,markerType}"},"summary":{"type":"string"}},"required":["request_id","pair","step","step_label"]}),
     Tool(name="mark_request_fulfilled", description="Mark a request done after posting all steps.", inputSchema={"type":"object","properties":{"request_id":{"type":"string"}},"required":["request_id"]}),
@@ -114,11 +166,15 @@ TOOLS = [
         name="post_backtest_result",
         description=(
             "Post the result of a backtest request (request_type=backtest from "
-            "get_pending_requests). This is an APPROXIMATE, LLM-narrated walkthrough of a "
-            "bounded recent window of candles, not a rigorous statistical backtest - the "
-            "narrative field must say so explicitly and describe exactly what you did "
-            "(how many candles, what timeframe, which strategy) so the human can judge how "
-            "much weight to give the win rate."
+            "get_pending_requests). Two modes:\n"
+            "- deterministic=true: you called run_deterministic_backtest first and are reporting "
+            "its exact numbers verbatim (pass rule_id/timeframe/max_drawdown_pct/avg_rr/bars_used "
+            "too). This is a real, reproducible simulation.\n"
+            "- deterministic=false (default): no rule_id was available, so you narrated a "
+            "judgment-call walkthrough of a bounded recent window of candles yourself - NOT a "
+            "rigorous statistical backtest. The narrative field must say so explicitly and "
+            "describe exactly what you did (how many candles, what timeframe, which strategy) so "
+            "the human can judge how much weight to give the win rate."
         ),
         inputSchema={
             "type": "object",
@@ -134,8 +190,14 @@ TOOLS = [
                 "losses": {"type": "integer"},
                 "narrative": {
                     "type": "string",
-                    "description": "Methodology + caveats + notable trades. Must state this is approximate/small-sample, not statistically reliable.",
+                    "description": "Methodology + caveats + notable trades. If not deterministic, must state this is approximate/small-sample, not statistically reliable.",
                 },
+                "deterministic": {"type": "boolean", "description": "True only after calling run_deterministic_backtest. Default false."},
+                "rule_id": {"type": "string", "description": "Required when deterministic=true."},
+                "timeframe": {"type": "string", "description": "Required when deterministic=true."},
+                "max_drawdown_pct": {"type": "number"},
+                "avg_rr": {"type": "number"},
+                "bars_used": {"type": "integer"},
             },
             "required": ["pair", "period_description", "trades_analyzed", "wins", "losses", "narrative"],
         },
@@ -198,6 +260,31 @@ async def call_tool(name, arguments):
                 f"knowledge_doc_id={r.get('knowledge_doc_id')}"
                 for r in rules
             )
+        elif name == "run_deterministic_backtest":
+            pair = arguments["pair"].upper().replace("/", "")
+            timeframe = arguments["timeframe"]
+            rules_data = _get("/api/hermes/strategy-rules").get("rules", [])
+            rule = next((r for r in rules_data if r["id"] == arguments["rule_id"]), None)
+            if not rule:
+                result = f"No strategy rule found with id={arguments['rule_id']}. Call get_strategy_rules first."
+            else:
+                o, h, l, c, t = await _fetch_tv_bars(pair, timeframe)
+                if len(c) < 50:
+                    result = f"Only {len(c)} bars came back for {pair} {timeframe} — too little history to backtest, try a higher timeframe."
+                else:
+                    pip_size = PIP_SIZE.get(pair, 0.0001)
+                    stats_out = simulate(rule, o, h, l, c, pip_size)
+                    first_iso = datetime.datetime.fromtimestamp(t[0], datetime.timezone.utc).strftime("%Y-%m-%d") if t else None
+                    last_iso = datetime.datetime.fromtimestamp(t[-1], datetime.timezone.utc).strftime("%Y-%m-%d") if t else None
+                    desc = period_description(pair, timeframe, len(c), first_iso, last_iso)
+                    result = (
+                        f"REAL backtest of rule '{rule['title']}' ({rule['entry_type']}) on {pair} {timeframe}:\n"
+                        f"period_description={desc!r}\n"
+                        f"trades_analyzed={stats_out['trades_analyzed']} wins={stats_out['wins']} losses={stats_out['losses']}\n"
+                        f"avg_rr={stats_out['avg_rr']} max_drawdown_pct={stats_out['max_drawdown_pct']} bars_used={len(c)}\n"
+                        f"Now call post_backtest_result with these exact numbers, deterministic=true, "
+                        f"rule_id={rule['id']!r}, timeframe={timeframe!r}."
+                    )
         elif name == "get_ohlcv_data":
             pair = arguments["pair"].upper().replace("/","")
             interval = arguments.get("interval","1h")
@@ -233,8 +320,9 @@ async def call_tool(name, arguments):
             body = {"pair": arguments["pair"], "period_description": arguments["period_description"],
                     "trades_analyzed": arguments["trades_analyzed"], "wins": arguments["wins"],
                     "losses": arguments["losses"], "narrative": arguments["narrative"]}
-            if "request_id" in arguments:
-                body["request_id"] = arguments["request_id"]
+            for k in ("request_id", "deterministic", "rule_id", "timeframe", "max_drawdown_pct", "avg_rr", "bars_used"):
+                if k in arguments:
+                    body[k] = arguments[k]
             data = _post("/api/hermes/backtests", body)
             wr = (arguments["wins"] / arguments["trades_analyzed"] * 100) if arguments["trades_analyzed"] else 0
             result = f"Backtest result posted (id={data.get('id')}). Win rate {wr:.0f}% ({arguments['wins']}/{arguments['trades_analyzed']})."
