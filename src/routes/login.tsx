@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { LogoMark, LogoWordmark } from "../components/brand/logo";
 
 // ── Server action: clear the session (logout) ───────────────────────────────
@@ -24,9 +24,30 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Countdown tick
+  useEffect(() => {
+    if (countdown <= 0) return;
+    timerRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(timerRef.current!);
+          setError(null);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current!);
+  }, [countdown]);
+
+  const locked = countdown > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (locked) return;
     setBusy(true);
     setError(null);
     try {
@@ -35,9 +56,14 @@ function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, next: next ?? "/" }),
       });
-      const result = await res.json() as { ok: boolean; dest?: string; error?: string };
+      const result = await res.json() as { ok: boolean; dest?: string; error?: string; retryAfter?: number };
       if (!result.ok) {
-        setError(result.error ?? "Invalid email or password.");
+        if (result.retryAfter) {
+          setCountdown(result.retryAfter);
+          setError(`Too many failed attempts. Try again in ${result.retryAfter}s.`);
+        } else {
+          setError(result.error ?? "Invalid email or password.");
+        }
         setBusy(false);
         return;
       }
@@ -143,25 +169,29 @@ function LoginPage() {
             {error && (
               <p style={{
                 margin: 0, padding: "10px 14px", borderRadius: 10, fontSize: 13,
-                background: "oklch(0.500 0.200 25 / 0.12)", border: "1px solid oklch(0.500 0.200 25 / 0.30)",
-                color: "oklch(0.720 0.180 25)",
+                background: locked ? "oklch(0.450 0.150 50 / 0.12)" : "oklch(0.500 0.200 25 / 0.12)",
+                border: locked ? "1px solid oklch(0.450 0.150 50 / 0.35)" : "1px solid oklch(0.500 0.200 25 / 0.30)",
+                color: locked ? "oklch(0.750 0.150 50)" : "oklch(0.720 0.180 25)",
               }}>
-                {error}
+                {locked ? `Too many failed attempts. Try again in ${countdown}s.` : error}
               </p>
             )}
 
             <button
               type="submit"
-              disabled={busy}
+              disabled={busy || locked}
               style={{
-                marginTop: 4, height: 44, borderRadius: 12, border: "none", cursor: busy ? "default" : "pointer",
-                background: busy ? "oklch(0.400 0.100 295)" : "oklch(0.600 0.230 295)",
+                marginTop: 4, height: 44, borderRadius: 12, border: "none",
+                cursor: busy || locked ? "default" : "pointer",
+                background: locked
+                  ? "oklch(0.350 0.080 50)"
+                  : busy ? "oklch(0.400 0.100 295)" : "oklch(0.600 0.230 295)",
                 color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em",
-                boxShadow: busy ? "none" : "0 0 18px oklch(0.680 0.230 295 / 0.35)",
+                boxShadow: busy || locked ? "none" : "0 0 18px oklch(0.680 0.230 295 / 0.35)",
                 transition: "all 0.18s ease",
               }}
             >
-              {busy ? "Signing in…" : "Sign in"}
+              {busy ? "Signing in…" : locked ? `Locked — ${countdown}s` : "Sign in"}
             </button>
           </form>
         </div>

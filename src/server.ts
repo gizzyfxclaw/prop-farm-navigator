@@ -59,15 +59,56 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/api/auth/login") {
       try {
+        const ip = request.headers.get("CF-Connecting-IP") ?? request.headers.get("X-Forwarded-For") ?? "unknown";
+        const kvKey = `login_fail:${ip}`;
+        const kv = cfEnv?.KV;
+
+        type FailData = { count: number; lockedUntil: number };
+        let failData: FailData = { count: 0, lockedUntil: 0 };
+        if (kv) {
+          const stored = await kv.get<FailData>(kvKey, "json");
+          if (stored) failData = stored;
+        }
+
+        const now = Date.now();
+        if (failData.lockedUntil > now) {
+          const retryAfter = Math.ceil((failData.lockedUntil - now) / 1000);
+          return new Response(
+            JSON.stringify({ ok: false, error: `Too many attempts. Wait ${retryAfter}s before trying again.`, retryAfter }),
+            { status: 429, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
         const { email, password, next } = await request.json() as { email: string; password: string; next: string };
         const expectedEmail = (cfEnv?.AUTH_EMAIL ?? "").toLowerCase();
         const expectedPassword = cfEnv?.AUTH_PASSWORD ?? "";
         const secret = cfEnv?.AUTH_SECRET ?? "";
+
         if (!secret || email.toLowerCase() !== expectedEmail || password !== expectedPassword) {
-          return new Response(JSON.stringify({ ok: false, error: "Invalid email or password." }), {
-            headers: { "Content-Type": "application/json" },
-          });
+          failData.count += 1;
+          // Escalating lockout: 3 fails → 15s, 5 fails → 60s, 8 fails → 300s, 10+ → 900s
+          let lockSeconds = 0;
+          if (failData.count >= 10) lockSeconds = 900;
+          else if (failData.count >= 8) lockSeconds = 300;
+          else if (failData.count >= 5) lockSeconds = 60;
+          else if (failData.count >= 3) lockSeconds = 15;
+
+          if (lockSeconds > 0) failData.lockedUntil = now + lockSeconds * 1000;
+          if (kv) await kv.put(kvKey, JSON.stringify(failData), { expirationTtl: 3600 });
+
+          const retryAfter = lockSeconds > 0 ? lockSeconds : undefined;
+          const errorMsg = lockSeconds > 0
+            ? `Too many attempts. Wait ${lockSeconds}s before trying again.`
+            : "Invalid email or password.";
+          return new Response(
+            JSON.stringify({ ok: false, error: errorMsg, retryAfter }),
+            { headers: { "Content-Type": "application/json" } },
+          );
         }
+
+        // Credentials correct — clear the fail counter
+        if (kv) await kv.delete(kvKey);
+
         const token = await signSession(email, secret);
         const dest = next && next.startsWith("/") ? next : "/";
         return new Response(JSON.stringify({ ok: true, dest }), {
