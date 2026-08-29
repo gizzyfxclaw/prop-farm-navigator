@@ -253,13 +253,22 @@ async def call_tool(name, arguments):
         elif name == "get_strategy_rules":
             data = _get("/api/hermes/strategy-rules")
             rules = data.get("rules", [])
-            result = "No structured strategy rules defined yet." if not rules else "\n".join(
-                f"id={r['id']} title={r['title']!r} active={bool(r['active'])} direction={r['direction']} "
-                f"entry={r['entry_type']}({r['entry_params']}) sl={r['sl_type']}:{r['sl_value']} "
-                f"tp={r['tp_type']}:{r['tp_value']} default_timeframe={r['default_timeframe']} "
-                f"knowledge_doc_id={r.get('knowledge_doc_id')}"
-                for r in rules
-            )
+            def _fmt_rule(r):
+                base = (
+                    f"id={r['id']} title={r['title']!r} active={bool(r['active'])} direction={r['direction']} "
+                    f"entry={r['entry_type']}"
+                )
+                if r["entry_type"] == "custom":
+                    base += f" custom_rules={r.get('custom_rules')!r} (NOT mechanical — use judgment over real tvremix history, do not call run_deterministic_backtest for this one)"
+                else:
+                    base += f"({r['entry_params']})"
+                base += (
+                    f" sl={r['sl_type']}:{r['sl_value']} tp={r['tp_type']}:{r['tp_value']} "
+                    f"default_timeframe={r['default_timeframe']} knowledge_doc_id={r.get('knowledge_doc_id')}"
+                )
+                return base
+
+            result = "No structured strategy rules defined yet." if not rules else "\n".join(_fmt_rule(r) for r in rules)
         elif name == "run_deterministic_backtest":
             pair = arguments["pair"].upper().replace("/", "")
             timeframe = arguments["timeframe"]
@@ -267,6 +276,14 @@ async def call_tool(name, arguments):
             rule = next((r for r in rules_data if r["id"] == arguments["rule_id"]), None)
             if not rule:
                 result = f"No strategy rule found with id={arguments['rule_id']}. Call get_strategy_rules first."
+            elif rule["entry_type"] == "custom":
+                result = (
+                    f"Rule '{rule['title']}' is entry_type=custom — it's free text, not mechanical, so this tool "
+                    f"can't run it. custom_rules: {rule.get('custom_rules')!r}. Instead: pull real candles yourself "
+                    f"via get_ohlcv_data or tvremix at the requested timeframe, apply this rule's conditions by "
+                    f"judgment, and post_backtest_result with deterministic=false (but still pass rule_id and "
+                    f"timeframe so it's traceable to this named strategy)."
+                )
             else:
                 o, h, l, c, t = await _fetch_tv_bars(pair, timeframe)
                 if len(c) < 50:

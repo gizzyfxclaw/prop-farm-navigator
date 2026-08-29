@@ -39,6 +39,7 @@ const ENTRY_TYPE_LABEL: Record<StrategyRule["entry_type"], string> = {
   ema_cross: "EMA crossover",
   rsi: "RSI overbought/oversold",
   breakout: "N-bar breakout",
+  custom: "Custom (Hermes judgment)",
 };
 
 const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
@@ -98,6 +99,7 @@ function HermesPage() {
   const [ruleOversold, setRuleOversold] = useState("30");
   const [ruleOverbought, setRuleOverbought] = useState("70");
   const [ruleLookback, setRuleLookback] = useState("20");
+  const [ruleCustomText, setRuleCustomText] = useState("");
   const [ruleSlType, setRuleSlType] = useState<"atr" | "fixed_pips">("atr");
   const [ruleSlValue, setRuleSlValue] = useState("2");
   const [ruleTpType, setRuleTpType] = useState<"rr_multiple" | "fixed_pips">("rr_multiple");
@@ -225,12 +227,18 @@ function HermesPage() {
         return { period: Number(ruleRsiPeriod), oversold: Number(ruleOversold), overbought: Number(ruleOverbought) };
       case "breakout":
         return { lookback: Number(ruleLookback) };
+      case "custom":
+        return {};
     }
   }
 
   async function submitRule() {
     if (!ruleTitle.trim()) {
       toast.error("Give the strategy a title first.");
+      return;
+    }
+    if (ruleEntryType === "custom" && !ruleCustomText.trim()) {
+      toast.error("Describe the entry/exit conditions for a custom strategy first.");
       return;
     }
     setAddingRule(true);
@@ -241,6 +249,7 @@ function HermesPage() {
         direction: ruleDirection,
         entry_type: ruleEntryType,
         entry_params: entryParamsForForm(),
+        custom_rules: ruleEntryType === "custom" ? ruleCustomText.trim() : undefined,
         sl_type: ruleSlType,
         sl_value: Number(ruleSlValue),
         tp_type: ruleTpType,
@@ -250,7 +259,12 @@ function HermesPage() {
     });
     setAddingRule(false);
     setRuleTitle("");
-    toast.success("Strategy saved — pick it from the backtest panel to run a real simulation.");
+    setRuleCustomText("");
+    toast.success(
+      ruleEntryType === "custom"
+        ? "Strategy saved — Hermes will apply this judgment-per-trade over real history when you request a backtest."
+        : "Strategy saved — pick it from the backtest panel to run a real simulation.",
+    );
     refresh();
   }
 
@@ -437,12 +451,20 @@ function HermesPage() {
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground">{r.title}</p>
                       <Badge tone={r.active ? "green" : "neutral"}>{r.active ? "active" : "inactive"}</Badge>
+                      {r.entry_type === "custom" ? (
+                        <Badge tone="amber">Judgment</Badge>
+                      ) : (
+                        <Badge tone="green">Deterministic</Badge>
+                      )}
                     </div>
                     <p className="mt-1 text-[12px] text-muted-foreground">
                       {ENTRY_TYPE_LABEL[r.entry_type]} · {r.direction} · default {r.default_timeframe} · SL{" "}
                       {r.sl_type === "atr" ? `${r.sl_value}x ATR` : `${r.sl_value} pips`} · TP{" "}
                       {r.tp_type === "rr_multiple" ? `${r.tp_value}R` : `${r.tp_value} pips`}
                     </p>
+                    {r.entry_type === "custom" && r.custom_rules && (
+                      <p className="mt-1 text-[12px] text-foreground line-clamp-2">{r.custom_rules}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="ghost" className="h-8 px-2 text-[11px]" onClick={() => toggleRule(r)}>
@@ -510,6 +532,7 @@ function HermesPage() {
                   <option value="ema_cross">EMA crossover</option>
                   <option value="rsi">RSI overbought/oversold</option>
                   <option value="breakout">N-bar breakout</option>
+                  <option value="custom">Custom (Hermes judgment)</option>
                 </Select>
               </Field>
               {(ruleEntryType === "sma_cross" || ruleEntryType === "ema_cross") && (
@@ -572,6 +595,30 @@ function HermesPage() {
               )}
             </div>
 
+            {ruleEntryType === "custom" && (
+              <div className="space-y-2">
+                <Alert level="amber" title="Judgment, not mechanics">
+                  A custom strategy isn't run by the deterministic engine — Hermes reads this
+                  description and applies it per trade over real tvremix history. Real data, but
+                  still an LLM judgment call, so results stay approximate/non-reproducible like
+                  the free-form flow, just tied to this named strategy and a real price history
+                  instead of guessed from a knowledge doc.
+                </Alert>
+                <Field
+                  label="Entry / exit rules"
+                  hint="Describe conditions in your own words — indicators, price action, confluence, whatever the strategy actually uses."
+                >
+                  <textarea
+                    className={textareaClass}
+                    style={{ minHeight: 120 }}
+                    value={ruleCustomText}
+                    onChange={(e) => setRuleCustomText(e.target.value)}
+                    placeholder="e.g. Enter long when price rejects a 4H bullish order block with a bullish engulfing candle on the 15m, only during London/NY session overlap..."
+                  />
+                </Field>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Stop loss">
                 <Select value={ruleSlType} onChange={(e) => setRuleSlType(e.target.value as typeof ruleSlType)} className="h-11 w-36">
@@ -608,24 +655,39 @@ function HermesPage() {
         </div>
       </Card>
 
+      {(() => {
+        const selectedRule = rules.find((r) => r.id === btRuleId);
+        const isDeterministic = !!selectedRule && selectedRule.entry_type !== "custom";
+        const isCustomJudgment = !!selectedRule && selectedRule.entry_type === "custom";
+        return (
       <Card
         title="Request a Backtest"
         badge={
-          btRuleId ? (
+          isDeterministic ? (
             <Badge tone="green">Deterministic</Badge>
+          ) : isCustomJudgment ? (
+            <Badge tone="amber">Judgment (real data)</Badge>
           ) : (
             <Badge tone="amber">Approximate</Badge>
           )
         }
       >
         <div className="space-y-3">
-          {btRuleId ? (
+          {isDeterministic && (
             <Alert level="green" title="Real simulation">
               This strategy is defined as executable rules — the backtest engine walks every
               candle in the chosen timeframe's TradingView history mechanically and computes a
               real win rate, R:R, and max drawdown. No LLM judgment involved.
             </Alert>
-          ) : (
+          )}
+          {isCustomJudgment && (
+            <Alert level="amber" title="Hermes judgment, real history">
+              This strategy is free-text, so Hermes reads it and applies judgment per trade over
+              real TradingView history at the chosen timeframe — real data, but still not a
+              mechanical simulation, so the win rate stays approximate.
+            </Alert>
+          )}
+          {!selectedRule && (
             <Alert level="amber" title="Not a rigorous backtest">
               No strategy selected below, so this falls back to the Trading Agent narrating a
               judgment call over a bounded recent window of candles — not a deterministic
@@ -688,6 +750,8 @@ function HermesPage() {
           </div>
         </div>
       </Card>
+        );
+      })()}
 
       {backtests.length > 0 && (
         <Card title="Backtest results" badge={<Badge tone="neutral">{backtests.length}</Badge>}>

@@ -153,8 +153,9 @@ export interface StrategyRule {
   knowledge_doc_id: string | null;
   title: string;
   direction: "long" | "short" | "both";
-  entry_type: "sma_cross" | "ema_cross" | "rsi" | "breakout";
+  entry_type: "sma_cross" | "ema_cross" | "rsi" | "breakout" | "custom";
   entry_params: string;
+  custom_rules: string | null;
   sl_type: "atr" | "fixed_pips";
   sl_value: number;
   tp_type: "rr_multiple" | "fixed_pips";
@@ -177,18 +178,24 @@ export const loadStrategyRules = createServerFn({ method: "GET" }).handler(
   },
 );
 
-const strategyRuleInput = z.object({
-  knowledge_doc_id: z.string().optional(),
-  title: z.string().min(1),
-  direction: z.enum(["long", "short", "both"]).default("both"),
-  entry_type: z.enum(["sma_cross", "ema_cross", "rsi", "breakout"]),
-  entry_params: z.record(z.string(), z.number()),
-  sl_type: z.enum(["atr", "fixed_pips"]),
-  sl_value: z.number().positive(),
-  tp_type: z.enum(["rr_multiple", "fixed_pips"]),
-  tp_value: z.number().positive(),
-  default_timeframe: z.string().default("1h"),
-});
+const strategyRuleInput = z
+  .object({
+    knowledge_doc_id: z.string().optional(),
+    title: z.string().min(1),
+    direction: z.enum(["long", "short", "both"]).default("both"),
+    entry_type: z.enum(["sma_cross", "ema_cross", "rsi", "breakout", "custom"]),
+    entry_params: z.record(z.string(), z.number()).default({}),
+    custom_rules: z.string().optional(),
+    sl_type: z.enum(["atr", "fixed_pips"]),
+    sl_value: z.number().positive(),
+    tp_type: z.enum(["rr_multiple", "fixed_pips"]),
+    tp_value: z.number().positive(),
+    default_timeframe: z.string().default("1h"),
+  })
+  .refine(
+    (v) => (v.entry_type === "custom" ? !!v.custom_rules?.trim() : Object.keys(v.entry_params).length > 0),
+    { message: "custom_rules is required for entry_type=custom; entry_params is required otherwise" },
+  );
 
 export const addStrategyRule = createServerFn({ method: "POST" })
   .validator(strategyRuleInput)
@@ -197,8 +204,8 @@ export const addStrategyRule = createServerFn({ method: "POST" })
     if (!env) return;
     await env.DB.prepare(
       `INSERT INTO strategy_rules
-       (id, knowledge_doc_id, title, direction, entry_type, entry_params, sl_type, sl_value, tp_type, tp_value, default_timeframe)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, knowledge_doc_id, title, direction, entry_type, entry_params, custom_rules, sl_type, sl_value, tp_type, tp_value, default_timeframe)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         crypto.randomUUID(),
@@ -207,6 +214,7 @@ export const addStrategyRule = createServerFn({ method: "POST" })
         data.direction,
         data.entry_type,
         JSON.stringify(data.entry_params),
+        data.custom_rules ?? null,
         data.sl_type,
         data.sl_value,
         data.tp_type,
