@@ -155,3 +155,26 @@ short, and put anything strategy-specific in a knowledge doc via
 `save_strategy_from_chat` instead, since that's reloaded fresh every time
 via `get_knowledge_docs`/`get_understanding` rather than burning context on
 every single session regardless of whether it's needed.
+
+## Honcho memory vs. the D1 knowledge base
+
+Two separate, complementary memory systems, both in play for trading work:
+
+- **`knowledge_docs`/`strategy_rules`/`hermes_understanding`** (D1, via the
+  `gizzyfx_*` tools) — the FORMAL, structured strategy. This is what actually
+  drives backtests and is what's shown on the GizzyFx site's Trading Agent
+  tab. Cross-VPS portable (lives in Cloudflare, not on any one VPS).
+- **Honcho** (`honcho_profile`, `honcho_search`, `honcho_reasoning`,
+  `honcho_context`, `honcho_conclude`) — the hermes-agent's own built-in
+  long-term memory of the user as a peer, enabled globally via
+  `memory.provider: honcho` in `~/.hermes/config.yaml` (not gizzyfx-specific,
+  not shown on the GizzyFx site, and tied to this Honcho account/workspace —
+  moving to a new VPS with a fresh `~/.hermes/config.yaml` but the same
+  Honcho credentials carries it forward; a genuinely fresh Honcho workspace
+  would not). No extra setup needed beyond what step 2/4 already do — these
+  tools are globally available whenever the memory provider is Honcho, not
+  gated behind a toolset.
+
+`prefill.sh` instructs Hermes to use both together: the D1 docs for what the
+strategy actually says, Honcho for standing preferences/corrections that
+haven't (or won't) become a formal knowledge doc, via `honcho_conclude`.
