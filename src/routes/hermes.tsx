@@ -220,7 +220,7 @@ function HermesPage() {
   }
 
   const activeRequest = requests.find((r) => r.id === activeRequestId);
-  const latestStepLabel = steps.length ? steps[steps.length - 1].step_label : null;
+  const latestStepLabel = steps[steps.length - 1]?.step_label ?? null;
   const latestSummary = steps.find((s) => s.summary)?.summary ?? null;
 
   return (
@@ -274,8 +274,8 @@ function HermesPage() {
               }`}
             >
               {analyzing ? (
-                <span className="flex items-center gap-1">
-                  <span className="block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                <span className="flex items-center gap-1.5">
+                  <span className="ping-ring block h-1.5 w-1.5 rounded-full bg-primary" />
                   Analysis
                 </span>
               ) : "Analysis"}
@@ -325,8 +325,8 @@ function HermesPage() {
           )}
         </div>
 
-        {/* Chart area */}
-        <div className="h-[calc(100svh-240px)] min-h-[320px] max-h-[680px]">
+        {/* Chart area — scanline sweeps while the agent works */}
+        <div className={`${analyzing ? "scanline" : ""} h-[calc(100svh-240px)] min-h-[320px] max-h-[680px]`}>
           {chartMode === "tv" ? (
             <TradingViewWidget pair={chartPair} interval={chartInterval} />
           ) : (
@@ -338,7 +338,7 @@ function HermesPage() {
         {steps.length > 0 && (
           <div className="border-t border-border px-5 py-3 space-y-1.5 max-h-40 overflow-y-auto">
             {steps.map((s, i) => (
-              <div key={s.id} className="flex items-start gap-2 text-[12px]">
+              <div key={s.id} className="animate-in flex items-start gap-2 text-[12px]">
                 <span className="mt-0.5 shrink-0 rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                   {i + 1}
                 </span>
@@ -462,7 +462,7 @@ function HermesPage() {
               const isLong = s.direction === "long";
               const rrLabel = s.rr ? `${s.rr.toFixed(2)}R` : null;
               return (
-                <div key={s.id} className="rounded-xl border border-border p-4">
+                <div key={s.id} className="animate-in lift rounded-xl border border-border p-4">
                   {/* Header row */}
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <div className="flex items-center gap-2">

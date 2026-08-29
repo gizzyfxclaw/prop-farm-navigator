@@ -170,7 +170,10 @@ export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
 
   // Load CDN script once
   useEffect(() => {
-    if (window.LightweightCharts) { setReady(true); return; }
+    if (window.LightweightCharts) {
+      setReady(true);
+      return undefined;
+    }
     const existing = document.getElementById("__lw_charts__");
     if (!existing) {
       const s = document.createElement("script");
@@ -178,12 +181,16 @@ export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
       s.src = LW_CDN;
       s.onload = () => setReady(true);
       document.head.appendChild(s);
-    } else {
-      const id = setInterval(() => {
-        if (window.LightweightCharts) { setReady(true); clearInterval(id); }
-      }, 50);
-      return () => clearInterval(id);
+      return undefined;
     }
+    // Script tag exists but may still be loading — poll for the global
+    const id = setInterval(() => {
+      if (window.LightweightCharts) {
+        setReady(true);
+        clearInterval(id);
+      }
+    }, 50);
+    return () => clearInterval(id);
   }, []);
 
   // Create chart once LW is ready

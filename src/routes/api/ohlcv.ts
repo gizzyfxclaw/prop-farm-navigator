@@ -72,39 +72,38 @@ export const Route = createFileRoute("/api/ohlcv")({
           }))
           .filter((b) => b.open != null && b.close != null);
 
-        // Aggregate 1D bars into weekly candles
+        // Aggregate daily bars into weekly candles (Yahoo has no forex 1w feed)
         if (interval === "1w") {
-          const weekly: typeof bars = [];
-          let chunk: typeof bars = [];
-          let weekStart = -1;
-          for (const b of bars) {
-            const d = new Date(b.time * 1000);
-            const dow = d.getUTCDay(); // 0=Sun,1=Mon
-            if (dow === 1 || weekStart === -1) {
-              if (chunk.length) {
-                weekly.push({
-                  time: chunk[0].time,
-                  open: chunk[0].open,
-                  high: Math.max(...chunk.map((c) => c.high)),
-                  low: Math.min(...chunk.map((c) => c.low)),
-                  close: chunk[chunk.length - 1].close,
-                });
-              }
-              chunk = [b];
-              weekStart = b.time;
-            } else {
-              chunk.push(b);
-            }
-          }
-          if (chunk.length) {
-            weekly.push({
-              time: chunk[0].time,
-              open: chunk[0].open,
+          type Bar = (typeof bars)[number];
+
+          const rollUp = (chunk: Bar[]): Bar | null => {
+            const first = chunk[0];
+            const last = chunk[chunk.length - 1];
+            if (!first || !last) return null;
+            return {
+              time: first.time,
+              open: first.open,
               high: Math.max(...chunk.map((c) => c.high)),
               low: Math.min(...chunk.map((c) => c.low)),
-              close: chunk[chunk.length - 1].close,
-            });
+              close: last.close,
+            };
+          };
+
+          const weekly: Bar[] = [];
+          let chunk: Bar[] = [];
+
+          for (const b of bars) {
+            const isWeekStart = new Date(b.time * 1000).getUTCDay() === 1; // Monday
+            if (isWeekStart && chunk.length) {
+              const rolled = rollUp(chunk);
+              if (rolled) weekly.push(rolled);
+              chunk = [];
+            }
+            chunk.push(b);
           }
+          const tail = rollUp(chunk);
+          if (tail) weekly.push(tail);
+
           bars = weekly;
         }
 

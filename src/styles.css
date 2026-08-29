@@ -140,14 +140,125 @@
     border-color: oklch(0.780 0.220 145 / 0.35);
     box-shadow: var(--glow-sm);
   }
+}
 
-  @media (prefers-reduced-motion: no-preference) {
-    .pulse-dot {
-      animation: pulse-dot 2s cubic-bezier(0.4,0,0.6,1) infinite;
-    }
+/* ══════════════════════════════════════════════════════════════════
+   Motion system
+   Every animation is gated behind prefers-reduced-motion so the app
+   stays usable for anyone who has asked their OS to calm things down.
+   ══════════════════════════════════════════════════════════════════ */
+
+@keyframes gz-pulse       { 0%,100% { opacity: 1; }   50% { opacity: 0.25; } }
+@keyframes gz-rise        { from { opacity: 0; transform: translateY(14px); }
+                            to   { opacity: 1; transform: none; } }
+@keyframes gz-fade        { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gz-shimmer     { from { background-position: -200% 0; }
+                            to   { background-position:  200% 0; } }
+@keyframes gz-sweep       { from { transform: translateX(-120%); }
+                            to   { transform: translateX(220%); } }
+@keyframes gz-breathe     { 0%,100% { opacity: 0.045; transform: scale(1); }
+                            50%     { opacity: 0.075; transform: scale(1.02); } }
+@keyframes gz-scan        { from { transform: translateY(-100%); }
+                            to   { transform: translateY(2400%); } }
+@keyframes gz-ring        { 0%   { box-shadow: 0 0 0 0   oklch(0.780 0.220 145 / 0.45); }
+                            70%  { box-shadow: 0 0 0 9px oklch(0.780 0.220 145 / 0);    }
+                            100% { box-shadow: 0 0 0 0   oklch(0.780 0.220 145 / 0);    } }
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* Live status dot */
+  .pulse-dot { animation: gz-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+  /* Radar ping — for "agent is working" indicators */
+  .ping-ring { animation: gz-ring 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+  /* Page + card entrance. Staggered so sections cascade in. */
+  .animate-in    { animation: gz-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .animate-fade  { animation: gz-fade 0.6s ease-out both; }
+
+  .stagger > *              { animation: gz-rise 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+  .stagger > *:nth-child(1) { animation-delay: 0.02s; }
+  .stagger > *:nth-child(2) { animation-delay: 0.07s; }
+  .stagger > *:nth-child(3) { animation-delay: 0.12s; }
+  .stagger > *:nth-child(4) { animation-delay: 0.17s; }
+  .stagger > *:nth-child(5) { animation-delay: 0.22s; }
+  .stagger > *:nth-child(6) { animation-delay: 0.27s; }
+  .stagger > *:nth-child(7) { animation-delay: 0.32s; }
+  .stagger > *:nth-child(n+8) { animation-delay: 0.36s; }
+
+  /* Background mark breathes very slowly — ambient, never distracting */
+  .brand-watermark > * { animation: gz-breathe 14s ease-in-out infinite; }
+
+  /* Loading shimmer for skeleton / pending values */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      oklch(0.175 0.012 145) 25%,
+      oklch(0.260 0.030 145) 50%,
+      oklch(0.175 0.012 145) 75%
+    );
+    background-size: 200% 100%;
+    animation: gz-shimmer 1.6s linear infinite;
   }
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+
+  /* Light sweep across primary buttons on hover */
+  .btn-sweep { position: relative; overflow: hidden; }
+  .btn-sweep::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 45%;
+    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.30), transparent);
+    transform: translateX(-120%);
+    pointer-events: none;
+  }
+  .btn-sweep:hover::after { animation: gz-sweep 0.7s ease-out; }
+
+  /* Scanline that travels down a panel while the agent analyses */
+  .scanline { position: relative; overflow: hidden; }
+  .scanline::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+      transparent,
+      oklch(0.780 0.220 145 / 0.55),
+      transparent);
+    animation: gz-scan 3.5s linear infinite;
+    pointer-events: none;
+  }
+}
+
+/* ── Interaction polish (safe for reduced motion — no keyframes) ──── */
+@layer utilities {
+  .lift {
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.22s ease,
+                border-color 0.22s ease;
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    border-color: oklch(0.780 0.220 145 / 0.30);
+    box-shadow: 0 8px 30px oklch(0 0 0 / 0.45),
+                0 0 22px oklch(0.780 0.220 145 / 0.14);
+  }
+
+  .press { transition: transform 0.12s ease; }
+  .press:active { transform: scale(0.97); }
+
+  .glow-hover { transition: filter 0.28s ease, transform 0.28s ease; }
+  .glow-hover:hover {
+    filter: drop-shadow(0 0 10px oklch(0.780 0.220 145 / 0.55));
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
