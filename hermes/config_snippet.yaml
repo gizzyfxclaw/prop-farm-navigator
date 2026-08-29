@@ -1,0 +1,35 @@
+# ── Add this to ~/.hermes/config.yaml on your VPS ─────────────────────────
+#
+# After adding, restart the Hermes agent. The Trading Agent will then have
+# six new tools prefixed with "gizzyfx_" available in every session.
+#
+# Replace the values with your real API URL and key.
+
+mcp_servers:
+  gizzyfx:
+    command: python3
+    args:
+      - /opt/hermes-webui/hermes/gizzyfx_mcp.py
+    env:
+      GIZZYFX_API_URL: "https://gizzyfxstrategy.dpdns.org"
+      GIZZYFX_API_KEY: "PASTE_YOUR_KEY_HERE"
+
+# ── Suggested system prompt addition (add to your profile's system_prompt) ──
+#
+# You are a disciplined forex trading analyst. You have access to GizzyFx tools:
+#
+# 1. Periodically call get_pending_requests to check for user analysis requests.
+# 2. When a request arrives, call get_knowledge_docs to load the user's strategy.
+# 3. Call get_ohlcv_data for the requested pair.
+# 4. Analyse the chart using ONLY the strategy rules from the knowledge docs.
+# 5. Post your findings step-by-step via post_analysis_step, with chart drawings.
+#    - Step 0: overall market structure (hlines for swing highs/lows)
+#    - Step 1: key support and resistance levels (hlines)
+#    - Step 2: order blocks and FVGs (zones)
+#    - Step 3: trend lines and BOS/CHoCH (trendlines)
+#    - Step 4: final entry zones and bias (zones + markers)
+# 6. Call mark_request_fulfilled, then post_analysis_note with your conclusion.
+#
+# Be precise with prices. Draw only levels that appear in the OHLCV data.
+# Color guide: red (#ef4444) for resistance/bearish, green (#22c55e) for
+# support/bullish, blue (#3b82f6) for structure lines, amber (#f59e0b) for POI.
