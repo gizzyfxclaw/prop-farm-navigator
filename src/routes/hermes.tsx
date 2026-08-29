@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, Field, Row, Select } from "@/components/terminal/ui";
 import { LWChart, type Drawing, type OHLCBar } from "@/components/terminal/lwchart";
+import { TradingViewWidget } from "@/components/terminal/tvwidget";
 import { PAIRS, PAIR_SPECS } from "@/lib/engine/pairs";
 import {
   addKnowledgeDoc,
@@ -71,6 +72,7 @@ function HermesPage() {
   // Chart
   const [chartPair, setChartPair] = useState<string>("EURUSD");
   const [chartInterval, setChartInterval] = useState<string>("1h");
+  const [chartMode, setChartMode] = useState<"tv" | "lw">("tv");
   const [bars, setBars] = useState<OHLCBar[]>([]);
   const [barsLoading, setBarsLoading] = useState(false);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
@@ -208,6 +210,7 @@ function HermesPage() {
       setDrawings([]);
       setAnalyzing(true);
       setChartPair(reqPair); // switch chart to requested pair
+      setChartMode("lw"); // switch to analysis view so drawings are visible
       toast.success(
         `Analysis request for ${reqPair} sent — watch the chart as the agent works.`,
       );
@@ -242,11 +245,44 @@ function HermesPage() {
         </a>
       </div>
 
-      {/* Live chart */}
+      {/* Chart section */}
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
-        {/* Chart header — pair + timeframe controls */}
+        {/* Chart header */}
         <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-border">
-          {/* Pair selector */}
+
+          {/* Mode toggle */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background/60 p-0.5">
+            <button
+              onClick={() => setChartMode("tv")}
+              disabled={analyzing}
+              title={analyzing ? "Switch back after analysis completes" : "TradingView full chart"}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors disabled:opacity-40 ${
+                chartMode === "tv"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              TradingView
+            </button>
+            <button
+              onClick={() => setChartMode("lw")}
+              title="Analysis view — shows agent drawings"
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                chartMode === "lw"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {analyzing ? (
+                <span className="flex items-center gap-1">
+                  <span className="block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                  Analysis
+                </span>
+              ) : "Analysis"}
+            </button>
+          </div>
+
+          {/* Pair selector — shown in both modes */}
           <Select
             value={chartPair}
             onChange={(e) => {
@@ -262,35 +298,40 @@ function HermesPage() {
             ))}
           </Select>
 
-          {/* Timeframe buttons */}
-          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background/60 p-0.5 flex-wrap">
-            {(["5m", "15m", "30m", "1h", "4h", "1d", "1w"] as const).map((tf) => (
-              <button
-                key={tf}
-                onClick={() => setChartInterval(tf)}
-                className={`px-2 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wide transition-colors ${
-                  chartInterval === tf
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tf}
-              </button>
-            ))}
-          </div>
+          {/* Timeframe buttons — only relevant for analysis (LW) view */}
+          {chartMode === "lw" && (
+            <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background/60 p-0.5 flex-wrap">
+              {(["5m", "15m", "30m", "1h", "4h", "1d", "1w"] as const).map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setChartInterval(tf)}
+                  className={`px-2 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                    chartInterval === tf
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {/* Analysing badge */}
+          {/* Analysing step label */}
           {analyzing && (
-            <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary ml-auto">
-              <span className="block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="ml-auto text-[11px] text-primary font-medium">
               {latestStepLabel ?? "Analysing…"}
             </span>
           )}
         </div>
 
-        {/* Chart fills remaining viewport height */}
-        <div className="h-[calc(100svh-240px)] min-h-[320px] max-h-[620px]">
-          <LWChart bars={bars} drawings={drawings} height="100%" loading={barsLoading} />
+        {/* Chart area */}
+        <div className="h-[calc(100svh-240px)] min-h-[320px] max-h-[680px]">
+          {chartMode === "tv" ? (
+            <TradingViewWidget pair={chartPair} interval={chartInterval} />
+          ) : (
+            <LWChart bars={bars} drawings={drawings} height="100%" loading={barsLoading} />
+          )}
         </div>
 
         {/* Analysis step log — shows live as agent works */}
