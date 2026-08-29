@@ -4,22 +4,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/*
- * Design system definition.
- *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
- */
+/* ── Rajdhani for display headings ─────────────────────────────── */
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap");
 
 @theme inline {
   --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  --font-display: "Rajdhani", "Geist", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -47,37 +37,51 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
 }
 
 :root {
-  --radius: 0.875rem;
-  --background: oklch(0.161 0.004 285);
-  --foreground: oklch(0.972 0.002 285);
-  --card: oklch(0.216 0.004 285);
-  --card-foreground: oklch(0.972 0.002 285);
-  --popover: oklch(0.243 0.004 285);
-  --popover-foreground: oklch(0.972 0.002 285);
-  --primary: oklch(0.546 0.215 263.5);
-  --primary-foreground: oklch(0.985 0.002 285);
-  --secondary: oklch(0.243 0.004 285);
-  --secondary-foreground: oklch(0.972 0.002 285);
-  --muted: oklch(0.279 0.005 285);
-  --muted-foreground: oklch(0.711 0.014 264);
-  --accent: oklch(0.279 0.005 285);
-  --accent-foreground: oklch(0.972 0.002 285);
-  --destructive: oklch(0.637 0.208 25.3);
+  --radius: 0.75rem;
+
+  /* ── GizzyFx dark theme (single-theme, deliberately dark) ─── */
+  --background:          oklch(0.085 0.020 292);
+  --foreground:          oklch(0.945 0.020 292);
+  --card:                oklch(0.128 0.024 292 / 0.72);
+  --card-foreground:     oklch(0.945 0.020 292);
+  --popover:             oklch(0.158 0.026 292 / 0.92);
+  --popover-foreground:  oklch(0.945 0.020 292);
+  --primary:             oklch(0.680 0.230 295);   /* violet — the interface accent */
+  --primary-foreground:  oklch(0.070 0.018 292);
+  --secondary:           oklch(0.178 0.026 292 / 0.80);
+  --secondary-foreground:oklch(0.870 0.070 295);
+  --muted:               oklch(0.192 0.024 292);
+  --muted-foreground:    oklch(0.605 0.045 292);
+  --accent:              oklch(0.218 0.030 292);
+  --accent-foreground:   oklch(0.905 0.055 295);
+  --destructive:         oklch(0.637 0.208 25.3);  /* loss / down */
   --destructive-foreground: oklch(0.985 0.002 285);
-  --success: oklch(0.723 0.187 145.6);
-  --warning: oklch(0.769 0.153 70.1);
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(0.196 0.004 285);
-  --ring: oklch(0.546 0.215 263.5);
+  --success:             oklch(0.720 0.190 148);   /* profit / up — stays green */
+  --warning:             oklch(0.769 0.153 70.1);
+  --border:              oklch(0.680 0.230 295 / 0.13);
+  --input:               oklch(0.138 0.024 292 / 0.80);
+  --ring:                oklch(0.680 0.230 295 / 0.50);
+
+  /* Hot pink — the highlight accent, reserved for live/active states so it
+     never competes with violet for ordinary chrome. */
+  --highlight:           oklch(0.700 0.240 352);
+  --highlight-foreground:oklch(0.070 0.018 292);
+
+  /* brand glow values */
+  --glow-sm:   0 0 12px oklch(0.680 0.230 295 / 0.20);
+  --glow-md:   0 0 28px oklch(0.680 0.230 295 / 0.25);
+  --glow-lg:   0 0 60px oklch(0.680 0.230 295 / 0.18);
 }
 
 @layer base {
-  * {
-    border-color: var(--color-border);
-  }
+  * { border-color: var(--color-border); }
+
+  html { scroll-behavior: smooth; }
 
   body {
     background-color: var(--color-background);
@@ -86,6 +90,14 @@
     font-size: 15px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    /* scanline texture — terminal depth */
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      oklch(0 0 0 / 0.06) 2px,
+      oklch(0 0 0 / 0.06) 4px
+    );
   }
 
   input[type="number"]::-webkit-outer-spin-button,
@@ -95,3 +107,184 @@
   }
 }
 
+/* ── Glass card surface ─────────────────────────────────────────── */
+@layer utilities {
+  .glass {
+    background: var(--color-card);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--glow-sm), inset 0 1px 0 oklch(1 0 0 / 0.04);
+  }
+
+  /* top-edge neon accent */
+  .card-neon {
+    position: relative;
+    overflow: hidden;
+  }
+  .card-neon::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1.5px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      oklch(0.680 0.230 295 / 0.8) 30%,
+      oklch(0.680 0.230 295 / 1)   50%,
+      oklch(0.680 0.230 295 / 0.8) 70%,
+      transparent 100%
+    );
+  }
+
+  .font-display { font-family: var(--font-display); }
+
+  .text-neon {
+    color: var(--color-primary);
+    text-shadow: 0 0 18px oklch(0.680 0.230 295 / 0.55);
+  }
+
+  .card-highlight::before {
+    background: linear-gradient(90deg,
+      transparent 0%,
+      oklch(0.700 0.240 352 / 0.85) 30%,
+      oklch(0.700 0.240 352 / 1)    50%,
+      oklch(0.700 0.240 352 / 0.85) 70%,
+      transparent 100%
+    );
+  }
+  .card-highlight {
+    border-color: oklch(0.700 0.240 352 / 0.34) !important;
+    box-shadow: 0 0 22px oklch(0.700 0.240 352 / 0.16) !important;
+  }
+
+  .text-highlight-glow {
+    color: var(--color-highlight);
+    text-shadow: 0 0 18px oklch(0.700 0.240 352 / 0.50);
+  }
+
+  .border-neon {
+    border-color: oklch(0.680 0.230 295 / 0.35);
+    box-shadow: var(--glow-sm);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Motion system
+   Every animation is gated behind prefers-reduced-motion so the app
+   stays usable for anyone who has asked their OS to calm things down.
+   ══════════════════════════════════════════════════════════════════ */
+
+@keyframes gz-pulse       { 0%,100% { opacity: 1; }   50% { opacity: 0.25; } }
+@keyframes gz-rise        { from { opacity: 0; transform: translateY(14px); }
+                            to   { opacity: 1; transform: none; } }
+@keyframes gz-fade        { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gz-shimmer     { from { background-position: -200% 0; }
+                            to   { background-position:  200% 0; } }
+@keyframes gz-sweep       { from { transform: translateX(-120%); }
+                            to   { transform: translateX(220%); } }
+@keyframes gz-breathe     { 0%,100% { opacity: 0.045; transform: scale(1); }
+                            50%     { opacity: 0.075; transform: scale(1.02); } }
+@keyframes gz-scan        { from { transform: translateY(-100%); }
+                            to   { transform: translateY(2400%); } }
+@keyframes gz-ring        { 0%   { box-shadow: 0 0 0 0   oklch(0.700 0.240 352 / 0.50); }
+                            70%  { box-shadow: 0 0 0 9px oklch(0.700 0.240 352 / 0);    }
+                            100% { box-shadow: 0 0 0 0   oklch(0.700 0.240 352 / 0);    } }
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* Live status dot */
+  .pulse-dot { animation: gz-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+  /* Radar ping — for "agent is working" indicators */
+  .ping-ring { animation: gz-ring 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+  /* Page + card entrance. Staggered so sections cascade in. */
+  .animate-in    { animation: gz-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .animate-fade  { animation: gz-fade 0.6s ease-out both; }
+
+  .stagger > *              { animation: gz-rise 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+  .stagger > *:nth-child(1) { animation-delay: 0.02s; }
+  .stagger > *:nth-child(2) { animation-delay: 0.07s; }
+  .stagger > *:nth-child(3) { animation-delay: 0.12s; }
+  .stagger > *:nth-child(4) { animation-delay: 0.17s; }
+  .stagger > *:nth-child(5) { animation-delay: 0.22s; }
+  .stagger > *:nth-child(6) { animation-delay: 0.27s; }
+  .stagger > *:nth-child(7) { animation-delay: 0.32s; }
+  .stagger > *:nth-child(n+8) { animation-delay: 0.36s; }
+
+  /* Background mark breathes very slowly — ambient, never distracting */
+  .brand-watermark > * { animation: gz-breathe 14s ease-in-out infinite; }
+
+  /* Loading shimmer for skeleton / pending values */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      oklch(0.192 0.024 292) 25%,
+      oklch(0.278 0.045 292) 50%,
+      oklch(0.192 0.024 292) 75%
+    );
+    background-size: 200% 100%;
+    animation: gz-shimmer 1.6s linear infinite;
+  }
+
+  /* Light sweep across primary buttons on hover */
+  .btn-sweep { position: relative; overflow: hidden; }
+  .btn-sweep::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 45%;
+    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.30), transparent);
+    transform: translateX(-120%);
+    pointer-events: none;
+  }
+  .btn-sweep:hover::after { animation: gz-sweep 0.7s ease-out; }
+
+  /* Scanline that travels down a panel while the agent analyses */
+  .scanline { position: relative; overflow: hidden; }
+  .scanline::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+      transparent,
+      oklch(0.700 0.240 352 / 0.60),
+      transparent);
+    animation: gz-scan 3.5s linear infinite;
+    pointer-events: none;
+  }
+}
+
+/* ── Interaction polish (safe for reduced motion — no keyframes) ──── */
+@layer utilities {
+  .lift {
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.22s ease,
+                border-color 0.22s ease;
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    border-color: oklch(0.680 0.230 295 / 0.30);
+    box-shadow: 0 8px 30px oklch(0 0 0 / 0.45),
+                0 0 22px oklch(0.680 0.230 295 / 0.14);
+  }
+
+  .press { transition: transform 0.12s ease; }
+  .press:active { transform: scale(0.97); }
+
+  .glow-hover { transition: filter 0.28s ease, transform 0.28s ease; }
+  .glow-hover:hover {
+    filter: drop-shadow(0 0 10px oklch(0.680 0.230 295 / 0.55));
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

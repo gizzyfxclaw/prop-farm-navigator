@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { Alert, Badge, Button, Card, Field, Row, Select, TextInput } from "@/components/terminal/ui";
 import { money, pendingOrderType, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
 import { fetchQuote, placePendingOrder } from "@/lib/metaapi.functions";
+import { marketStatus } from "@/lib/market-hours";
 import { useSelectedAccount, useStore } from "@/lib/store";
 import { useEngine } from "@/lib/useEngine";
 import { useLiveAccounts } from "@/lib/useLiveAccounts";
@@ -36,7 +37,14 @@ function EnginePage() {
   const liveAccounts = useLiveAccounts();
   const [live, setLive] = useState<{ price: number; label: string } | null>(null);
   const [status, setStatus] = useState<{ tone: "green" | "red" | "amber"; text: string } | null>(null);
-  const [busy, setBusy] = useState<"price" | "trade" | null>(null);
+  const [busy, setBusy] = useState<"price" | "trade" | "trade-prop" | null>(null);
+  // Re-evaluated each minute so the countdown and the disabled state stay honest
+  // without the page needing a reload across the Friday close / Sunday open.
+  const [market, setMarket] = useState(() => marketStatus());
+  useEffect(() => {
+    const id = window.setInterval(() => setMarket(marketStatus()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const dec = r.decimals;
   const symbol = engine.pair + meta.exnessSymbolSuffix;
@@ -59,9 +67,24 @@ function EnginePage() {
     setStatus({ tone: "green", text: `Live ${symbol} ${formatPrice(res.data.mid, dec)} — entry price filled.` });
   }
 
-  async function onExecute() {
-    if (!meta.token || !meta.exnessAccountId) {
-      toast.error("Add your MetaApi token and Exness account ID in Settings first.");
+  /**
+   * Place the pending order for one leg of the hedge.
+   *
+   * The engine already computes both sides — the prop leg takes the chosen
+   * direction, the Exness leg the opposite with SL/TP mirrored — so execution
+   * differs only in which account, direction, lots and levels are used.
+   */
+  async function onExecute(leg: "exness" | "prop") {
+    const isProp = leg === "prop";
+    const legLabel = isProp ? "prop" : "Exness";
+    const accountId = isProp ? meta.propAccountId : meta.exnessAccountId;
+
+    if (!meta.token || !accountId) {
+      toast.error(`Add your MetaApi token and ${legLabel} account ID in Settings first.`);
+      return;
+    }
+    if (!market.open) {
+      toast.error(`Market closed — reopens ${market.changesIn}. The broker would reject this order.`);
       return;
     }
     if (r.verdict.level === "red") {
@@ -72,35 +95,47 @@ function EnginePage() {
       toast.error("Fetch the live price first so the pending order type can be resolved.");
       return;
     }
-    const volume = Number(r.exnessLots.toFixed(2));
+
+    const direction = isProp ? r.propDirection : r.exnessDirection;
+    const lots = isProp ? r.propLots : r.exnessLots;
+    const stopLoss = isProp ? r.propSl : r.exnessSl;
+    const takeProfit = isProp ? r.propTp : r.exnessTp;
+
+    const volume = Number(lots.toFixed(2));
     if (volume < 0.01) {
-      toast.error("Exness lot size rounds below the 0.01 broker minimum. Increase the recovery target.");
+      toast.error(
+        `${legLabel} lot size rounds below the 0.01 broker minimum. Increase the recovery target.`,
+      );
       return;
     }
-    const balance = liveAccounts.exness.snapshot;
+
+    const balance = isProp ? liveAccounts.prop.snapshot : liveAccounts.exness.snapshot;
     if (balance && balance.freeMargin <= 0) {
-      toast.error("Live Exness free margin is zero — fund the account before placing the order.");
+      toast.error(`Live ${legLabel} free margin is zero — fund the account before placing the order.`);
       return;
     }
-    const actionType = pendingOrderType(r.exnessDirection, r.entryPrice, live.price);
+
+    const actionType = pendingOrderType(direction, r.entryPrice, live.price);
     const summary = `${actionType.replace("ORDER_TYPE_", "")} ${symbol} ${volume} lots @ ${formatPrice(
       r.entryPrice,
       dec,
-    )} · SL ${formatPrice(r.exnessSl, dec)} · TP ${formatPrice(r.exnessTp, dec)}`;
-    const equityLine = balance ? `\nLive equity ${money(balance.equity)} · free margin ${money(balance.freeMargin)}` : "";
-    if (!window.confirm(`Place this pending order on Exness?\n\n${summary}${equityLine}`)) return;
+    )} · SL ${formatPrice(stopLoss, dec)} · TP ${formatPrice(takeProfit, dec)}`;
+    const equityLine = balance
+      ? `\nLive equity ${money(balance.equity)} · free margin ${money(balance.freeMargin)}`
+      : "";
+    if (!window.confirm(`Place this pending order on ${legLabel}?\n\n${summary}${equityLine}`)) return;
 
-    setBusy("trade");
+    setBusy(isProp ? "trade-prop" : "trade");
     const res = await placePendingOrder({
       data: {
         token: meta.token,
-        accountId: meta.exnessAccountId,
+        accountId,
         actionType,
         symbol,
         volume,
         openPrice: r.entryPrice,
-        stopLoss: r.exnessSl,
-        takeProfit: r.exnessTp,
+        stopLoss,
+        takeProfit,
         comment: "GizzyFx",
       },
     });
@@ -109,7 +144,10 @@ function EnginePage() {
       setStatus({ tone: "red", text: res.error });
       return;
     }
-    setStatus({ tone: "green", text: `Order placed — MT5 ticket ${res.data.orderId || "n/a"}. ${summary}` });
+    setStatus({
+      tone: "green",
+      text: `${legLabel} order placed — MT5 ticket ${res.data.orderId || "n/a"}. ${summary}`,
+    });
     const now = new Date();
     addTrade({
       id: `${now.getTime()}`,
@@ -128,13 +166,14 @@ function EnginePage() {
         propTp: r.propTp,
         exSl: r.exnessSl,
         exTp: r.exnessTp,
-        propLots: Number(r.propLots.toFixed(2)),
-        exLots: volume,
+        propLots: isProp ? volume : Number(r.propLots.toFixed(2)),
+        exLots: isProp ? Number(r.exnessLots.toFixed(2)) : volume,
         rr: engine.rr,
         phase: engine.phase,
+        leg,
       },
     });
-    toast.success("Pending order placed and logged in the journal.");
+    toast.success(`${legLabel} pending order placed and logged in the journal.`);
   }
 
   return (
@@ -383,17 +422,68 @@ function EnginePage() {
         </p>
       </Card>
 
-      <Card title="Automated execution">
+      <Card
+        title="Automated execution"
+        badge={
+          <Badge tone={market.open ? "green" : "amber"}>
+            {market.open ? "Market open" : "Market closed"}
+          </Badge>
+        }
+      >
         <Alert level={r.verdict.level} title={r.verdict.title}>
           {r.verdict.detail}
         </Alert>
-        <Button
-          className="mt-4 w-full"
-          onClick={onExecute}
-          disabled={busy === "trade" || r.verdict.level === "red"}
+
+        {/* Say up front whether a press will reach the broker at all. */}
+        <div
+          className={`mt-3 rounded-lg border p-3 text-[12px] ${
+            market.open
+              ? "border-success/30 bg-success/5 text-foreground/80"
+              : "border-warning/40 bg-warning/10 text-foreground/80"
+          }`}
         >
-          {busy === "trade" ? "Placing order…" : "Execute Exness trade automatically"}
-        </Button>
+          <p>
+            <span className={market.open ? "font-semibold text-success" : "font-semibold text-warning"}>
+              {market.open ? "Trades will execute." : "Trades will not execute."}
+            </span>{" "}
+            {market.detail}
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            {market.open ? "Market closes" : "Market reopens"} {market.changesIn} —{" "}
+            {market.changesAt.toUTCString().slice(0, 22)} UTC.
+          </p>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <Button
+            onClick={() => void onExecute("exness")}
+            disabled={busy !== null || r.verdict.level === "red" || !market.open}
+          >
+            {busy === "trade"
+              ? "Placing…"
+              : `Execute Exness ${r.exnessDirection} ${r.exnessLots.toFixed(2)}`}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => void onExecute("prop")}
+            disabled={busy !== null || r.verdict.level === "red" || !market.open || !meta.propAccountId}
+            title={
+              meta.propAccountId
+                ? "Place the prop leg of the hedge"
+                : "Add your prop account ID in Settings to place this leg"
+            }
+          >
+            {busy === "trade-prop"
+              ? "Placing…"
+              : `Execute prop ${r.propDirection} ${r.propLots.toFixed(2)}`}
+          </Button>
+        </div>
+        {!meta.propAccountId && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Only the Exness leg can be placed — add your prop firm's MetaApi account ID in Settings
+            to enable the prop leg. Each leg is placed separately so you stay in control of the
+            order they go on.
+          </p>
+        )}
         <p className="mt-3 text-[11px] text-muted-foreground">
           Order type is resolved from the mirrored direction versus the live market price (BUY/SELL LIMIT or
           STOP). Fetch the live price first; the trade is logged to the journal on success.

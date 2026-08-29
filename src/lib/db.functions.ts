@@ -49,8 +49,8 @@ function rowToTrade(row: DbRow): JournalTrade {
     propPnl: row.prop_pnl,
     exPnl: row.ex_pnl,
     netPnl: row.net_pnl,
-    ticket: row.ticket ?? undefined,
-    note: row.note ?? undefined,
+    ...(row.ticket != null && { ticket: row.ticket }),
+    ...(row.note != null && { note: row.note }),
     details: row.details ? JSON.parse(row.details) : null,
   };
 }

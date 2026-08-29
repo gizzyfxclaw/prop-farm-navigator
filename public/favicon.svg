@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5cff9d"/>
+      <stop offset="45%" stop-color="#12e065"/>
+      <stop offset="100%" stop-color="#0a8f3f"/>
+    </linearGradient>
+    <linearGradient id="grn" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0fbf52"/>
+      <stop offset="100%" stop-color="#7dffb4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark field + neon ring -->
+  <circle cx="50" cy="50" r="47" fill="#050807"/>
+  <circle cx="50" cy="50" r="45" stroke="url(#ring)" stroke-width="6" fill="none"/>
+
+  <!-- Simplified candles: bold enough to survive 16px -->
+  <rect x="24" y="46" width="9" height="22" rx="1.5" fill="#17c95c"/>
+  <rect x="38" y="34" width="9" height="30" rx="1.5" fill="#e8433f"/>
+  <rect x="52" y="40" width="9" height="24" rx="1.5" fill="#17c95c"/>
+
+  <!-- Rising arrow -->
+  <path d="M22 76 C 42 76, 60 66, 72 42"
+        stroke="url(#grn)" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <path d="M62 30 L82 36 L72 53 Z" fill="#7dffb4"/>
+</svg>

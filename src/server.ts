@@ -3,6 +3,7 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { envStorage, type CFEnv } from "./lib/cloudflare-env";
+import { parseSessionToken, verifySession } from "./lib/auth";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -57,6 +58,30 @@ export default {
     // property Nitro attaches to the (shared-by-reference) Request object
     // upstream. Fall back to the direct param in case that ever changes.
     const cfEnv = (request as unknown as RequestWithCloudflareRuntime).runtime?.cloudflare?.env ?? (env as CFEnv);
+    // ── Auth gate ─────────────────────────────────────────────────────────
+    // Only enforced when AUTH_SECRET is configured; skips /login and static
+    // assets so the login page itself is always reachable.
+    const authSecret = cfEnv?.AUTH_SECRET;
+    if (authSecret) {
+      const url = new URL(request.url);
+      const isPublic =
+        url.pathname === "/login" ||
+        url.pathname.startsWith("/_build/") ||
+        url.pathname.startsWith("/assets/") ||
+        url.pathname === "/favicon.svg" ||
+        url.pathname === "/favicon.ico";
+
+      if (!isPublic) {
+        const token = parseSessionToken(request.headers.get("cookie"));
+        const email = token ? await verifySession(token, authSecret) : null;
+        if (!email) {
+          const dest = encodeURIComponent(url.pathname + url.search);
+          return Response.redirect(`${url.origin}/login?next=${dest}`, 302);
+        }
+      }
+    }
+    // ── End auth gate ─────────────────────────────────────────────────────
+
     const runRequest = async () => {
       try {
         const handler = await getServerEntry();

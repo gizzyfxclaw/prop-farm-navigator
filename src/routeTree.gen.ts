@@ -11,12 +11,17 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsRouteImport } from './routes/accounts'
+import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as HermesRouteImport } from './routes/hermes'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as LiveRouteImport } from './routes/live'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ValidatorRouteImport } from './routes/validator'
+import { Route as ApiOhlcvRouteImport } from './routes/api/ohlcv'
+import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
+import { Route as ApiHermesAnalysisRouteImport } from './routes/api/hermes/analysis'
 import { Route as ApiHermesBacktestsRouteImport } from './routes/api/hermes/backtests'
 import { Route as ApiHermesJournalRouteImport } from './routes/api/hermes/journal'
 import { Route as ApiHermesKnowledgeRouteImport } from './routes/api/hermes/knowledge'
@@ -36,6 +41,11 @@ const AccountsRoute = AccountsRouteImport.update({
   path: '/accounts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConsoleRoute = ConsoleRouteImport.update({
+  id: '/console',
+  path: '/console',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HermesRoute = HermesRouteImport.update({
   id: '/hermes',
   path: '/hermes',
@@ -51,6 +61,11 @@ const LiveRoute = LiveRouteImport.update({
   path: '/live',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -61,9 +76,24 @@ const ValidatorRoute = ValidatorRouteImport.update({
   path: '/validator',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOhlcvRoute = ApiOhlcvRouteImport.update({
+  id: '/api/ohlcv',
+  path: '/api/ohlcv',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHermesDebugRoute = ApiHermesDebugRouteImport.update({
+  id: '/api/hermes/_debug',
+  path: '/api/hermes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHermesAccountsRoute = ApiHermesAccountsRouteImport.update({
   id: '/api/hermes/accounts',
   path: '/api/hermes/accounts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHermesAnalysisRoute = ApiHermesAnalysisRouteImport.update({
+  id: '/api/hermes/analysis',
+  path: '/api/hermes/analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHermesBacktestsRoute = ApiHermesBacktestsRouteImport.update({
@@ -110,12 +140,17 @@ const ApiHermesUnderstandingRoute = ApiHermesUnderstandingRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
+  '/api/ohlcv': typeof ApiOhlcvRoute
+  '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
+  '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
   '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
@@ -128,12 +163,17 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
+  '/api/ohlcv': typeof ApiOhlcvRoute
+  '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
+  '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
   '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
@@ -147,12 +187,17 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
+  '/api/ohlcv': typeof ApiOhlcvRoute
+  '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
+  '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
   '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
@@ -167,12 +212,17 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accounts'
+    | '/console'
     | '/hermes'
     | '/journal'
     | '/live'
+    | '/login'
     | '/settings'
     | '/validator'
+    | '/api/ohlcv'
+    | '/api/hermes'
     | '/api/hermes/accounts'
+    | '/api/hermes/analysis'
     | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
@@ -185,12 +235,17 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accounts'
+    | '/console'
     | '/hermes'
     | '/journal'
     | '/live'
+    | '/login'
     | '/settings'
     | '/validator'
+    | '/api/ohlcv'
+    | '/api/hermes'
     | '/api/hermes/accounts'
+    | '/api/hermes/analysis'
     | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
@@ -203,12 +258,17 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accounts'
+    | '/console'
     | '/hermes'
     | '/journal'
     | '/live'
+    | '/login'
     | '/settings'
     | '/validator'
+    | '/api/ohlcv'
+    | '/api/hermes/_debug'
     | '/api/hermes/accounts'
+    | '/api/hermes/analysis'
     | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
@@ -222,12 +282,17 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountsRoute: typeof AccountsRoute
+  ConsoleRoute: typeof ConsoleRoute
   HermesRoute: typeof HermesRoute
   JournalRoute: typeof JournalRoute
   LiveRoute: typeof LiveRoute
+  LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
   ValidatorRoute: typeof ValidatorRoute
+  ApiOhlcvRoute: typeof ApiOhlcvRoute
+  ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
+  ApiHermesAnalysisRoute: typeof ApiHermesAnalysisRoute
   ApiHermesBacktestsRoute: typeof ApiHermesBacktestsRoute
   ApiHermesJournalRoute: typeof ApiHermesJournalRoute
   ApiHermesKnowledgeRoute: typeof ApiHermesKnowledgeRoute
@@ -254,6 +319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/console': {
+      id: '/console'
+      path: '/console'
+      fullPath: '/console'
+      preLoaderRoute: typeof ConsoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/hermes': {
       id: '/hermes'
       path: '/hermes'
@@ -275,6 +347,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -289,11 +368,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ValidatorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ohlcv': {
+      id: '/api/ohlcv'
+      path: '/api/ohlcv'
+      fullPath: '/api/ohlcv'
+      preLoaderRoute: typeof ApiOhlcvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/_debug': {
+      id: '/api/hermes/_debug'
+      path: '/api/hermes'
+      fullPath: '/api/hermes'
+      preLoaderRoute: typeof ApiHermesDebugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/accounts': {
       id: '/api/hermes/accounts'
       path: '/api/hermes/accounts'
       fullPath: '/api/hermes/accounts'
       preLoaderRoute: typeof ApiHermesAccountsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/analysis': {
+      id: '/api/hermes/analysis'
+      path: '/api/hermes/analysis'
+      fullPath: '/api/hermes/analysis'
+      preLoaderRoute: typeof ApiHermesAnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/hermes/backtests': {
@@ -358,12 +458,17 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountsRoute: AccountsRoute,
+  ConsoleRoute: ConsoleRoute,
   HermesRoute: HermesRoute,
   JournalRoute: JournalRoute,
   LiveRoute: LiveRoute,
+  LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
   ValidatorRoute: ValidatorRoute,
+  ApiOhlcvRoute: ApiOhlcvRoute,
+  ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
+  ApiHermesAnalysisRoute: ApiHermesAnalysisRoute,
   ApiHermesBacktestsRoute: ApiHermesBacktestsRoute,
   ApiHermesJournalRoute: ApiHermesJournalRoute,
   ApiHermesKnowledgeRoute: ApiHermesKnowledgeRoute,
@@ -376,13 +481,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

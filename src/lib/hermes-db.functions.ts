@@ -343,3 +343,36 @@ export const loadHermesSetups = createServerFn({ method: "GET" }).handler(
     return results;
   },
 );
+
+/**
+ * Live analysis steps.
+ *
+ * The agent posts one row per phase of its analysis (structure, key levels,
+ * order blocks, …) via POST /api/hermes/analysis, each carrying a JSON array
+ * of chart drawings. The Trading Agent page polls these while a request is
+ * pending so the drawings appear on the chart as the agent works.
+ */
+export interface AnalysisStep {
+  id: string;
+  request_id: string;
+  pair: string;
+  step: number;
+  step_label: string | null;
+  /** JSON-encoded Drawing[] — see components/terminal/lwchart.tsx */
+  drawings: string;
+  summary: string | null;
+  created_at: string;
+}
+
+export const loadAnalysisSteps = createServerFn({ method: "GET" })
+  .validator(z.object({ requestId: z.string() }))
+  .handler(async ({ data }): Promise<AnalysisStep[]> => {
+    const env = getCFEnv();
+    if (!env) return [];
+    const { results } = await env.DB.prepare(
+      "SELECT * FROM hermes_analysis WHERE request_id = ? ORDER BY step ASC",
+    )
+      .bind(data.requestId)
+      .all<AnalysisStep>();
+    return results;
+  });

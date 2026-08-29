@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Alert, Badge, Button, Card, Field, Row, Select, Stat } from "@/components/terminal/ui";
 import { TradingViewChart } from "@/components/terminal/tradingview-chart";
+import { LWChart, type Drawing, type OHLCBar } from "@/components/terminal/lwchart";
 import { PAIRS, PAIR_SPECS } from "@/lib/engine/pairs";
 import { extractPdfText } from "@/lib/pdf-extract";
 import { resizeImageToDataUrl } from "@/lib/image-resize";
@@ -21,8 +22,10 @@ import {
   loadHermesSetups,
   loadHermesUnderstanding,
   loadKnowledgeDocs,
+  loadAnalysisSteps,
   loadStrategyRules,
   setStrategyRuleActive,
+  type AnalysisStep,
   type HermesBacktest,
   type HermesNote,
   type HermesRequest,
@@ -42,7 +45,8 @@ const ENTRY_TYPE_LABEL: Record<StrategyRule["entry_type"], string> = {
   custom: "Custom (Hermes judgment)",
 };
 
-const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
+/** How often to re-poll for the agent's analysis steps while a request is pending. */
+const POLL_INTERVAL_MS = 3000;
 
 export const Route = createFileRoute("/hermes")({
   head: () => ({
@@ -60,6 +64,29 @@ export const Route = createFileRoute("/hermes")({
 const textareaClass =
   "w-full min-h-[160px] rounded-xl border border-border bg-input px-3 py-2 font-mono text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30";
 
+/**
+ * Flatten every step's drawings into one array, then append the trade setup's
+ * own levels so entry/SL/TP render as price lines on the analysis chart.
+ */
+function mergeDrawings(steps: AnalysisStep[], setup: HermesSetup | null): Drawing[] {
+  const all: Drawing[] = [];
+  for (const s of steps) {
+    try {
+      all.push(...(JSON.parse(s.drawings) as Drawing[]));
+    } catch {
+      // A malformed row shouldn't blank the whole chart.
+    }
+  }
+  if (setup) {
+    all.push({ type: "hline", price: setup.entry, label: `Entry ${setup.direction.toUpperCase()}`, color: "#f59e0b", style: "solid" });
+    all.push({ type: "hline", price: setup.sl, label: "SL", color: "#ef4444", style: "dashed" });
+    all.push({ type: "hline", price: setup.tp1, label: "TP1", color: "#22c55e", style: "dashed" });
+    if (setup.tp2) all.push({ type: "hline", price: setup.tp2, label: "TP2", color: "#86efac", style: "dotted" });
+    if (setup.tp3) all.push({ type: "hline", price: setup.tp3, label: "TP3", color: "#bbf7d0", style: "dotted" });
+  }
+  return all;
+}
+
 function HermesPage() {
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [notes, setNotes] = useState<HermesNote[]>([]);
@@ -68,6 +95,15 @@ function HermesPage() {
   const [backtests, setBacktests] = useState<HermesBacktest[]>([]);
   const [understanding, setUnderstanding] = useState<HermesUnderstanding | null>(null);
   const [chartPair, setChartPair] = useState<string>("EURUSD");
+  const [chartInterval, setChartInterval] = useState<string>("1h");
+  const [chartMode, setChartMode] = useState<"tv" | "lw">("tv");
+  const [bars, setBars] = useState<OHLCBar[]>([]);
+  const [barsLoading, setBarsLoading] = useState(false);
+  const [drawings, setDrawings] = useState<Drawing[]>([]);
+  const [steps, setSteps] = useState<AnalysisStep[]>([]);
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
@@ -130,6 +166,61 @@ function HermesPage() {
   useEffect(() => {
     refresh();
   }, []);
+
+  // Candles for the analysis chart. Only fetched while that mode is showing —
+  // the TradingView embed brings its own data.
+  useEffect(() => {
+    if (chartMode !== "lw") return undefined;
+    let cancelled = false;
+    setBarsLoading(true);
+    setBars([]);
+    fetch(`/api/ohlcv?pair=${chartPair}&interval=${chartInterval}`)
+      .then((r) => r.json())
+      .then((data: { bars?: OHLCBar[] }) => {
+        if (!cancelled) setBars(data.bars ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Could not load chart data.");
+      })
+      .finally(() => {
+        if (!cancelled) setBarsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chartPair, chartInterval, chartMode]);
+
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, []);
+
+  /** Poll one request's steps until the agent marks it fulfilled. */
+  async function pollSteps(requestId: string) {
+    const [fresh, freshRequests, freshSetups] = await Promise.all([
+      loadAnalysisSteps({ data: { requestId } }),
+      loadHermesRequests(),
+      loadHermesSetups(),
+    ]);
+    setSteps(fresh);
+    setRequests(freshRequests);
+    setSetups(freshSetups);
+    setDrawings(
+      mergeDrawings(fresh, freshSetups.find((s) => s.request_id === requestId) ?? null),
+    );
+
+    const req = freshRequests.find((r) => r.id === requestId);
+    if (req?.status === "pending") {
+      pollTimerRef.current = setTimeout(() => pollSteps(requestId), POLL_INTERVAL_MS);
+      return;
+    }
+    setAnalyzing(false);
+    if (req?.status === "fulfilled") {
+      toast.success("Analysis complete — levels are on the chart.");
+      refresh();
+    }
+  }
 
   async function submit() {
     if (!title.trim() || !content.trim()) {
@@ -308,6 +399,24 @@ function HermesPage() {
     setAskNote("");
     setAskAnalysis("");
     setAskImage(null);
+
+    // Switch the chart to the analysis view and follow the agent's drawings live.
+    const freshRequests = await loadHermesRequests();
+    setRequests(freshRequests);
+    const newest = freshRequests.find(
+      (r) => r.request_type === "analysis" && r.status === "pending",
+    );
+
+    if (newest) {
+      setActiveRequestId(newest.id);
+      setSteps([]);
+      setDrawings([]);
+      setAnalyzing(true);
+      setChartPair(askPair);
+      setChartMode("lw");
+      pollTimerRef.current = setTimeout(() => pollSteps(newest.id), POLL_INTERVAL_MS);
+    }
+
     toast.success("Sent — the Trading Agent will pick this up on its next check.");
     refresh();
   }
@@ -327,27 +436,66 @@ function HermesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
+          <Link
+            to="/"
+            className="mb-1 inline-flex items-center gap-1 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            ← Engine
+          </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Trading Agent</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
             Strategy material you teach it, and its market analysis log. The agent reads from here —
             it never places trades.
           </p>
         </div>
-        <a href={HERMES_CONSOLE_URL} target="_blank" rel="noreferrer">
-          <Button variant="ghost">Open Agent Console ↗</Button>
-        </a>
+        <Link to="/console">
+          <Button variant="ghost">Open Agent Console</Button>
+        </Link>
       </div>
 
-      {/* Live chart — full-bleed inside card, tall on all screens */}
-      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <span className="text-[13px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-            Live Chart
-          </span>
+      {/* Live chart — TradingView for manual work, Analysis view for the agent's drawings */}
+      <section
+        className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_12px_rgba(0,0,0,0.25)]"
+        style={{ height: "calc(100svh - 200px)", minHeight: 380 }}
+      >
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2.5">
+          {/* Which chart */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background/60 p-0.5">
+            <button
+              onClick={() => setChartMode("tv")}
+              disabled={analyzing}
+              title={analyzing ? "Available once the analysis finishes" : "TradingView — full toolbar and indicators"}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-40 ${
+                chartMode === "tv" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              TradingView
+            </button>
+            <button
+              onClick={() => setChartMode("lw")}
+              title="Analysis view — shows the agent's drawings"
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                chartMode === "lw" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {analyzing ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="ping-ring block h-1.5 w-1.5 rounded-full bg-highlight" />
+                  Analysis
+                </span>
+              ) : (
+                "Analysis"
+              )}
+            </button>
+          </div>
+
           <Select
             value={chartPair}
-            onChange={(e) => setChartPair(e.target.value)}
-            className="h-9 w-36"
+            onChange={(e) => {
+              setChartPair(e.target.value);
+              setDrawings([]);
+            }}
+            className="h-8 w-32 text-[12px]"
           >
             {PAIRS.map((p) => (
               <option key={p} value={p}>
@@ -355,14 +503,60 @@ function HermesPage() {
               </option>
             ))}
           </Select>
+
+          {/* Timeframes drive the analysis view; TradingView has its own picker. */}
+          {chartMode === "lw" && (
+            <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-background/60 p-0.5">
+              {(["5m", "15m", "30m", "1h", "4h", "1d", "1w"] as const).map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setChartInterval(tf)}
+                  className={`rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                    chartInterval === tf ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {analyzing && (
+            <span className="ml-auto text-[11px] font-medium text-highlight">
+              {steps[steps.length - 1]?.step_label ?? "Analysing…"}
+            </span>
+          )}
         </div>
-        {/* Chart fills viewport height minus header/nav/padding on mobile */}
-        <div className="h-[calc(100svh-220px)] min-h-[360px] max-h-[680px]">
-          <TradingViewChart pair={chartPair} height="100%" />
+
+        <div className={`${analyzing ? "scanline" : ""} min-h-0 flex-1`}>
+          {chartMode === "tv" ? (
+            <TradingViewChart pair={chartPair} height="100%" />
+          ) : (
+            <LWChart bars={bars} drawings={drawings} height="100%" loading={barsLoading} />
+          )}
         </div>
-        <p className="px-5 py-3 text-[12px] text-muted-foreground border-t border-border">
-          Full drawing toolbar — mark up levels directly here. Same data the Trading Agent pulls
-          when it writes an analysis note below.
+
+        {/* Step log — fills in live as the agent posts each phase */}
+        {chartMode === "lw" && steps.length > 0 && (
+          <div className="max-h-40 shrink-0 space-y-1.5 overflow-y-auto border-t border-border px-5 py-3">
+            {steps.map((s, i) => (
+              <div key={s.id} className="animate-in flex items-start gap-2 text-[12px]">
+                <span className="mt-0.5 shrink-0 rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  {i + 1}
+                </span>
+                <span className="text-foreground">{s.step_label ?? "Step"}</span>
+                {s.summary && <span className="text-muted-foreground">— {s.summary}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="shrink-0 border-t border-border px-5 py-3 text-[12px] text-muted-foreground">
+          {chartMode === "tv"
+            ? "Full TradingView toolbar — mark up levels directly here. Switches to the analysis view automatically when you ask the agent for an analysis."
+            : drawings.length > 0
+              ? `${drawings.length} drawing${drawings.length > 1 ? "s" : ""} from the agent's analysis.`
+              : "Ask the agent for an analysis below — its drawings appear here in real time."}
         </p>
       </section>
 

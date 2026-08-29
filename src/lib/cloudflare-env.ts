@@ -26,6 +26,12 @@ export interface CFEnv {
     put: (key: string, value: string) => Promise<void>;
     delete: (key: string) => Promise<void>;
   };
+  /** Set via `wrangler secret put AUTH_EMAIL` */
+  AUTH_EMAIL?: string;
+  /** Set via `wrangler secret put AUTH_PASSWORD` */
+  AUTH_PASSWORD?: string;
+  /** Random 32-char string — set via `wrangler secret put AUTH_SECRET` */
+  AUTH_SECRET?: string;
 }
 
 export const envStorage = new AsyncLocalStorage<CFEnv>();

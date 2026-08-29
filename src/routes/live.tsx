@@ -23,7 +23,7 @@ export const Route = createFileRoute("/live")({
       {
         name: "description",
         content:
-          "Live MetaApi Cloud view of your Exness MT5 account: equity, open positions, pending orders and closed deal history.",
+          "Live MetaApi Cloud view of your MT5 accounts: equity, open positions, pending orders and closed deal history for both the Exness fuel account and a linked prop account.",
       },
       { property: "og:title", content: "Live MT5 Terminal — GizzyFx" },
       {
@@ -35,8 +35,11 @@ export const Route = createFileRoute("/live")({
   component: LivePage,
 });
 
+type AccountKey = "exness" | "prop";
+
 function LivePage() {
   const { meta } = useStore();
+  const [account, setAccount] = useState<AccountKey>("exness");
   const [snapshot, setSnapshot] = useState<AccountSnapshot | null>(null);
   const [positions, setPositions] = useState<PositionRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
@@ -44,11 +47,23 @@ function LivePage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const configured = Boolean(meta.token && meta.exnessAccountId);
+  // Every action on this page targets whichever account is selected, so a
+  // linked prop account is traded exactly like the Exness one.
+  const accountId = account === "exness" ? meta.exnessAccountId : meta.propAccountId;
+  const accountLabel = account === "exness" ? "Exness fuel" : "Prop";
+  const propLinked = Boolean(meta.propAccountId);
+  const configured = Boolean(meta.token && accountId);
 
   const refresh = useCallback(async () => {
-    if (!meta.token || !meta.exnessAccountId) return;
-    const cred = { token: meta.token, accountId: meta.exnessAccountId };
+    if (!meta.token || !accountId) {
+      // Clear stale figures so one account's numbers never show under another.
+      setSnapshot(null);
+      setPositions([]);
+      setOrders([]);
+      setDeals([]);
+      return;
+    }
+    const cred = { token: meta.token, accountId };
     setBusy(true);
     const [info, open, history] = await Promise.all([
       fetchAccountInformation({ data: cred }),
@@ -64,7 +79,7 @@ function LivePage() {
       setOrders(open.data.orders);
     }
     if (history.ok) setDeals(history.data);
-  }, [meta.token, meta.exnessAccountId]);
+  }, [meta.token, accountId]);
 
   useEffect(() => {
     void refresh();
@@ -72,7 +87,7 @@ function LivePage() {
 
   async function onCancel(orderId: string) {
     const res = await cancelPendingOrder({
-      data: { token: meta.token, accountId: meta.exnessAccountId, orderId },
+      data: { token: meta.token, accountId, orderId },
     });
     if (!res.ok) {
       toast.error(res.error);
@@ -84,7 +99,7 @@ function LivePage() {
 
   async function onClose(positionId: string) {
     const res = await closePosition({
-      data: { token: meta.token, accountId: meta.exnessAccountId, positionId },
+      data: { token: meta.token, accountId, positionId },
     });
     if (!res.ok) {
       toast.error(res.error);
@@ -102,7 +117,7 @@ function LivePage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Live MT5</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Exness fuel account streamed through MetaApi Cloud.
+            {accountLabel} account streamed through MetaApi Cloud.
           </p>
         </div>
         <Button variant="ghost" disabled={!configured || busy} onClick={() => void refresh()}>
@@ -110,9 +125,47 @@ function LivePage() {
         </Button>
       </div>
 
+      {/* Which account every action on this page targets */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background/60 p-0.5">
+          {([
+            { key: "exness" as const, label: "Exness", id: meta.exnessAccountId },
+            { key: "prop" as const, label: "Prop", id: meta.propAccountId },
+          ]).map((a) => {
+            const linked = Boolean(a.id);
+            return (
+              <button
+                key={a.key}
+                onClick={() => setAccount(a.key)}
+                disabled={!linked}
+                title={linked ? `Account ${a.id}` : `Add a ${a.label} account ID in Settings to trade it`}
+                className={`press rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  account === a.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {a.label}
+              </button>
+            );
+          })}
+        </div>
+        {accountId && (
+          <span className="font-mono text-[11px] text-muted-foreground">{accountId}</span>
+        )}
+      </div>
+
+      {!propLinked && (
+        <Alert level="amber" title="No prop account linked">
+          Only the Exness account can be traded right now. Add your prop firm's MetaApi account ID
+          in Settings and it becomes selectable above — positions and orders are then placed,
+          cancelled and closed on whichever account you pick.
+        </Alert>
+      )}
+
       {!configured && (
         <Alert level="amber" title="MetaApi not configured">
-          Add your MetaApi token and Exness account ID in Settings to stream this account.
+          Add your MetaApi token and this account's ID in Settings to stream it.
         </Alert>
       )}
       {error && (

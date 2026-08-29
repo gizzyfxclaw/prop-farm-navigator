@@ -45,6 +45,8 @@ export interface JournalTrade {
     exLots: number;
     rr: number;
     phase: 1 | 2;
+    /** Which side of the hedge this order was placed on. */
+    leg?: "exness" | "prop";
   } | null;
 }
 

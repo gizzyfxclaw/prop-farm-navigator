@@ -84,6 +84,56 @@ async function guard<T>(fn: () => Promise<T>): Promise<ApiResult<T>> {
   }
 }
 
+/**
+ * MetaApi answers a rejected trade with HTTP 200 and a retcode in the body,
+ * so a broker refusal (market closed, no money, invalid stops) looks exactly
+ * like a fill unless the code is inspected. Only these codes mean the order
+ * actually reached the book.
+ */
+const TRADE_SUCCESS_CODES = new Set([
+  "TRADE_RETCODE_DONE",         // executed
+  "TRADE_RETCODE_PLACED",       // pending order placed
+  "TRADE_RETCODE_DONE_PARTIAL", // partially filled
+  "ERR_NO_ERROR",
+  "OK",
+]);
+
+/** Broker rejections worth explaining in plain language. */
+const RETCODE_MESSAGE: Record<string, string> = {
+  TRADE_RETCODE_MARKET_CLOSED:
+    "the market is closed. Forex trades from Sunday ~22:00 UTC to Friday ~22:00 UTC.",
+  TRADE_RETCODE_NO_MONEY: "the account does not have enough free margin.",
+  TRADE_RETCODE_TRADE_DISABLED: "trading is disabled on this account.",
+  TRADE_RETCODE_INVALID_PRICE: "the entry price is invalid or too far from the market.",
+  TRADE_RETCODE_INVALID_STOPS:
+    "the stop loss or take profit is too close to the entry for this broker.",
+  TRADE_RETCODE_INVALID_VOLUME: "the lot size is outside the broker's allowed range.",
+  TRADE_RETCODE_REQUOTE: "the price moved before the order reached the broker.",
+  TRADE_RETCODE_PRICE_OFF: "no price is currently available for this symbol.",
+  TRADE_RETCODE_TOO_MANY_REQUESTS: "the broker is rate-limiting; retry shortly.",
+  TRADE_RETCODE_LIMIT_ORDERS: "the account has reached its pending-order limit.",
+  TRADE_RETCODE_ORDER_CHANGED: "the order changed before the request was processed.",
+};
+
+/**
+ * Throw unless the broker actually accepted the order, so guard() turns a
+ * rejection into { ok: false } instead of the caller treating it as filled.
+ */
+function assertTradeAccepted(response: Record<string, unknown>): void {
+  const code = String(response["stringCode"] ?? response["description"] ?? "").toUpperCase();
+  // Some deployments omit the code entirely on success; only reject a code we
+  // actually received and do not recognise as successful.
+  if (!code || TRADE_SUCCESS_CODES.has(code)) return;
+
+  const explained = RETCODE_MESSAGE[code];
+  const numeric = response["numericCode"];
+  throw new Error(
+    explained
+      ? `Order rejected — ${explained} (${code})`
+      : `Order rejected by the broker: ${code}${numeric != null ? ` (${numeric})` : ""}`,
+  );
+}
+
 export interface Quote {
   symbol: string;
   bid: number;
@@ -279,6 +329,7 @@ export const placePendingOrder = createServerFn({ method: "POST" })
             comment: data.comment ?? "GizzyFx",
           },
         });
+        assertTradeAccepted(response);
         return {
           orderId: String(response["orderId"] ?? response["order"] ?? ""),
           positionId: response["positionId"] as string | undefined,
@@ -295,6 +346,7 @@ export const cancelPendingOrder = createServerFn({ method: "POST" })
         method: "POST",
         body: { actionType: "ORDER_CANCEL", orderId: data.orderId },
       });
+      assertTradeAccepted(response);
       return { message: response["stringCode"] as string | undefined };
     }),
   );
@@ -307,6 +359,7 @@ export const closePosition = createServerFn({ method: "POST" })
         method: "POST",
         body: { actionType: "POSITION_CLOSE_ID", positionId: data.positionId },
       });
+      assertTradeAccepted(response);
       return { message: response["stringCode"] as string | undefined };
     }),
   );
