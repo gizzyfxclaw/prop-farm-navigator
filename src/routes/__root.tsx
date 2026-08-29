@@ -26,33 +26,91 @@ const NAV = [
   { to: "/settings",  label: "Settings",    short: "Config"  },
 ] as const;
 
+/* ── Theme switcher ─────────────────────────────────────────────── */
+const THEMES = [
+  { id: "cyan",   label: "Cyan",   color: "oklch(0.775 0.148 198)" },
+  { id: "blue",   label: "Blue",   color: "oklch(0.623 0.214 259)" },
+  { id: "purple", label: "Purple", color: "oklch(0.692 0.194 295)" },
+] as const;
+
+type ThemeId = typeof THEMES[number]["id"];
+
+function applyTheme(id: ThemeId) {
+  if (id === "cyan") {
+    delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = id;
+  }
+}
+
+function ThemeSwitcher() {
+  const [theme, setTheme] = useState<ThemeId>("cyan");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("gz-theme") as ThemeId | null;
+      const valid: ThemeId[] = ["cyan", "blue", "purple"];
+      if (saved && valid.includes(saved)) {
+        setTheme(saved);
+        applyTheme(saved);
+      }
+    } catch {}
+  }, []);
+
+  function switchTheme(id: ThemeId) {
+    setTheme(id);
+    try { localStorage.setItem("gz-theme", id); } catch {}
+    applyTheme(id);
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 5, alignItems: "center" }} title="Switch colour theme">
+      {THEMES.map((t) => (
+        <button
+          key={t.id}
+          title={`${t.label} theme`}
+          onClick={() => switchTheme(t.id)}
+          style={{
+            width: 12, height: 12, borderRadius: "50%",
+            background: t.color,
+            border: theme === t.id
+              ? "2px solid oklch(0.950 0.012 200)"
+              : "2px solid oklch(0 0 0 / 0.35)",
+            padding: 0, cursor: "pointer",
+            boxShadow: theme === t.id ? `0 0 7px ${t.color}` : "none",
+            transition: "all 0.18s ease",
+            flexShrink: 0,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 /* ── Ambient glow orbs ─────────────────────────────────────────── */
 function GlowOrbs() {
   return (
     <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
-      {/* Main top-left orb */}
       <div className="orb-1" style={{
         position: "absolute",
         top: "-15%", left: "-8%",
         width: "65vw", height: "65vw",
         borderRadius: "50%",
-        background: "radial-gradient(circle, oklch(0.775 0.148 198 / 0.07) 0%, oklch(0.775 0.148 198 / 0.03) 40%, transparent 70%)",
+        background: "radial-gradient(circle, oklch(var(--gz-p) / 0.07) 0%, oklch(var(--gz-p) / 0.03) 40%, transparent 70%)",
       }} />
-      {/* Bottom-right orb */}
       <div className="orb-2" style={{
         position: "absolute",
         bottom: "-18%", right: "-12%",
         width: "55vw", height: "55vw",
         borderRadius: "50%",
-        background: "radial-gradient(circle, oklch(0.820 0.155 180 / 0.055) 0%, transparent 65%)",
+        background: "radial-gradient(circle, oklch(var(--gz-h) / 0.055) 0%, transparent 65%)",
       }} />
-      {/* Centre subtle orb */}
       <div className="orb-3" style={{
         position: "absolute",
         top: "40%", left: "45%",
         width: "40vw", height: "40vw",
         borderRadius: "50%",
-        background: "radial-gradient(circle, oklch(0.775 0.148 198 / 0.035) 0%, transparent 70%)",
+        background: "radial-gradient(circle, oklch(var(--gz-p) / 0.035) 0%, transparent 70%)",
       }} />
     </div>
   );
@@ -88,8 +146,8 @@ function ParticleField() {
             width: `${p.size}px`,
             height: `${p.size}px`,
             borderRadius: "50%",
-            background: `oklch(0.775 0.148 198 / ${p.opacity})`,
-            boxShadow: `0 0 ${p.size * 3}px oklch(0.775 0.148 198 / ${p.opacity * 0.8})`,
+            background: `oklch(var(--gz-p) / ${p.opacity})`,
+            boxShadow: `0 0 ${p.size * 3}px oklch(var(--gz-p) / ${p.opacity * 0.8})`,
             animation: `gz-float-up ${p.dur}s ${p.delay}s linear infinite`,
           }}
         />
@@ -165,6 +223,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "alternate icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "apple-touch-icon", href: "/favicon.svg" },
     ],
+    scripts: [
+      {
+        /* Apply saved theme before first paint to prevent flash */
+        children: `try{var t=localStorage.getItem("gz-theme");if(t&&t!=="cyan")document.documentElement.dataset.theme=t;}catch(e){}`,
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -193,8 +257,8 @@ function Clock() {
   }, []);
   return (
     <div className="flex items-center gap-2">
-      <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full" style={{ background: "oklch(0.820 0.155 180)" }} />
-      <span className="font-mono text-[11px] tracking-wider" style={{ color: "oklch(0.580 0.055 200)" }}>{now}</span>
+      <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full" style={{ background: "oklch(var(--gz-h))" }} />
+      <span className="font-mono text-[11px] tracking-wider" style={{ color: "oklch(var(--gz-mut))" }}>{now}</span>
     </div>
   );
 }
@@ -219,10 +283,10 @@ function RootComponent() {
             position="top-center"
             toastOptions={{
               style: {
-                background: "oklch(0.108 0.030 212 / 0.96)",
-                border: "1px solid oklch(0.775 0.148 198 / 0.28)",
-                color: "oklch(0.950 0.012 200)",
-                boxShadow: "0 0 24px oklch(0.775 0.148 198 / 0.18)",
+                background: "oklch(var(--gz-s2) / 0.96)",
+                border: "1px solid oklch(var(--gz-p) / 0.28)",
+                color: "oklch(var(--gz-txt))",
+                boxShadow: "0 0 24px oklch(var(--gz-p) / 0.18)",
                 backdropFilter: "blur(16px)",
               },
             }}
@@ -245,17 +309,17 @@ function RootComponent() {
           <header
             className="sticky top-0 z-30"
             style={{
-              background: "oklch(0.075 0.028 212 / 0.88)",
+              background: "oklch(var(--gz-s3) / 0.88)",
               backdropFilter: "blur(28px) saturate(1.8)",
               WebkitBackdropFilter: "blur(28px) saturate(1.8)",
-              borderBottom: "1px solid oklch(0.775 0.148 198 / 0.14)",
-              boxShadow: "0 1px 0 oklch(0.775 0.148 198 / 0.08), 0 4px 40px oklch(0 0 0 / 0.45)",
+              borderBottom: "1px solid oklch(var(--gz-p) / 0.14)",
+              boxShadow: "0 1px 0 oklch(var(--gz-p) / 0.08), 0 4px 40px oklch(0 0 0 / 0.45)",
             }}
           >
-            {/* Top cyan accent bar */}
+            {/* Top accent bar */}
             <div style={{
               position: "absolute", top: 0, left: 0, right: 0, height: "2px",
-              background: "linear-gradient(90deg, transparent 0%, oklch(0.775 0.148 198 / 0.8) 20%, oklch(0.820 0.155 180) 50%, oklch(0.775 0.148 198 / 0.8) 80%, transparent 100%)",
+              background: "linear-gradient(90deg, transparent 0%, oklch(var(--gz-p) / 0.8) 20%, oklch(var(--gz-h)) 50%, oklch(var(--gz-p) / 0.8) 80%, transparent 100%)",
             }} />
 
             <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5">
@@ -270,13 +334,14 @@ function RootComponent() {
 
               <div className="flex items-center gap-3">
                 <Clock />
+                <ThemeSwitcher />
                 <button
                   onClick={handleLogout}
                   style={{
                     height: 28, padding: "0 10px", borderRadius: 8,
-                    border: "1px solid oklch(0.775 0.148 198 / 0.22)",
-                    background: "oklch(0.775 0.148 198 / 0.08)",
-                    color: "oklch(0.580 0.055 200)",
+                    border: "1px solid oklch(var(--gz-p) / 0.22)",
+                    background: "oklch(var(--gz-p) / 0.08)",
+                    color: "oklch(var(--gz-mut))",
                     fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
                     cursor: "pointer", textTransform: "uppercase",
                     transition: "all 0.18s ease",
@@ -287,9 +352,9 @@ function RootComponent() {
                     e.currentTarget.style.color = "oklch(0.720 0.180 25)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "oklch(0.775 0.148 198 / 0.08)";
-                    e.currentTarget.style.borderColor = "oklch(0.775 0.148 198 / 0.22)";
-                    e.currentTarget.style.color = "oklch(0.580 0.055 200)";
+                    e.currentTarget.style.background = "oklch(var(--gz-p) / 0.08)";
+                    e.currentTarget.style.borderColor = "oklch(var(--gz-p) / 0.22)";
+                    e.currentTarget.style.color = "oklch(var(--gz-mut))";
                   }}
                 >
                   Sign out
@@ -306,21 +371,21 @@ function RootComponent() {
                     to={item.to}
                     activeOptions={{ exact: item.to === "/" }}
                     className="press relative whitespace-nowrap rounded-md px-3 py-1.5 text-[12.5px] font-medium tracking-wide transition-all duration-200"
-                    style={{ color: "oklch(0.580 0.055 200)" }}
+                    style={{ color: "oklch(var(--gz-mut))" }}
                     activeProps={{
                       style: {
-                        color: "oklch(0.775 0.148 198)",
-                        background: "oklch(0.775 0.148 198 / 0.10)",
-                        boxShadow: "0 0 16px oklch(0.775 0.148 198 / 0.18)",
-                        textShadow: "0 0 12px oklch(0.775 0.148 198 / 0.50)",
+                        color: "oklch(var(--gz-p))",
+                        background: "oklch(var(--gz-p) / 0.10)",
+                        boxShadow: "0 0 16px oklch(var(--gz-p) / 0.18)",
+                        textShadow: "0 0 12px oklch(var(--gz-p) / 0.50)",
                       }
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.color = "oklch(0.950 0.012 200)";
+                      (e.currentTarget as HTMLElement).style.color = "oklch(var(--gz-txt))";
                       (e.currentTarget as HTMLElement).style.background = "oklch(1 0 0 / 0.04)";
                     }}
                     onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.color = "oklch(0.580 0.055 200)";
+                      (e.currentTarget as HTMLElement).style.color = "oklch(var(--gz-mut))";
                       (e.currentTarget as HTMLElement).style.background = "transparent";
                     }}
                   >
@@ -339,14 +404,14 @@ function RootComponent() {
           {/* ── Footer ──────────────────────────────────────── */}
           <footer
             className="mx-auto max-w-6xl px-4 py-8"
-            style={{ borderTop: "1px solid oklch(0.775 0.148 198 / 0.09)" }}
+            style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.09)" }}
           >
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-[11px]" style={{ color: "oklch(0.480 0.040 200)" }}>
-                <span className="font-display font-semibold tracking-widest" style={{ color: "oklch(0.700 0.060 200)" }}>GIZZYFX</span>
+              <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>
+                <span className="font-display font-semibold tracking-widest" style={{ color: "oklch(var(--gz-mut))" }}>GIZZYFX</span>
                 {" "}· Institutional terminal — hedge calculator, validator & MetaApi execution.
               </p>
-              <p className="text-[11px]" style={{ color: "oklch(0.480 0.040 200)" }}>Educational use · Trade at your own risk.</p>
+              <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>Educational use · Trade at your own risk.</p>
             </div>
           </footer>
         </div>
@@ -356,10 +421,10 @@ function RootComponent() {
           position="top-center"
           toastOptions={{
             style: {
-              background: "oklch(0.108 0.030 212 / 0.96)",
-              border: "1px solid oklch(0.775 0.148 198 / 0.28)",
-              color: "oklch(0.950 0.012 200)",
-              boxShadow: "0 0 24px oklch(0.775 0.148 198 / 0.18)",
+              background: "oklch(var(--gz-s2) / 0.96)",
+              border: "1px solid oklch(var(--gz-p) / 0.28)",
+              color: "oklch(var(--gz-txt))",
+              boxShadow: "0 0 24px oklch(var(--gz-p) / 0.18)",
               backdropFilter: "blur(16px)",
             },
           }}
