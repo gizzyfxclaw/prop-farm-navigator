@@ -13,8 +13,8 @@ export const Route = createFileRoute("/api/ohlcv")({
         const pair = (url.searchParams.get("pair") ?? "EURUSD").toUpperCase().replace("/", "");
         const interval = url.searchParams.get("interval") ?? "1h";
 
-        const range = interval === "1d" ? "3mo" : interval === "4h" ? "20d" : "7d";
-        const yahooInterval = interval === "4h" ? "1h" : interval;
+        const range = interval === "1d" || interval === "1w" ? "6mo" : interval === "4h" ? "30d" : "7d";
+        const yahooInterval = interval === "4h" || interval === "1w" ? "1d" : interval;
         const symbol = `${pair}=X`;
 
         const yahooUrl =
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/ohlcv")({
         const lows: number[] = q.low ?? [];
         const closes: number[] = q.close ?? [];
 
-        const bars = timestamps
+        let bars = timestamps
           .map((t, i) => ({
             time: t,
             open: opens[i],
@@ -63,6 +63,42 @@ export const Route = createFileRoute("/api/ohlcv")({
             close: closes[i],
           }))
           .filter((b) => b.open != null && b.close != null);
+
+        // Aggregate 1D bars into weekly candles
+        if (interval === "1w") {
+          const weekly: typeof bars = [];
+          let chunk: typeof bars = [];
+          let weekStart = -1;
+          for (const b of bars) {
+            const d = new Date(b.time * 1000);
+            const dow = d.getUTCDay(); // 0=Sun,1=Mon
+            if (dow === 1 || weekStart === -1) {
+              if (chunk.length) {
+                weekly.push({
+                  time: chunk[0].time,
+                  open: chunk[0].open,
+                  high: Math.max(...chunk.map((c) => c.high)),
+                  low: Math.min(...chunk.map((c) => c.low)),
+                  close: chunk[chunk.length - 1].close,
+                });
+              }
+              chunk = [b];
+              weekStart = b.time;
+            } else {
+              chunk.push(b);
+            }
+          }
+          if (chunk.length) {
+            weekly.push({
+              time: chunk[0].time,
+              open: chunk[0].open,
+              high: Math.max(...chunk.map((c) => c.high)),
+              low: Math.min(...chunk.map((c) => c.low)),
+              close: chunk[chunk.length - 1].close,
+            });
+          }
+          bars = weekly;
+        }
 
         return Response.json(
           { bars },

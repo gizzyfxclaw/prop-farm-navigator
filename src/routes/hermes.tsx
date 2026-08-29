@@ -70,6 +70,7 @@ function HermesPage() {
 
   // Chart
   const [chartPair, setChartPair] = useState<string>("EURUSD");
+  const [chartInterval, setChartInterval] = useState<string>("1h");
   const [bars, setBars] = useState<OHLCBar[]>([]);
   const [barsLoading, setBarsLoading] = useState(false);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
@@ -112,12 +113,12 @@ function HermesPage() {
     refresh();
   }, []);
 
-  // Fetch OHLCV bars whenever pair changes
+  // Fetch OHLCV bars whenever pair or interval changes
   useEffect(() => {
     let cancelled = false;
     setBarsLoading(true);
     setBars([]);
-    fetch(`/api/ohlcv?pair=${chartPair}&interval=1h`)
+    fetch(`/api/ohlcv?pair=${chartPair}&interval=${chartInterval}`)
       .then((r) => r.json())
       .then((data: { bars?: OHLCBar[] }) => {
         if (!cancelled) setBars(data.bars ?? []);
@@ -131,7 +132,7 @@ function HermesPage() {
     return () => {
       cancelled = true;
     };
-  }, [chartPair]);
+  }, [chartPair, chartInterval]);
 
   // ---------- analysis polling ----------
 
@@ -243,26 +244,16 @@ function HermesPage() {
 
       {/* Live chart */}
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
-        {/* Chart header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-              Live Chart
-            </span>
-            {analyzing && (
-              <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
-                <span className="block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                {latestStepLabel ?? "Analysing…"}
-              </span>
-            )}
-          </div>
+        {/* Chart header — pair + timeframe controls */}
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-border">
+          {/* Pair selector */}
           <Select
             value={chartPair}
             onChange={(e) => {
               setChartPair(e.target.value);
-              setDrawings([]); // clear drawings on pair switch
+              setDrawings([]);
             }}
-            className="h-9 w-36"
+            className="h-8 w-32 text-[12px]"
           >
             {PAIRS.map((p) => (
               <option key={p} value={p}>
@@ -270,10 +261,35 @@ function HermesPage() {
               </option>
             ))}
           </Select>
+
+          {/* Timeframe buttons */}
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-background/60 p-0.5">
+            {(["1h", "4h", "1d", "1w"] as const).map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setChartInterval(tf)}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                  chartInterval === tf
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+
+          {/* Analysing badge */}
+          {analyzing && (
+            <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary ml-auto">
+              <span className="block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              {latestStepLabel ?? "Analysing…"}
+            </span>
+          )}
         </div>
 
         {/* Chart fills remaining viewport height */}
-        <div className="h-[calc(100svh-220px)] min-h-[360px] max-h-[680px]">
+        <div className="h-[calc(100svh-240px)] min-h-[320px] max-h-[620px]">
           <LWChart bars={bars} drawings={drawings} height="100%" loading={barsLoading} />
         </div>
 
@@ -479,9 +495,10 @@ function HermesPage() {
                       onClick={() => {
                         setChartPair(s.pair);
                         setDrawings(mergeDrawings(steps, s));
+                        window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                     >
-                      Load on chart ↗
+                      Load on chart ↑
                     </Button>
                   </div>
                 </div>
