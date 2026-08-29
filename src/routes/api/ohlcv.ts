@@ -13,8 +13,16 @@ export const Route = createFileRoute("/api/ohlcv")({
         const pair = (url.searchParams.get("pair") ?? "EURUSD").toUpperCase().replace("/", "");
         const interval = url.searchParams.get("interval") ?? "1h";
 
-        const range = interval === "1d" || interval === "1w" ? "6mo" : interval === "4h" ? "30d" : "7d";
-        const yahooInterval = interval === "4h" || interval === "1w" ? "1d" : interval;
+        const rangeMap: Record<string, string> = {
+          "5m": "5d", "15m": "14d", "30m": "30d",
+          "1h": "7d", "4h": "30d", "1d": "6mo", "1w": "1y",
+        };
+        const yahooIntervalMap: Record<string, string> = {
+          "5m": "5m", "15m": "15m", "30m": "30m",
+          "1h": "1h", "4h": "1h", "1d": "1d", "1w": "1d",
+        };
+        const range = rangeMap[interval] ?? "7d";
+        const yahooInterval = yahooIntervalMap[interval] ?? "1h";
         const symbol = `${pair}=X`;
 
         const yahooUrl =

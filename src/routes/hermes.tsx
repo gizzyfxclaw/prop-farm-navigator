@@ -263,12 +263,12 @@ function HermesPage() {
           </Select>
 
           {/* Timeframe buttons */}
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-background/60 p-0.5">
-            {(["1h", "4h", "1d", "1w"] as const).map((tf) => (
+          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background/60 p-0.5 flex-wrap">
+            {(["5m", "15m", "30m", "1h", "4h", "1d", "1w"] as const).map((tf) => (
               <button
                 key={tf}
                 onClick={() => setChartInterval(tf)}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                className={`px-2 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wide transition-colors ${
                   chartInterval === tf
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground"

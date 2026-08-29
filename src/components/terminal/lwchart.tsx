@@ -32,6 +32,8 @@ export interface Drawing {
   markerType?: "arrowUp" | "arrowDown" | "circle";
 }
 
+type DrawTool = "cursor" | "hline" | "trendline" | "zone";
+
 interface Props {
   bars: OHLCBar[];
   drawings?: Drawing[];
@@ -48,6 +50,102 @@ function lineStyleFromString(s?: string) {
   return 0;
 }
 
+const TOOL_ICONS: Record<DrawTool, string> = {
+  cursor: "↖",
+  hline: "─",
+  trendline: "╱",
+  zone: "▭",
+};
+const TOOL_LABELS: Record<DrawTool, string> = {
+  cursor: "Pan / zoom",
+  hline: "Horizontal line",
+  trendline: "Trend line",
+  zone: "Zone",
+};
+
+function applyDrawings(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  chart: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  freshSeries: any,
+  bars: OHLCBar[],
+  drawings: Drawing[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  drawingSeriesRef: React.MutableRefObject<any[]>,
+) {
+  // Remove old trendline/zone series
+  for (const s of drawingSeriesRef.current) {
+    try { chart.removeSeries(s); } catch { /* ignore */ }
+  }
+  drawingSeriesRef.current = [];
+
+  const markers: unknown[] = [];
+
+  for (const d of drawings) {
+    const color = d.color ?? "#f59e0b";
+    if (d.type === "hline" && d.price != null) {
+      freshSeries.createPriceLine({
+        price: d.price,
+        color,
+        lineWidth: 1,
+        lineStyle: lineStyleFromString(d.style),
+        axisLabelVisible: true,
+        title: d.label ?? "",
+      });
+    } else if (
+      d.type === "trendline" &&
+      d.p1time != null && d.p2time != null &&
+      d.p1price != null && d.p2price != null
+    ) {
+      const tl = chart.addLineSeries({
+        color,
+        lineWidth: 1,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      tl.setData([
+        { time: d.p1time, value: d.p1price },
+        { time: d.p2time, value: d.p2price },
+      ]);
+      if (d.label) {
+        tl.setMarkers([
+          { time: d.p2time, position: "aboveBar", color, shape: "circle", text: d.label },
+        ]);
+      }
+      drawingSeriesRef.current.push(tl);
+    } else if (d.type === "zone" && d.topPrice != null && d.bottomPrice != null) {
+      freshSeries.createPriceLine({
+        price: d.topPrice, color, lineWidth: 1, lineStyle: 1,
+        axisLabelVisible: true, title: `▲ ${d.label ?? "Zone"}`,
+      });
+      freshSeries.createPriceLine({
+        price: d.bottomPrice, color, lineWidth: 1, lineStyle: 1,
+        axisLabelVisible: true, title: `▼ ${d.label ?? "Zone"}`,
+      });
+    } else if (d.type === "marker" && d.time != null) {
+      markers.push({
+        time: d.time,
+        position: d.position ?? "aboveBar",
+        color,
+        shape:
+          d.markerType === "arrowUp" ? "arrowUp"
+          : d.markerType === "arrowDown" ? "arrowDown"
+          : "circle",
+        text: d.label ?? "",
+        size: 1,
+      });
+    }
+  }
+
+  if (markers.length) freshSeries.setMarkers(markers);
+
+  // Rebuild candle data (price lines can't be individually removed in v4)
+  freshSeries.setData(
+    bars.map((b) => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })),
+  );
+}
+
 export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,12 +156,21 @@ export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
   const drawingSeriesRef = useRef<any[]>([]);
   const [ready, setReady] = useState(false);
 
+  // Drawing tool state
+  const [activeTool, setActiveTool] = useState<DrawTool>("cursor");
+  const [userDrawings, setUserDrawings] = useState<Drawing[]>([]);
+  const [pendingPoint, setPendingPoint] = useState<{ time: number; price: number } | null>(null);
+
+  // Refs to avoid stale closures in event handlers
+  const activeToolRef = useRef<DrawTool>("cursor");
+  const pendingPointRef = useRef<{ time: number; price: number } | null>(null);
+
+  useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
+  useEffect(() => { pendingPointRef.current = pendingPoint; }, [pendingPoint]);
+
   // Load CDN script once
   useEffect(() => {
-    if (window.LightweightCharts) {
-      setReady(true);
-      return;
-    }
+    if (window.LightweightCharts) { setReady(true); return; }
     const existing = document.getElementById("__lw_charts__");
     if (!existing) {
       const s = document.createElement("script");
@@ -72,12 +179,8 @@ export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
       s.onload = () => setReady(true);
       document.head.appendChild(s);
     } else {
-      // Script tag exists but may still be loading — poll
       const id = setInterval(() => {
-        if (window.LightweightCharts) {
-          setReady(true);
-          clearInterval(id);
-        }
+        if (window.LightweightCharts) { setReady(true); clearInterval(id); }
       }, 50);
       return () => clearInterval(id);
     }
@@ -99,26 +202,66 @@ export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 11,
       },
-      grid: {
-        vertLines: { color: "#1a1f2e" },
-        horzLines: { color: "#1a1f2e" },
-      },
+      grid: { vertLines: { color: "#1a1f2e" }, horzLines: { color: "#1a1f2e" } },
       crosshair: { mode: 1 },
       rightPriceScale: { borderColor: "#1e293b", minimumWidth: 64 },
       timeScale: { borderColor: "#1e293b", timeVisible: true, secondsVisible: false },
     });
 
     const candleSeries = chart.addCandlestickSeries({
-      upColor: "#22c55e",
-      downColor: "#ef4444",
-      borderDownColor: "#ef4444",
-      borderUpColor: "#22c55e",
-      wickDownColor: "#6b7280",
-      wickUpColor: "#6b7280",
+      upColor: "#22c55e", downColor: "#ef4444",
+      borderDownColor: "#ef4444", borderUpColor: "#22c55e",
+      wickDownColor: "#6b7280", wickUpColor: "#6b7280",
     });
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
+
+    // Click handler for drawing tools
+    chart.subscribeClick((param: any) => {
+      if (!param.point || activeToolRef.current === "cursor") return;
+      const series = candleSeriesRef.current;
+      if (!series) return;
+      const price: number | null = series.coordinateToPrice(param.point.y);
+      const time = chart.timeScale().coordinateToTime(param.point.x);
+      if (price == null || time == null) return;
+
+      const tool = activeToolRef.current;
+
+      if (tool === "hline") {
+        setUserDrawings((prev) => [
+          ...prev,
+          { type: "hline", price, color: "#3b82f6", style: "solid", label: price.toFixed(5) },
+        ]);
+      } else if (tool === "trendline") {
+        if (!pendingPointRef.current) {
+          setPendingPoint({ time: time as number, price });
+        } else {
+          const p1 = pendingPointRef.current;
+          setUserDrawings((prev) => [
+            ...prev,
+            { type: "trendline", p1time: p1.time, p1price: p1.price, p2time: time as number, p2price: price, color: "#3b82f6" },
+          ]);
+          setPendingPoint(null);
+        }
+      } else if (tool === "zone") {
+        if (!pendingPointRef.current) {
+          setPendingPoint({ time: time as number, price });
+        } else {
+          const p1 = pendingPointRef.current;
+          setUserDrawings((prev) => [
+            ...prev,
+            {
+              type: "zone",
+              topPrice: Math.max(p1.price, price),
+              bottomPrice: Math.min(p1.price, price),
+              color: "#8b5cf6", label: "Zone",
+            },
+          ]);
+          setPendingPoint(null);
+        }
+      }
+    });
 
     const ro = new ResizeObserver(() => {
       chart.applyOptions({ width: container.clientWidth });
@@ -132,135 +275,95 @@ export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
       chartRef.current = null;
       candleSeriesRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
-  // Apply candles
+  // Re-render all drawings (agent + user) when either changes
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || !bars.length) return;
+
+    const allDrawings = [...drawings, ...userDrawings];
+
+    // Re-create candle series to reset price lines (v4 limitation)
+    const oldSeries = candleSeriesRef.current;
+    const freshSeries = chart.addCandlestickSeries({
+      upColor: "#22c55e", downColor: "#ef4444",
+      borderDownColor: "#ef4444", borderUpColor: "#22c55e",
+      wickDownColor: "#6b7280", wickUpColor: "#6b7280",
+    });
+    if (oldSeries) {
+      try { chart.removeSeries(oldSeries); } catch { /* ignore */ }
+    }
+    candleSeriesRef.current = freshSeries;
+
+    applyDrawings(chart, freshSeries, bars, allDrawings, drawingSeriesRef);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawings, userDrawings, ready]);
+
+  // Apply candles when bars change (without resetting drawings)
   useEffect(() => {
     const series = candleSeriesRef.current;
     if (!series || !bars.length) return;
     series.setData(
       bars.map((b) => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })),
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bars, ready]);
 
-  // Apply drawings (re-runs any time drawings array changes)
-  useEffect(() => {
-    const chart = chartRef.current;
-    const series = candleSeriesRef.current;
-    if (!chart || !series) return;
-
-    // Remove old extra line series
-    for (const s of drawingSeriesRef.current) {
-      try {
-        chart.removeSeries(s);
-      } catch {
-        // ignore
-      }
-    }
-    drawingSeriesRef.current = [];
-
-    // Re-create candle series so price lines reset (price lines can't be individually removed in v4)
-    const existingData = bars.map((b) => ({
-      time: b.time,
-      open: b.open,
-      high: b.high,
-      low: b.low,
-      close: b.close,
-    }));
-    const freshSeries = chart.addCandlestickSeries({
-      upColor: "#22c55e",
-      downColor: "#ef4444",
-      borderDownColor: "#ef4444",
-      borderUpColor: "#22c55e",
-      wickDownColor: "#6b7280",
-      wickUpColor: "#6b7280",
-    });
-    try {
-      chart.removeSeries(series);
-    } catch {
-      // ignore
-    }
-    freshSeries.setData(existingData);
-    candleSeriesRef.current = freshSeries;
-
-    const markers: unknown[] = [];
-
-    for (const d of drawings) {
-      const color = d.color ?? "#f59e0b";
-
-      if (d.type === "hline" && d.price != null) {
-        freshSeries.createPriceLine({
-          price: d.price,
-          color,
-          lineWidth: 1,
-          lineStyle: lineStyleFromString(d.style),
-          axisLabelVisible: true,
-          title: d.label ?? "",
-        });
-      } else if (
-        d.type === "trendline" &&
-        d.p1time != null &&
-        d.p2time != null &&
-        d.p1price != null &&
-        d.p2price != null
-      ) {
-        const tl = chart.addLineSeries({
-          color,
-          lineWidth: 1,
-          lastValueVisible: false,
-          priceLineVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        tl.setData([
-          { time: d.p1time, value: d.p1price },
-          { time: d.p2time, value: d.p2price },
-        ]);
-        if (d.label) {
-          tl.setMarkers([
-            { time: d.p2time, position: "aboveBar", color, shape: "circle", text: d.label },
-          ]);
-        }
-        drawingSeriesRef.current.push(tl);
-      } else if (d.type === "zone" && d.topPrice != null && d.bottomPrice != null) {
-        freshSeries.createPriceLine({
-          price: d.topPrice,
-          color,
-          lineWidth: 1,
-          lineStyle: 1,
-          axisLabelVisible: true,
-          title: `▲ ${d.label ?? "Zone"}`,
-        });
-        freshSeries.createPriceLine({
-          price: d.bottomPrice,
-          color,
-          lineWidth: 1,
-          lineStyle: 1,
-          axisLabelVisible: true,
-          title: `▼ ${d.label ?? "Zone"}`,
-        });
-      } else if (d.type === "marker" && d.time != null) {
-        markers.push({
-          time: d.time,
-          position: d.position ?? "aboveBar",
-          color,
-          shape:
-            d.markerType === "arrowUp"
-              ? "arrowUp"
-              : d.markerType === "arrowDown"
-                ? "arrowDown"
-                : "circle",
-          text: d.label ?? "",
-          size: 1,
-        });
-      }
-    }
-
-    if (markers.length) freshSeries.setMarkers(markers);
-  }, [drawings, ready]);
+  const cursorStyle =
+    activeTool === "cursor" ? "default"
+    : activeTool === "hline" ? "crosshair"
+    : "crosshair";
 
   return (
     <div style={{ width: "100%", height, position: "relative" }}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} className="bg-[#0d0d0d]" />
+      {/* Drawing toolbar — overlaid top-left */}
+      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+        {(["cursor", "hline", "trendline", "zone"] as DrawTool[]).map((tool) => (
+          <button
+            key={tool}
+            title={TOOL_LABELS[tool]}
+            onClick={() => {
+              setActiveTool(tool);
+              setPendingPoint(null);
+            }}
+            className={`flex h-7 w-7 items-center justify-center rounded-md border text-[13px] font-bold transition-colors ${
+              activeTool === tool
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card/80 text-muted-foreground hover:text-foreground hover:border-foreground/40"
+            }`}
+          >
+            {TOOL_ICONS[tool]}
+          </button>
+        ))}
+        {/* Clear user drawings */}
+        {userDrawings.length > 0 && (
+          <button
+            title="Clear my drawings"
+            onClick={() => { setUserDrawings([]); setPendingPoint(null); }}
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-red-500/40 bg-card/80 text-[11px] font-bold text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {/* Pending point indicator */}
+      {pendingPoint && (
+        <div className="absolute top-2 right-2 z-10 rounded-md border border-primary/40 bg-card/90 px-2 py-1 text-[11px] text-primary">
+          Click second point… (or press Esc)
+        </div>
+      )}
+
+      <div
+        ref={containerRef}
+        style={{ width: "100%", height: "100%", cursor: cursorStyle }}
+        className="bg-[#0d0d0d]"
+        onKeyDown={(e) => { if (e.key === "Escape") { setPendingPoint(null); setActiveTool("cursor"); } }}
+        tabIndex={0}
+      />
+
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#0d0d0d]/70">
           <span className="text-[13px] text-muted-foreground animate-pulse">Loading chart…</span>
