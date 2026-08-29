@@ -15,6 +15,7 @@ import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as HermesRouteImport } from './routes/hermes'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as LiveRouteImport } from './routes/live'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ValidatorRouteImport } from './routes/validator'
 import { Route as ApiOhlcvRouteImport } from './routes/api/ohlcv'
@@ -58,6 +59,11 @@ const JournalRoute = JournalRouteImport.update({
 const LiveRoute = LiveRouteImport.update({
   id: '/live',
   path: '/live',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
@@ -207,6 +216,7 @@ export interface FileRouteTypes {
     | '/hermes'
     | '/journal'
     | '/live'
+    | '/login'
     | '/settings'
     | '/validator'
     | '/api/ohlcv'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/hermes'
     | '/journal'
     | '/live'
+    | '/login'
     | '/settings'
     | '/validator'
     | '/api/ohlcv'
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '/hermes'
     | '/journal'
     | '/live'
+    | '/login'
     | '/settings'
     | '/validator'
     | '/api/ohlcv'
@@ -274,6 +286,7 @@ export interface RootRouteChildren {
   HermesRoute: typeof HermesRoute
   JournalRoute: typeof JournalRoute
   LiveRoute: typeof LiveRoute
+  LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
   ValidatorRoute: typeof ValidatorRoute
   ApiOhlcvRoute: typeof ApiOhlcvRoute
@@ -332,6 +345,13 @@ declare module '@tanstack/react-router' {
       path: '/live'
       fullPath: '/live'
       preLoaderRoute: typeof LiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -442,6 +462,7 @@ const rootRouteChildren: RootRouteChildren = {
   HermesRoute: HermesRoute,
   JournalRoute: JournalRoute,
   LiveRoute: LiveRoute,
+  LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
   ValidatorRoute: ValidatorRoute,
   ApiOhlcvRoute: ApiOhlcvRoute,
@@ -460,13 +481,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
