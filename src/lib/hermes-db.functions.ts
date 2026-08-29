@@ -106,10 +106,37 @@ export interface HermesRequest {
   user_analysis: string | null;
   /** Data URL (base64) of an attached chart screenshot, resized/compressed client-side. */
   chart_image: string | null;
+  request_type: "analysis" | "backtest";
   status: "pending" | "fulfilled";
   created_at: string;
   fulfilled_at: string | null;
 }
+
+export interface HermesBacktest {
+  id: string;
+  request_id: string | null;
+  pair: string;
+  period_description: string;
+  trades_analyzed: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  narrative: string;
+  created_at: string;
+}
+
+export const loadHermesBacktests = createServerFn({ method: "GET" }).handler(
+  async (): Promise<HermesBacktest[]> => {
+    const env = getCFEnv();
+    if (!env) return [];
+    const { results } = await env.DB.prepare(
+      "SELECT * FROM hermes_backtests ORDER BY created_at DESC LIMIT 50",
+    )
+      .bind()
+      .all<HermesBacktest>();
+    return results;
+  },
+);
 
 export interface HermesSetup {
   id: string;
@@ -146,6 +173,7 @@ const requestInput = z.object({
   user_analysis: z.string().optional(),
   // Capped well under D1's row-size limit — the client resizes/compresses before sending.
   chart_image: z.string().max(1_500_000).optional(),
+  request_type: z.enum(["analysis", "backtest"]).default("analysis"),
 });
 
 export const addHermesRequest = createServerFn({ method: "POST" })
@@ -154,7 +182,7 @@ export const addHermesRequest = createServerFn({ method: "POST" })
     const env = getCFEnv();
     if (!env) return;
     await env.DB.prepare(
-      "INSERT INTO hermes_requests (id, pair, note, user_analysis, chart_image) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO hermes_requests (id, pair, note, user_analysis, chart_image, request_type) VALUES (?, ?, ?, ?, ?, ?)",
     )
       .bind(
         crypto.randomUUID(),
@@ -162,6 +190,7 @@ export const addHermesRequest = createServerFn({ method: "POST" })
         data.note ?? null,
         data.user_analysis ?? null,
         data.chart_image ?? null,
+        data.request_type,
       )
       .run();
   });

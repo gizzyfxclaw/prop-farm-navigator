@@ -98,6 +98,36 @@ TOOLS = [
             "required": ["pair", "direction", "entry", "sl", "tp1"],
         },
     ),
+    Tool(
+        name="post_backtest_result",
+        description=(
+            "Post the result of a backtest request (request_type=backtest from "
+            "get_pending_requests). This is an APPROXIMATE, LLM-narrated walkthrough of a "
+            "bounded recent window of candles, not a rigorous statistical backtest - the "
+            "narrative field must say so explicitly and describe exactly what you did "
+            "(how many candles, what timeframe, which strategy) so the human can judge how "
+            "much weight to give the win rate."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "request_id": {"type": "string", "description": "The backtest request id (optional)"},
+                "pair": {"type": "string"},
+                "period_description": {
+                    "type": "string",
+                    "description": "Exactly what window/timeframe you walked through, e.g. 'H1, last ~300 candles (~2 weeks)'",
+                },
+                "trades_analyzed": {"type": "integer", "description": "Total hypothetical trades identified"},
+                "wins": {"type": "integer"},
+                "losses": {"type": "integer"},
+                "narrative": {
+                    "type": "string",
+                    "description": "Methodology + caveats + notable trades. Must state this is approximate/small-sample, not statistically reliable.",
+                },
+            },
+            "required": ["pair", "period_description", "trades_analyzed", "wins", "losses", "narrative"],
+        },
+    ),
 ]
 
 @server.list_tools()
@@ -113,7 +143,10 @@ async def call_tool(name, arguments):
                 return [TextContent(type="text", text="No pending requests.")]
             content = []
             for r in reqs:
-                line = f"id={r['id']} pair={r['pair']} note={r.get('note','(none)')} created={r['created_at']}"
+                rtype = r.get("request_type") or "analysis"
+                line = f"id={r['id']} type={rtype} pair={r['pair']} note={r.get('note','(none)')} created={r['created_at']}"
+                if rtype == "backtest":
+                    line += "\n  This is a BACKTEST request, not a live analysis request — see the backtesting section of the gizzyfx skill. Respond with post_backtest_result, not post_trade_setup."
                 if r.get("user_analysis"):
                     line += f"\n  USER'S OWN ANALYSIS (check this against the taught strategy, then state a verdict): {r['user_analysis']}"
                 content.append(TextContent(type="text", text=line))
@@ -174,6 +207,15 @@ async def call_tool(name, arguments):
                       f"Entry={arguments['entry']} SL={arguments['sl']} TP1={arguments['tp1']} "
                       f"direction={arguments['direction']} order_type={arguments.get('order_type','(unspecified)')}. "
                       f"Levels are now drawn on the chart.")
+        elif name == "post_backtest_result":
+            body = {"pair": arguments["pair"], "period_description": arguments["period_description"],
+                    "trades_analyzed": arguments["trades_analyzed"], "wins": arguments["wins"],
+                    "losses": arguments["losses"], "narrative": arguments["narrative"]}
+            if "request_id" in arguments:
+                body["request_id"] = arguments["request_id"]
+            data = _post("/api/hermes/backtests", body)
+            wr = (arguments["wins"] / arguments["trades_analyzed"] * 100) if arguments["trades_analyzed"] else 0
+            result = f"Backtest result posted (id={data.get('id')}). Win rate {wr:.0f}% ({arguments['wins']}/{arguments['trades_analyzed']})."
 
         else:
             result = f"Unknown tool: {name}"

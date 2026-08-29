@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Alert, Badge, Button, Card, Field, Row, Select } from "@/components/terminal/ui";
+import { Alert, Badge, Button, Card, Field, Row, Select, Stat } from "@/components/terminal/ui";
 import { TradingViewChart } from "@/components/terminal/tradingview-chart";
 import { PAIRS, PAIR_SPECS } from "@/lib/engine/pairs";
 import { extractPdfText } from "@/lib/pdf-extract";
@@ -13,11 +13,13 @@ import {
   deleteHermesRequest,
   deleteHermesSetup,
   deleteKnowledgeDoc,
+  loadHermesBacktests,
   loadHermesNotes,
   loadHermesRequests,
   loadHermesSetups,
   loadHermesUnderstanding,
   loadKnowledgeDocs,
+  type HermesBacktest,
   type HermesNote,
   type HermesRequest,
   type HermesSetup,
@@ -48,6 +50,7 @@ function HermesPage() {
   const [notes, setNotes] = useState<HermesNote[]>([]);
   const [requests, setRequests] = useState<HermesRequest[]>([]);
   const [setups, setSetups] = useState<HermesSetup[]>([]);
+  const [backtests, setBacktests] = useState<HermesBacktest[]>([]);
   const [understanding, setUnderstanding] = useState<HermesUnderstanding | null>(null);
   const [chartPair, setChartPair] = useState<string>("EURUSD");
   const [title, setTitle] = useState("");
@@ -62,22 +65,27 @@ function HermesPage() {
   const [extracting, setExtracting] = useState(false);
   const [resizingImage, setResizingImage] = useState(false);
   const [lastTaughtTitle, setLastTaughtTitle] = useState<string | null>(null);
+  const [btPair, setBtPair] = useState<string>("EURUSD");
+  const [btNote, setBtNote] = useState("");
+  const [requestingBacktest, setRequestingBacktest] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chartInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
-    const [d, n, r, s, u] = await Promise.all([
+    const [d, n, r, s, u, b] = await Promise.all([
       loadKnowledgeDocs(),
       loadHermesNotes(),
       loadHermesRequests(),
       loadHermesSetups(),
       loadHermesUnderstanding(),
+      loadHermesBacktests(),
     ]);
     setDocs(d);
     setNotes(n);
     setRequests(r);
     setSetups(s);
     setUnderstanding(u);
+    setBacktests(b);
     setLoading(false);
   }
 
@@ -148,6 +156,17 @@ function HermesPage() {
 
   async function removeSetup(id: string) {
     await deleteHermesSetup({ data: { id } });
+    refresh();
+  }
+
+  async function requestBacktest() {
+    setRequestingBacktest(true);
+    await addHermesRequest({
+      data: { pair: btPair, note: btNote.trim() || undefined, request_type: "backtest" },
+    });
+    setRequestingBacktest(false);
+    setBtNote("");
+    toast.success("Sent — results will appear below once the Trading Agent works through it.");
     refresh();
   }
 
@@ -303,6 +322,65 @@ function HermesPage() {
         </div>
       </Card>
 
+      <Card title="Request a Backtest" badge={<Badge tone="amber">Approximate</Badge>}>
+        <div className="space-y-3">
+          <Alert level="amber" title="Not a rigorous backtest">
+            Strategies here are taught as free text, not executable rules — the Trading Agent
+            walks through a bounded recent window of candles narrating hypothetical trades, it
+            doesn't run a deterministic simulation over years of history. Treat the win rate as a
+            rough, small-sample read, not a statistically reliable number.
+          </Alert>
+          <div className="flex flex-wrap gap-3">
+            <Field label="Pair">
+              <Select value={btPair} onChange={(e) => setBtPair(e.target.value)} className="h-11 w-40">
+                {PAIRS.map((p) => (
+                  <option key={p} value={p}>
+                    {PAIR_SPECS[p].label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <Field label="Note" hint="Optional — which strategy/doc, and timeframe, to focus on.">
+            <input
+              className="h-11 w-full rounded-xl border border-border bg-input px-3 font-mono text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30"
+              value={btNote}
+              onChange={(e) => setBtNote(e.target.value)}
+              placeholder="e.g. test the order-block strategy on 1H over the last couple weeks"
+            />
+          </Field>
+          <div className="flex justify-end">
+            <Button onClick={requestBacktest} disabled={requestingBacktest}>
+              {requestingBacktest ? "Sending..." : "Request backtest"}
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {backtests.length > 0 && (
+        <Card title="Backtest results" badge={<Badge tone="amber">Approximate</Badge>}>
+          <div className="space-y-3">
+            {backtests.map((b) => (
+              <div key={b.id} className="rounded-xl border border-border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Badge tone="blue">{b.pair}</Badge>
+                  <span className="text-[11px] text-muted-foreground">
+                    {new Date(b.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <p className="mt-1 text-[12px] text-muted-foreground">{b.period_description}</p>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <Stat label="Win rate" value={`${Math.round(b.win_rate * 100)}%`} />
+                  <Stat label="Trades" value={b.trades_analyzed} />
+                  <Stat label="W / L" value={`${b.wins} / ${b.losses}`} />
+                </div>
+                <p className="mt-2 text-[13px] text-foreground">{b.narrative}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {requests.length > 0 && (
         <Card title="Requests" badge={<Badge tone="neutral">{requests.length}</Badge>}>
           <div className="space-y-3">
@@ -311,7 +389,10 @@ function HermesPage() {
               return (
                 <div key={r.id} className="rounded-xl border border-border p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <Badge tone="blue">{r.pair}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge tone="blue">{r.pair}</Badge>
+                      {r.request_type === "backtest" && <Badge tone="amber">Backtest</Badge>}
+                    </div>
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-muted-foreground">
                         {new Date(r.created_at).toLocaleString()}

@@ -17,6 +17,7 @@ import { Route as LiveRouteImport } from './routes/live'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ValidatorRouteImport } from './routes/validator'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
+import { Route as ApiHermesBacktestsRouteImport } from './routes/api/hermes/backtests'
 import { Route as ApiHermesJournalRouteImport } from './routes/api/hermes/journal'
 import { Route as ApiHermesKnowledgeRouteImport } from './routes/api/hermes/knowledge'
 import { Route as ApiHermesNotesRouteImport } from './routes/api/hermes/notes'
@@ -64,6 +65,11 @@ const ApiHermesAccountsRoute = ApiHermesAccountsRouteImport.update({
   path: '/api/hermes/accounts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesBacktestsRoute = ApiHermesBacktestsRouteImport.update({
+  id: '/api/hermes/backtests',
+  path: '/api/hermes/backtests',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHermesJournalRoute = ApiHermesJournalRouteImport.update({
   id: '/api/hermes/journal',
   path: '/api/hermes/journal',
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
+  '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
+  '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
+  '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/validator'
     | '/api/hermes/accounts'
+    | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/validator'
     | '/api/hermes/accounts'
+    | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/validator'
     | '/api/hermes/accounts'
+    | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
@@ -204,6 +216,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   ValidatorRoute: typeof ValidatorRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
+  ApiHermesBacktestsRoute: typeof ApiHermesBacktestsRoute
   ApiHermesJournalRoute: typeof ApiHermesJournalRoute
   ApiHermesKnowledgeRoute: typeof ApiHermesKnowledgeRoute
   ApiHermesNotesRoute: typeof ApiHermesNotesRoute
@@ -270,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHermesAccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/backtests': {
+      id: '/api/hermes/backtests'
+      path: '/api/hermes/backtests'
+      fullPath: '/api/hermes/backtests'
+      preLoaderRoute: typeof ApiHermesBacktestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/journal': {
       id: '/api/hermes/journal'
       path: '/api/hermes/journal'
@@ -324,6 +344,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   ValidatorRoute: ValidatorRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
+  ApiHermesBacktestsRoute: ApiHermesBacktestsRoute,
   ApiHermesJournalRoute: ApiHermesJournalRoute,
   ApiHermesKnowledgeRoute: ApiHermesKnowledgeRoute,
   ApiHermesNotesRoute: ApiHermesNotesRoute,
