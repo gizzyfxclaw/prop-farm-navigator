@@ -7,7 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
@@ -26,24 +26,132 @@ const NAV = [
   { to: "/settings",  label: "Settings",    short: "Config"  },
 ] as const;
 
-/* ── Ambient glow orbs in background ──────────────────────────── */
+/* ── Theme switcher ─────────────────────────────────────────────── */
+const THEMES = [
+  { id: "cyan",   label: "Cyan",   color: "oklch(0.775 0.148 198)" },
+  { id: "blue",   label: "Blue",   color: "oklch(0.623 0.214 259)" },
+  { id: "purple", label: "Purple", color: "oklch(0.692 0.194 295)" },
+] as const;
+
+type ThemeId = typeof THEMES[number]["id"];
+
+function applyTheme(id: ThemeId) {
+  if (id === "cyan") {
+    delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = id;
+  }
+}
+
+function ThemeSwitcher() {
+  const [theme, setTheme] = useState<ThemeId>("cyan");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("gz-theme") as ThemeId | null;
+      const valid: ThemeId[] = ["cyan", "blue", "purple"];
+      if (saved && valid.includes(saved)) {
+        setTheme(saved);
+        applyTheme(saved);
+      }
+    } catch {}
+  }, []);
+
+  function switchTheme(id: ThemeId) {
+    setTheme(id);
+    try { localStorage.setItem("gz-theme", id); } catch {}
+    applyTheme(id);
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 5, alignItems: "center" }} title="Switch colour theme">
+      {THEMES.map((t) => (
+        <button
+          key={t.id}
+          title={`${t.label} theme`}
+          onClick={() => switchTheme(t.id)}
+          style={{
+            width: 12, height: 12, borderRadius: "50%",
+            background: t.color,
+            border: theme === t.id
+              ? "2px solid oklch(0.950 0.012 200)"
+              : "2px solid oklch(0 0 0 / 0.35)",
+            padding: 0, cursor: "pointer",
+            boxShadow: theme === t.id ? `0 0 7px ${t.color}` : "none",
+            transition: "all 0.18s ease",
+            flexShrink: 0,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ── Ambient glow orbs ─────────────────────────────────────────── */
 function GlowOrbs() {
   return (
     <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
-      <div style={{
+      <div className="orb-1" style={{
         position: "absolute",
-        top: "-10%", left: "-5%",
-        width: "60vw", height: "60vw",
+        top: "-15%", left: "-8%",
+        width: "65vw", height: "65vw",
         borderRadius: "50%",
-        background: "radial-gradient(circle, oklch(0.680 0.230 295 / 0.055) 0%, transparent 70%)",
+        background: "radial-gradient(circle, oklch(var(--gz-p) / 0.07) 0%, oklch(var(--gz-p) / 0.03) 40%, transparent 70%)",
       }} />
-      <div style={{
+      <div className="orb-2" style={{
         position: "absolute",
-        bottom: "-15%", right: "-10%",
-        width: "50vw", height: "50vw",
+        bottom: "-18%", right: "-12%",
+        width: "55vw", height: "55vw",
         borderRadius: "50%",
-        background: "radial-gradient(circle, oklch(0.680 0.230 295 / 0.040) 0%, transparent 70%)",
+        background: "radial-gradient(circle, oklch(var(--gz-h) / 0.055) 0%, transparent 65%)",
       }} />
+      <div className="orb-3" style={{
+        position: "absolute",
+        top: "40%", left: "45%",
+        width: "40vw", height: "40vw",
+        borderRadius: "50%",
+        background: "radial-gradient(circle, oklch(var(--gz-p) / 0.035) 0%, transparent 70%)",
+      }} />
+    </div>
+  );
+}
+
+/* ── Floating particles ────────────────────────────────────────── */
+type Particle = { id: number; x: number; size: number; dur: number; delay: number; opacity: number };
+
+function ParticleField() {
+  const [particles, setParticles] = useState<Particle[]>([]);
+
+  useEffect(() => {
+    const list: Particle[] = Array.from({ length: 28 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      size: Math.random() * 2 + 1,
+      dur: Math.random() * 18 + 12,
+      delay: Math.random() * -20,
+      opacity: Math.random() * 0.4 + 0.1,
+    }));
+    setParticles(list);
+  }, []);
+
+  return (
+    <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          style={{
+            position: "absolute",
+            bottom: "-4px",
+            left: `${p.x}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            borderRadius: "50%",
+            background: `oklch(var(--gz-p) / ${p.opacity})`,
+            boxShadow: `0 0 ${p.size * 3}px oklch(var(--gz-p) / ${p.opacity * 0.8})`,
+            animation: `gz-float-up ${p.dur}s ${p.delay}s linear infinite`,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -51,12 +159,12 @@ function GlowOrbs() {
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4" style={{ position: "relative", zIndex: 1 }}>
-      <div className="text-center">
+      <div className="text-center animate-in">
         <p className="font-display text-8xl font-bold text-neon">404</p>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">The page you're looking for doesn't exist.</p>
         <div className="mt-6">
-          <Link to="/" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
+          <Link to="/" className="btn-sweep btn-glow inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
             Go home
           </Link>
         </div>
@@ -74,13 +182,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4" style={{ position: "relative", zIndex: 1 }}>
-      <div className="text-center max-w-md">
+      <div className="text-center max-w-md animate-in">
         <h1 className="text-xl font-semibold text-foreground">This page didn't load</h1>
         <p className="mt-2 text-sm text-muted-foreground">Something went wrong. Try refreshing or head home.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => { router.invalidate(); reset(); }}
-            className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            className="btn-sweep btn-glow inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
           >
             Try again
           </button>
@@ -115,6 +223,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "alternate icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "apple-touch-icon", href: "/favicon.svg" },
     ],
+    scripts: [
+      {
+        /* Apply saved theme before first paint to prevent flash */
+        children: `try{var t=localStorage.getItem("gz-theme");if(t&&t!=="cyan")document.documentElement.dataset.theme=t;}catch(e){}`,
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -143,8 +257,8 @@ function Clock() {
   }, []);
   return (
     <div className="flex items-center gap-2">
-      <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-      <span className="font-mono text-[11px] tracking-wider text-muted-foreground">{now}</span>
+      <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full" style={{ background: "oklch(var(--gz-h))" }} />
+      <span className="font-mono text-[11px] tracking-wider" style={{ color: "oklch(var(--gz-mut))" }}>{now}</span>
     </div>
   );
 }
@@ -159,7 +273,6 @@ function RootComponent() {
   const router = useRouter();
   const pathname = router.state.location.pathname;
 
-  // Login page is a full-screen standalone — skip the app shell.
   if (pathname === "/login") {
     return (
       <QueryClientProvider client={queryClient}>
@@ -170,10 +283,10 @@ function RootComponent() {
             position="top-center"
             toastOptions={{
               style: {
-                background: "oklch(0.148 0.026 292 / 0.95)",
-                border: "1px solid oklch(0.680 0.230 295 / 0.25)",
-                color: "oklch(0.945 0.020 292)",
-                boxShadow: "0 0 20px oklch(0.680 0.230 295 / 0.15)",
+                background: "oklch(var(--gz-s2) / 0.96)",
+                border: "1px solid oklch(var(--gz-p) / 0.28)",
+                color: "oklch(var(--gz-txt))",
+                boxShadow: "0 0 24px oklch(var(--gz-p) / 0.18)",
                 backdropFilter: "blur(16px)",
               },
             }}
@@ -186,8 +299,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <StoreProvider>
-        {/* Ambient layers — sit behind everything */}
+        {/* Ambient layers — behind everything */}
         <GlowOrbs />
+        <ParticleField />
         <LogoWatermark />
 
         <div className="relative min-h-screen" style={{ zIndex: 1 }}>
@@ -195,16 +309,20 @@ function RootComponent() {
           <header
             className="sticky top-0 z-30"
             style={{
-              background: "oklch(0.085 0.020 292 / 0.82)",
-              backdropFilter: "blur(24px) saturate(1.6)",
-              WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-              borderBottom: "1px solid oklch(0.680 0.230 295 / 0.12)",
-              boxShadow: "0 4px 32px oklch(0 0 0 / 0.40)",
+              background: "oklch(var(--gz-s3) / 0.88)",
+              backdropFilter: "blur(28px) saturate(1.8)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.8)",
+              borderBottom: "1px solid oklch(var(--gz-p) / 0.14)",
+              boxShadow: "0 1px 0 oklch(var(--gz-p) / 0.08), 0 4px 40px oklch(0 0 0 / 0.45)",
             }}
           >
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5">
+            {/* Top accent bar */}
+            <div style={{
+              position: "absolute", top: 0, left: 0, right: 0, height: "2px",
+              background: "linear-gradient(90deg, transparent 0%, oklch(var(--gz-p) / 0.8) 20%, oklch(var(--gz-h)) 50%, oklch(var(--gz-p) / 0.8) 80%, transparent 100%)",
+            }} />
 
-              {/* Brand lockup — mark + wordmark */}
+            <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5">
               <Link
                 to="/"
                 className="glow-hover flex items-center gap-2.5 select-none"
@@ -216,16 +334,17 @@ function RootComponent() {
 
               <div className="flex items-center gap-3">
                 <Clock />
+                <ThemeSwitcher />
                 <button
                   onClick={handleLogout}
                   style={{
                     height: 28, padding: "0 10px", borderRadius: 8,
-                    border: "1px solid oklch(0.680 0.230 295 / 0.20)",
-                    background: "oklch(0.680 0.230 295 / 0.08)",
-                    color: "oklch(0.600 0.025 292)",
+                    border: "1px solid oklch(var(--gz-p) / 0.22)",
+                    background: "oklch(var(--gz-p) / 0.08)",
+                    color: "oklch(var(--gz-mut))",
                     fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
                     cursor: "pointer", textTransform: "uppercase",
-                    transition: "all 0.15s ease",
+                    transition: "all 0.18s ease",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "oklch(0.500 0.200 25 / 0.15)";
@@ -233,9 +352,9 @@ function RootComponent() {
                     e.currentTarget.style.color = "oklch(0.720 0.180 25)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "oklch(0.680 0.230 295 / 0.08)";
-                    e.currentTarget.style.borderColor = "oklch(0.680 0.230 295 / 0.20)";
-                    e.currentTarget.style.color = "oklch(0.600 0.025 292)";
+                    e.currentTarget.style.background = "oklch(var(--gz-p) / 0.08)";
+                    e.currentTarget.style.borderColor = "oklch(var(--gz-p) / 0.22)";
+                    e.currentTarget.style.color = "oklch(var(--gz-mut))";
                   }}
                 >
                   Sign out
@@ -251,13 +370,23 @@ function RootComponent() {
                     key={item.to}
                     to={item.to}
                     activeOptions={{ exact: item.to === "/" }}
-                    className="press relative whitespace-nowrap rounded-md px-3 py-1.5 text-[12.5px] font-medium tracking-wide text-muted-foreground transition-colors hover:text-foreground hover:bg-white/[0.03]"
+                    className="press relative whitespace-nowrap rounded-md px-3 py-1.5 text-[12.5px] font-medium tracking-wide transition-all duration-200"
+                    style={{ color: "oklch(var(--gz-mut))" }}
                     activeProps={{
-                      className: "relative whitespace-nowrap rounded-md px-3 py-1.5 text-[12.5px] font-medium tracking-wide text-primary",
                       style: {
-                        background: "oklch(0.680 0.230 295 / 0.10)",
-                        boxShadow: "0 0 12px oklch(0.680 0.230 295 / 0.15)",
+                        color: "oklch(var(--gz-p))",
+                        background: "oklch(var(--gz-p) / 0.10)",
+                        boxShadow: "0 0 16px oklch(var(--gz-p) / 0.18)",
+                        textShadow: "0 0 12px oklch(var(--gz-p) / 0.50)",
                       }
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.color = "oklch(var(--gz-txt))";
+                      (e.currentTarget as HTMLElement).style.background = "oklch(1 0 0 / 0.04)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.color = "oklch(var(--gz-mut))";
+                      (e.currentTarget as HTMLElement).style.background = "transparent";
                     }}
                   >
                     {item.label}
@@ -267,22 +396,22 @@ function RootComponent() {
             </div>
           </header>
 
-          {/* ── Page content — re-animates on every route change ── */}
+          {/* ── Page content ─────────────────────────────────── */}
           <main key={pathname} className="stagger mx-auto max-w-6xl px-4 py-6">
             <Outlet />
           </main>
 
-          {/* ── Footer ─────────────────────────────────────────── */}
+          {/* ── Footer ──────────────────────────────────────── */}
           <footer
             className="mx-auto max-w-6xl px-4 py-8"
-            style={{ borderTop: "1px solid oklch(0.680 0.230 295 / 0.08)" }}
+            style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.09)" }}
           >
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-[11px] text-muted-foreground">
-                <span className="font-display font-semibold text-foreground tracking-widest">GIZZYFX</span>
+              <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>
+                <span className="font-display font-semibold tracking-widest" style={{ color: "oklch(var(--gz-mut))" }}>GIZZYFX</span>
                 {" "}· Institutional terminal — hedge calculator, validator & MetaApi execution.
               </p>
-              <p className="text-[11px] text-muted-foreground">Educational use · Trade at your own risk.</p>
+              <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>Educational use · Trade at your own risk.</p>
             </div>
           </footer>
         </div>
@@ -292,10 +421,10 @@ function RootComponent() {
           position="top-center"
           toastOptions={{
             style: {
-              background: "oklch(0.148 0.026 292 / 0.95)",
-              border: "1px solid oklch(0.680 0.230 295 / 0.25)",
-              color: "oklch(0.945 0.020 292)",
-              boxShadow: "0 0 20px oklch(0.680 0.230 295 / 0.15)",
+              background: "oklch(var(--gz-s2) / 0.96)",
+              border: "1px solid oklch(var(--gz-p) / 0.28)",
+              color: "oklch(var(--gz-txt))",
+              boxShadow: "0 0 24px oklch(var(--gz-p) / 0.18)",
               backdropFilter: "blur(16px)",
             },
           }}
