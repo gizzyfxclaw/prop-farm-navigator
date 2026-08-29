@@ -1,0 +1,175 @@
+/**
+ * GizzyFx chrome for Hermes WebUI.
+ *
+ * The colour palette itself is registered from gizzyfx.js as a proper WebUI
+ * skin (Settings → Appearance → GizzyFx). This stylesheet only adds the
+ * pieces a skin cannot express: the brand watermark, the glass/glow surface
+ * treatment, and the navigation bar back to the Engine.
+ *
+ * Everything is scoped to :root[data-skin="gizzyfx"] so selecting a different
+ * skin leaves the stock WebUI appearance completely untouched.
+ */
+
+/* ── Brand watermark behind the app shell ──────────────────────────── */
+:root[data-skin="gizzyfx"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(
+      circle at 12% 8%,
+      rgba(27, 255, 122, 0.055) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 88% 92%,
+      rgba(27, 255, 122, 0.04) 0%,
+      transparent 55%
+    );
+}
+
+/* The mark itself — an inlined SVG of the GizzyFx badge, centred and faded.
+   data: URIs are fine here because this file is served same-origin. */
+:root[data-skin="gizzyfx"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: min(42vw, 380px);
+  background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>\
+<circle cx='50' cy='50' r='47' fill='%23050807'/>\
+<circle cx='50' cy='50' r='45' stroke='%231bff7a' stroke-width='5' fill='none'/>\
+<rect x='24' y='46' width='9' height='22' rx='1.5' fill='%2317c95c'/>\
+<rect x='38' y='34' width='9' height='30' rx='1.5' fill='%23e8433f'/>\
+<rect x='52' y='40' width='9' height='24' rx='1.5' fill='%2317c95c'/>\
+<path d='M22 76 C 42 76, 60 66, 72 42' stroke='%235cff9d' stroke-width='8' stroke-linecap='round' fill='none'/>\
+<path d='M62 30 L82 36 L72 53 Z' fill='%237dffb4'/>\
+</svg>");
+  animation: gizzyfx-breathe 14s ease-in-out infinite;
+}
+
+@keyframes gizzyfx-breathe {
+  0%,
+  100% {
+    opacity: 0.045;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.07;
+    transform: scale(1.02);
+  }
+}
+
+/* Keep the real app above the ambient layers. */
+:root[data-skin="gizzyfx"] #app,
+:root[data-skin="gizzyfx"] main,
+:root[data-skin="gizzyfx"] [class*="sidebar"],
+:root[data-skin="gizzyfx"] [class*="composer"] {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Navigation back to the Engine ─────────────────────────────────── */
+#gizzyfx-nav {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 12px;
+  background: rgba(8, 14, 11, 0.86);
+  border: 1px solid rgba(27, 255, 122, 0.18);
+  box-shadow:
+    0 6px 26px rgba(0, 0, 0, 0.5),
+    0 0 18px rgba(27, 255, 122, 0.08);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  font-family:
+    "Geist",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.gizzyfx-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  color: #a8c0b3;
+  white-space: nowrap;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.gizzyfx-nav-link:hover {
+  background: rgba(27, 255, 122, 0.1);
+  color: #e6f2ea;
+}
+
+.gizzyfx-nav-link:active {
+  transform: scale(0.97);
+}
+
+.gizzyfx-nav-link:focus-visible {
+  outline: 2px solid rgba(27, 255, 122, 0.6);
+  outline-offset: 2px;
+}
+
+.gizzyfx-nav-primary {
+  color: #5cff9d;
+}
+
+.gizzyfx-nav-primary svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Collapse to icon-only on narrow screens so it never covers the composer. */
+@media (max-width: 640px) {
+  #gizzyfx-nav {
+    right: 10px;
+    bottom: 76px;
+  }
+  .gizzyfx-nav-link:not(.gizzyfx-nav-primary) {
+    display: none;
+  }
+  .gizzyfx-nav-primary span {
+    display: none;
+  }
+}
+
+/* ── Surface polish, matching the terminal's glass cards ───────────── */
+:root[data-skin="gizzyfx"] [class*="card"],
+:root[data-skin="gizzyfx"] [class*="panel"] {
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+}
+
+/* Respect a reduced-motion preference. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-skin="gizzyfx"] body::after {
+    animation: none;
+  }
+  .gizzyfx-nav-link {
+    transition: none;
+  }
+}
