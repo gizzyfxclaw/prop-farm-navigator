@@ -4,9 +4,9 @@ import { getCFEnv } from "@/lib/cloudflare-env";
 import { requireHermesAuth } from "@/lib/hermes-auth";
 
 /**
- * Structured trade setups posted by the Hermes agent after analysis.
- * Each setup has an entry, stop loss, and up to three take-profit levels.
- * The frontend displays these as a trade card AND auto-draws the levels on the chart.
+ * Trade setup cards Hermes posts after analysis — entry/SL/TP levels for a
+ * human to review and, if they choose, place manually. Nothing here touches
+ * a broker or MetaApi; this is a suggestion card, not an order.
  */
 const setupInput = z.object({
   request_id: z.string().optional(),
@@ -19,30 +19,28 @@ const setupInput = z.object({
   tp3: z.number().optional(),
   rr: z.number().optional(),
   rationale: z.string().optional(),
+  /** Pending vs instant execution — see calc.ts's pendingOrderType for the same logic. */
+  order_type: z.enum(["MARKET", "BUY_LIMIT", "BUY_STOP", "SELL_LIMIT", "SELL_STOP"]).optional(),
 });
 
 export const Route = createFileRoute("/api/hermes/setups")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        const authErr = await requireHermesAuth(request);
+        if (authErr) return authErr;
+
         const env = getCFEnv();
         if (!env) return Response.json({ setups: [] });
 
         const url = new URL(request.url);
-        const pair = url.searchParams.get("pair");
-        const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 100);
+        const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
 
-        const { results } = pair
-          ? await env.DB.prepare(
-              "SELECT * FROM hermes_setups WHERE pair = ? ORDER BY created_at DESC LIMIT ?",
-            )
-              .bind(pair, limit)
-              .all()
-          : await env.DB.prepare(
-              "SELECT * FROM hermes_setups ORDER BY created_at DESC LIMIT ?",
-            )
-              .bind(limit)
-              .all();
+        const { results } = await env.DB.prepare(
+          "SELECT * FROM hermes_setups ORDER BY created_at DESC LIMIT ?",
+        )
+          .bind(limit)
+          .all();
 
         return Response.json({ setups: results });
       },
@@ -56,14 +54,10 @@ export const Route = createFileRoute("/api/hermes/setups")({
 
         const body = setupInput.parse(await request.json());
         const id = crypto.randomUUID();
-        const rr =
-          body.rr ??
-          Math.abs(body.tp1 - body.entry) / Math.abs(body.entry - body.sl);
 
         await env.DB.prepare(
-          `INSERT INTO hermes_setups
-           (id, request_id, pair, direction, entry, sl, tp1, tp2, tp3, rr, rationale)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO hermes_setups (id, request_id, pair, direction, entry, sl, tp1, tp2, tp3, rr, rationale, order_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
           .bind(
             id,
@@ -75,8 +69,9 @@ export const Route = createFileRoute("/api/hermes/setups")({
             body.tp1,
             body.tp2 ?? null,
             body.tp3 ?? null,
-            rr,
+            body.rr ?? null,
             body.rationale ?? null,
+            body.order_type ?? null,
           )
           .run();
 

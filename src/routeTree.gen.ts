@@ -20,11 +20,14 @@ import { Route as ApiOhlcvRouteImport } from './routes/api/ohlcv'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
 import { Route as ApiHermesAnalysisRouteImport } from './routes/api/hermes/analysis'
+import { Route as ApiHermesBacktestsRouteImport } from './routes/api/hermes/backtests'
 import { Route as ApiHermesJournalRouteImport } from './routes/api/hermes/journal'
 import { Route as ApiHermesKnowledgeRouteImport } from './routes/api/hermes/knowledge'
 import { Route as ApiHermesNotesRouteImport } from './routes/api/hermes/notes'
 import { Route as ApiHermesRequestsRouteImport } from './routes/api/hermes/requests'
 import { Route as ApiHermesSetupsRouteImport } from './routes/api/hermes/setups'
+import { Route as ApiHermesStrategyRulesRouteImport } from './routes/api/hermes/strategy-rules'
+import { Route as ApiHermesUnderstandingRouteImport } from './routes/api/hermes/understanding'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -81,6 +84,11 @@ const ApiHermesAnalysisRoute = ApiHermesAnalysisRouteImport.update({
   path: '/api/hermes/analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesBacktestsRoute = ApiHermesBacktestsRouteImport.update({
+  id: '/api/hermes/backtests',
+  path: '/api/hermes/backtests',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHermesJournalRoute = ApiHermesJournalRouteImport.update({
   id: '/api/hermes/journal',
   path: '/api/hermes/journal',
@@ -106,6 +114,16 @@ const ApiHermesSetupsRoute = ApiHermesSetupsRouteImport.update({
   path: '/api/hermes/setups',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesStrategyRulesRoute = ApiHermesStrategyRulesRouteImport.update({
+  id: '/api/hermes/strategy-rules',
+  path: '/api/hermes/strategy-rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHermesUnderstandingRoute = ApiHermesUnderstandingRouteImport.update({
+  id: '/api/hermes/understanding',
+  path: '/api/hermes/understanding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -119,11 +137,14 @@ export interface FileRoutesByFullPath {
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
+  '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
+  '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
+  '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -137,11 +158,14 @@ export interface FileRoutesByTo {
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
+  '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
+  '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
+  '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -156,11 +180,14 @@ export interface FileRoutesById {
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
+  '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
+  '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
+  '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -176,11 +203,14 @@ export interface FileRouteTypes {
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
+    | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
     | '/api/hermes/requests'
     | '/api/hermes/setups'
+    | '/api/hermes/strategy-rules'
+    | '/api/hermes/understanding'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -194,11 +224,14 @@ export interface FileRouteTypes {
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
+    | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
     | '/api/hermes/requests'
     | '/api/hermes/setups'
+    | '/api/hermes/strategy-rules'
+    | '/api/hermes/understanding'
   id:
     | '__root__'
     | '/'
@@ -212,11 +245,14 @@ export interface FileRouteTypes {
     | '/api/hermes/_debug'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
+    | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
     | '/api/hermes/requests'
     | '/api/hermes/setups'
+    | '/api/hermes/strategy-rules'
+    | '/api/hermes/understanding'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -231,11 +267,14 @@ export interface RootRouteChildren {
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
   ApiHermesAnalysisRoute: typeof ApiHermesAnalysisRoute
+  ApiHermesBacktestsRoute: typeof ApiHermesBacktestsRoute
   ApiHermesJournalRoute: typeof ApiHermesJournalRoute
   ApiHermesKnowledgeRoute: typeof ApiHermesKnowledgeRoute
   ApiHermesNotesRoute: typeof ApiHermesNotesRoute
   ApiHermesRequestsRoute: typeof ApiHermesRequestsRoute
   ApiHermesSetupsRoute: typeof ApiHermesSetupsRoute
+  ApiHermesStrategyRulesRoute: typeof ApiHermesStrategyRulesRoute
+  ApiHermesUnderstandingRoute: typeof ApiHermesUnderstandingRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -317,6 +356,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHermesAnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/backtests': {
+      id: '/api/hermes/backtests'
+      path: '/api/hermes/backtests'
+      fullPath: '/api/hermes/backtests'
+      preLoaderRoute: typeof ApiHermesBacktestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/journal': {
       id: '/api/hermes/journal'
       path: '/api/hermes/journal'
@@ -352,6 +398,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHermesSetupsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/strategy-rules': {
+      id: '/api/hermes/strategy-rules'
+      path: '/api/hermes/strategy-rules'
+      fullPath: '/api/hermes/strategy-rules'
+      preLoaderRoute: typeof ApiHermesStrategyRulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/understanding': {
+      id: '/api/hermes/understanding'
+      path: '/api/hermes/understanding'
+      fullPath: '/api/hermes/understanding'
+      preLoaderRoute: typeof ApiHermesUnderstandingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -367,11 +427,14 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
   ApiHermesAnalysisRoute: ApiHermesAnalysisRoute,
+  ApiHermesBacktestsRoute: ApiHermesBacktestsRoute,
   ApiHermesJournalRoute: ApiHermesJournalRoute,
   ApiHermesKnowledgeRoute: ApiHermesKnowledgeRoute,
   ApiHermesNotesRoute: ApiHermesNotesRoute,
   ApiHermesRequestsRoute: ApiHermesRequestsRoute,
   ApiHermesSetupsRoute: ApiHermesSetupsRoute,
+  ApiHermesStrategyRulesRoute: ApiHermesStrategyRulesRoute,
+  ApiHermesUnderstandingRoute: ApiHermesUnderstandingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

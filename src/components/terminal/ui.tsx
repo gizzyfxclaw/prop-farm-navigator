@@ -48,7 +48,7 @@ export function Badge({
   className,
   children,
 }: {
-  tone?: "blue" | "green" | "red" | "amber" | "neutral";
+  tone?: "blue" | "green" | "red" | "amber" | "neutral" | undefined;
   className?: string;
   children: ReactNode;
 }) {
@@ -204,7 +204,15 @@ export function Alert({
   );
 }
 
-export function Stat({ label, value, tone }: { label: string; value: ReactNode; tone?: string }) {
+export function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: ReactNode;
+  tone?: string | undefined;
+}) {
   return (
     <div
       className="lift rounded-xl p-4"

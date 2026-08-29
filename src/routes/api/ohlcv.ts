@@ -62,20 +62,34 @@ export const Route = createFileRoute("/api/ohlcv")({
         const lows: number[] = q.low ?? [];
         const closes: number[] = q.close ?? [];
 
-        let bars = timestamps
-          .map((t, i) => ({
-            time: t,
-            open: opens[i],
-            high: highs[i],
-            low: lows[i],
-            close: closes[i],
-          }))
-          .filter((b) => b.open != null && b.close != null);
+        interface Bar {
+          time: number;
+          open: number;
+          high: number;
+          low: number;
+          close: number;
+        }
+
+        // Yahoo pads gaps with nulls; drop any candle that isn't fully populated
+        // so downstream code can treat every OHLC value as a real number.
+        let bars: Bar[] = [];
+        for (let i = 0; i < timestamps.length; i++) {
+          const time = timestamps[i];
+          const open = opens[i];
+          const high = highs[i];
+          const low = lows[i];
+          const close = closes[i];
+          if (
+            time == null || open == null || high == null ||
+            low == null || close == null
+          ) {
+            continue;
+          }
+          bars.push({ time, open, high, low, close });
+        }
 
         // Aggregate daily bars into weekly candles (Yahoo has no forex 1w feed)
         if (interval === "1w") {
-          type Bar = (typeof bars)[number];
-
           const rollUp = (chunk: Bar[]): Bar | null => {
             const first = chunk[0];
             const last = chunk[chunk.length - 1];

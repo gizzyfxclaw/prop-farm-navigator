@@ -4,10 +4,16 @@ import { getCFEnv } from "@/lib/cloudflare-env";
 import { requireHermesAuth } from "@/lib/hermes-auth";
 
 /**
- * Queue of analysis requests submitted from the web UI.
- * The Trading Agent polls this endpoint for pending requests, processes them,
- * then marks each one fulfilled via PATCH (or by posting a note).
+ * Analysis request queue. The human creates requests from the browser (see
+ * hermes-db.functions.ts — no auth, same-origin); Hermes polls GET here with
+ * the shared secret and marks them fulfilled via PATCH once it's posted its
+ * conclusion. Nothing here triggers a trade — it's a to-do list for analysis.
  */
+const patchInput = z.object({
+  id: z.string(),
+  status: z.enum(["pending", "fulfilled"]),
+});
+
 export const Route = createFileRoute("/api/hermes/requests")({
   server: {
     handlers: {
@@ -19,14 +25,17 @@ export const Route = createFileRoute("/api/hermes/requests")({
         if (!env) return Response.json({ requests: [] });
 
         const url = new URL(request.url);
-        const status = url.searchParams.get("status") ?? "pending";
-        const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
+        const status = url.searchParams.get("status");
 
-        const { results } = await env.DB.prepare(
-          "SELECT * FROM hermes_requests WHERE status = ? ORDER BY created_at ASC LIMIT ?",
-        )
-          .bind(status, limit)
-          .all();
+        const { results } = status
+          ? await env.DB.prepare(
+              "SELECT * FROM hermes_requests WHERE status = ? ORDER BY created_at ASC",
+            )
+              .bind(status)
+              .all()
+          : await env.DB.prepare("SELECT * FROM hermes_requests ORDER BY created_at DESC LIMIT 100")
+              .bind()
+              .all();
 
         return Response.json({ requests: results });
       },
@@ -38,14 +47,11 @@ export const Route = createFileRoute("/api/hermes/requests")({
         const env = getCFEnv();
         if (!env) return new Response("Service unavailable", { status: 503 });
 
-        const body = z
-          .object({ id: z.string(), status: z.enum(["fulfilled", "cancelled"]) })
-          .parse(await request.json());
-
+        const body = patchInput.parse(await request.json());
         await env.DB.prepare(
-          "UPDATE hermes_requests SET status = ?, fulfilled_at = datetime('now') WHERE id = ?",
+          "UPDATE hermes_requests SET status = ?, fulfilled_at = CASE WHEN ? = 'fulfilled' THEN datetime('now') ELSE fulfilled_at END WHERE id = ?",
         )
-          .bind(body.status, body.id)
+          .bind(body.status, body.status, body.id)
           .run();
 
         return Response.json({ ok: true });
