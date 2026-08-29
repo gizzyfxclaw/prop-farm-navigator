@@ -1,8 +1,8 @@
 /**
- * GizzyFx skin + navigation for Hermes WebUI.
+ * GizzyFx skin + navigation for Hermes WebUI — electric cyan/teal theme.
  *
- * Registers a "GizzyFx" skin in Settings → Appearance (matching the terminal's
- * neon-green identity) and adds a persistent link back to the GizzyFx Engine.
+ * Registers a "GizzyFx" skin in Settings → Appearance and adds a persistent
+ * link back to the GizzyFx Engine.
  *
  * Install: see hermes/webui-extension/README.md
  */
@@ -14,12 +14,7 @@
 
   /* ── 1. Make GizzyFx the default skin, once ───────────────────────
    * Seeded exactly once per browser, and only while the console is still on
-   * the stock appearance. After that the picker always wins: choose another
-   * skin and this never touches it again.
-   *
-   * Core cooperates with this — an unregistered non-built-in skin in
-   * localStorage is preserved verbatim through boot (its lsSkinIsPendingExt
-   * path) and applied once registerHermesSkin() below runs.
+   * the stock appearance. After that the picker always wins.
    */
   var SEED_KEY = "gizzyfx-skin-seeded";
 
@@ -40,8 +35,7 @@
   seedDefaultSkin();
 
   /* ── 2. Register the GizzyFx skin ─────────────────────────────────
-   * Token names and value shapes are restricted by WebUI core; these all
-   * sit inside the documented allowlist.
+   * Electric cyan/teal palette matching the GizzyFx Engine.
    */
   function registerSkin() {
     if (typeof window.registerHermesSkin !== "function") return false;
@@ -50,50 +44,49 @@
       name: "GizzyFx",
       value: "gizzyfx",
       label: "GizzyFx",
-      scheme: "dark", // the palette is built for a dark base only
-      colors: ["#0a0713", "#a78bfa", "#f472b6"],
+      scheme: "dark",
+      colors: ["#061520", "#00c8e8", "#00e5c8"],
       tokens: {
-        "--bg": "#0a0713",
-        "--surface": "#141020",
-        "--surface2": "#1b1529",
-        "--surface-subtle": "#100c1b",
-        "--sidebar": "#0c0916",
-        "--sidebar-text": "#9b8fb8",
+        "--bg": "#061520",
+        "--surface": "#0a1e2e",
+        "--surface2": "#0f2438",
+        "--surface-subtle": "#081929",
+        "--sidebar": "#061220",
+        "--sidebar-text": "#5a8a9f",
 
-        "--text": "#ebe7f5",
-        "--text2": "#b4a8cd",
-        "--muted": "#7d719a",
+        "--text": "#e8f4f8",
+        "--text2": "#8ab8cc",
+        "--muted": "#4a7a90",
 
-        "--accent": "#a78bfa",
-        "--accent-hover": "#8b5cf6",
-        "--accent-contrast": "#0a0713",
-        "--accent-text": "#c4b5fd",
-        "--accent-bg": "rgba(167, 139, 250, 0.10)",
-        "--accent-bg-strong": "rgba(167, 139, 250, 0.20)",
-        "--accent-rgb": "167, 139, 250",
-        "--accent2": "#c4b5fd",
-        "--accent3": "#f472b6",
+        "--accent": "#00c8e8",
+        "--accent-hover": "#00b5d4",
+        "--accent-contrast": "#061520",
+        "--accent-text": "#5ae0f0",
+        "--accent-bg": "rgba(0, 200, 232, 0.10)",
+        "--accent-bg-strong": "rgba(0, 200, 232, 0.20)",
+        "--accent-rgb": "0, 200, 232",
+        "--accent2": "#00e5c8",
+        "--accent3": "#5ae0f0",
 
-        "--border": "rgba(167, 139, 250, 0.16)",
-        "--border2": "rgba(167, 139, 250, 0.28)",
-        "--hover-bg": "rgba(167, 139, 250, 0.07)",
+        "--border": "rgba(0, 200, 232, 0.16)",
+        "--border2": "rgba(0, 200, 232, 0.28)",
+        "--hover-bg": "rgba(0, 200, 232, 0.07)",
 
-        "--code-bg": "#0c0916",
-        "--code-text": "#d6cbf0",
+        "--code-bg": "#061220",
+        "--code-text": "#a0d8e8",
 
-        "--user-bubble": "#1d1730",
-        "--assistant-bubble": "#131024",
+        "--user-bubble": "#0d2435",
+        "--assistant-bubble": "#091d2c",
 
         "--success": "#34d399",
         "--warning": "#ffc247",
         "--danger": "#ff5f56",
-        "--info": "#c4b5fd",
-        "--link": "#c4b5fd",
+        "--info": "#5ae0f0",
+        "--link": "#5ae0f0",
       },
     });
   }
 
-  // The skin registry may load after this script; retry briefly.
   if (!registerSkin()) {
     var tries = 0;
     var poll = setInterval(function () {
@@ -105,14 +98,14 @@
 
   var MARK_SVG =
     '<svg viewBox="0 0 100 100" width="18" height="18" aria-hidden="true">' +
-    '<circle cx="50" cy="50" r="47" fill="#050807"/>' +
-    '<circle cx="50" cy="50" r="45" stroke="#a78bfa" stroke-width="6" fill="none"/>' +
+    '<circle cx="50" cy="50" r="47" fill="#040e14"/>' +
+    '<circle cx="50" cy="50" r="45" stroke="#00c8e8" stroke-width="6" fill="none"/>' +
     '<rect x="24" y="46" width="9" height="22" rx="1.5" fill="#17c95c"/>' +
     '<rect x="38" y="34" width="9" height="30" rx="1.5" fill="#e8433f"/>' +
     '<rect x="52" y="40" width="9" height="24" rx="1.5" fill="#17c95c"/>' +
-    '<path d="M22 76 C 42 76, 60 66, 72 42" stroke="#f472b6" stroke-width="8" ' +
+    '<path d="M22 76 C 42 76, 60 66, 72 42" stroke="#00e5c8" stroke-width="8" ' +
     'stroke-linecap="round" fill="none"/>' +
-    '<path d="M62 30 L82 36 L72 53 Z" fill="#f472b6"/>' +
+    '<path d="M62 30 L82 36 L72 53 Z" fill="#00e5c8"/>' +
     "</svg>";
 
   function buildNav() {
