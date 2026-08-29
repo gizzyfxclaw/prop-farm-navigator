@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Badge, Button, Card, Field, Row } from "@/components/terminal/ui";
+import { Badge, Button, Card, Field, Row, Select } from "@/components/terminal/ui";
+import { TradingViewChart } from "@/components/terminal/tradingview-chart";
+import { PAIRS, PAIR_SPECS } from "@/lib/engine/pairs";
 import {
   addKnowledgeDoc,
   deleteKnowledgeDoc,
@@ -32,6 +34,7 @@ const textareaClass =
 function HermesPage() {
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [notes, setNotes] = useState<HermesNote[]>([]);
+  const [chartPair, setChartPair] = useState<string>("EURUSD");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
@@ -81,6 +84,30 @@ function HermesPage() {
           <Button variant="ghost">Open Hermes Console ↗</Button>
         </a>
       </div>
+
+      <Card
+        title="Live chart"
+        badge={
+          <Select
+            value={chartPair}
+            onChange={(e) => setChartPair(e.target.value)}
+            className="h-9 w-36"
+          >
+            {PAIRS.map((p) => (
+              <option key={p} value={p}>
+                {PAIR_SPECS[p].label}
+              </option>
+            ))}
+          </Select>
+        }
+      >
+        <TradingViewChart pair={chartPair} />
+        <p className="mt-3 text-[12px] text-muted-foreground">
+          Full drawing toolbar included — mark up levels here the same way you would in a
+          standalone TradingView tab. This is the same market data Hermes pulls through tvremix
+          when it writes an analysis note below.
+        </p>
+      </Card>
 
       <Card title="Teach Hermes" badge={<Badge tone="blue">Knowledge base</Badge>}>
         <div className="space-y-3">
