@@ -20,7 +20,7 @@ const NAV = [
   { to: "/accounts", label: "Accounts" },
   { to: "/journal", label: "Journal" },
   { to: "/live", label: "Live MT5" },
-  { to: "/hermes", label: "Hermes" },
+  { to: "/hermes", label: "Trading Agent" },
   { to: "/settings", label: "Settings" },
 ] as const;
 
@@ -149,27 +149,31 @@ function RootComponent() {
       <StoreProvider>
         <div className="min-h-screen bg-background">
           <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
+            {/* Top row: logo + clock */}
+            <div className="mx-auto flex max-w-6xl items-center justify-between px-4 pt-3 pb-0">
               <Link to="/" className="flex items-center gap-2">
                 <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary font-mono text-sm font-bold text-primary-foreground">
                   G
                 </span>
                 <span className="text-sm font-bold tracking-[0.16em] text-foreground">GIZZYFX</span>
               </Link>
-              <nav className="flex flex-1 flex-wrap items-center gap-1">
+              <Clock />
+            </div>
+            {/* Nav row: horizontally scrollable on mobile, no wrap */}
+            <div className="mx-auto max-w-6xl overflow-x-auto px-2 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <nav className="flex min-w-max items-center gap-0.5 py-1">
                 {NAV.map((item) => (
                   <Link
                     key={item.to}
                     to={item.to}
                     activeOptions={{ exact: item.to === "/" }}
-                    className="rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    className="whitespace-nowrap rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                     activeProps={{ className: "bg-secondary !text-foreground" }}
                   >
                     {item.label}
                   </Link>
                 ))}
               </nav>
-              <Clock />
             </div>
           </header>
           <main className="mx-auto max-w-6xl px-4 py-6">

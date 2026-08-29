@@ -18,10 +18,10 @@ const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
 export const Route = createFileRoute("/hermes")({
   head: () => ({
     meta: [
-      { title: "Hermes — GizzyFx" },
+      { title: "Trading Agent — GizzyFx" },
       {
         name: "description",
-        content: "Teach Hermes strategy material and review its market analysis log.",
+        content: "Teach the Trading Agent strategy material and review its market analysis log.",
       },
     ],
   }),
@@ -61,7 +61,7 @@ function HermesPage() {
     setBusy(false);
     setTitle("");
     setContent("");
-    toast.success("Added — Hermes will pick this up on its next check.");
+    toast.success("Added — Trading Agent will pick this up on its next check.");
     refresh();
   }
 
@@ -74,20 +74,23 @@ function HermesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Hermes</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Trading Agent</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Strategy material you teach it, and its market analysis log. Hermes reads from here —
+            Strategy material you teach it, and its market analysis log. The agent reads from here —
             it never places trades.
           </p>
         </div>
         <a href={HERMES_CONSOLE_URL} target="_blank" rel="noreferrer">
-          <Button variant="ghost">Open Hermes Console ↗</Button>
+          <Button variant="ghost">Open Agent Console ↗</Button>
         </a>
       </div>
 
-      <Card
-        title="Live chart"
-        badge={
+      {/* Live chart — full-bleed inside card, tall on all screens */}
+      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <span className="text-[13px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+            Live Chart
+          </span>
           <Select
             value={chartPair}
             onChange={(e) => setChartPair(e.target.value)}
@@ -99,17 +102,18 @@ function HermesPage() {
               </option>
             ))}
           </Select>
-        }
-      >
-        <TradingViewChart pair={chartPair} />
-        <p className="mt-3 text-[12px] text-muted-foreground">
-          Full drawing toolbar included — mark up levels here the same way you would in a
-          standalone TradingView tab. This is the same market data Hermes pulls through tvremix
+        </div>
+        {/* Chart fills viewport height minus header/nav/padding on mobile */}
+        <div className="h-[calc(100svh-220px)] min-h-[360px] max-h-[680px]">
+          <TradingViewChart pair={chartPair} height="100%" />
+        </div>
+        <p className="px-5 py-3 text-[12px] text-muted-foreground border-t border-border">
+          Full drawing toolbar — mark up levels directly here. Same data the Trading Agent pulls
           when it writes an analysis note below.
         </p>
-      </Card>
+      </section>
 
-      <Card title="Teach Hermes" badge={<Badge tone="blue">Knowledge base</Badge>}>
+      <Card title="Teach Trading Agent" badge={<Badge tone="blue">Knowledge base</Badge>}>
         <div className="space-y-3">
           <Field label="Title">
             <input
@@ -160,12 +164,12 @@ function HermesPage() {
         )}
       </Card>
 
-      <Card title="Hermes analysis log" badge={<Badge tone="green">{notes.length} notes</Badge>}>
+      <Card title="Agent analysis log" badge={<Badge tone="green">{notes.length} notes</Badge>}>
         {loading ? (
           <p className="text-[13px] text-muted-foreground">Loading...</p>
         ) : notes.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">
-            No analysis yet — Hermes writes here after reviewing charts via tvremix.
+            No analysis yet — the Trading Agent writes here after reviewing charts via tvremix.
           </p>
         ) : (
           <div className="space-y-3">

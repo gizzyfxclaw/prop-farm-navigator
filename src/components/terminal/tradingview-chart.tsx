@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react";
 
 interface Props {
   pair: string;
-  /** Height of the chart container in pixels (default 480). */
-  height?: number;
+  /** Height of the chart container — px number or CSS string like "100%" (default 480). */
+  height?: number | string;
 }
 
 /**
