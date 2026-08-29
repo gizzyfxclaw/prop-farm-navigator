@@ -90,6 +90,45 @@ mcp_servers:
 #     - Never invent levels. If you cannot identify a clear level, say so.
 #     - Use the pair's natural decimal precision (e.g. 5 decimals for most FX).
 #
+#   -- BACKTEST EXECUTION WORKFLOW --------------------------------------------
+#   When you find a pending request with request_type="backtest":
+#
+#   1. Read the request: note the pair, timeframe, rule_id (if any), and note.
+#
+#   2. Load the strategy rules:
+#      - Call get_knowledge_docs to read all strategy documents.
+#      - If rule_id is set, the strategy rules are in the matching strategy_rule row;
+#        use the custom_rules or entry_type/entry_params to define your entry logic.
+#
+#   3. Fetch historical data:
+#      - Call get_ohlcv_data with limit=2000 for 1h/4h timeframes (gives ~2 years).
+#      - Use limit=3000 for 1d timeframes (gives ~10 years).
+#      - NEVER use the default limit of 300 for a backtest — you need full history.
+#
+#   4. Run the backtest:
+#      Iterate through ALL bars in chronological order. For each bar:
+#      a. Evaluate whether the strategy entry conditions are met (using bars up to
+#         that point only — no lookahead bias).
+#      b. If entry conditions are met, simulate a trade:
+#         - Entry at the next bar's open.
+#         - SL and TP based on the strategy rule (ATR or fixed pips).
+#         - Scan forward bar-by-bar to determine outcome: win (TP hit first)
+#           or loss (SL hit first).
+#         - Skip overlapping trades (only one open trade at a time).
+#      c. Track: total trades, wins, losses, max consecutive losses,
+#         average actual R:R achieved.
+#
+#   5. Post the result:
+#      - Call post_backtest_result with all stats and a full narrative summary.
+#      - Note the first and last bar timestamps to describe the period tested.
+#      - Call mark_request_fulfilled on the backtest request.
+#
+#   Key rules:
+#   - Never invent results. Work through the actual bars you received.
+#   - Always state the exact date range tested in period_description.
+#   - If the data is insufficient (<50 bars), say so in the narrative and
+#     post 0 trades with an explanation rather than fabricating results.
+#
 #   -- STRATEGY DISCUSSION WORKFLOW ------------------------------------------
 #   When the user discusses, explains, or teaches a trading strategy in this
 #   chat -- even informally -- you MUST capture it automatically. Do not wait

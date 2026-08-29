@@ -114,7 +114,10 @@ TOOLS: list[Tool] = [
         name="get_ohlcv_data",
         description=(
             "Fetch OHLCV (candlestick) data for a forex pair from the trading terminal. "
-            "Use this to get the market data needed for technical analysis."
+            "Use this to get the market data needed for technical analysis or backtesting. "
+            "For analysis: use limit=300 (default). "
+            "For backtesting: use limit=2000+ to get years of history. "
+            "Available history: 1h/4h up to 2 years, 1d/1w up to 10 years."
         ),
         inputSchema={
             "type": "object",
@@ -125,9 +128,18 @@ TOOLS: list[Tool] = [
                 },
                 "interval": {
                     "type": "string",
-                    "enum": ["1h", "1d"],
-                    "description": "Candle interval. Use 1h for intraday, 1d for swing.",
+                    "enum": ["1h", "4h", "1d", "1w"],
+                    "description": "Candle interval. 1h/4h for intraday, 1d for swing, 1w for macro.",
                     "default": "1h",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": (
+                        "Max number of bars to return, newest last. "
+                        "Default 300 for analysis. Use 1500-2000 for backtesting 1h/4h. "
+                        "Use 2000-5000 for backtesting daily/weekly. Max 5000."
+                    ),
+                    "default": 300,
                 },
             },
             "required": ["pair"],
@@ -386,6 +398,71 @@ TOOLS: list[Tool] = [
         },
     ),
     Tool(
+        name="post_backtest_result",
+        description=(
+            "Post the results of a backtest you ran to the GizzyFx trading terminal. "
+            "Call this after working through the historical OHLCV bars and evaluating each "
+            "potential trade against the strategy rules. The results appear in the Backtest "
+            "Results section of the Trading Agent tab. Always call mark_request_fulfilled "
+            "on the backtest request after posting the result."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "request_id": {
+                    "type": "string",
+                    "description": "The backtest request id from get_pending_requests",
+                },
+                "pair": {"type": "string", "description": "e.g. EURUSD"},
+                "period_description": {
+                    "type": "string",
+                    "description": "Human-readable description of the data range tested, e.g. 'Jan 2023 – Dec 2024 (2 years, 1h bars)'",
+                },
+                "trades_analyzed": {
+                    "type": "integer",
+                    "description": "Total number of trade setups found and evaluated",
+                },
+                "wins": {
+                    "type": "integer",
+                    "description": "Number of trades that hit TP before SL",
+                },
+                "losses": {
+                    "type": "integer",
+                    "description": "Number of trades that hit SL before TP",
+                },
+                "narrative": {
+                    "type": "string",
+                    "description": (
+                        "Full written summary of the backtest: how the strategy performed, "
+                        "which market conditions it excelled in, which it struggled with, "
+                        "key observations, and any recommended adjustments."
+                    ),
+                },
+                "rule_id": {
+                    "type": "string",
+                    "description": "Optional: id of the strategy rule that was tested",
+                },
+                "timeframe": {
+                    "type": "string",
+                    "description": "Candle timeframe used, e.g. '1h'",
+                },
+                "max_drawdown_pct": {
+                    "type": "number",
+                    "description": "Optional: maximum consecutive loss streak as a percentage of account (e.g. 12.5)",
+                },
+                "avg_rr": {
+                    "type": "number",
+                    "description": "Optional: average risk:reward ratio achieved across all trades",
+                },
+                "bars_used": {
+                    "type": "integer",
+                    "description": "Optional: total number of bars that were analysed",
+                },
+            },
+            "required": ["pair", "period_description", "trades_analyzed", "wins", "losses", "narrative"],
+        },
+    ),
+    Tool(
         name="update_understanding",
         description=(
             "Save an updated synthesised summary of everything the user has taught the Trading Agent "
@@ -457,19 +534,25 @@ async def call_tool(name: str, arguments: dict):
         elif name == "get_ohlcv_data":
             pair = arguments["pair"].upper().replace("/", "")
             interval = arguments.get("interval", "1h")
-            data = _get_public("/api/ohlcv", {"pair": pair, "interval": interval})
+            limit = int(arguments.get("limit", 300))
+            data = _get_public("/api/ohlcv", {"pair": pair, "interval": interval, "limit": limit})
             bars = data.get("bars", [])
             if not bars:
                 result = f"No OHLCV data returned for {pair} {interval}."
             else:
-                latest = bars[-10:]  # last 10 bars for context
-                lines = [f"OHLCV for {pair} @ {interval} — {len(bars)} bars total. Latest 10:"]
-                lines.append("time(unix)  open       high       low        close")
+                # Show a preview of the last 10 bars, then the full dataset
+                latest = bars[-10:]
+                lines = [
+                    f"OHLCV for {pair} @ {interval} — {len(bars)} bars returned "
+                    f"(requested limit={limit}). Latest 10 bars:"
+                ]
+                lines.append("time(unix)   open       high       low        close")
                 for b in latest:
                     lines.append(
-                        f"{b['time']}  {b['open']:.5f}  {b['high']:.5f}  {b['low']:.5f}  {b['close']:.5f}"
+                        f"{b['time']}  {b['open']:.5f}  {b['high']:.5f}  "
+                        f"{b['low']:.5f}  {b['close']:.5f}"
                     )
-                lines.append(f"\nFull bar list (all {len(bars)} bars):")
+                lines.append(f"\nFull bar array ({len(bars)} bars) for analysis/backtest:")
                 lines.append(json.dumps(bars))
                 result = "\n".join(lines)
 
@@ -518,6 +601,39 @@ async def call_tool(name: str, arguments: dict):
                 f"Trade setup posted (id={data.get('id')}). "
                 f"Entry={arguments['entry']} SL={arguments['sl']} TP1={arguments['tp1']} "
                 f"direction={arguments['direction']}. Levels are now drawn on the chart."
+            )
+
+        elif name == "post_backtest_result":
+            wins = int(arguments["wins"])
+            losses = int(arguments["losses"])
+            trades = int(arguments["trades_analyzed"])
+            body = {
+                "pair": arguments["pair"].upper().replace("/", ""),
+                "period_description": arguments["period_description"],
+                "trades_analyzed": trades,
+                "wins": wins,
+                "losses": losses,
+                "narrative": arguments["narrative"],
+                "deterministic": False,
+            }
+            if "request_id" in arguments:
+                body["request_id"] = arguments["request_id"]
+            if "rule_id" in arguments:
+                body["rule_id"] = arguments["rule_id"]
+            if "timeframe" in arguments:
+                body["timeframe"] = arguments["timeframe"]
+            if "max_drawdown_pct" in arguments:
+                body["max_drawdown_pct"] = arguments["max_drawdown_pct"]
+            if "avg_rr" in arguments:
+                body["avg_rr"] = arguments["avg_rr"]
+            if "bars_used" in arguments:
+                body["bars_used"] = arguments["bars_used"]
+            data = _post("/api/hermes/backtests", body)
+            win_rate = round(wins / trades * 100, 1) if trades > 0 else 0
+            result = (
+                f"Backtest result saved (id={data.get('id')}). "
+                f"{wins}W / {losses}L over {trades} trades — {win_rate}% win rate. "
+                f"Period: {arguments['period_description']}. Visible in Trading Agent tab."
             )
 
         elif name == "save_strategy_from_chat":
