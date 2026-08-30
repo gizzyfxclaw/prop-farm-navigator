@@ -39,6 +39,20 @@ interface Props {
   drawings?: Drawing[];
   height?: number | string;
   loading?: boolean;
+  /** Persist the user's own hand-drawn tools under this key (e.g. the pair)
+   *  so they survive navigating away and back, or a page reload. Omit to
+   *  keep drawings in-memory only (cleared on unmount, as before). */
+  storageKey?: string;
+}
+
+function loadStoredDrawings(storageKey: string | undefined): Drawing[] {
+  if (!storageKey) return [];
+  try {
+    const raw = localStorage.getItem(`gizzyfx:chart-drawings:${storageKey}`);
+    return raw ? (JSON.parse(raw) as Drawing[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 const LW_CDN =
@@ -146,7 +160,7 @@ function applyDrawings(
   );
 }
 
-export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
+export function LWChart({ bars, drawings = [], height = 480, loading, storageKey }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null);
@@ -158,8 +172,29 @@ export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
 
   // Drawing tool state
   const [activeTool, setActiveTool] = useState<DrawTool>("cursor");
-  const [userDrawings, setUserDrawings] = useState<Drawing[]>([]);
+  const [userDrawings, setUserDrawings] = useState<Drawing[]>(() => loadStoredDrawings(storageKey));
   const [pendingPoint, setPendingPoint] = useState<{ time: number; price: number } | null>(null);
+
+  // storageKey changing (e.g. the pair) means the component didn't unmount —
+  // swap in that key's saved drawings instead of the previous one's.
+  useEffect(() => {
+    setUserDrawings(loadStoredDrawings(storageKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
+
+  // Persist on every change, so navigating away and back (or reloading)
+  // restores them. Swallow storage errors (private mode, quota) — drawings
+  // just won't persist that session rather than breaking the chart.
+  useEffect(() => {
+    if (!storageKey) return;
+    const key = `gizzyfx:chart-drawings:${storageKey}`;
+    try {
+      if (userDrawings.length) localStorage.setItem(key, JSON.stringify(userDrawings));
+      else localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+  }, [userDrawings, storageKey]);
   // The `title` attribute only shows on mouse hover — touch has no hover, so
   // double-tapping a tool button surfaces its label here instead.
   const [labelTool, setLabelTool] = useState<DrawTool | null>(null);
