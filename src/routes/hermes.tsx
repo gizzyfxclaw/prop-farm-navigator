@@ -107,6 +107,9 @@ function HermesPage() {
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Setup ids already prompted-for (or seen on first load, so we don't
+  // retroactively prompt for history). null = not seeded yet.
+  const seenSetupIdsRef = useRef<Set<string> | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
@@ -146,6 +149,25 @@ function HermesPage() {
   const [ruleTimeframe, setRuleTimeframe] = useState("1h");
   const [addingRule, setAddingRule] = useState(false);
 
+  /**
+   * Ask-before-adding-to-Engine prompt, fired for any setup this page
+   * hasn't seen yet — not just ones from a request the site itself
+   * submitted. Hermes chatted with directly (no site-side request/poll in
+   * flight at all) still posts to the same hermes_setups table, so this
+   * has to be checked independently of pollSteps to actually catch those.
+   */
+  function checkForNewSetups(freshSetups: HermesSetup[]) {
+    if (seenSetupIdsRef.current === null) {
+      seenSetupIdsRef.current = new Set(freshSetups.map((s) => s.id));
+      return;
+    }
+    for (const setup of freshSetups) {
+      if (seenSetupIdsRef.current.has(setup.id)) continue;
+      seenSetupIdsRef.current.add(setup.id);
+      promptAddToEngine(setup);
+    }
+  }
+
   async function refresh() {
     const [d, n, r, s, u, b, sr] = await Promise.all([
       loadKnowledgeDocs(),
@@ -164,10 +186,24 @@ function HermesPage() {
     setBacktests(b);
     setRules(sr);
     setLoading(false);
+    checkForNewSetups(s);
   }
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  // Independent of any request this page itself submitted — catches setups
+  // posted from a direct Hermes-console conversation too, as long as this
+  // page is open somewhere to actually show the prompt.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      loadHermesSetups().then((s) => {
+        setSetups(s);
+        checkForNewSetups(s);
+      });
+    }, 15_000);
+    return () => window.clearInterval(id);
   }, []);
 
   // Candles for the analysis chart. Only fetched while that mode is showing —
@@ -221,10 +257,12 @@ function HermesPage() {
     setAnalyzing(false);
     if (req?.status === "fulfilled") {
       toast.success("Analysis complete — levels are on the chart.");
+      // Check with the setups this function already has in hand — faster
+      // than waiting on refresh()'s own separate round-trip below, and
+      // routed through the shared seen-set so that round-trip doesn't
+      // re-prompt for the same setup once it lands.
+      checkForNewSetups(freshSetups);
       refresh();
-
-      const newSetup = freshSetups.find((s) => s.request_id === requestId);
-      if (newSetup) promptAddToEngine(newSetup);
     }
   }
 
