@@ -8,10 +8,13 @@ const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
  * The Hermes console, embedded rather than opened in a new tab.
  *
  * The console ships with `frame-ancestors 'none'`, so this only renders once
- * `hermes/webui-extension/allow-embedding.sh` has been run on the VPS to allow
- * this one origin. Until then the iframe stays blank — the browser blocks it
- * silently and gives the page no error to catch — so a timer surfaces the
- * likely cause instead of leaving an empty panel.
+ * `/opt/hermes-webui/hermes/webui-extension/allow-embedding.sh` has been run
+ * on the VPS to allow this one origin. Until then the iframe stays blank —
+ * the browser blocks it silently and gives the page no error to catch — so a
+ * timer surfaces the likely cause instead of leaving an empty panel.
+ * `hermes-webui-sync`'s deploy.sh reapplies this patch after every sync
+ * (it lives in the tree that's kept in sync, hermes-webui/hermes/), but a
+ * fresh VPS or a manual restart still needs it run once — see SETUP.md.
  */
 export const Route = createFileRoute("/console")({
   head: () => ({
@@ -69,8 +72,8 @@ function ConsolePage() {
         <Alert level="amber" title="Console refused to embed">
           The Hermes console still sends <code>frame-ancestors &apos;none&apos;</code>, so the
           browser is blocking it. On the VPS run{" "}
-          <code>bash hermes/webui-extension/allow-embedding.sh</code> to allow this origin, then
-          press Reload. Until then, use “Open in new tab”.
+          <code>bash /opt/hermes-webui/hermes/webui-extension/allow-embedding.sh</code> to allow
+          this origin, then press Reload. Until then, use “Open in new tab”.
         </Alert>
       )}
 
