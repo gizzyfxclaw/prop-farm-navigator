@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { Alert, Badge, Button, Card, Field, Row, Select, Stat } from "@/components/terminal/ui";
 import { TradingViewChart } from "@/components/terminal/tradingview-chart";
 import { LWChart, type Drawing, type OHLCBar } from "@/components/terminal/lwchart";
-import { PAIRS, PAIR_SPECS } from "@/lib/engine/pairs";
+import { PAIRS, PAIR_SPECS, formatPrice } from "@/lib/engine/pairs";
+import type { Direction } from "@/lib/engine/calc";
+import { useStore } from "@/lib/store";
 import { extractPdfText } from "@/lib/pdf-extract";
 import { resizeImageToDataUrl } from "@/lib/image-resize";
 import {
@@ -88,6 +90,7 @@ function mergeDrawings(steps: AnalysisStep[], setup: HermesSetup | null): Drawin
 }
 
 function HermesPage() {
+  const { setEngine } = useStore();
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [notes, setNotes] = useState<HermesNote[]>([]);
   const [requests, setRequests] = useState<HermesRequest[]>([]);
@@ -219,7 +222,34 @@ function HermesPage() {
     if (req?.status === "fulfilled") {
       toast.success("Analysis complete — levels are on the chart.");
       refresh();
+
+      const newSetup = freshSetups.find((s) => s.request_id === requestId);
+      if (newSetup) promptAddToEngine(newSetup);
     }
+  }
+
+  /**
+   * After a completed analysis posts a trade setup, ask before touching the
+   * Engine calculator — never auto-apply, and never anything beyond entry
+   * price + direction (no SL/TP, no lot size, and this never places a trade).
+   */
+  function promptAddToEngine(setup: HermesSetup) {
+    const dec = PAIR_SPECS[setup.pair as keyof typeof PAIR_SPECS]?.decimals ?? 5;
+    toast(`Hermes setup: ${setup.direction.toUpperCase()} ${setup.pair} @ ${formatPrice(setup.entry, dec)}`, {
+      description: "Add this entry price and direction to the Engine calculator? SL/TP and lot size are not touched, and no trade is placed.",
+      duration: 30_000,
+      action: {
+        label: "Add to Engine",
+        onClick: () => {
+          setEngine({
+            entryPrice: setup.entry,
+            direction: setup.direction.toUpperCase() as Direction,
+          });
+          toast.success(`Engine updated: ${setup.direction.toUpperCase()} entry ${formatPrice(setup.entry, dec)}.`);
+        },
+      },
+      cancel: { label: "Decline", onClick: () => {} },
+    });
   }
 
   async function submit() {
