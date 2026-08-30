@@ -148,8 +148,14 @@ in the `isPublic` exemption list since they authenticate themselves
 `get_knowledge_docs`, `get_understanding`, `post_understanding`,
 `get_ohlcv_data`, `get_strategy_rules`, `save_strategy_from_chat`,
 `save_strategy_rule`, `request_backtest`, `run_deterministic_backtest`,
-`post_analysis_step`, `mark_request_fulfilled`, `post_analysis_note`,
-`post_trade_setup`, `post_backtest_result`. Market data (`get_ohlcv_data`,
+`post_analysis_step`, `render_analysis_chart`, `mark_request_fulfilled`,
+`post_analysis_note`, `post_trade_setup`, `post_backtest_result`.
+`render_analysis_chart` renders the candles + drawings Hermes has been
+building (pure-stdlib SVG, no plotting library) and returns it as an
+`ImageContent` the chat shows inline — this is what makes the "show me the
+actual chart, not just a description" requirement work; the prompt in
+`prefill.sh` requires calling it before every final analysis message.
+Market data (`get_ohlcv_data`,
 `run_deterministic_backtest`) comes from **tvremix** (TradingView data via
 its own MCP server, `TVREMIX_API_KEY`), not this app's own `/api/ohlcv` —
 that endpoint exists for the web UI's own chart, not for Hermes.

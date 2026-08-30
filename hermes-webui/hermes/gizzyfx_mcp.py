@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import datetime, json, os, sys
+import base64, datetime, json, os, sys
 try:
     import httpx
     from mcp import ClientSession
@@ -56,6 +56,93 @@ def _post(path, body):
 def _patch(path, body):
     r = httpx.patch(f"{API_URL}{path}", headers=HEADERS, json=body, timeout=15)
     r.raise_for_status(); return r.json()
+
+def _lerp(v, in_min, in_max, out_min, out_max):
+    if in_max == in_min:
+        return (out_min + out_max) / 2
+    return out_min + (v - in_min) / (in_max - in_min) * (out_max - out_min)
+
+def render_analysis_svg(bars, drawings, width=1000, height=520):
+    """Candlesticks + the same drawing schema used by post_analysis_step
+    (hline/trendline/zone/marker), as a standalone SVG string. Pure stdlib —
+    no plotting library needed, and it mirrors src/components/terminal/
+    lwchart.tsx's applyDrawings() closely enough to look like the same
+    chart the site would show live."""
+    bars = [b for b in bars if None not in (b.get("time"), b.get("open"), b.get("high"), b.get("low"), b.get("close"))]
+    if not bars:
+        return None
+    bars.sort(key=lambda b: b["time"])
+
+    pad_l, pad_r, pad_t, pad_b = 8, 76, 10, 26
+    plot_w, plot_h = width - pad_l - pad_r, height - pad_t - pad_b
+
+    times = [b["time"] for b in bars]
+    t_min, t_max = min(times), max(times)
+
+    prices = [v for b in bars for v in (b["high"], b["low"])]
+    for d in drawings or []:
+        for k in ("price", "p1price", "p2price", "topPrice", "bottomPrice"):
+            if d.get(k) is not None:
+                prices.append(d[k])
+    p_min, p_max = min(prices), max(prices)
+    p_pad = (p_max - p_min) * 0.06 or (p_max * 0.001 or 1)
+    p_min, p_max = p_min - p_pad, p_max + p_pad
+
+    x = lambda t: pad_l + _lerp(t, t_min, t_max, 0, plot_w)
+    y = lambda p: pad_t + _lerp(p, p_max, p_min, 0, plot_h)  # inverted: higher price = smaller y
+
+    span = (t_max - t_min) / max(1, len(bars) - 1) if len(bars) > 1 else 1
+    candle_w = max(1.5, min(10, _lerp(span, 0, max(t_max - t_min, 1), 0, plot_w) * 0.62))
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+        f'<rect width="{width}" height="{height}" fill="#0d0d0d"/>',
+    ]
+
+    bar_at = {}
+    for b in bars:
+        bar_at[b["time"]] = b
+        cx = x(b["time"])
+        up = b["close"] >= b["open"]
+        color = "#22c55e" if up else "#ef4444"
+        parts.append(f'<line x1="{cx:.1f}" y1="{y(b["high"]):.1f}" x2="{cx:.1f}" y2="{y(b["low"]):.1f}" stroke="{color}" stroke-width="1"/>')
+        top, bot = y(max(b["open"], b["close"])), y(min(b["open"], b["close"]))
+        parts.append(f'<rect x="{cx - candle_w / 2:.1f}" y="{top:.1f}" width="{candle_w:.1f}" height="{max(1, bot - top):.1f}" fill="{color}"/>')
+
+    def esc(s):
+        return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    for d in drawings or []:
+        color, label, dtype = d.get("color") or "#f59e0b", esc(d.get("label") or ""), d.get("type")
+        if dtype == "hline" and d.get("price") is not None:
+            yy = y(d["price"])
+            dash = {"dashed": "5,4", "dotted": "1.5,3"}.get(d.get("style"), "0")
+            parts.append(f'<line x1="{pad_l}" y1="{yy:.1f}" x2="{width - pad_r}" y2="{yy:.1f}" stroke="{color}" stroke-width="1" stroke-dasharray="{dash}"/>')
+            parts.append(f'<text x="{width - pad_r + 4}" y="{yy + 3:.1f}" fill="{color}" font-size="10" font-family="monospace">{label or d["price"]}</text>')
+        elif dtype == "trendline" and None not in (d.get("p1time"), d.get("p2time"), d.get("p1price"), d.get("p2price")):
+            x1, y1, x2, y2 = x(d["p1time"]), y(d["p1price"]), x(d["p2time"]), y(d["p2price"])
+            parts.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{color}" stroke-width="1.5"/>')
+            if label:
+                parts.append(f'<text x="{x2 + 4:.1f}" y="{y2:.1f}" fill="{color}" font-size="10" font-family="monospace">{label}</text>')
+        elif dtype == "zone" and d.get("topPrice") is not None and d.get("bottomPrice") is not None:
+            yt, yb = y(d["topPrice"]), y(d["bottomPrice"])
+            parts.append(f'<rect x="{pad_l}" y="{min(yt, yb):.1f}" width="{plot_w}" height="{abs(yb - yt):.1f}" fill="{color}" fill-opacity="0.12" stroke="{color}" stroke-width="0.5"/>')
+            if label:
+                parts.append(f'<text x="{pad_l + 4}" y="{min(yt, yb) + 12:.1f}" fill="{color}" font-size="10" font-family="monospace">{label}</text>')
+        elif dtype == "marker" and d.get("time") is not None:
+            bar = bar_at.get(d["time"])
+            if bar:
+                below = d.get("position") == "belowBar"
+                price = bar["low"] if below else bar["high"]
+                cy = y(price) + (10 if below else -10)
+                cx = x(d["time"])
+                parts.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="3.5" fill="{color}"/>')
+                if label:
+                    parts.append(f'<text x="{cx + 5:.1f}" y="{cy + 3:.1f}" fill="{color}" font-size="9" font-family="monospace">{label}</text>')
+
+    parts.append(f'<text x="{pad_l}" y="{height - 8}" fill="#6b7280" font-size="10" font-family="monospace">{len(bars)} bars, {len(drawings or [])} drawing(s)</text>')
+    parts.append("</svg>")
+    return "".join(parts)
 
 server = Server("gizzyfx-trading-terminal")
 
@@ -195,6 +282,42 @@ TOOLS = [
         },
     ),
     Tool(name="post_analysis_step", description="Post one analysis step with chart drawings. User sees drawings appear live. Call multiple times as you progress (step 0,1,2...). Drawing types: hline, trendline, zone, marker.", inputSchema={"type":"object","properties":{"request_id":{"type":"string"},"pair":{"type":"string"},"step":{"type":"integer"},"step_label":{"type":"string","description":"Short label shown live e.g. 'Identifying swing highs'"},"drawings":{"type":"array","items":{"type":"object"},"description":"Array of drawing objects. hline:{type,price,label,color,style}. trendline:{type,p1time,p1price,p2time,p2price,label,color}. zone:{type,topPrice,bottomPrice,label,color}. marker:{type,time,position,label,color,markerType}"},"summary":{"type":"string"}},"required":["request_id","pair","step","step_label"]}),
+    Tool(
+        name="render_analysis_chart",
+        description=(
+            "Render your analysis as an actual chart IMAGE — candlesticks plus every drawing "
+            "you've built (hlines, trendlines, zones, markers) — so it appears directly in THIS "
+            "chat, not just described in words. Call this once, right before your final message "
+            "that states the trade entry (or the 'no valid setup yet' conclusion) — the user wants "
+            "to SEE the channel/retests/levels you reasoned over, not just read about them. Pass "
+            "the same bars slice you actually analyzed (a few hundred candles covering the "
+            "structure is enough, not the full multi-thousand-bar history) and the SAME drawings "
+            "array you've been building for post_analysis_step. Include the returned image "
+            "directly in your reply alongside the trade entry."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "bars": {
+                    "type": "array",
+                    "description": "OHLC bars to render — {time, open, high, low, close} each, same shape get_ohlcv_data returns.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "time": {"type": "number"}, "open": {"type": "number"}, "high": {"type": "number"},
+                            "low": {"type": "number"}, "close": {"type": "number"},
+                        },
+                    },
+                },
+                "drawings": {
+                    "type": "array",
+                    "description": "Same drawing objects used with post_analysis_step (hline/trendline/zone/marker) — pass everything you drew for this analysis.",
+                    "items": {"type": "object"},
+                },
+            },
+            "required": ["bars"],
+        },
+    ),
     Tool(name="mark_request_fulfilled", description="Mark a request done after posting all steps.", inputSchema={"type":"object","properties":{"request_id":{"type":"string"}},"required":["request_id"]}),
     Tool(
         name="post_analysis_note",
@@ -438,6 +561,16 @@ async def call_tool(name, arguments):
             body = {"request_id":arguments["request_id"],"pair":arguments["pair"],"step":arguments["step"],"step_label":arguments.get("step_label",""),"drawings":arguments.get("drawings",[]),"summary":arguments.get("summary")}
             data = _post("/api/hermes/analysis", body)
             result = f"Step posted (id={data.get('id')})."
+        elif name == "render_analysis_chart":
+            svg = render_analysis_svg(arguments.get("bars", []), arguments.get("drawings", []))
+            if not svg:
+                result = "No usable bars provided — nothing to render."
+            else:
+                b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+                return [
+                    TextContent(type="text", text=f"Rendered — {len(arguments.get('drawings', []))} drawing(s) over {len(arguments.get('bars', []))} bars. Include this image in your reply."),
+                    ImageContent(type="image", data=b64, mimeType="image/svg+xml"),
+                ]
         elif name == "mark_request_fulfilled":
             _patch("/api/hermes/requests", {"id":arguments["request_id"],"status":"fulfilled"})
             result = f"Request {arguments['request_id']} marked fulfilled."
