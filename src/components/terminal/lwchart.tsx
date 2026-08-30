@@ -160,6 +160,22 @@ export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
   const [activeTool, setActiveTool] = useState<DrawTool>("cursor");
   const [userDrawings, setUserDrawings] = useState<Drawing[]>([]);
   const [pendingPoint, setPendingPoint] = useState<{ time: number; price: number } | null>(null);
+  // The `title` attribute only shows on mouse hover — touch has no hover, so
+  // double-tapping a tool button surfaces its label here instead.
+  const [labelTool, setLabelTool] = useState<DrawTool | null>(null);
+  const labelTimeoutRef = useRef<number | null>(null);
+
+  function showToolLabel(tool: DrawTool) {
+    setLabelTool(tool);
+    if (labelTimeoutRef.current != null) window.clearTimeout(labelTimeoutRef.current);
+    labelTimeoutRef.current = window.setTimeout(() => setLabelTool(null), 2000);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (labelTimeoutRef.current != null) window.clearTimeout(labelTimeoutRef.current);
+    };
+  }, []);
 
   // Refs to avoid stale closures in event handlers
   const activeToolRef = useRef<DrawTool>("cursor");
@@ -335,6 +351,10 @@ export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
               setActiveTool(tool);
               setPendingPoint(null);
             }}
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              showToolLabel(tool);
+            }}
             className={`flex h-7 w-7 items-center justify-center rounded-md border text-[13px] font-bold transition-colors ${
               activeTool === tool
                 ? "border-primary bg-primary text-primary-foreground"
@@ -344,6 +364,11 @@ export function LWChart({ bars, drawings = [], height = 480, loading }: Props) {
             {TOOL_ICONS[tool]}
           </button>
         ))}
+        {labelTool && (
+          <div className="absolute left-full top-0 ml-1.5 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1 text-[11px] text-foreground shadow-md">
+            {TOOL_LABELS[labelTool]}
+          </div>
+        )}
         {/* Clear user drawings */}
         {userDrawings.length > 0 && (
           <button
