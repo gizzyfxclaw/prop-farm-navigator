@@ -1,4 +1,4 @@
-import { pairSpec, roundPrice, type PairSymbol } from "./pairs";
+import { livePipValue, pairSpec, roundPrice, type PairSymbol } from "./pairs";
 
 /**
  * GizzyFx mathematical engine.
@@ -192,7 +192,10 @@ export function calculate(input: EngineInputs): EngineResult {
   const exnessSlPips = propTpPips;
   const exnessTpPips = propSlPips;
 
-  const pipValue = spec.pipValue;
+  // Exact for USD-quote pairs (EURUSD, GBPUSD) regardless of rate; for
+  // USD-base pairs (USDJPY) derived from the live entry price instead of a
+  // static approximation that drifts as the real rate moves — see pairs.ts.
+  const pipValue = livePipValue(input.pair, entryPrice);
   const exnessPipValue = input.exnessAccountType === "Cent" ? pipValue / 100 : pipValue;
 
   const propLots = propRiskUsd / (propSlPips * pipValue);

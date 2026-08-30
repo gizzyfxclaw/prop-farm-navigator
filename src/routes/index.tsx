@@ -1,15 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { Alert, Badge, Button, Card, Field, Row, Select, TextInput } from "@/components/terminal/ui";
 import { money, pendingOrderType, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
-import { fetchQuote, placePendingOrder } from "@/lib/metaapi.functions";
+import { placePendingOrder } from "@/lib/metaapi.functions";
 import { marketStatus } from "@/lib/market-hours";
 import { useSelectedAccount, useStore } from "@/lib/store";
 import { useEngine } from "@/lib/useEngine";
 import { useLiveAccounts } from "@/lib/useLiveAccounts";
+import { useLivePrice } from "@/lib/useLivePrice";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,9 +36,8 @@ function EnginePage() {
   const r = useEngine();
   const selectedAccount = useSelectedAccount();
   const liveAccounts = useLiveAccounts();
-  const [live, setLive] = useState<{ price: number; label: string } | null>(null);
   const [status, setStatus] = useState<{ tone: "green" | "red" | "amber"; text: string } | null>(null);
-  const [busy, setBusy] = useState<"price" | "trade" | "trade-prop" | null>(null);
+  const [busy, setBusy] = useState<"trade" | "trade-prop" | null>(null);
   // Re-evaluated each minute so the countdown and the disabled state stay honest
   // without the page needing a reload across the Friday close / Sunday open.
   const [market, setMarket] = useState(() => marketStatus());
@@ -49,22 +49,33 @@ function EnginePage() {
   const dec = r.decimals;
   const symbol = engine.pair + meta.exnessSymbolSuffix;
 
-  async function onFetchPrice() {
+  // Polls MetaApi automatically — no click required. `liveMode` tracks
+  // whether the poll is allowed to overwrite Entry Price: typing into that
+  // field by hand pauses it (so your own what-if number doesn't get
+  // stomped mid-edit), and it's easy to resume.
+  const livePrice = useLivePrice(symbol);
+  const [liveMode, setLiveMode] = useState(true);
+  const liveModeRef = useRef(liveMode);
+  useEffect(() => { liveModeRef.current = liveMode; }, [liveMode]);
+
+  useEffect(() => {
+    if (!liveModeRef.current || livePrice.price == null) return;
+    setEngine({ entryPrice: Number(livePrice.price.toFixed(dec)) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livePrice.price, livePrice.updatedAt]);
+
+  const live =
+    livePrice.price != null
+      ? { price: livePrice.price, label: `${symbol} bid ${livePrice.bid} / ask ${livePrice.ask}` }
+      : null;
+
+  function onResumeLive() {
     if (!meta.token || !meta.exnessAccountId) {
       toast.error("Add your MetaApi token and Exness account ID in Settings first.");
       return;
     }
-    setBusy("price");
-    const res = await fetchQuote({ data: { token: meta.token, accountId: meta.exnessAccountId, symbol } });
-    setBusy(null);
-    if (!res.ok) {
-      setLive(null);
-      setStatus({ tone: "red", text: res.error });
-      return;
-    }
-    setLive({ price: res.data.mid, label: `${symbol} bid ${res.data.bid} / ask ${res.data.ask}` });
-    setEngine({ entryPrice: Number(res.data.mid.toFixed(dec)) });
-    setStatus({ tone: "green", text: `Live ${symbol} ${formatPrice(res.data.mid, dec)} — entry price filled.` });
+    setLiveMode(true);
+    void livePrice.refresh();
   }
 
   /**
@@ -200,8 +211,8 @@ function EnginePage() {
           <Field label="Broker symbol sent to MT5">
             <TextInput value={symbol} readOnly className="bg-secondary" />
           </Field>
-          <Button onClick={onFetchPrice} disabled={busy === "price"}>
-            {busy === "price" ? "Fetching…" : "Fetch live price"}
+          <Button onClick={onResumeLive} disabled={livePrice.loading}>
+            {livePrice.loading ? "Fetching…" : liveMode ? "Refresh now" : "Resume live price"}
           </Button>
         </div>
         {status && (
@@ -304,12 +315,26 @@ function EnginePage() {
               <option value="Standard">Standard</option>
             </Select>
           </Field>
-          <Field label="Entry price" hint={live ? live.label : "Fetch live price or type it"}>
+          <Field
+            label="Entry price"
+            hint={
+              livePrice.error && liveMode
+                ? `Live price unavailable: ${livePrice.error}`
+                : !liveMode
+                  ? "Paused on your typed value — click Resume live price to track the market again"
+                  : live
+                    ? `${live.label} (updating automatically)`
+                    : "Add MetaApi credentials in Settings for a live price, or type one"
+            }
+          >
             <TextInput
               type="number"
               step={engine.pair === "USDJPY" ? "0.001" : "0.00001"}
               value={engine.entryPrice}
-              onChange={(e) => setEngine({ entryPrice: Number(e.target.value) })}
+              onChange={(e) => {
+                setLiveMode(false);
+                setEngine({ entryPrice: Number(e.target.value) });
+              }}
             />
           </Field>
           {engine.phase === 2 && (

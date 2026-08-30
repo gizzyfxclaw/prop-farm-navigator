@@ -48,11 +48,18 @@ describe("engine", () => {
     expect(r.propLots).toBeCloseTo(50 / (30 * 10), 6);
   });
 
-  it("uses 3 decimals and $9 pip value for JPY", () => {
+  it("uses 3 decimals and a rate-derived pip value for JPY", () => {
     const r = calculate({ ...base, pair: "USDJPY", entryPrice: 157.123 });
     expect(r.decimals).toBe(3);
-    expect(r.pipValue).toBe(9);
+    // Real pip value = (pipSize × 100,000 units) / rate — not a static
+    // constant, since USD is the base currency for this pair.
+    expect(r.pipValue).toBeCloseTo(1000 / 157.123, 6);
     expect(r.propSl).toBeCloseTo(156.823, 3);
+  });
+
+  it("falls back to the static JPY pip value when no rate is available yet", () => {
+    const r = calculate({ ...base, pair: "USDJPY", entryPrice: 0 });
+    expect(r.pipValue).toBe(9);
   });
 
   it("uses worst-case R:R of 2 for phase 1 capital even at 1:1.5", () => {
