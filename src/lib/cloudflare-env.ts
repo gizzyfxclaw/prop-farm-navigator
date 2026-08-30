@@ -32,6 +32,11 @@ export interface CFEnv {
   AUTH_PASSWORD?: string;
   /** Random 32-char string — set via `wrangler secret put AUTH_SECRET` */
   AUTH_SECRET?: string;
+  /** tvremix MCP bearer token — set via `wrangler secret put TVREMIX_API_KEY`.
+   *  Same key already used by Hermes's gizzyfx_mcp.py (~/.hermes/.env on the
+   *  VPS) — lets the site's own chart show the same real TradingView data
+   *  Hermes analyzes, instead of a separate Yahoo Finance feed. */
+  TVREMIX_API_KEY?: string;
 }
 
 export const envStorage = new AsyncLocalStorage<CFEnv>();

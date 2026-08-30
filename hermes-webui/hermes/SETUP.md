@@ -39,8 +39,13 @@ redeploys the Cloudflare Worker.
 ### 1. Cloudflare side (only needed once per Cloudflare account, not per VPS)
 Confirm these exist as GitHub Actions repo secrets (Settings → Secrets →
 Actions): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `AUTH_EMAIL`,
-`AUTH_PASSWORD`, `AUTH_SECRET`. If they're already set, a push to `main` (or
-any branch listed in `deploy.yml`) deploys the Worker — nothing else to do.
+`AUTH_PASSWORD`, `AUTH_SECRET`, `TVREMIX_API_KEY` (same value as
+`TVREMIX_API_KEY` in `~/.hermes/.env` on the VPS — lets the site's own
+`/api/ohlcv` show the same real tvremix/TradingView data Hermes analyzes,
+instead of a separate Yahoo Finance feed; omitting it just falls back to
+Yahoo, it doesn't break the deploy). If they're already set, a push to
+`main` (or any branch listed in `deploy.yml`) deploys the Worker — nothing
+else to do.
 
 ### 2. Find the shared secret Hermes needs
 Every `/api/hermes/*` call authenticates with `x-hermes-key` checked against

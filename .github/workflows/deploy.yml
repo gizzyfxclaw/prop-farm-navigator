@@ -36,9 +36,15 @@ jobs:
           printf '%s' "$AUTH_SECRET"  | bunx wrangler secret put AUTH_SECRET
           printf '%s' "$AUTH_EMAIL"   | bunx wrangler secret put AUTH_EMAIL
           printf '%s' "$AUTH_PASSWORD"| bunx wrangler secret put AUTH_PASSWORD
+          if [ -n "$TVREMIX_API_KEY" ]; then
+            printf '%s' "$TVREMIX_API_KEY" | bunx wrangler secret put TVREMIX_API_KEY
+          else
+            echo "TVREMIX_API_KEY repo secret not set — /api/ohlcv will fall back to Yahoo Finance until it is."
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
           AUTH_EMAIL: ${{ secrets.AUTH_EMAIL }}
           AUTH_PASSWORD: ${{ secrets.AUTH_PASSWORD }}
+          TVREMIX_API_KEY: ${{ secrets.TVREMIX_API_KEY }}
