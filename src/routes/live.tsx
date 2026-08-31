@@ -37,8 +37,16 @@ export const Route = createFileRoute("/live")({
 
 type AccountKey = "exness" | "prop";
 
+/** Strip suffix + normalise direction to match how Journal stores trades. */
+function inferDirection(dealType: string): "LONG" | "SHORT" {
+  const t = dealType.toUpperCase();
+  if (t.includes("BUY")) return "LONG";
+  if (t.includes("SELL")) return "SHORT";
+  return "LONG";
+}
+
 function LivePage() {
-  const { meta } = useStore();
+  const { meta, addTrade, journal } = useStore();
   const [account, setAccount] = useState<AccountKey>("exness");
   const [snapshot, setSnapshot] = useState<AccountSnapshot | null>(null);
   const [positions, setPositions] = useState<PositionRow[]>([]);
@@ -301,11 +309,49 @@ function LivePage() {
                   <th className="py-2 pr-3">Lots</th>
                   <th className="py-2 pr-3">Price</th>
                   <th className="py-2 pr-3">Net</th>
+                  <th className="py-2" />
                 </tr>
               </thead>
               <tbody className="font-mono">
                 {deals.map((d) => {
                   const netD = d.profit + d.commission + d.swap;
+                  // Check if this deal is already in the journal (by ticket)
+                  const alreadyLogged = journal.some((t) => t.ticket === d.id || t.ticket === d.orderId);
+                  const pair = d.symbol
+                    ? d.symbol.replace(new RegExp(`${meta.exnessSymbolSuffix ?? ""}$`), "").toUpperCase()
+                    : "";
+
+                  function addToJournal() {
+                    const now = new Date();
+                    const closeTime = d.time ? new Date(d.time) : now;
+                    addTrade({
+                      id: `deal-${d.id}-${Date.now()}`,
+                      date: closeTime.toISOString().slice(0, 10),
+                      time: closeTime.toTimeString().slice(0, 8),
+                      pair,
+                      dir: inferDirection(d.type),
+                      result: netD >= 0 ? "WIN" : "LOSS",
+                      propPnl: 0,
+                      exPnl: netD,
+                      netPnl: netD,
+                      ticket: d.id,
+                      note: `From MetaApi deal ${d.id}${d.orderId ? ` / order ${d.orderId}` : ""}`,
+                      details: {
+                        entry: d.price,
+                        propSl: 0,
+                        propTp: 0,
+                        exSl: 0,
+                        exTp: 0,
+                        propLots: 0,
+                        exLots: d.volume,
+                        rr: 0,
+                        phase: 1,
+                        leg: "exness",
+                      },
+                    });
+                    toast.success(`Deal ${d.id} added to Journal as ${netD >= 0 ? "WIN" : "LOSS"} (${money(netD, true)})`);
+                  }
+
                   return (
                     <tr key={d.id} className="border-t border-border">
                       <td className="py-2 pr-3">{d.time.slice(0, 16).replace("T", " ")}</td>
@@ -315,6 +361,21 @@ function LivePage() {
                       <td className="py-2 pr-3">{d.price}</td>
                       <td className={netD >= 0 ? "py-2 pr-3 text-success" : "py-2 pr-3 text-destructive"}>
                         {money(netD, true)}
+                      </td>
+                      <td className="py-2 text-right">
+                        {pair && d.entryType === "out" && (
+                          alreadyLogged ? (
+                            <span className="text-[10px] text-muted-foreground">✓ Logged</span>
+                          ) : (
+                            <button
+                              onClick={addToJournal}
+                              className="rounded-lg border border-primary/40 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10"
+                              title="Add this closed trade to your Journal"
+                            >
+                              → Journal
+                            </button>
+                          )
+                        )}
                       </td>
                     </tr>
                   );

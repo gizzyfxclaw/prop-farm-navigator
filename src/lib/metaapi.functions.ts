@@ -147,7 +147,7 @@ export interface Quote {
 }
 
 export const fetchQuote = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     credentials.extend({ symbol: z.string().min(3) }).parse(input),
   )
   .handler(async ({ data }): Promise<ApiResult<Quote>> =>
@@ -176,7 +176,7 @@ export interface AccountSnapshot {
 }
 
 export const fetchAccountInformation = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => credentials.parse(input))
+  .validator((input: unknown) => credentials.parse(input))
   .handler(async ({ data }): Promise<ApiResult<AccountSnapshot>> =>
     guard(async () => {
       const info = await clientApi<Record<string, unknown>>(data, "/account-information");
@@ -220,7 +220,7 @@ export interface OrderRow {
 }
 
 export const fetchOpenState = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => credentials.parse(input))
+  .validator((input: unknown) => credentials.parse(input))
   .handler(
     async ({ data }): Promise<ApiResult<{ positions: PositionRow[]; orders: OrderRow[] }>> =>
       guard(async () => {
@@ -271,7 +271,7 @@ export interface DealRow {
 }
 
 export const fetchHistoryDeals = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => credentials.extend({ days: z.number().min(1).max(180).default(30) }).parse(input))
+  .validator((input: unknown) => credentials.extend({ days: z.number().min(1).max(180).default(30) }).parse(input))
   .handler(async ({ data }): Promise<ApiResult<DealRow[]>> =>
     guard(async () => {
       const end = new Date();
@@ -300,7 +300,7 @@ export const fetchHistoryDeals = createServerFn({ method: "POST" })
   );
 
 export const placePendingOrder = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     credentials
       .extend({
         actionType: z.enum([
@@ -343,7 +343,7 @@ export const placePendingOrder = createServerFn({ method: "POST" })
   );
 
 export const cancelPendingOrder = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => credentials.extend({ orderId: z.string().min(1) }).parse(input))
+  .validator((input: unknown) => credentials.extend({ orderId: z.string().min(1) }).parse(input))
   .handler(async ({ data }): Promise<ApiResult<{ message?: string | undefined }>> =>
     guard(async () => {
       const response = await clientApi<Record<string, unknown>>(data, "/trade", {
@@ -356,7 +356,7 @@ export const cancelPendingOrder = createServerFn({ method: "POST" })
   );
 
 export const closePosition = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => credentials.extend({ positionId: z.string().min(1) }).parse(input))
+  .validator((input: unknown) => credentials.extend({ positionId: z.string().min(1) }).parse(input))
   .handler(async ({ data }): Promise<ApiResult<{ message?: string | undefined }>> =>
     guard(async () => {
       const response = await clientApi<Record<string, unknown>>(data, "/trade", {
@@ -425,7 +425,7 @@ export interface AccountStatus {
 }
 
 export const fetchAccountStatus = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ token: z.string().min(10), accountId: z.string().min(3) }).parse(input),
   )
   .handler(async ({ data }): Promise<ApiResult<AccountStatus>> =>
@@ -456,7 +456,7 @@ const provisionExistingInput = z.object({
 
 /** Validate an existing MetaApi account and confirm it is a demo account. */
 export const linkExistingAccount = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => provisionExistingInput.parse(input))
+  .validator((input: unknown) => provisionExistingInput.parse(input))
   .handler(async ({ data }): Promise<ApiResult<AccountStatus>> =>
     guard(async () => {
       // Safety: refuse anything that isn't flagged demo by MetaApi
@@ -491,7 +491,7 @@ const provisionNewInput = z.object({
  * fetchAccountStatus until state === "DEPLOYED" before trading.
  */
 export const provisionNewDemoAccount = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => provisionNewInput.parse(input))
+  .validator((input: unknown) => provisionNewInput.parse(input))
   .handler(async ({ data }): Promise<ApiResult<{ accountId: string; state: string }>> =>
     guard(async () => {
       const res = await fetch(`${PROVISIONING}/users/current/accounts`, {
@@ -550,7 +550,7 @@ const TF_TO_METAAPI: Record<string, string> = {
 };
 
 export const fetchHistoricalCandles = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => historicalInput.parse(input))
+  .validator((input: unknown) => historicalInput.parse(input))
   .handler(async ({ data }): Promise<ApiResult<OhlcvBar[]>> =>
     guard(async () => {
       const tf = TF_TO_METAAPI[data.timeframe] ?? data.timeframe;

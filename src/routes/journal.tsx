@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   CartesianGrid,
@@ -16,6 +16,7 @@ import {
 import { Badge, Button, Card, Field, Select, Stat, TextInput } from "@/components/terminal/ui";
 import { money, tradePnl, type Direction } from "@/lib/engine/calc";
 import { PAIRS } from "@/lib/engine/pairs";
+import { fetchOpenState } from "@/lib/metaapi.functions";
 import { useStore, type JournalTrade } from "@/lib/store";
 import { useEngineWithRecovery } from "@/lib/useEngine";
 
@@ -38,14 +39,90 @@ export const Route = createFileRoute("/journal")({
   component: JournalPage,
 });
 
+/* ── Live P&L hook for OPEN journal trades ──────────────────────────────── */
+
+/**
+ * Polls MetaApi every 10 seconds for open positions and returns a map of
+ * { journalTradeId → live floating profit (USD) }.
+ *
+ * Matches journal trades to MetaApi positions by normalising the symbol
+ * (strip broker suffix, e.g. "EURUSDm" → "EURUSD") and direction.
+ */
+function useLiveOpenPnl(
+  openTrades: JournalTrade[],
+  token: string,
+  exnessAccountId: string,
+  exnessSymbolSuffix: string,
+  pollMs = 10_000,
+): Map<string, number> {
+  const [liveMap, setLiveMap] = useState<Map<string, number>>(new Map());
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const poll = useCallback(async () => {
+    if (!token || !exnessAccountId || openTrades.length === 0) {
+      setLiveMap(new Map());
+      return;
+    }
+    const res = await fetchOpenState({ data: { token, accountId: exnessAccountId } });
+    if (!res.ok) return;
+
+    const positions = res.data.positions;
+
+    // Build map: normalised symbol+dir → live profit
+    const posMap = new Map<string, number>();
+    for (const p of positions) {
+      const sym = p.symbol.replace(new RegExp(`${exnessSymbolSuffix}$`), "").toUpperCase();
+      const dir = p.type.includes("BUY") ? "LONG" : "SHORT";
+      const key = `${sym}|${dir}`;
+      // Accumulate if multiple lots on same symbol/dir
+      posMap.set(key, (posMap.get(key) ?? 0) + p.profit);
+    }
+
+    // Match to journal trades
+    const next = new Map<string, number>();
+    for (const t of openTrades) {
+      const key = `${t.pair.toUpperCase()}|${t.dir}`;
+      if (posMap.has(key)) {
+        next.set(t.id, posMap.get(key)!);
+      }
+    }
+    setLiveMap(next);
+  }, [token, exnessAccountId, exnessSymbolSuffix, openTrades]);
+
+  useEffect(() => {
+    void poll();
+    timerRef.current = setInterval(() => void poll(), pollMs);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [poll, pollMs]);
+
+  return liveMap;
+}
+
+/* ── Component ──────────────────────────────────────────────────────────── */
+
 function JournalPage() {
-  const { journal, addTrade, updateTrade, deleteTrade, clearJournal, engine } = useStore();
+  const { journal, addTrade, updateTrade, deleteTrade, clearJournal, engine, meta } = useStore();
   const { result: r, recovery } = useEngineWithRecovery();
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [pair, setPair] = useState<string>(engine.pair);
   const [dir, setDir] = useState<Direction>(engine.direction);
   const [actualPropPnl, setActualPropPnl] = useState("");
   const [actualExPnl, setActualExPnl] = useState("");
+
+  // Settle a specific open trade with exact PnL override
+  const [settleId, setSettleId] = useState<string | null>(null);
+  const [settlePropPnl, setSettlePropPnl] = useState("");
+  const [settleExPnl, setSettleExPnl] = useState("");
+
+  const openTrades = journal.filter((t) => t.result === "OPEN");
+  const liveMap = useLiveOpenPnl(
+    openTrades,
+    meta.token,
+    meta.exnessAccountId,
+    meta.exnessSymbolSuffix ?? "",
+  );
 
   function log(result: "WIN" | "LOSS") {
     const derived = tradePnl(r, result === "WIN", engine.rr);
@@ -81,14 +158,28 @@ function JournalPage() {
   }
 
   function settle(trade: JournalTrade, result: "WIN" | "LOSS") {
-    const rr = trade.details?.rr ?? engine.rr;
-    const derived = tradePnl(r, result === "WIN", rr);
-    updateTrade(trade.id, {
-      result,
-      propPnl: derived.propPnl,
-      exPnl: derived.exPnl,
-      netPnl: derived.netPnl,
-    });
+    if (settleId === trade.id && (settlePropPnl !== "" || settleExPnl !== "")) {
+      // Use exact values from the inline form
+      const propPnl = settlePropPnl !== "" ? Number(settlePropPnl) : trade.propPnl;
+      const exPnl = settleExPnl !== "" ? Number(settleExPnl) : trade.exPnl;
+      const netPnl = propPnl + exPnl;
+      updateTrade(trade.id, { result, propPnl, exPnl, netPnl });
+      toast.success(`Settled as ${result} — net ${money(netPnl, true)}`);
+    } else {
+      // Derive from engine
+      const rr = trade.details?.rr ?? engine.rr;
+      const derived = tradePnl(r, result === "WIN", rr);
+      updateTrade(trade.id, {
+        result,
+        propPnl: derived.propPnl,
+        exPnl: derived.exPnl,
+        netPnl: derived.netPnl,
+      });
+      toast.success(`Settled as ${result}`);
+    }
+    setSettleId(null);
+    setSettlePropPnl("");
+    setSettleExPnl("");
   }
 
   const closed = journal.filter((t) => t.result !== "OPEN");
@@ -117,7 +208,7 @@ function JournalPage() {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Journal</h1>
         <p className="mt-1 text-[13px] text-muted-foreground">
           P&amp;L is derived automatically from the live engine state (risk {money(engine.propRiskUsd)}, R:R 1:
-          {engine.rr}).
+          {engine.rr}). Open trades show live floating P&amp;L from MetaApi (refreshes every 10s).
         </p>
       </div>
 
@@ -273,6 +364,7 @@ function JournalPage() {
         </Card>
       </div>
 
+      {/* ── Trades table ─────────────────────────────────────── */}
       <Card
         title={`Trades (${journal.length})`}
         badge={
@@ -283,6 +375,15 @@ function JournalPage() {
           ) : undefined
         }
       >
+        {/* Live indicator if MetaApi configured and there are open trades */}
+        {openTrades.length > 0 && meta.token && meta.exnessAccountId && (
+          <div className="mb-3 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="inline-block h-2 w-2 rounded-full bg-success animate-pulse" />
+            Live P&amp;L updating from MetaApi every 10s
+            {liveMap.size === 0 && " — matching positions…"}
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-[12.5px]">
             <thead>
@@ -301,55 +402,132 @@ function JournalPage() {
               {journal
                 .slice()
                 .reverse()
-                .map((t) => (
-                  <tr key={t.id} className="border-t border-border">
-                    <td className="py-2 pr-3">{t.date}</td>
-                    <td className="py-2 pr-3 text-foreground">{t.pair}</td>
-                    <td className="py-2 pr-3">{t.dir}</td>
-                    <td className="py-2 pr-3">
-                      <Badge tone={t.result === "WIN" ? "green" : t.result === "LOSS" ? "red" : "amber"}>
-                        {t.result}
-                      </Badge>
-                    </td>
-                    <td className={t.propPnl >= 0 ? "py-2 pr-3 text-success" : "py-2 pr-3 text-destructive"}>
-                      {money(t.propPnl, true)}
-                    </td>
-                    <td className={t.exPnl >= 0 ? "py-2 pr-3 text-success" : "py-2 pr-3 text-destructive"}>
-                      {money(t.exPnl, true)}
-                    </td>
-                    <td className={t.netPnl >= 0 ? "py-2 pr-3 text-success" : "py-2 pr-3 text-destructive"}>
-                      {money(t.netPnl, true)}
-                    </td>
-                    <td className="py-2">
-                      <div className="flex justify-end gap-1.5">
-                        {t.result === "OPEN" && (
-                          <>
+                .map((t) => {
+                  const isOpen = t.result === "OPEN";
+                  const livePnl = liveMap.get(t.id);
+                  const hasLive = isOpen && livePnl !== undefined;
+
+                  // Display values: for OPEN, prefer live; for closed, use stored
+                  const displayProp = hasLive ? livePnl : t.propPnl;
+                  const displayEx   = hasLive ? 0 : t.exPnl;
+                  const displayNet  = hasLive ? livePnl : t.netPnl;
+
+                  return (
+                    <>
+                      <tr key={t.id} className="border-t border-border">
+                        <td className="py-2 pr-3 text-[11px] text-muted-foreground">{t.date}</td>
+                        <td className="py-2 pr-3 text-foreground">{t.pair}</td>
+                        <td className="py-2 pr-3">{t.dir}</td>
+                        <td className="py-2 pr-3">
+                          <div className="flex items-center gap-1.5">
+                            <Badge tone={t.result === "WIN" ? "green" : t.result === "LOSS" ? "red" : "amber"}>
+                              {t.result}
+                            </Badge>
+                            {hasLive && (
+                              <span className="inline-block h-1.5 w-1.5 rounded-full bg-success animate-pulse" title="Live from MetaApi" />
+                            )}
+                          </div>
+                        </td>
+                        {/* Prop P&L — for OPEN, shows live floating total; for closed, stored */}
+                        <td className={displayProp >= 0 ? "py-2 pr-3 text-success" : "py-2 pr-3 text-destructive"}>
+                          {isOpen && hasLive ? (
+                            <span className="font-semibold">{money(displayProp, true)}<span className="ml-1 text-[9px] text-muted-foreground">live</span></span>
+                          ) : (
+                            money(displayProp, true)
+                          )}
+                        </td>
+                        <td className={displayEx >= 0 ? "py-2 pr-3 text-success" : "py-2 pr-3 text-destructive"}>
+                          {isOpen && !hasLive ? <span className="text-muted-foreground">—</span> : money(displayEx, true)}
+                        </td>
+                        <td className={displayNet >= 0 ? "py-2 pr-3 font-semibold text-success" : "py-2 pr-3 font-semibold text-destructive"}>
+                          {money(displayNet, true)}
+                        </td>
+                        <td className="py-2">
+                          <div className="flex justify-end gap-1.5">
+                            {isOpen && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setSettleId(settleId === t.id ? null : t.id);
+                                    setSettlePropPnl("");
+                                    setSettleExPnl("");
+                                  }}
+                                  className="rounded-lg border border-primary/40 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10"
+                                >
+                                  Settle…
+                                </button>
+                              </>
+                            )}
                             <button
-                              onClick={() => settle(t, "WIN")}
-                              className="rounded-lg border border-success/40 px-2.5 py-1 text-[11px] font-semibold text-success"
+                              onClick={() => deleteTrade(t.id)}
+                              className="rounded-lg border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
                             >
-                              Win
+                              Delete
                             </button>
-                            <button
-                              onClick={() => settle(t, "LOSS")}
-                              className="rounded-lg border border-destructive/40 px-2.5 py-1 text-[11px] font-semibold text-destructive"
-                            >
-                              Loss
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => deleteTrade(t.id)}
-                          className="rounded-lg border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* ── Inline settle form (expand on "Settle…") ── */}
+                      {settleId === t.id && (
+                        <tr key={`${t.id}-settle`} className="border-b border-primary/20 bg-primary/5">
+                          <td colSpan={8} className="px-3 py-3">
+                            <div className="flex flex-wrap items-end gap-3">
+                              <p className="w-full text-[11px] text-muted-foreground mb-1">
+                                Enter actual P&amp;L, then click Win or Loss (blank = engine-derived):
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <label className="text-[11px] text-muted-foreground w-24">Prop P&L ($)</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={settlePropPnl}
+                                  onChange={(e) => setSettlePropPnl(e.target.value)}
+                                  placeholder={hasLive ? money(livePnl, true) : "engine value"}
+                                  className="w-32 rounded-md border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <label className="text-[11px] text-muted-foreground w-24">Ex P&L ($)</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={settleExPnl}
+                                  onChange={(e) => setSettleExPnl(e.target.value)}
+                                  placeholder="0.00"
+                                  className="w-32 rounded-md border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                              <button
+                                onClick={() => settle(t, "WIN")}
+                                className="rounded-lg border border-success/40 bg-success/10 px-3 py-1 text-[11px] font-semibold text-success hover:bg-success/20"
+                              >
+                                ✓ Win
+                              </button>
+                              <button
+                                onClick={() => settle(t, "LOSS")}
+                                className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive/20"
+                              >
+                                ✗ Loss
+                              </button>
+                              <button
+                                onClick={() => setSettleId(null)}
+                                className="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
             </tbody>
           </table>
+          {journal.length === 0 && (
+            <p className="py-6 text-center text-[13px] text-muted-foreground">No trades yet.</p>
+          )}
         </div>
       </Card>
     </div>
