@@ -431,7 +431,7 @@ function EnginePage() {
           />
           <Row
             label={recovery.adjustmentNeeded ? "Exness risk (prop wins) ⚡ adjusted" : "Exness risk (prop wins)"}
-            value={money(-(recovery.newExnessLossTarget ?? r.exnessLossTarget))}
+            value={money(-((recovery.newExnessWinTarget ?? r.exnessWinTarget) * engine.rr))}
             tone={recovery.adjustmentNeeded ? "accent" : "neg"}
           />
 

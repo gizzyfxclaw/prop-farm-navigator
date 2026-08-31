@@ -205,6 +205,29 @@ export function calculate(input: EngineInputs): EngineResult {
       : active.exnessWinTarget;
   const exnessLots = effectiveWinTarget / (exnessTpPips * exnessPipValue);
 
+  // When a recovery override is active, recalculate the capital figures using
+  // the effective win target so that "Total Capital Needed" and "Exness risk"
+  // update correctly when R:R or any other input changes — the override must
+  // propagate through the ENTIRE result, not just lot sizing.
+  const effectiveLossTarget = effectiveWinTarget * WORST_CASE_RR;
+  const effectivePureCapital = effectiveLossTarget * winsToPass;
+  const effectiveBufferedCapital = effectivePureCapital * (1 + bufferPct / 100);
+
+  // Override only applies when the recovery system is actually active.
+  const overrideActive =
+    input.exnessWinTargetOverride != null && input.exnessWinTargetOverride > 0;
+
+  const activeExnessWinTarget  = overrideActive ? effectiveWinTarget    : active.exnessWinTarget;
+  const activeExnessLossTarget = overrideActive ? effectiveLossTarget   : active.exnessLossTarget;
+  const activeRequiredCapital  = overrideActive ? effectiveBufferedCapital : active.bufferedExnessCapital;
+
+  // Rebuild totalRequiredCapital with the effective capital when override is on.
+  const effectiveTotalRequired = overrideActive
+    ? (input.phase === 1
+        ? fee + effectiveBufferedCapital
+        : phase1TotalSpent + (effectiveBufferedCapital - phase1Leftover))
+    : totalRequiredCapital;
+
   const slDistance = propSlPips * spec.pipSize;
   const tpDistance = propTpPips * spec.pipSize;
   const long = input.direction === "LONG";
@@ -269,11 +292,26 @@ export function calculate(input: EngineInputs): EngineResult {
     phase1Leftover,
     phase2RefillRequired,
     phase: input.phase,
-    exnessWinTarget: active.exnessWinTarget,
-    exnessLossTarget: active.exnessLossTarget,
-    requiredExnessCapital: active.bufferedExnessCapital,
-    totalRequiredCapital,
-    capitalBreakdown,
+    exnessWinTarget: activeExnessWinTarget,
+    exnessLossTarget: activeExnessLossTarget,
+    requiredExnessCapital: activeRequiredCapital,
+    totalRequiredCapital: effectiveTotalRequired,
+    capitalBreakdown: overrideActive
+      ? (input.phase === 1
+          ? [
+              { label: "Prop challenge fee", value: fee },
+              { label: "Exness fuel — adjusted (worst case 1:2)", value: effectivePureCapital },
+              { label: `Safety buffer (${bufferPct}%)`, value: effectiveBufferedCapital - effectivePureCapital },
+              { label: "Total capital needed (adjusted)", value: effectiveTotalRequired },
+            ]
+          : [
+              { label: "Phase 1 total already spent", value: phase1TotalSpent },
+              { label: "Phase 1 leftover Exness balance", value: -phase1Leftover },
+              { label: "Phase 2 Exness fuel — adjusted (worst case 1:2)", value: effectivePureCapital },
+              { label: `Safety buffer (${bufferPct}%)`, value: effectiveBufferedCapital - effectivePureCapital },
+              { label: "Total capital needed (adjusted)", value: effectiveTotalRequired },
+            ])
+      : capitalBreakdown,
     propPayout,
     leftoverExnessBalance,
     netProfitIfPassed,
