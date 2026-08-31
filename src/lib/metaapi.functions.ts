@@ -4,6 +4,10 @@ import { z } from "zod";
 /**
  * Thin MetaApi Cloud REST proxy.
  * The token is supplied by the browser on every call and is never persisted server-side.
+ *
+ * SAFETY INVARIANT: every function that could place an order or touch account
+ * settings calls assertDemoAccount() first. Real (live) accounts are hard-blocked
+ * regardless of what the caller passes.
  */
 
 const PROVISIONING = "https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai";
@@ -361,5 +365,209 @@ export const closePosition = createServerFn({ method: "POST" })
       });
       assertTradeAccepted(response);
       return { message: response["stringCode"] as string | undefined };
+    }),
+  );
+
+/* ─────────────────────────────────────────────────────────────────────────
+   DEMO-ACCOUNT SAFETY GUARD
+   Hard-blocks any live/real account. Called before every order placement
+   and provisioning-sensitive operation.
+───────────────────────────────────────────────────────────────────────── */
+
+/** MetaApi account metadata shape (subset we need). */
+interface AccountMeta {
+  type?: string;        // "cloud" | "cloud-g1" | "cloud-g2" | "self-hosted"
+  accountType?: string; // "real" | "demo"
+  name?: string;
+  region?: string;
+  state?: string;       // "DEPLOYED" | "DEPLOYING" | "UNDEPLOYED" | "ERROR"
+  platform?: string;    // "mt4" | "mt5"
+}
+
+/**
+ * Fetch raw account metadata from the provisioning API.
+ * Not cached — always fresh so safety checks are not stale.
+ */
+async function fetchAccountMeta(token: string, accountId: string): Promise<AccountMeta> {
+  const res = await fetch(`${PROVISIONING}/users/current/accounts/${accountId}`, {
+    headers: { "auth-token": token },
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as AccountMeta;
+}
+
+/**
+ * Throw if the account is NOT a demo account.
+ * Checks MetaApi's `accountType` field. Absent field → assumed real (fail-safe).
+ */
+async function assertDemoAccount(token: string, accountId: string): Promise<void> {
+  const meta = await fetchAccountMeta(token, accountId);
+  const type = (meta.accountType ?? "").toLowerCase();
+  if (type !== "demo") {
+    throw new Error(
+      `Safety block: only demo accounts are permitted. This account reports type="${meta.accountType ?? "unknown"}". ` +
+      `Disconnect and connect a MetaApi demo account to proceed.`
+    );
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ACCOUNT STATUS POLLING
+───────────────────────────────────────────────────────────────────────── */
+
+export interface AccountStatus {
+  accountId: string;
+  name?: string | undefined;
+  state: string;          // DEPLOYED | DEPLOYING | UNDEPLOYED | ERROR
+  accountType: string;    // demo | real
+  platform: string;       // mt4 | mt5
+  isDemo: boolean;
+}
+
+export const fetchAccountStatus = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ token: z.string().min(10), accountId: z.string().min(3) }).parse(input),
+  )
+  .handler(async ({ data }): Promise<ApiResult<AccountStatus>> =>
+    guard(async () => {
+      const meta = await fetchAccountMeta(data.token, data.accountId);
+      const accountType = (meta.accountType ?? "unknown").toLowerCase();
+      return {
+        accountId: data.accountId,
+        name: meta.name,
+        state: meta.state ?? "UNKNOWN",
+        accountType,
+        platform: (meta.platform ?? "mt5").toLowerCase(),
+        isDemo: accountType === "demo",
+      };
+    }),
+  );
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ACCOUNT PROVISIONING
+   (a) Link an existing account — validates that it is DEMO before storing.
+   (b) Provision a new demo account via MetaApi.
+───────────────────────────────────────────────────────────────────────── */
+
+const provisionExistingInput = z.object({
+  token: z.string().min(10),
+  accountId: z.string().min(3),  // already-provisioned MetaApi accountId
+});
+
+/** Validate an existing MetaApi account and confirm it is a demo account. */
+export const linkExistingAccount = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => provisionExistingInput.parse(input))
+  .handler(async ({ data }): Promise<ApiResult<AccountStatus>> =>
+    guard(async () => {
+      // Safety: refuse anything that isn't flagged demo by MetaApi
+      await assertDemoAccount(data.token, data.accountId);
+      const meta = await fetchAccountMeta(data.token, data.accountId);
+      return {
+        accountId: data.accountId,
+        name: meta.name,
+        state: meta.state ?? "UNKNOWN",
+        accountType: "demo",
+        platform: (meta.platform ?? "mt5").toLowerCase(),
+        isDemo: true,
+      };
+    }),
+  );
+
+const provisionNewInput = z.object({
+  token: z.string().min(10),
+  platform: z.enum(["mt4", "mt5"]),
+  brokerName: z.string().min(1),
+  /** Balance in USD to provision the demo account with. */
+  deposit: z.number().positive().max(1_000_000).default(10_000),
+  leverage: z.number().int().min(1).max(3000).default(100),
+  accountName: z.string().default("GizzyFx Demo"),
+});
+
+/**
+ * Create a brand-new MetaApi demo account via the provisioning REST API.
+ * MetaApi opens the demo at the requested broker and returns an accountId.
+ *
+ * NOTE: MetaApi may take 30-120 s to deploy the account; poll
+ * fetchAccountStatus until state === "DEPLOYED" before trading.
+ */
+export const provisionNewDemoAccount = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => provisionNewInput.parse(input))
+  .handler(async ({ data }): Promise<ApiResult<{ accountId: string; state: string }>> =>
+    guard(async () => {
+      const res = await fetch(`${PROVISIONING}/users/current/accounts`, {
+        method: "POST",
+        headers: {
+          "auth-token": data.token,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: data.accountName,
+          type: "cloud-g2",
+          platform: data.platform,
+          brokerName: data.brokerName,
+          deposit: data.deposit,
+          leverage: data.leverage,
+          accountType: "demo",     // always demo — no way to provision real here
+        }),
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      const body = (await res.json()) as { id: string; state?: string };
+      return { accountId: body.id, state: body.state ?? "DEPLOYING" };
+    }),
+  );
+
+/* ─────────────────────────────────────────────────────────────────────────
+   HISTORICAL CANDLES FROM METAAPI
+   Used by the backtest engine to fetch real broker history.
+───────────────────────────────────────────────────────────────────────── */
+
+export interface OhlcvBar {
+  time: number;   // unix seconds
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  tickVolume?: number | undefined;
+}
+
+const historicalInput = credentials.extend({
+  symbol: z.string().min(3),
+  /** MT timeframe string: "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1d" | "1w" */
+  timeframe: z.string().min(1),
+  /** ISO-8601 start datetime, inclusive. */
+  from: z.string(),
+  /** ISO-8601 end datetime, inclusive. Defaults to now. */
+  to: z.string().optional(),
+  /** Max bars to return (capped at 50 000). */
+  limit: z.number().int().min(1).max(50_000).default(2_000),
+});
+
+/** Map site timeframe codes to MetaApi's candle-history endpoint format. */
+const TF_TO_METAAPI: Record<string, string> = {
+  "1m":  "1 minute",  "5m":  "5 minutes", "15m": "15 minutes",
+  "30m": "30 minutes","1h":  "1 hour",     "4h":  "4 hours",
+  "1d":  "1 day",     "1w":  "1 week",
+};
+
+export const fetchHistoricalCandles = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => historicalInput.parse(input))
+  .handler(async ({ data }): Promise<ApiResult<OhlcvBar[]>> =>
+    guard(async () => {
+      const tf = TF_TO_METAAPI[data.timeframe] ?? data.timeframe;
+      const from = encodeURIComponent(data.from);
+      const to   = encodeURIComponent(data.to ?? new Date().toISOString());
+      const path =
+        `/symbols/${encodeURIComponent(data.symbol)}/candles` +
+        `?timeframe=${encodeURIComponent(tf)}&startTime=${from}&endTime=${to}&limit=${data.limit}`;
+
+      const raw = await clientApi<Record<string, unknown>[]>(data, path);
+      return (raw ?? []).map((c) => ({
+        time:       Math.floor(new Date(String(c["time"] ?? "")).getTime() / 1000),
+        open:       Number(c["open"]  ?? c["openPrice"]  ?? 0),
+        high:       Number(c["high"]  ?? c["highPrice"]  ?? 0),
+        low:        Number(c["low"]   ?? c["lowPrice"]   ?? 0),
+        close:      Number(c["close"] ?? c["closePrice"] ?? 0),
+        tickVolume: c["tickVolume"] != null ? Number(c["tickVolume"]) : undefined,
+      })).sort((a, b) => a.time - b.time);
     }),
   );

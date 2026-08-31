@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsRouteImport } from './routes/accounts'
+import { Route as BacktestRouteImport } from './routes/backtest'
 import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as HermesRouteImport } from './routes/hermes'
 import { Route as JournalRouteImport } from './routes/journal'
@@ -39,6 +40,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccountsRoute = AccountsRouteImport.update({
   id: '/accounts',
   path: '/accounts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BacktestRoute = BacktestRouteImport.update({
+  id: '/backtest',
+  path: '/backtest',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConsoleRoute = ConsoleRouteImport.update({
@@ -140,6 +146,7 @@ const ApiHermesUnderstandingRoute = ApiHermesUnderstandingRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/backtest': typeof BacktestRoute
   '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/backtest': typeof BacktestRoute
   '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/backtest': typeof BacktestRoute
   '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accounts'
+    | '/backtest'
     | '/console'
     | '/hermes'
     | '/journal'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accounts'
+    | '/backtest'
     | '/console'
     | '/hermes'
     | '/journal'
@@ -258,6 +269,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accounts'
+    | '/backtest'
     | '/console'
     | '/hermes'
     | '/journal'
@@ -282,6 +294,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountsRoute: typeof AccountsRoute
+  BacktestRoute: typeof BacktestRoute
   ConsoleRoute: typeof ConsoleRoute
   HermesRoute: typeof HermesRoute
   JournalRoute: typeof JournalRoute
@@ -317,6 +330,13 @@ declare module '@tanstack/react-router' {
       path: '/accounts'
       fullPath: '/accounts'
       preLoaderRoute: typeof AccountsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/backtest': {
+      id: '/backtest'
+      path: '/backtest'
+      fullPath: '/backtest'
+      preLoaderRoute: typeof BacktestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/console': {
@@ -458,6 +478,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountsRoute: AccountsRoute,
+  BacktestRoute: BacktestRoute,
   ConsoleRoute: ConsoleRoute,
   HermesRoute: HermesRoute,
   JournalRoute: JournalRoute,
