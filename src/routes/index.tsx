@@ -7,6 +7,7 @@ import { money, pendingOrderType, type Direction, type ExnessAccountType } from 
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
 import { placePendingOrder } from "@/lib/metaapi.functions";
 import { marketStatus } from "@/lib/market-hours";
+import { computeRecovery } from "@/lib/recovery";
 import { useSelectedAccount, useStore } from "@/lib/store";
 import { useEngine } from "@/lib/useEngine";
 import { useLiveAccounts } from "@/lib/useLiveAccounts";
@@ -32,8 +33,10 @@ export const Route = createFileRoute("/")({
 });
 
 function EnginePage() {
-  const { engine, setEngine, accounts, meta, addTrade } = useStore();
+  const { engine, setEngine, accounts, meta, addTrade, journal } = useStore();
   const r = useEngine();
+  // Recovery state: drives dynamic remaining counts + alerts on Engine page too
+  const recovery = computeRecovery(r, journal);
   const selectedAccount = useSelectedAccount();
   const liveAccounts = useLiveAccounts();
   const [status, setStatus] = useState<{ tone: "green" | "red" | "amber"; text: string } | null>(null);
@@ -416,12 +419,43 @@ function EnginePage() {
         </Card>
 
         <Card title="Risk per trade">
+          {/* Prop side: LOCKED — never auto-changed */}
           <Row label="Prop risk (SL hit)" value={money(-engine.propRiskUsd)} tone="neg" />
           <Row label="Prop reward (TP hit)" value={money(r.propWinPerTrade, true)} tone="pos" />
-          <Row label="Exness reward (prop loses)" value={money(r.exnessWinTarget, true)} tone="pos" />
-          <Row label="Exness risk (prop wins)" value={money(-r.exnessWinTarget * engine.rr)} tone="neg" />
-          <Row label="Losses to blow prop" value={`${r.lossesToBlow} trades`} tone="accent" />
-          <Row label="Wins to pass prop" value={`${r.winsToPass} trades`} tone="accent" />
+
+          {/* Exness side: self-healing when recovery adjustment needed */}
+          <Row
+            label={recovery.adjustmentNeeded ? "Exness reward (prop loses) ⚡ adjusted" : "Exness reward (prop loses)"}
+            value={money(recovery.newExnessWinTarget ?? r.exnessWinTarget, true)}
+            tone={recovery.adjustmentNeeded ? "accent" : "pos"}
+          />
+          <Row
+            label={recovery.adjustmentNeeded ? "Exness risk (prop wins) ⚡ adjusted" : "Exness risk (prop wins)"}
+            value={money(-(recovery.newExnessLossTarget ?? r.exnessLossTarget))}
+            tone={recovery.adjustmentNeeded ? "accent" : "neg"}
+          />
+
+          {/* Dynamic remaining counts from ACTUAL P&L */}
+          <Row
+            label="Wins remaining (actual)"
+            value={`${recovery.remainingWins} of ${r.winsToPass}`}
+            tone="accent"
+          />
+          <Row
+            label="Losses remaining (actual)"
+            value={`${recovery.remainingLosses} of ${r.lossesToBlow}`}
+            tone="accent"
+          />
+          <Row
+            label="Remaining prop target"
+            value={money(recovery.remainingPropTarget)}
+            tone={recovery.challengePassed ? "pos" : "default"}
+          />
+          <Row
+            label="Remaining drawdown budget"
+            value={money(recovery.remainingDrawdown)}
+            tone={recovery.remainingDrawdown < r.maxDdUsd * 0.25 ? "neg" : "default"}
+          />
         </Card>
       </div>
 
@@ -458,6 +492,37 @@ function EnginePage() {
         <Alert level={r.verdict.level} title={r.verdict.title}>
           {r.verdict.detail}
         </Alert>
+
+        {/* ── PART 4 Edge-case alerts ─────────────────────────────────── */}
+
+        {/* Challenge Passed */}
+        {recovery.challengePassed && (
+          <Alert level="green" title="🎉 Challenge Passed! Request your payout.">
+            Prop target reached ({money(recovery.totalPropProfitLogged, true)} logged).
+            Request your payout, then switch to Phase 2 (Mega Shield) to start the Funded Stage.
+            Exness balance: {money(recovery.actualExnessBalance)}.
+          </Alert>
+        )}
+
+        {/* Exness Buffer Depleted */}
+        {recovery.bufferDepleted && !recovery.challengePassed && (
+          <Alert level="red" title="⚠️ CRITICAL: Exness Buffer Depleted">
+            Current Exness balance ({money(recovery.actualExnessBalance)}) is below what's needed
+            to finish the remaining {recovery.remainingWins} prop win(s).
+            Deposit <strong>{money(recovery.depositNeeded)}</strong> to maintain the zero-loss loop.
+          </Alert>
+        )}
+
+        {/* Self-healing adjustment active */}
+        {recovery.adjustmentNeeded && recovery.newExnessWinTarget != null && !recovery.challengePassed && (
+          <Alert level="amber" title="⚡ Exness target auto-adjusted">
+            Recovery shortfall {money(recovery.recoveryShortfall)} spread across{" "}
+            {recovery.remainingLosses} remaining prop loss{recovery.remainingLosses === 1 ? "" : "es"}.
+            New Exness win target: <strong>{money(recovery.newExnessWinTarget, true)}</strong> per trade
+            (was {money(r.phase1.exnessWinTarget, true)}).
+            Lot sizes on this page already reflect the adjusted target.
+          </Alert>
+        )}
 
         {/* Say up front whether a press will reach the broker at all. */}
         <div

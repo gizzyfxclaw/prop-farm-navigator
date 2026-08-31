@@ -283,8 +283,8 @@ function JournalPage() {
 
       <Card title="Next steps">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Wins left" value={recovery.remainingWins} />
-          <Stat label="Losses left" value={recovery.remainingLosses} />
+          <Stat label="Wins remaining" value={recovery.remainingWins} />
+          <Stat label="Losses remaining" value={recovery.remainingLosses} />
           <Stat
             label="Exness balance"
             value={money(recovery.actualExnessBalance)}
@@ -296,14 +296,37 @@ function JournalPage() {
             tone={recovery.adjustmentNeeded ? "text-amber-400" : undefined}
           />
         </div>
-        {recovery.adjustmentNeeded && recovery.newExnessWinTarget != null && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-[12px] text-muted-foreground">
+          <div>Prop profit logged: <span className="text-success font-mono">{money(recovery.totalPropProfitLogged, true)}</span></div>
+          <div>Prop loss logged: <span className="text-destructive font-mono">{money(-recovery.totalPropLossLogged)}</span></div>
+          <div>Remaining target: <span className="font-mono text-foreground">{money(recovery.remainingPropTarget)}</span></div>
+          <div>Remaining drawdown: <span className={`font-mono ${recovery.remainingDrawdown < r.maxDdUsd * 0.25 ? "text-destructive" : "text-foreground"}`}>{money(recovery.remainingDrawdown)}</span></div>
+        </div>
+
+        {/* Challenge passed */}
+        {recovery.challengePassed && (
+          <p className="mt-3 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success font-semibold">
+            🎉 Challenge Passed! Request your payout. Switch to Phase 2 (Mega Shield) for the Funded Stage.
+          </p>
+        )}
+
+        {/* Buffer depleted */}
+        {recovery.bufferDepleted && !recovery.challengePassed && (
+          <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-destructive font-semibold">
+            ⚠️ CRITICAL: Exness Buffer Depleted — deposit <strong>{money(recovery.depositNeeded)}</strong> to maintain the zero-loss loop.
+          </p>
+        )}
+
+        {/* Self-healing adjustment */}
+        {recovery.adjustmentNeeded && recovery.newExnessWinTarget != null && !recovery.challengePassed && (
           <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-400">
-            Recovery shortfall {money(recovery.recoveryShortfall)} — Exness lots auto-adjusted to hit{" "}
-            {money(recovery.newExnessWinTarget)} per win across {recovery.remainingLosses} remaining prop{" "}
+            ⚡ Recovery shortfall {money(recovery.recoveryShortfall)} — Exness win target auto-adjusted to{" "}
+            {money(recovery.newExnessWinTarget, true)} per trade across {recovery.remainingLosses} remaining prop{" "}
             {recovery.remainingLosses === 1 ? "loss" : "losses"}.
           </p>
         )}
-        {!recovery.adjustmentNeeded && recovery.recoveryShortfall <= 0 && closed.length > 0 && (
+
+        {!recovery.adjustmentNeeded && recovery.recoveryShortfall <= 0 && closed.length > 0 && !recovery.challengePassed && (
           <p className="mt-3 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
             Recovery target met — Exness has earned enough to cover fee + desired profit.
           </p>
