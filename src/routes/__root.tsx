@@ -18,6 +18,7 @@ import { NotificationBell } from "../components/terminal/NotificationBell";
 import { MarketStatus } from "../components/terminal/MarketStatus";
 import { ConnectionIndicator } from "../components/terminal/ConnectionIndicator";
 import { AccountBalance } from "../components/terminal/AccountBalance";
+import { LivePrice } from "../components/terminal/LivePrice";
 import { LogoMark, LogoWordmark, LogoWatermark } from "../components/brand/logo";
 
 const NAV = [
@@ -342,6 +343,8 @@ function RootComponent() {
                     <MarketStatus />
                     <div className="h-3 w-px" style={{ background: "oklch(var(--gz-p) / 0.15)" }} />
                     <ConnectionIndicator />
+                    <div className="h-3 w-px" style={{ background: "oklch(var(--gz-p) / 0.15)" }} />
+                    <LivePrice />
                   </div>
                   <div className="flex items-center gap-4">
                     <AccountBalance />

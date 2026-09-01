@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { useLiveAccounts } from "@/lib/useLiveAccounts";
+import { useStore } from "@/lib/store";
+import { fetchAccountInformation } from "@/lib/metaapi.functions";
 
 type ConnectionState = "connected" | "connecting" | "disconnected" | "error";
 
@@ -6,30 +9,8 @@ type ConnectionTarget = {
   name: string;
   short: string;
   state: ConnectionState;
-  latency?: number;
+  latency: number | undefined;
 };
-
-function useSimulatedConnections(): ConnectionTarget[] {
-  const [targets, setTargets] = useState<ConnectionTarget[]>([
-    { name: "MetaApi Cloud", short: "API", state: "connected", latency: 42 },
-    { name: "MT5 Bridge", short: "MT5", state: "connected", latency: 18 },
-    { name: "Price Feed", short: "FEED", state: "connected", latency: 7 },
-  ]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setTargets((prev) =>
-        prev.map((t) => ({
-          ...t,
-          latency: Math.max(5, (t.latency ?? 20) + Math.floor(Math.random() * 10 - 5)),
-        }))
-      );
-    }, 5000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  return targets;
-}
 
 const STATE_STYLES: Record<
   ConnectionState,
@@ -58,11 +39,61 @@ const STATE_STYLES: Record<
 };
 
 export function ConnectionIndicator() {
-  const targets = useSimulatedConnections();
+  const { meta } = useStore();
+  const live = useLiveAccounts(10_000);
+  const [latency, setLatency] = useState<number | null>(null);
+  const [priceFeedOk, setPriceFeedOk] = useState<boolean>(false);
+
+  const configured = live.configured;
+  const hasExnessData = live.exness.snapshot !== null;
+  const hasExnessError = live.exness.error !== null;
+  const hasPropData = live.prop.snapshot !== null;
+  const hasPropError = live.prop.error !== null;
+
+  // Measure latency by timing a real API call
+  useEffect(() => {
+    if (!configured) return;
+    let cancelled = false;
+    const measure = async () => {
+      const start = Date.now();
+      const res = await fetchAccountInformation({ data: { token: meta.token, accountId: meta.exnessAccountId } });
+      if (cancelled) return;
+      const elapsed = Date.now() - start;
+      if (res.ok) {
+        setLatency(elapsed);
+        setPriceFeedOk(true);
+      } else {
+        setPriceFeedOk(false);
+      }
+    };
+    measure();
+    const id = setInterval(measure, 15_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [configured, meta.token, meta.exnessAccountId]);
+
+  const targets: ConnectionTarget[] = [
+    {
+      name: "MetaApi Cloud",
+      short: "API",
+      state: hasExnessData ? "connected" : hasExnessError ? "error" : configured ? "connecting" : "disconnected",
+      latency: latency ?? undefined,
+    },
+    {
+      name: "MT5 Bridge",
+      short: "MT5",
+      state: hasExnessData ? "connected" : hasExnessError ? "error" : configured ? "connecting" : "disconnected",
+      latency: undefined,
+    },
+    {
+      name: "Price Feed",
+      short: "FEED",
+      state: priceFeedOk ? "connected" : hasExnessError ? "error" : configured ? "connecting" : "disconnected",
+      latency: undefined,
+    },
+  ];
+
   const allConnected = targets.every((t) => t.state === "connected");
-  const avgLatency = Math.round(
-    targets.reduce((sum, t) => sum + (t.latency ?? 0), 0) / targets.length
-  );
+  const avgLatency = latency ?? 0;
 
   return (
     <div className="flex items-center gap-3" title="Connection status">
@@ -99,7 +130,7 @@ export function ConnectionIndicator() {
           className="font-mono text-[9px]"
           style={{ color: "oklch(var(--gz-mut))" }}
         >
-          {avgLatency}ms
+          {avgLatency > 0 ? `${avgLatency}ms` : "—"}
         </span>
         <span
           className="inline-block h-3 w-3 rounded-sm"
