@@ -476,7 +476,7 @@ function EnginePage() {
 
       <Card
         title="Total capital needed"
-        badge={<Badge tone="amber">Worst case 1:3</Badge>}
+        badge={<Badge tone="amber">R:R 1:{r.rr}</Badge>}
       >
         {r.capitalBreakdown.map((b, i) => (
           <Row
