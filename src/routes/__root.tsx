@@ -409,7 +409,7 @@ function RootComponent() {
                       }}
                       title="Open Agent Console in new tab"
                     >
-                      🤖 Agent Console
+                      Open Agent Console
                     </a>
                   </div>
 
