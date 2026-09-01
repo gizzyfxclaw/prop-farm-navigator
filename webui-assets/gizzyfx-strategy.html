@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GizzyFx Strategy — Hedge Engine A-Z</title>
+<link rel="stylesheet" href="static/vendor/gizzyfx-pro.css">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface-2: #161616;
+    --surface-3: #1c1c1c;
+    --text: #e0e0e0;
+    --text-2: #aaaaaa;
+    --muted: #777777;
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --accent-contrast: #0a0a0a;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #06b6d4;
+    --border: #2a2a2a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Header */
+  .page-header {
+    text-align: center;
+    padding: 60px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+  .page-header h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .page-header .subtitle {
+    font-size: 1rem;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .badge-accent { background: rgba(59,130,246,0.15); color: var(--accent); }
+  .badge-success { background: rgba(34,197,94,0.15); color: var(--success); }
+  .badge-warning { background: rgba(245,158,11,0.15); color: var(--warning); }
+  .badge-danger { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+  /* Section */
+  section { margin-bottom: 56px; }
+  h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 24px 0 10px;
+  }
+  p { margin-bottom: 12px; color: var(--text-2); }
+  strong { color: var(--text); font-weight: 600; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .card-info { border-left: 3px solid var(--accent); }
+  .card-success { border-left: 3px solid var(--success); }
+  .card-warning { border-left: 3px solid var(--warning); }
+  .card-danger { border-left: 3px solid var(--danger); }
+
+  /* Grid */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  /* Trinity Trinity */
+  .trinity {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .trinity-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+  .trinity-item .icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+  .trinity-item h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .trinity-item p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 0;
+  }
+  .trinity-item.prop { border-color: rgba(239,68,68,0.3); }
+  .trinity-item.exness { border-color: rgba(34,197,94,0.3); }
+  .trinity-item.recovery { border-color: rgba(59,130,246,0.3); }
+
+  /* Flow */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+  .flow-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .flow-arrow {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--surface-2);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  td { color: var(--text-2); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* Code */
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    background: var(--surface-2);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--accent-hover);
+  }
+  pre {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    margin: 12px 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-2);
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text-2);
+  }
+
+  /* Formula */
+  .formula {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 12px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    overflow-x: auto;
+  }
+
+  /* Steps */
+  .steps { counter-reset: step; }
+  .step {
+    position: relative;
+    padding-left: 40px;
+    margin-bottom: 20px;
+  }
+  .step::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 26px;
+    height: 26px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .step h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .step p {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-bottom: 0;
+  }
+
+  /* TOC */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 24px 0 40px;
+  }
+  .toc h3 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .toc ul { list-style: none; }
+  .toc li {
+    margin-bottom: 6px;
+  }
+  .toc a {
+    color: var(--text-2);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color 0.15s;
+  }
+  .toc a:hover { color: var(--accent); }
+
+  /* Back btn */
+  .back-bar {
+    margin-bottom: 24px;
+  }
+  .back-bar a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: color 0.15s;
+  }
+  .back-bar a:hover { color: var(--accent); }
+
+  @media (max-width: 700px) {
+    .trinity { grid-template-columns: 1fr; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .page-header h1 { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="back-bar">
+    <a href="/">&#8592; Back to Chat</a>
+    <span style="color: var(--border); margin: 0 8px;">|</span>
+    <a href="https://gizzyfxstrategy.dpdns.org">Open Terminal &#8594;</a>
+  </div>
+
+  <header class="page-header">
+    <h1>GizzyFx Hedge Engine</h1>
+    <p class="subtitle">The complete A&#8209;Z of the Inverted Mirror Hedge strategy &mdash; from Trinity to healing.</p>
+  </header>
+
+  <nav class="toc">
+    <h3>Contents</h3>
+    <ul>
+      <li><a href="#trinity">1. The Trinity</a></li>
+      <li><a href="#how-it-works">2. How the Hedge Works</a></li>
+      <li><a href="#math">3. The Math</a></li>
+      <li><a href="#healing">4. The Healing Engine (Targeted Slippage Martingale)</a></li>
+      <li><a href="#phases">5. Phase 1 &amp; Phase 2 (Mega Shield)</a></li>
+      <li><a href="#compliance">6. Daily Profit Cap Compliance</a></li>
+      <li><a href="#execution">7. Execution Rules</a></li>
+      <li><a href="#workflow">8. Trade Workflow</a></li>
+      <li><a href="#sizing">9. Capital Sizing &amp; R:R</a></li>
+      <li><a href="#risk">10. Risk Management</a></li>
+    </ul>
+  </nav>
+
+  <!-- 1. THE TRINITY -->
+  <section id="trinity">
+    <h2>1. The Trinity</h2>
+    <p>The GizzyFx strategy rests on three pillars working in concert. No single pillar works alone &mdash; it is the <em>interaction</em> between all three that makes the system self-funding and self-healing.</p>
+
+    <div class="trinity">
+      <div class="trinity-item prop">
+        <div class="icon">&#9679;</div>
+        <h4>Prop Firm</h4>
+        <p>Your challenge account. Makes the big wins that fund everything.</p>
+      </div>
+      <div class="trinity-item exness">
+        <div class="icon">&#9679;</div>
+        <h4>Exness (Cent)</h4>
+        <p>Your hedge account. Absorbs the Prop wins and heals the losses.</p>
+      </div>
+      <div class="trinity-item recovery">
+        <div class="icon">&#9679;</div>
+        <h4>Recovery Engine</h4>
+        <p>The math that ties both together. Self-healing slippage.</p>
+      </div>
+    </div>
+
+    <div class="card card-info">
+      <strong>Core principle:</strong> You trade the <em>same pair, same time, opposite direction</em> on both accounts. When the Prop wins, Exness loses (a little). When the Prop loses, Exness wins (a little more). The Exness win always exceeds the Prop loss &mdash; by design. That surplus is how you recover.
+    </div>
+  </section>
+
+  <!-- 2. HOW IT WORKS -->
+  <section id="how-it-works">
+    <h2>2. How the Hedge Works</h2>
+
+    <h3>Step&#8209;by&#8209;step</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>Signal triggers</h4>
+        <p>You identify a high-probability setup on your Prop firm charts (e.g. E8Markets $5k challenge).</p>
+      </div>
+      <div class="step">
+        <h4>Place Exness trade FIRST</h4>
+        <p>Before touching the Prop, you place the <em>opposite</em> trade on Exness (Cent account via MetaApi). The lot size is pre-calculated by the engine.</p>
+      </div>
+      <div class="step">
+        <h4>Place Prop trade</h4>
+        <p>Immediately after Exness is confirmed, you place your Prop trade in the opposite direction.</p>
+      </div>
+      <div class="step">
+        <h4>One wins, one loses</h4>
+        <p>Because they&rsquo;re opposite, exactly one account wins. The other loses. The engine ensures the winner <em>always</em> pays for the loser &mdash; plus a little extra.</p>
+      </div>
+      <div class="step">
+        <h4>Buffer absorbs variance</h4>
+        <p>The 20% buffer absorbs the small difference between expected and actual fills (slippage). The Recovery Engine tracks any slippage debt and heals it on the very next trade.</p>
+      </div>
+    </div>
+
+    <h3>The direction logic</h3>
+    <div class="flow">
+      <span class="flow-step">Prop: BUY</span>
+      <span class="flow-arrow">&rarr;</span>
+      <span class="flow-step">Exness: SELL</span>
+      <span class="flow-arrow">=</span>
+      <span class="flow-step">Hedged</span>
+    </div>
+    <p>When Prop BUYS and Exness SELLS the same pair at the same time, a price move up means Prop profits and Exness loses. A move down means Exness profits and Prop loses. Because Exness lot size is engineered to produce a larger dollar result per pip, the Exness side always wins more than the Prop side loses.</p>
+  </section>
+
+  <!-- 3. THE MATH -->
+  <section id="math">
+    <h2>3. The Math</h2>
+
+    <h3>Baseline constants (E8Markets $5k)</h3>
+    <table>
+      <tr><th>Parameter</th><th>Value</th><th>Why</th></tr>
+      <tr><td>Prop Fee</td><td>$28.60</td><td>Cost of the challenge</td></tr>
+      <tr><td>Prop Target</td><td>$300</td><td>Phase 1 profit target</td></tr>
+      <tr><td>Max Drawdown</td><td>$300</td><td>Cannot lose more than this</td></tr>
+      <tr><td>Prop Risk</td><td>$50/trade</td><td>Fixed per-trade risk</td></tr>
+      <tr><td>Prop SL</td><td>30 pips</td><td>Stop loss distance</td></tr>
+      <tr><td>Losses to Blow</td><td>6 trades</td><td>$300 &divide; $50</td></tr>
+      <tr><td>Daily Profit Cap</td><td>$100</td><td>E8Markets rule</td></tr>
+    </table>
+
+    <h3>Exness (Cent Account) constants</h3>
+    <table>
+      <tr><th>Parameter</th><th>Value</th><th>Why</th></tr>
+      <tr><td>Pip Value</td><td>$0.10 / lot</td><td>Cent account standard</td></tr>
+      <tr><td>Exness Win Target</td><td>$4.77</td><td>$28.60 fee &divide; 6 losses</td></tr>
+      <tr><td>Exness TP Pips</td><td>30 pips</td><td>Equals Prop SL</td></tr>
+      <tr><td>Exness Lot Size</td><td>1.59 lots</td><td>$4.77 &divide; 30 pips &divide; $0.10</td></tr>
+    </table>
+
+    <h3>Key formulas</h3>
+    <div class="formula">Exness Win Target = Prop Fee &divide; Losses to Blow = $28.60 &divide; 6 = <strong>$4.77</strong></div>
+    <div class="formula">Exness Lot Size = Win Target &divide; (TP Pips &times; Pip Value) = $4.77 &divide; (30 &times; $0.10) = <strong>1.59 lots</strong></div>
+    <div class="formula">Exness Loss (if Prop wins) = Lot Size &times; Exness SL Pips &times; Pip Value = 1.59 &times; 60 &times; $0.10 = <strong>$9.54</strong></div>
+
+    <div class="card card-success">
+      <strong>Why this works:</strong> The Exness lot size never changes because the Prop SL stays at 30 pips. The Exness Win Target never changes because the Prop Fee is fixed. The only variable the user chooses is the <strong>R:R ratio</strong> &mdash; which changes the Prop TP and Exness SL equally.
+    </div>
+  </section>
+
+  <!-- 4. THE HEALING ENGINE -->
+  <section id="healing">
+    <h2>4. The Healing Engine (Targeted Slippage Martingale)</h2>
+    <p>Slippage is the difference between the expected fill price and the actual fill price. It happens on every trade. The GizzyFx Recovery Engine doesn&rsquo;t try to eliminate slippage &mdash; it <em>isolates the debt and heals it on the very next trade</em>.</p>
+
+    <h3>How healing works</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>Trade 1: The Slippage</h4>
+        <p>Prop wins $100. Exness was <em>expected</em> to lose $9.54 but actually loses $9.90 due to slippage. The <strong>slippage debt</strong> is $9.90 &minus; $9.54 = <strong>$0.36</strong>.</p>
+      </div>
+      <div class="step">
+        <h4>Trade 2: The Martingale Heal</h4>
+        <p>The engine adds the $0.36 debt to the base Exness Win Target: $4.77 + $0.36 = <strong>$5.13</strong>. New lot size: $5.13 &divide; (30 &times; $0.10) = <strong>1.71 lots</strong>.</p>
+      </div>
+      <div class="step">
+        <h4>Trade 2 outcome A: Prop loses</h4>
+        <p>Exness wins $5.13. The $0.36 debt is paid. Engine resets to base lot size (1.59). You&rsquo;re whole.</p>
+      </div>
+      <div class="step">
+        <h4>Trade 2 outcome B: Prop wins</h4>
+        <p>Exness loses $10.26 (1.71 lots &times; 60 pips &times; $0.10). The 20% buffer absorbs the extra loss. Debt grows slightly &mdash; next trade heals it again.</p>
+      </div>
+      <div class="step">
+        <h4>Trade 3: The Reset</h4>
+        <p>If Trade 2 was an Exness win, the debt is $0. The target drops back to $4.77, lot size drops back to 1.59. The engine is clean.</p>
+      </div>
+    </div>
+
+    <div class="card card-warning">
+      <strong>Important:</strong> The Martingale only adjusts lot size &mdash; it never changes direction, never adds positions, and never runs away. It&rsquo;s a single-trade adjustment that resets immediately on the next Exness win.
+    </div>
+  </section>
+
+  <!-- 5. PHASES -->
+  <section id="phases">
+    <h2>5. Phase 1 &amp; Phase 2 (Mega Shield)</h2>
+
+    <div class="grid-2">
+      <div class="card card-success">
+        <h3 style="color: var(--success); margin-top: 0;">Phase 1</h3>
+        <p style="font-size: 13px;"><strong>Goal:</strong> Hit the $300 Prop Target.</p>
+        <p style="font-size: 13px;"><strong>Capital:</strong> Engine calculates Pure Capital + 20% buffer.</p>
+        <p style="font-size: 13px;"><strong>Exness Target:</strong> $4.77 per trade (recover the fee).</p>
+        <p style="font-size: 13px;">At 1:2 R:R, you need only <strong>3 wins</strong> to pass ($300 &divide; $100).</p>
+      </div>
+      <div class="card card-info">
+        <h3 style="color: var(--accent); margin-top: 0;">Phase 2 (Mega Shield)</h3>
+        <p style="font-size: 13px;"><strong>Goal:</strong> Protect Phase 1 investment.</p>
+        <p style="font-size: 13px;"><strong>Trigger:</strong> Auto-detected when $300 Prop Target is met.</p>
+        <p style="font-size: 13px;"><strong>Exness Target:</strong> Recovers <em>everything</em> ($62.94 total).</p>
+        <p style="font-size: 13px;">Lot size escalates to <strong>3.50 lots</strong>. If you blow Phase 2, Exness wins it all back.</p>
+      </div>
+    </div>
+
+    <h3>Phase 2 math</h3>
+    <div class="formula">Total Recovery Target = Phase 1 Spent = <strong>$62.94</strong></div>
+    <div class="formula">Phase 2 Exness Win Target = $62.94 &divide; 6 losses = <strong>$10.49</strong></div>
+    <div class="formula">Phase 2 Exness Lot Size = $10.49 &divide; (30 &times; $0.10) = <strong>3.50 lots</strong></div>
+    <div class="formula">If Phase 2 is blown: Exness wins 6 &times; $10.49 = <strong>$62.94</strong> &mdash; you lost <strong>$0.00</strong></div>
+  </section>
+
+  <!-- 6. COMPLIANCE -->
+  <section id="compliance">
+    <h2>6. Daily Profit Cap Compliance</h2>
+    <p>E8Markets enforces a <strong>$100 daily profit cap</strong>. If your Prop reward exceeds this on any single trade, the engine auto-reduces the risk to stay compliant.</p>
+
+    <h3>Formula</h3>
+    <div class="formula">maxAllowedRisk = dailyProfitCap &divide; rrMultiplier = $100 &divide; rr</div>
+
+    <h3>Examples</h3>
+    <table>
+      <tr><th>R:R</th><th>Raw Prop Risk</th><th>Prop Reward</th><th>Capped Risk</th><th>Capped Reward</th></tr>
+      <tr><td>1:1.5</td><td>$50</td><td>$75</td><td>$50 (no cap)</td><td>$75</td></tr>
+      <tr><td>1:2</td><td>$50</td><td>$100</td><td>$50 (no cap)</td><td>$100</td></tr>
+      <tr><td>1:2.5</td><td>$50</td><td>$125</td><td><strong>$40</strong></td><td><strong>$100</strong></td></tr>
+      <tr><td>1:3</td><td>$50</td><td>$150</td><td><strong>$33.33</strong></td><td><strong>$100</strong></td></tr>
+    </table>
+
+    <div class="card card-warning">
+      <strong>When capping is active:</strong> The UI shows an amber warning banner. All downstream calculations (lot size, buffer, recovery) use the capped value &mdash; not the raw input.
+    </div>
+  </section>
+
+  <!-- 7. EXECUTION RULES -->
+  <section id="execution">
+    <h2>7. Execution Rules</h2>
+
+    <div class="steps">
+      <div class="step">
+        <h4>Exness Trade FIRST</h4>
+        <p>Always place the Exness trade via the MetaApi button, wait for green confirmation, <em>then</em> place the Prop trade manually. This prevents &ldquo;naked Prop&rdquo; exposure if your internet lags.</p>
+      </div>
+      <div class="step">
+        <h4>Trade London/NY overlap</h4>
+        <p>Best liquidity is 13:00&ndash;16:00 EST. Spreads are tightest, slippage is minimal.</p>
+      </div>
+      <div class="step">
+        <h4>Vary entry times</h4>
+        <p>Don&rsquo;t enter at the same minute every day. Use times like 08:13, 10:42, 14:05 to avoid prop firm AI detection.</p>
+      </div>
+      <div class="step">
+        <h4>Vary SL pips</h4>
+        <p>Rotate between 28, 35, and 22 pips. Consistent SL patterns trigger compliance reviews.</p>
+      </div>
+      <div class="step">
+        <h4>No pending orders &plusmn;30min of red-folder news</h4>
+        <p>Check ForexFactory. High-volatility news can cause massive slippage that breaks the healing model.</p>
+      </div>
+      <div class="step">
+        <h4>Verify MetaApi is live</h4>
+        <p>Before trading, confirm the Live MT5 badge shows green (LIVE), not amber (CONNECTING) or blue (SETUP).</p>
+      </div>
+      <div class="step">
+        <h4>Hard refresh after deployment</h4>
+        <p>Press <code>Ctrl+Shift+R</code> (or <code>Cmd+Shift+R</code>) to load the latest JS bundle.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. WORKFLOW -->
+  <section id="workflow">
+    <h2>8. Trade Workflow</h2>
+
+    <div class="flow" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+      <span class="flow-step">1. Open GizzyFx Terminal</span>
+      <span class="flow-arrow">&#8595;</span>
+      <span class="flow-step">2. Check Live MT5 = LIVE</span>
+      <span class="flow-arrow">&#8595;</span>
+      <span class="flow-step">3. Check ForexFactory (no red news &plusmn;30min)</span>
+      <span class="flow-arrow">&#8595;</span>
+      <span class="flow-step">4. Identify setup on Prop charts</span>
+      <span class="flow-arrow">&#8595;</span>
+      <span class="flow-step">5. Enter R:R ratio in Engine</span>
+      <span class="flow-arrow">&#8595;</span>
+      <span class="flow-step">6. Engine calculates all values</span>
+      <span class="flow-arrow">&#8595;</span>
+      <span class="flow-step">7. Click &ldquo;Exness Trade&rdquo; button (MetaApi)</span>
+      <span class="flow-arrow">&#8595;</span>
+      <span class="flow-step">8. Wait for green confirmation</span>
+      <span class="flow-arrow">&#8595;</span>
+      <span class="flow-step">9. Place Prop trade manually</span>
+      <span class="flow-arrow">&#8595;</span>
+      <span class="flow-step">10. Monitor. Healing engine handles the rest.</span>
+    </div>
+  </section>
+
+  <!-- 9. SIZING -->
+  <section id="sizing">
+    <h2>9. Capital Sizing &amp; R:R</h2>
+
+    <h3>Total Capital Needed (across all R:R ratios)</h3>
+    <table>
+      <tr><th>R:R</th><th>Prop TP</th><th>Prop TP (pips)</th><th>Pure Capital</th><th>Total (+20% buffer + fee)</th></tr>
+      <tr><td>1:1.5</td><td>$75</td><td>45</td><td>$28.64</td><td><strong>$62.97</strong></td></tr>
+      <tr><td>1:2</td><td>$100</td><td>60</td><td>$28.62</td><td><strong>$62.94</strong></td></tr>
+      <tr><td>1:2.5</td><td>$125</td><td>75</td><td>$35.79</td><td><strong>$71.55</strong></td></tr>
+      <tr><td>1:3</td><td>$150</td><td>90</td><td>$28.62</td><td><strong>$62.94</strong></td></tr>
+    </table>
+
+    <h3>Wins to pass Phase 1</h3>
+    <table>
+      <tr><th>R:R</th><th>Reward per Win</th><th>Wins to Hit $300</th></tr>
+      <tr><td>1:1.5</td><td>$75</td><td>4 wins</td></tr>
+      <tr><td>1:2</td><td>$100</td><td>3 wins</td></tr>
+      <tr><td>1:2.5</td><td>$125</td><td>3 wins</td></tr>
+      <tr><td>1:3</td><td>$150</td><td>2 wins</td></tr>
+    </table>
+
+    <div class="card card-info">
+      <strong>Why 1:2.5 costs more:</strong> At 1:2.5 you need 3 wins to pass ($375), which requires slightly more buffer than 1:3 (which only needs 2 wins for $300). The engine sizes capital for the <em>selected</em> R:R &mdash; not a worst-case constant.
+    </div>
+  </section>
+
+  <!-- 10. RISK -->
+  <section id="risk">
+    <h2>10. Risk Management</h2>
+
+    <div class="grid-2">
+      <div class="card card-success">
+        <h3 style="color: var(--success); margin-top: 0;">What protects you</h3>
+        <ul style="font-size: 13px; color: var(--text-2); padding-left: 18px;">
+          <li>20% buffer absorbs slippage</li>
+          <li>Healing engine resets every Exness win</li>
+          <li>Daily cap prevents compliance breach</li>
+          <li>Phase 2 Mega Shield recovers everything</li>
+          <li>No open drawdown &mdash; only closed trades</li>
+        </ul>
+      </div>
+      <div class="card card-danger">
+        <h3 style="color: var(--danger); margin-top: 0;">What can break it</h3>
+        <ul style="font-size: 13px; color: var(--text-2); padding-left: 18px;">
+          <li>Ignoring Exness-first rule</li>
+          <li>Trading into red-folder news</li>
+          <li>Using same SL/entry every day</li>
+          <li>MetaApi disconnection mid-trade</li>
+          <li>Manual lot size override</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card card-warning" style="margin-top: 24px;">
+      <strong>Bottom line:</strong> The GizzyFx engine is mathematically sound. But math doesn&rsquo;t execute trades &mdash; you do. The rules exist because the model assumes you follow them. Break the rules and the math breaks with them.
+    </div>
+  </section>
+
+</div>
+
+</body>
+</html>

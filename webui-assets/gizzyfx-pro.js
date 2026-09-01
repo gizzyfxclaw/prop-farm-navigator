@@ -296,8 +296,15 @@
     agent.textContent = "Trading Agent";
     agent.title = "Open the Trading Agent chart page";
 
+    var strategy = document.createElement("a");
+    strategy.href = "/static/gizzyfx-strategy.html";
+    strategy.className = "gizzyfx-nav-link";
+    strategy.textContent = "Strategy";
+    strategy.title = "GizzyFx Strategy A-Z";
+
     bar.appendChild(engine);
     bar.appendChild(agent);
+    bar.appendChild(strategy);
     document.body.appendChild(bar);
   }
 
