@@ -82,7 +82,11 @@ describe("recovery money summary", () => {
     ];
     const rec = computeRecovery(r, journal);
 
-    expect(rec.challengePassed).toBe(true);
+    // Net prop equity = -50 + 300 = +250 (only 1 loss absorbed, 3 wins made).
+    // Target = $300, so 50/100 = 1 more win is still needed.
+    expect(rec.remainingWins).toBe(1);
+    expect(rec.challengePassed).toBe(false);
+
     const netEx = win - exLoss * 3; // 4.7667 - 28.6
     expect(rec.actualExnessPnl).toBeCloseTo(netEx, 6);
     expect(rec.exnessFuelExhausted).toBeCloseTo(-netEx, 6);
@@ -144,12 +148,35 @@ describe("recovery money summary", () => {
     // $0.74 is fully recovered, no more, no less.
     expect(-7.89 + 6 * healed).toBeCloseTo(28.6, 6);
 
-    // After the next prop loss earns the healed target, the pace RE-LOCKS:
-    // it does not keep climbing, and it does not revert below the healed pace
-    // (reverting would leave the 0.74 unrecovered).
+    // After the next prop-LOSS leg earns the healed target, the martingale
+    // balance-back begins: the give-back loss consumed NO blow-leg (net
+    // equity +75 − 50 = +25, still above starting equity → still 6 legs),
+    // so the pace DECAYS from 6.08 toward base as the slip is earned off.
     const j2 = [...journal, trade("2", "LOSS", -50, healed)];
     const rec2 = computeRecovery(r, j2);
-    expect(rec2.remainingLosses).toBe(5);
-    expect(rec2.newExnessWinTarget).toBeCloseTo(healed, 6);
+    expect(rec2.remainingLosses).toBe(6);                 // no leg consumed
+    expect(rec2.recoveryShortfall).toBeCloseTo(36.49 - healed, 4);
+    expect(rec2.newExnessWinTarget).toBeCloseTo((36.49 - healed) / 6, 4); // 5.068
+    expect(rec2.newExnessWinTarget!).toBeLessThan(healed);                // balancing back
+    expect(rec2.newExnessWinTarget!).toBeGreaterThan(r.exnessWinTarget);  // slip not yet fully off
+
+    // Trade 3: another loss leg — net equity is now −25 (below start), so the
+    // first real leg is consumed (5 left). The pace is now near base (slip
+    // mostly earned off): shortfall ≈ 25.34, /5 ≈ 5.068.
+    const j3 = [...j2, trade("3", "LOSS", -50, (36.49 - healed) / 6)];
+    const rec3 = computeRecovery(r, j3);
+    expect(rec3.remainingLosses).toBe(5);
+    expect(rec3.newExnessWinTarget).toBeCloseTo(5.0681, 3);
+    expect(rec3.newExnessWinTarget!).toBeLessThan(healed);                // well below T1's healed pace
+    expect(rec3.newExnessWinTarget!).toBeGreaterThan(r.exnessWinTarget);  // slip not yet fully off
+
+    // Full balance-back: once the legs have earned the entire recovery
+    // (shortfall 0), the target returns to EXACTLY the base pace 4.77 and
+    // the override disengages — never below base, never stuck high.
+    const closing = Array.from({ length: 6 }, (_, i) => trade(`c${i}`, "LOSS", -50, healed));
+    const recDone = computeRecovery(r, [...journal, ...closing]);
+    expect(recDone.recoveryShortfall).toBe(0);
+    expect(recDone.newExnessWinTarget).toBeCloseTo(r.exnessWinTarget, 6); // 4.7667
+    expect(recDone.adjustmentNeeded).toBe(false);
   });
 });

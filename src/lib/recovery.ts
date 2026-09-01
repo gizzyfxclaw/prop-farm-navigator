@@ -7,23 +7,25 @@ export interface RecoveryState {
   loggedWins: number;
   loggedLosses: number;
 
-  // ── dynamic remaining counts (based on ACTUAL P&L logged) ───────────────────
+  // ── dynamic remaining counts (based on NET equity from start) ───────────
   /**
-   * How many more prop WINS are still needed to hit the challenge target,
-   * computed from actual propPnl recorded — not static trade counts.
+   * How many more prop WINS are still needed to reach the challenge target,
+   * measured from NET prop equity (profits − losses) — a loss that gives
+   * back prior profit must be re-earned before the target counts as reached.
    */
   remainingWins: number;
   /**
-   * How many more prop LOSSES the account can still absorb before hitting
-   * max drawdown, computed from actual propPnl recorded.
+   * How many full prop-risk losses the account can still absorb before the
+   * static drawdown floor, measured from STARTING equity — a loss that only
+   * gives back prior profit does NOT consume a leg.
    */
   remainingLosses: number;
 
   // ── prop progress ────────────────────────────────────────────────────────────
   totalPropProfitLogged: number;   // sum of positive propPnl entries
   totalPropLossLogged: number;     // sum of absolute negative propPnl entries
-  remainingPropTarget: number;     // targetUsd - totalPropProfitLogged
-  remainingDrawdown: number;       // maxDdUsd  - totalPropLossLogged
+  remainingPropTarget: number;     // targetUsd − NET equity
+  remainingDrawdown: number;       // maxDdUsd − drawdown from starting equity
 
   // ── Exness P&L tracking ─────────────────────────────────────────────────────
   actualExnessPnl: number;         // net Exness PnL so far (wins - losses)
@@ -79,11 +81,23 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     .filter((t) => t.propPnl < 0)
     .reduce((s, t) => s + Math.abs(t.propPnl), 0);
 
-  // How much prop profit still needed to pass the challenge
-  const remainingPropTarget = Math.max(0, r.targetUsd - totalPropProfitLogged);
+  // ── NET PROP EQUITY — the only basis a prop firm actually uses ──────────
+  // Both the challenge target and the static drawdown floor are measured
+  // against NET equity from the starting balance, never gross wins/losses:
+  // a loss that only gives back prior profit neither consumes a blow-leg
+  // nor counts as progress toward the target.
+  const currentEquity = totalPropProfitLogged - totalPropLossLogged;
 
-  // How much drawdown budget remains
-  const remainingDrawdown = Math.max(0, r.maxDdUsd - totalPropLossLogged);
+  // Profit still needed to pass: target − net equity. A give-back loss
+  // must be re-earned before the target counts as reached.
+  const remainingPropTarget = Math.max(0, r.targetUsd - currentEquity);
+
+  // ── DRAWDOWN LEGS FROM STARTING EQUITY ──────────────────────────────────
+  // "Legs remaining" = how many full prop-risk losses from STARTING equity
+  // the account can still take. A prop loss that only wipes prior wins does
+  // NOT consume a drawdown leg — the prop is still at or above starting equity.
+  const drawdownFromStart = Math.max(0, -currentEquity);
+  const remainingDrawdown = Math.max(0, r.maxDdUsd - drawdownFromStart);
 
   // Prop win per trade (locked — never auto-changed)
   const propWinPerTrade = r.propWinPerTrade;   // propRiskUsd * rr
@@ -129,9 +143,17 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
   // How much Exness still needs to net-earn
   const recoveryShortfall = Math.max(0, totalTargetRecovery - actualExnessPnl);
 
-  // Self-healing: spread remaining shortfall across remaining prop losses
-  const newExnessWinTarget = remainingLosses > 0
+  // Self-healing: spread remaining shortfall across remaining prop-loss legs,
+  // FLOORED at the engine's base pace — martingale balance-back. The target
+  // rises to amortize a slip, then decays as the legs earn it back, and once
+  // the recovery is complete it balances back to base (4.77-style): any
+  // earnings past totalRecovery are simply profit, never a reason to shrink
+  // the lot below the normal pace.
+  const rawHealedTarget = remainingLosses > 0
     ? recoveryShortfall / remainingLosses
+    : null;
+  const newExnessWinTarget = rawHealedTarget != null
+    ? Math.max(r.exnessWinTarget, rawHealedTarget)
     : null;
 
   const newExnessLossTarget = newExnessWinTarget != null
