@@ -71,6 +71,8 @@ export interface EngineSettings {
   direction: Direction;
   entryPrice: number;
   exnessAccountType: ExnessAccountType;
+  /** Actual Exness account balance (user-entered or synced from MetaApi) */
+  actualExnessBalance: number;
   carryPhase1TotalSpent: number | null;
   carryPhase1Leftover: number | null;
 }
@@ -149,6 +151,7 @@ const defaultEngine = (accountId: string): EngineSettings => ({
   direction: "LONG",
   entryPrice: 1.085,
   exnessAccountType: "Cent",
+  actualExnessBalance: 100,
   carryPhase1TotalSpent: null,
   carryPhase1Leftover: null,
 });

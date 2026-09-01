@@ -21,6 +21,7 @@ export function useEngine(): EngineResult {
       direction: engine.direction,
       entryPrice: engine.entryPrice,
       exnessAccountType: engine.exnessAccountType,
+      actualExnessBalance: engine.actualExnessBalance,
       carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
       carryPhase1Leftover: engine.carryPhase1Leftover,
     });
@@ -41,6 +42,7 @@ export function useEngine(): EngineResult {
       direction: engine.direction,
       entryPrice: engine.entryPrice,
       exnessAccountType: engine.exnessAccountType,
+      actualExnessBalance: engine.actualExnessBalance,
       carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
       carryPhase1Leftover: engine.carryPhase1Leftover,
       exnessWinTargetOverride: recovery.newExnessWinTarget,
@@ -66,6 +68,7 @@ export function useEngineWithRecovery(): { result: EngineResult; recovery: Recov
       direction: engine.direction,
       entryPrice: engine.entryPrice,
       exnessAccountType: engine.exnessAccountType,
+      actualExnessBalance: engine.actualExnessBalance,
       carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
       carryPhase1Leftover: engine.carryPhase1Leftover,
     });

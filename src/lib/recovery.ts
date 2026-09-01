@@ -182,7 +182,7 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     .filter((t) => t.exPnl < 0)
     .reduce((s, t) => s + Math.abs(t.exPnl), 0);
   const actualExnessPnl     = totalExnessWins - totalExnessLosses;
-  const actualExnessBalance = r.requiredExnessCapital + actualExnessPnl;
+  const actualExnessBalance = r.actualExnessBalance;
 
   // ── PART 4: Targeted Slippage Martingale accumulator ────────────────────
   //

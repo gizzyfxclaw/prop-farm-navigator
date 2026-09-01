@@ -320,6 +320,14 @@ function EnginePage() {
               <option value="Standard">Standard</option>
             </Select>
           </Field>
+          <Field label="Actual Exness balance ($)" hint="Your live Exness account balance (overrides calculated)">
+            <TextInput
+              type="number"
+              step="0.01"
+              value={engine.actualExnessBalance}
+              onChange={(e) => setEngine({ actualExnessBalance: Number(e.target.value) })}
+            />
+          </Field>
           <Field
             label="Entry price"
             hint={

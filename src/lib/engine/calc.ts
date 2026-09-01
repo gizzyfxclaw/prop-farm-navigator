@@ -43,6 +43,8 @@ export interface EngineInputs {
   direction: Direction;
   entryPrice: number;
   exnessAccountType: ExnessAccountType;
+  /** Actual Exness account balance (user-entered, overrides calculated) */
+  actualExnessBalance?: number | null;
   /** Phase 2 carry-over overrides. When omitted the Phase 1 chain supplies them. */
   carryPhase1TotalSpent?: number | null;
   carryPhase1Leftover?: number | null;
@@ -108,6 +110,8 @@ export interface EngineResult {
   exnessLossTarget: number;
   requiredExnessCapital: number;
   totalRequiredCapital: number;
+  /** Actual Exness balance (user-entered, used for buffer depletion checks) */
+  actualExnessBalance: number;
   /** User-selected safety buffer (e.g. 20). Exposed so the recovery layer can
    *  recompute the buffered Exness capital when the martingale bumps the
    *  win target up. */
@@ -330,6 +334,7 @@ export function calculate(input: EngineInputs): EngineResult {
     exnessLossTarget: activeExnessLossTarget,
     requiredExnessCapital: activeRequiredCapital,
     totalRequiredCapital: effectiveTotalRequired,
+    actualExnessBalance: input.actualExnessBalance ?? active.bufferedExnessCapital,
     bufferPct,
     capitalBreakdown: overrideActive
       ? (input.phase === 1
