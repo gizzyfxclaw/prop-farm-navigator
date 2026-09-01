@@ -194,7 +194,7 @@ function EnginePage() {
           <span className="cockpit-title">Execution Engine</span>
           <Badge tone={engine.phase === 1 ? "blue" : "amber"}>Phase {engine.phase}</Badge>
           <Badge tone={market.open ? "green" : "amber"}>{market.open ? "LIVE" : "CLOSED"}</Badge>
-          {r.riskCapped && <Badge tone="warning">CAP</Badge>}
+          {r.riskCapped && <Badge tone="amber">CAP</Badge>}
         </div>
         <div className="cockpit-header-right">
           <span className="cockpit-pair">{symbol}</span>
@@ -203,7 +203,7 @@ function EnginePage() {
       </div>
 
       {/* ── LIVE MT5 FEED ───────────────────────────────────────── */}
-      <Card title="Live MT5 feed" badge={<Badge tone={live ? "green" : "blue"}>{live ? "MT5" : "API"}</Badge>}>
+      <Card title="Live MT5 feed" badge={<Badge tone={livePrice.configured ? (live ? "green" : "amber") : "blue"}>{livePrice.configured ? (live ? "LIVE" : "CONNECTING") : "SETUP"}</Badge>}>
         <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <Field label="Symbol">
             <Select value={engine.pair} onChange={(e) => setEngine({ pair: e.target.value as PairSymbol })}>

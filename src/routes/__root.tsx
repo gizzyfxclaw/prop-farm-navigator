@@ -396,6 +396,21 @@ function RootComponent() {
                         </Link>
                       ))}
                     </nav>
+                    {/* Open Agent Console button */}
+                    <a
+                      href="https://hermes.gizzyfxstrategy.dpdns.org"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="press relative whitespace-nowrap rounded px-2.5 py-1.5 text-[11px] font-medium tracking-wide transition-all duration-150"
+                      style={{
+                        color: "oklch(var(--gz-p))",
+                        background: "oklch(var(--gz-p) / 0.10)",
+                        boxShadow: "0 0 12px oklch(var(--gz-p) / 0.15)",
+                      }}
+                      title="Open Agent Console in new tab"
+                    >
+                      🤖 Agent Console
+                    </a>
                   </div>
 
                   {/* Right controls */}
