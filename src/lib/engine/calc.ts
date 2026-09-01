@@ -3,11 +3,13 @@ import { livePipValue, pairSpec, roundPrice, type PairSymbol } from "./pairs";
 /**
  * GizzyFx mathematical engine.
  *
- * Every capital-requirement number uses the WORST-CASE R:R multiplier of 2,
- * so rotating between 1:1.5 and 1:2 can never blow the Exness fuel account.
+ * Every capital-requirement number uses the WORST-CASE R:R multiplier of 3,
+ * so rotating between 1:1.5 / 1:2 / 1:2.5 / 1:3 can never blow the Exness fuel
+ * account. The selector in the UI clamps at 1:3; if you push past that, the
+ * engine still uses 3 so you can never under-fuel by accident.
  * Live trade sizing (lots, SL/TP prices) uses the R:R actually selected.
  */
-export const WORST_CASE_RR = 2;
+export const WORST_CASE_RR = 3;
 
 export type DrawdownType = "Static" | "Trailing";
 export type Direction = "LONG" | "SHORT";
@@ -180,14 +182,14 @@ export function calculate(input: EngineInputs): EngineResult {
     input.phase === 1
       ? [
           { label: "Prop challenge fee", value: fee },
-          { label: "Exness fuel (worst case 1:2)", value: phase1.pureExnessCapital },
+          { label: "Exness fuel (worst case 1:3)", value: phase1.pureExnessCapital },
           { label: `Safety buffer (${bufferPct}%)`, value: phase1.bufferedExnessCapital - phase1.pureExnessCapital },
           { label: "Total capital needed", value: totalRequiredCapital },
         ]
       : [
           { label: "Phase 1 total already spent", value: phase1TotalSpent },
           { label: "Phase 1 leftover Exness balance", value: -phase1Leftover },
-          { label: "Phase 2 Exness fuel (worst case 1:2)", value: phase2.pureExnessCapital },
+          { label: "Phase 2 Exness fuel (worst case 1:3)", value: phase2.pureExnessCapital },
           { label: `Safety buffer (${bufferPct}%)`, value: phase2.bufferedExnessCapital - phase2.pureExnessCapital },
           { label: "Total capital needed", value: totalRequiredCapital },
         ];
@@ -308,14 +310,14 @@ export function calculate(input: EngineInputs): EngineResult {
       ? (input.phase === 1
           ? [
               { label: "Prop challenge fee", value: fee },
-              { label: "Exness fuel — adjusted (worst case 1:2)", value: effectivePureCapital },
+              { label: "Exness fuel — adjusted (worst case 1:3)", value: effectivePureCapital },
               { label: `Safety buffer (${bufferPct}%)`, value: effectiveBufferedCapital - effectivePureCapital },
               { label: "Total capital needed (adjusted)", value: effectiveTotalRequired },
             ]
           : [
               { label: "Phase 1 total already spent", value: phase1TotalSpent },
               { label: "Phase 1 leftover Exness balance", value: -phase1Leftover },
-              { label: "Phase 2 Exness fuel — adjusted (worst case 1:2)", value: effectivePureCapital },
+              { label: "Phase 2 Exness fuel — adjusted (worst case 1:3)", value: effectivePureCapital },
               { label: `Safety buffer (${bufferPct}%)`, value: effectiveBufferedCapital - effectivePureCapital },
               { label: "Total capital needed (adjusted)", value: effectiveTotalRequired },
             ])

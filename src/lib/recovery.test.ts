@@ -161,17 +161,51 @@ describe("Targeted Slippage Martingale (TSM)", () => {
     expect(rec.dynamicExnessCapital).toBeGreaterThan(r.requiredExnessCapital);
   });
 
+  it("Recovery dynamic capital MATCHES engine override re-run (consistency invariant)", () => {
+    // Critical: when useEngine re-runs with exnessWinTargetOverride, the engine
+    // itself recomputes the buffered capital. The recovery layer's dynamic
+    // figure must match it to the cent — otherwise the Engine page would show
+    // two different "Total Capital Needed" numbers and the user would lose trust.
+    const r = calculate({ ...base, rr: 1.5, bufferPct: 20 });
+    const burned = (28.6 / 6) * 1.5 + 0.74; // $0.74 debt
+    const journal = [trade("1", "WIN", r.propWinPerTrade, -burned, 1.5)];
+    const rec = computeRecovery(r, journal);
+
+    // Engine re-run with override
+    const bumped = calculate({ ...base, rr: 1.5, bufferPct: 20, exnessWinTargetOverride: rec.newExnessWinTarget });
+    // Sanity: the engine's own re-run produces the same buffered capital as the
+    // recovery's dynamicExnessCapital (it should — both use the same formula).
+    expect(rec.dynamicExnessCapital).toBeCloseTo(bumped.requiredExnessCapital, 4);
+    expect(bumped.totalRequiredCapital).toBeGreaterThan(r.totalRequiredCapital);
+  });
+
+  it("Lot size scales with martingale bump: engine re-run produces larger Exness lots", () => {
+    const r = calculate({ ...base, rr: 1.5 });
+    const burned = (28.6 / 6) * 1.5 + 0.74;
+    const journal = [trade("1", "WIN", r.propWinPerTrade, -burned, 1.5)];
+    const rec = computeRecovery(r, journal);
+
+    const bumped = calculate({ ...base, rr: 1.5, exnessWinTargetOverride: rec.newExnessWinTarget });
+    // Lot scaling = (baseWin + debt) / baseWin = nextWinTarget / baseWin.
+    const expectedScale = rec.newExnessWinTarget / r.exnessWinTarget;
+    expect(bumped.exnessLots / r.exnessLots).toBeCloseTo(expectedScale, 4);
+    expect(bumped.exnessLots).toBeGreaterThan(r.exnessLots);
+    // Prop lot is unaffected — the TSM bumps only the Exness side.
+    expect(bumped.propLots).toBeCloseTo(r.propLots, 6);
+  });
+
   it("Phase 2: target = (phase1TotalSpent + desiredProfit) / lossesToBlow — engine layer, not recovery", () => {
     const r = calculate({ ...base, phase: 2 });
-    // Engine layer: phase1TotalSpent = 28.6 + 28.6*1.2 = 62.92 → base 62.92/6 = 10.4867.
+    // Engine layer: with WORST_CASE_RR=3, phase1TotalSpent = 28.6 + (4.7667×3×3×1.20) = 80.08.
+    // P2 base = 80.08/6 = 13.3467.
     // Recovery just consumes the engine's active phase base; no debt to apply on an
     // empty journal.
-    expect(r.exnessWinTarget).toBeCloseTo(62.92 / 6, 4);
+    expect(r.exnessWinTarget).toBeCloseTo(80.08 / 6, 4);
     const journal: JournalTrade[] = [];
     const rec = computeRecovery(r, journal);
     expect(rec.phase).toBe(2);
     expect(rec.slippageDebt).toBe(0);
-    expect(rec.newExnessWinTarget).toBeCloseTo(62.92 / 6, 4);
+    expect(rec.newExnessWinTarget).toBeCloseTo(80.08 / 6, 4);
   });
 
   it("Recovery closes: after 3 clean prop wins at 1:2 R:R, no debt, fuel exhausted = pure capital", () => {

@@ -270,10 +270,12 @@ function EnginePage() {
               onChange={(e) => setEngine({ propRiskUsd: Number(e.target.value) })}
             />
           </Field>
-          <Field label="R:R rotation (never 1:1)">
+          <Field label="R:R rotation (1:1.5 – 1:3, never 1:1)">
             <Select value={engine.rr} onChange={(e) => setEngine({ rr: Number(e.target.value) })}>
               <option value={1.5}>1 : 1.5</option>
               <option value={2}>1 : 2</option>
+              <option value={2.5}>1 : 2.5</option>
+              <option value={3}>1 : 3</option>
             </Select>
           </Field>
           <Field label="Prop stop loss (pips)">
@@ -474,7 +476,7 @@ function EnginePage() {
 
       <Card
         title="Total capital needed"
-        badge={<Badge tone="amber">Worst case 1:2</Badge>}
+        badge={<Badge tone="amber">Worst case 1:3</Badge>}
       >
         {r.capitalBreakdown.map((b, i) => (
           <Row
@@ -535,8 +537,8 @@ function EnginePage() {
         </div>
 
         <p className="mt-3 text-[10.5px] text-muted-foreground">
-          Capital always assumes the worst-case 1:2 rotation, so switching to 1:1.5 can never blow the fuel
-          account. Buffer applied: {engine.bufferPct}%.
+          Capital always assumes the worst-case 1:3 rotation, so switching to 1:2.5, 1:2 or
+          1:1.5 can never blow the fuel account. Buffer applied: {engine.bufferPct}%.
         </p>
       </Card>
 
