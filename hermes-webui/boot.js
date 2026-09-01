@@ -684,7 +684,7 @@ function _micToastKeyForRecognitionError(error){
   // Persist SR failure across reloads (e.g. Tailscale/network error)
   const _micForceMediaRecorderKey='mic_force_mediarecorder';
   const _micForceMediaRecorderStored=localStorage.getItem(_micForceMediaRecorderKey);
-  // Prefer GizzyFx Co-pilot server-side STT (MediaRecorder -> /api/transcribe) only
+  // Prefer Hermes server-side STT (MediaRecorder -> /api/transcribe) only
   // after the server confirms an STT provider is available. No stored key must
   // keep browser SpeechRecognition as the first-click default until then; that
   // avoids dropping the first dictation on installs without server STT.
@@ -2294,7 +2294,7 @@ $('modelSelect').onchange=async()=>{
   // re-reverts a cross-family pick (the #3737 bug, Codex catch). send() clears it
   // after reading a matching pending pick. (#3739/#3737)
   _applySessionContextMetadataUpdate(data);
-  // Warn if selected model belongs to a different provider than what GizzyFx Co-pilot is configured for
+  // Warn if selected model belongs to a different provider than what Hermes is configured for
   if(typeof _checkProviderMismatch==='function'){
     const warn=_checkProviderMismatch(selectedModel);
     if(warn&&typeof showToast==='function') showToast(warn,4000);
@@ -3353,7 +3353,7 @@ window._mirrorSpeechSettingsFromServer=_mirrorSpeechSettingsFromServer;
     _applyComposerControlOrder(window._composerControlOrder);
     window._showTitlebarProfile=!!s.show_titlebar_profile;
     _applyTitlebarProfileVisibility();
-    window._botName=s.bot_name||'GizzyFx Co-pilot';
+    window._botName=s.bot_name||'Hermes';
     if(s.default_model_provider) window._activeProvider=s.default_model_provider;
     if(s.default_model){
       window._defaultModel=s.default_model;
@@ -3496,7 +3496,7 @@ window._mirrorSpeechSettingsFromServer=_mirrorSpeechSettingsFromServer;
     window._composerControlVisibility=_composerControlVisibilityFromSettings(null);
     window._composerControlOrder=[];
     _applyComposerControlOrder(window._composerControlOrder);
-    window._botName='GizzyFx Co-pilot';
+    window._botName='Hermes';
     _bootSettings={check_for_updates:false};
     if(typeof setLocale==='function'){
       const _lang=typeof resolvePreferredLocale==='function'
@@ -3921,8 +3921,8 @@ window.addEventListener('pageshow', async (event) => {
 
 async function shutdownServer() {
   const ok = await showConfirmDialog({
-    title: (typeof t === 'function' ? t('settings_shutdown_confirm_title') : 'Stop GizzyFx Co-pilot WebUI'),
-    message: (typeof t === 'function' ? t('settings_shutdown_confirm_message') : 'Stop the GizzyFx Co-pilot WebUI server?'),
+    title: (typeof t === 'function' ? t('settings_shutdown_confirm_title') : 'Stop Hermes WebUI'),
+    message: (typeof t === 'function' ? t('settings_shutdown_confirm_message') : 'Stop the Hermes WebUI server?'),
     confirmLabel: (typeof t === 'function' ? t('settings_shutdown_confirm_btn') : 'Stop'),
     danger: true,
   });

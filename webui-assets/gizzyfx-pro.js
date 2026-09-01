@@ -17,12 +17,17 @@
   var ENGINE_URL = "https://gizzyfxstrategy.dpdns.org";
   var AGENT_URL  = ENGINE_URL + "/hermes";
 
-  /* ── 1. Force GizzyFx Pro as the default skin ───────────────────── */
+  /* ── 1. Force GizzyFx Pro as the default skin (always) ─────────── */
   function forceDefaultSkin() {
     try {
       var current = localStorage.getItem("hermes-skin");
-      if (!current || current === "default") {
+      // Force to gizzyfx-pro if it's default, unset, or empty
+      if (!current || current === "default" || current === "") {
         localStorage.setItem("hermes-skin", "gizzyfx-pro");
+        document.documentElement.dataset.skin = "gizzyfx-pro";
+      }
+      // Also override data-skin attribute to always be gizzyfx-pro if no override chosen
+      if (document.documentElement.dataset.skin === "default" || document.documentElement.dataset.skin === "") {
         document.documentElement.dataset.skin = "gizzyfx-pro";
       }
     } catch (e) {
@@ -294,6 +299,64 @@
     bar.appendChild(engine);
     bar.appendChild(agent);
     document.body.appendChild(bar);
+  }
+
+  /* ── 4. Override i18n text + empty state with GizzyFx trading prompts ── */
+  function patchEmptyState() {
+    // Patch suggestion buttons text and data-msg
+    var suggestions = [
+      {
+        selector: '[data-i18n="suggest_files"]',
+        text: 'Analyze EURUSD for a trade setup',
+        msg:  'Analyze EURUSD for a trade setup using the GizzyFx Inverted Mirror Hedge strategy.'
+      },
+      {
+        selector: '[data-i18n="suggest_schedule"]',
+        text: 'Check live trading status',
+        msg:  'What is my current GizzyFx terminal live trading status and MetaApi connection?'
+      },
+      {
+        selector: '[data-i18n="suggest_plan"]',
+        text: 'Show Phase 1 recovery plan',
+        msg:  'Show me the Phase 1 recovery plan and calculate my Exness lot size for today\'s trade.'
+      }
+    ];
+
+    suggestions.forEach(function(s) {
+      var el = document.querySelector(s.selector);
+      if (!el) return;
+      el.textContent = s.text;
+      // Update the parent button's data-msg
+      var btn = el.closest('button[data-msg]') || el.parentElement;
+      if (btn && btn.hasAttribute('data-msg')) {
+        btn.setAttribute('data-msg', s.msg);
+      }
+    });
+
+    // Patch the title and subtitle
+    var title = document.querySelector('[data-i18n="empty_title"]');
+    if (title) title.textContent = 'What would you like to do for GizzyFx?';
+    var sub = document.querySelector('[data-i18n="empty_subtitle"]');
+    if (sub) sub.textContent = 'Analyze markets, check live trading status, or manage your GizzyFx terminal.';
+  }
+
+  function runPatchEmptyState() {
+    patchEmptyState();
+    // Re-apply on DOM mutations (i18n system may run later)
+    var mo = new MutationObserver(function(muts) {
+      muts.forEach(function(m) {
+        if (m.type === 'childList' || m.type === 'characterData') {
+          patchEmptyState();
+        }
+      });
+    });
+    mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runPatchEmptyState);
+  } else {
+    runPatchEmptyState();
   }
 
   if (document.readyState === "loading") {
