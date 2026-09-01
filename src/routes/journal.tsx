@@ -231,6 +231,58 @@ function JournalPage() {
         />
       </div>
 
+      {/* Targeted Slippage Martingale — the live debt + next-trade target */}
+      <Card
+        title="Targeted Slippage Martingale"
+        badge={
+          <Badge tone={recovery.adjustmentNeeded ? "amber" : "green"}>
+            {recovery.adjustmentNeeded ? "Debt active" : "No debt"}
+          </Badge>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="Current slippage debt"
+            value={money(recovery.slippageDebt, true)}
+            tone={recovery.slippageDebt > 0 ? "text-amber-400" : "text-muted-foreground"}
+          />
+          <Stat
+            label="Base Exness win target"
+            value={money(recovery.baseExnessWinTarget)}
+            tone="text-muted-foreground"
+          />
+          <Stat
+            label="Next trade target (martingale)"
+            value={money(recovery.newExnessWinTarget, true)}
+            tone={recovery.adjustmentNeeded ? "text-amber-400" : "text-success"}
+          />
+          <Stat
+            label="Dynamic Exness risk (prop wins)"
+            value={money(-recovery.newExnessLossTarget)}
+            tone={recovery.adjustmentNeeded ? "text-amber-400" : "text-destructive"}
+          />
+        </div>
+        <p className="mt-3 text-[11.5px] text-muted-foreground">
+          {recovery.adjustmentNeeded ? (
+            <>
+              ⚡ Slippage debt of <strong>{money(recovery.slippageDebt)}</strong> from{" "}
+              {recovery.totalSlippageAccrued > 0 && (
+                <>total accrued {money(recovery.totalSlippageAccrued)}</>
+              )}
+              {recovery.totalSlippageAccrued > 0 ? " — " : " — "}
+              the next Exness win wipes it. Target bumped from {money(recovery.baseExnessWinTarget)}{" "}
+              to <strong>{money(recovery.newExnessWinTarget)}</strong>; lot size already adjusted.
+            </>
+          ) : (
+            <>
+              No debt open. Next Exness win target stays at the base pace of{" "}
+              {money(recovery.baseExnessWinTarget)}. Any slippage on a future trade will
+              accrue into a one-leg martingale bump that wipes on the next Exness win.
+            </>
+          )}
+        </p>
+      </Card>
+
       {/* Real-cash summary — visible from the first logged trade, final once passed */}
       <Card title="Money lost over the run" badge={<Badge tone="red">Real cash</Badge>}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -337,8 +389,8 @@ function JournalPage() {
             tone={recovery.actualExnessBalance >= 0 ? "text-success" : "text-destructive"}
           />
           <Stat
-            label={recovery.adjustmentNeeded ? "Adjusted win target ⚡" : "Win target"}
-            value={money(recovery.newExnessWinTarget ?? r.exnessWinTarget)}
+            label={recovery.adjustmentNeeded ? "Next target (martingale) ⚡" : "Win target"}
+            value={money(recovery.newExnessWinTarget)}
             tone={recovery.adjustmentNeeded ? "text-amber-400" : undefined}
           />
         </div>
@@ -363,18 +415,18 @@ function JournalPage() {
           </p>
         )}
 
-        {/* Self-healing adjustment */}
-        {recovery.adjustmentNeeded && recovery.newExnessWinTarget != null && !recovery.challengePassed && (
+        {/* Martingale bump active */}
+        {recovery.adjustmentNeeded && !recovery.challengePassed && (
           <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-400">
-            ⚡ Recovery shortfall {money(recovery.recoveryShortfall)} — Exness win target auto-adjusted to{" "}
-            {money(recovery.newExnessWinTarget, true)} per trade across {recovery.remainingLosses} remaining prop{" "}
-            {recovery.remainingLosses === 1 ? "loss" : "losses"}.
+            ⚡ Martingale active: debt <strong>{money(recovery.slippageDebt)}</strong> added to the
+            next Exness target ({money(recovery.baseExnessWinTarget)} →{" "}
+            {money(recovery.newExnessWinTarget, true)}). The next Exness win wipes it.
           </p>
         )}
 
-        {!recovery.adjustmentNeeded && recovery.recoveryShortfall <= 0 && closed.length > 0 && !recovery.challengePassed && (
+        {!recovery.adjustmentNeeded && closed.length > 0 && !recovery.challengePassed && (
           <p className="mt-3 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
-            Recovery target met — Exness has earned enough to cover fee + desired profit.
+            No slippage debt. Every Exness trade has come in on or better than script.
           </p>
         )}
       </Card>

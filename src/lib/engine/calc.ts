@@ -98,6 +98,10 @@ export interface EngineResult {
   exnessLossTarget: number;
   requiredExnessCapital: number;
   totalRequiredCapital: number;
+  /** User-selected safety buffer (e.g. 20). Exposed so the recovery layer can
+   *  recompute the buffered Exness capital when the martingale bumps the
+   *  win target up. */
+  bufferPct: number;
   capitalBreakdown: { label: string; value: number }[];
 
   // final P&L
@@ -299,6 +303,7 @@ export function calculate(input: EngineInputs): EngineResult {
     exnessLossTarget: activeExnessLossTarget,
     requiredExnessCapital: activeRequiredCapital,
     totalRequiredCapital: effectiveTotalRequired,
+    bufferPct,
     capitalBreakdown: overrideActive
       ? (input.phase === 1
           ? [

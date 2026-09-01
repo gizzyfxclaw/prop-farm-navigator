@@ -423,15 +423,28 @@ function EnginePage() {
           <Row label="Prop risk (SL hit)" value={money(-engine.propRiskUsd)} tone="neg" />
           <Row label="Prop reward (TP hit)" value={money(r.propWinPerTrade, true)} tone="pos" />
 
-          {/* Exness side: self-healing when recovery adjustment needed */}
+          {/* Exness side: martingale bump (base + slippage debt) */}
           <Row
-            label={recovery.adjustmentNeeded ? "Exness reward (prop loses) ⚡ adjusted" : "Exness reward (prop loses)"}
-            value={money(recovery.newExnessWinTarget ?? r.exnessWinTarget, true)}
+            label={recovery.adjustmentNeeded ? "Base Exness win target" : "Exness reward (prop loses)"}
+            value={money(recovery.baseExnessWinTarget, true)}
+            tone={recovery.adjustmentNeeded ? "default" : "pos"}
+          />
+          {recovery.adjustmentNeeded && (
+            <Row
+              label="Slippage debt (martingale bump)"
+              value={money(recovery.slippageDebt, true)}
+              tone="accent"
+            />
+          )}
+          <Row
+            label={recovery.adjustmentNeeded ? "Next Exness target ⚡" : "Exness reward (prop loses)"}
+            value={money(recovery.newExnessWinTarget, true)}
             tone={recovery.adjustmentNeeded ? "accent" : "pos"}
+            strong
           />
           <Row
-            label={recovery.adjustmentNeeded ? "Exness risk (prop wins) ⚡ adjusted" : "Exness risk (prop wins)"}
-            value={money(-((recovery.newExnessWinTarget ?? r.exnessWinTarget) * engine.rr))}
+            label={recovery.adjustmentNeeded ? "Next Exness risk (prop wins) ⚡" : "Exness risk (prop wins)"}
+            value={money(-recovery.newExnessLossTarget)}
             tone={recovery.adjustmentNeeded ? "accent" : "neg"}
           />
 
@@ -473,11 +486,22 @@ function EnginePage() {
           />
         ))}
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Row label="Exness fuel required (buffered)" value={money(r.requiredExnessCapital)} tone="accent" />
+          <Row
+            label={recovery.adjustmentNeeded ? "Exness fuel — dynamic (martingale)" : "Exness fuel required (buffered)"}
+            value={money(recovery.dynamicExnessCapital)}
+            tone="accent"
+          />
           <Row label="Phase 2 refill required" value={money(r.phase2RefillRequired)} tone="accent" />
           <Row label="Prop payout at target" value={money(r.propPayout, true)} tone="pos" />
           <Row label="Net profit if passed" value={money(r.netProfitIfPassed, true)} tone={r.netProfitIfPassed >= 20 ? "pos" : "neg"} />
         </div>
+        {recovery.adjustmentNeeded && (
+          <p className="mt-2 text-[10.5px] text-amber-400">
+            ⚡ Martingale bump active — Exness fuel increased from{" "}
+            {money(r.requiredExnessCapital)} to <strong>{money(recovery.dynamicExnessCapital)}</strong>{" "}
+            to cover the slippage debt of {money(recovery.slippageDebt)} + the {r.bufferPct}% buffer.
+          </p>
+        )}
 
         {/* Real-cash running summary — final once the challenge is passed */}
         <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">
@@ -551,14 +575,13 @@ function EnginePage() {
           </Alert>
         )}
 
-        {/* Self-healing adjustment active */}
-        {recovery.adjustmentNeeded && recovery.newExnessWinTarget != null && !recovery.challengePassed && (
-          <Alert level="amber" title="⚡ Exness target auto-adjusted">
-            Recovery shortfall {money(recovery.recoveryShortfall)} spread across{" "}
-            {recovery.remainingLosses} remaining prop loss{recovery.remainingLosses === 1 ? "" : "es"}.
-            New Exness win target: <strong>{money(recovery.newExnessWinTarget, true)}</strong> per trade
-            (was {money(r.phase1.exnessWinTarget, true)}).
-            Lot sizes on this page already reflect the adjusted target.
+        {/* Martingale bump active — debt waiting to be wiped by the next Exness win */}
+        {recovery.adjustmentNeeded && !recovery.challengePassed && (
+          <Alert level="amber" title="⚡ Martingale bump active">
+            Slippage debt <strong>{money(recovery.slippageDebt)}</strong> is added to the next Exness
+            win target ({money(recovery.baseExnessWinTarget)} → {money(recovery.newExnessWinTarget, true)}).
+            Lot size and Exness fuel are already adjusted. The very next Exness win (prop loss) will
+            wipe the debt and revert the target to {money(recovery.baseExnessWinTarget)}.
           </Alert>
         )}
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculate, type EngineInputs, type PropAccount } from "./engine/calc";
+import { calculate, WORST_CASE_RR, type EngineInputs, type PropAccount } from "./engine/calc";
 import { computeRecovery } from "./recovery";
 import type { JournalTrade } from "./store";
 
@@ -28,12 +28,12 @@ const base: EngineInputs = {
   exnessAccountType: "Cent",
 };
 
-/** Build a closed journal trade with the engine's derived P&L. */
 function trade(
   id: string,
   result: "WIN" | "LOSS",
   propPnl: number,
   exPnl: number,
+  rr = 2,
 ): JournalTrade {
   return {
     id,
@@ -45,138 +45,152 @@ function trade(
     propPnl,
     exPnl,
     netPnl: propPnl + exPnl,
+    details: { entry: 1.085, propSl: 1.082, propTp: 1.091, exSl: 1.091, exTp: 1.082, propLots: 0.17, exLots: 1.59, rr, phase: 1 },
   };
 }
 
-describe("recovery money summary", () => {
-  it("worst-case pass (3 wins, no losses): fuel burn equals pure capital", () => {
+describe("Targeted Slippage Martingale (TSM)", () => {
+  it("clean journal: no debt, target stays at base, fuel matches engine", () => {
     const r = calculate(base);
-    const win = r.exnessWinTarget;         // 28.6 / 6
-    const exLoss = win * 2;                 // worst-case 1:2
+    const journal = [
+      trade("1", "LOSS", -50, r.exnessWinTarget),
+      trade("2", "LOSS", -50, r.exnessWinTarget),
+      trade("3", "LOSS", -50, r.exnessWinTarget),
+    ];
+    const rec = computeRecovery(r, journal);
+
+    expect(rec.slippageDebt).toBe(0);
+    expect(rec.totalSlippageAccrued).toBe(0);
+    expect(rec.adjustmentNeeded).toBe(false);
+    expect(rec.newExnessWinTarget).toBeCloseTo(r.exnessWinTarget, 6);
+    expect(rec.dynamicExnessCapital).toBeCloseTo(r.requiredExnessCapital, 6);
+  });
+
+  it("prop WIN slip: 7.89 instead of 7.15 → debt $0.74, next target bumps to 5.51", () => {
+    const r = calculate({ ...base, rr: 1.5 });
+    // expected exness loss on a prop win = exnessWinTarget * 1.5 = 4.7667 * 1.5 = 7.15
+    const burned = (28.6 / 6) * 1.5 + 0.74; // 7.89
+    const journal = [trade("1", "WIN", r.propWinPerTrade, -burned, 1.5)];
+    const rec = computeRecovery(r, journal);
+
+    expect(rec.slippageDebt).toBeCloseTo(0.74, 4);
+    expect(rec.totalSlippageAccrued).toBeCloseTo(0.74, 4);
+    expect(rec.adjustmentNeeded).toBe(true);
+    // base = 4.7667, debt = 0.74, next target = 5.5067
+    expect(rec.newExnessWinTarget).toBeCloseTo(4.7667 + 0.74, 4);
+    expect(rec.newExnessLossTarget).toBeCloseTo((4.7667 + 0.74) * WORST_CASE_RR, 3);
+  });
+
+  it("prop LOSS slip: actual exness win less than expected → debt grows by the gap", () => {
+    const r = calculate(base);
+    const expected = r.exnessWinTarget; // 4.7667
+    const actual = expected - 0.55;     // $0.55 short of the expected win
+    const journal = [trade("1", "LOSS", -50, actual)];
+    const rec = computeRecovery(r, journal);
+
+    expect(rec.slippageDebt).toBeCloseTo(0.55, 4);
+    expect(rec.newExnessWinTarget).toBeCloseTo(expected + 0.55, 4);
+  });
+
+  it("THE KEY: Exness win after debt wipes debt entirely; next target reverts to base", () => {
+    const r = calculate({ ...base, rr: 1.5 });
+    // Build debt via a slipped prop WIN.
+    const burned = (28.6 / 6) * 1.5 + 0.74;
+    // Then a prop LOSS where exness wins MORE than the (now bumped) target,
+    // which is still a valid Exness-win scenario and must wipe the debt.
+    const journal = [
+      trade("1", "WIN", r.propWinPerTrade, -burned, 1.5),     // debt = 0.74
+      trade("2", "LOSS", -50, rec5_51_target(r) + 0.20, 1.5), // exness wins $5.71 vs expected $5.51 → wipes debt
+    ];
+    const rec = computeRecovery(r, journal);
+
+    expect(rec.slippageDebt).toBe(0);                                   // WIPED
+    expect(rec.totalSlippageAccrued).toBeCloseTo(0.74, 4);              // history retained
+    expect(rec.adjustmentNeeded).toBe(false);
+    expect(rec.newExnessWinTarget).toBeCloseTo(r.exnessWinTarget, 6);  // back to base 4.7667
+  });
+
+  it("Exness win underperforms expected → debt grows by the gap (positive number)", () => {
+    const r = calculate(base);
+    const expected = r.exnessWinTarget;
+    const actual = expected - 0.30;
+    const journal = [trade("1", "LOSS", -50, actual)];
+    const rec = computeRecovery(r, journal);
+    expect(rec.slippageDebt).toBeCloseTo(0.30, 4);
+  });
+
+  it("Consecutive prop WIN slips stack: $0.74 + $1.20 = $1.94 debt", () => {
+    const r = calculate({ ...base, rr: 1.5 });
+    const expectedLoss = (28.6 / 6) * 1.5; // 7.15
+    const journal = [
+      trade("1", "WIN", r.propWinPerTrade, -(expectedLoss + 0.74), 1.5), // +0.74
+      trade("2", "WIN", r.propWinPerTrade, -(expectedLoss + 1.20), 1.5), // +1.20
+    ];
+    const rec = computeRecovery(r, journal);
+    expect(rec.slippageDebt).toBeCloseTo(0.74 + 1.20, 4); // stacks, no amortize
+    expect(rec.totalSlippageAccrued).toBeCloseTo(1.94, 4);
+  });
+
+  it("Exness win with NO outstanding debt: noop, target stays at base", () => {
+    const r = calculate(base);
+    const journal = [trade("1", "LOSS", -50, r.exnessWinTarget)];
+    const rec = computeRecovery(r, journal);
+    expect(rec.slippageDebt).toBe(0);
+    expect(rec.adjustmentNeeded).toBe(false);
+    expect(rec.newExnessWinTarget).toBeCloseTo(r.exnessWinTarget, 6);
+  });
+
+  it("Exness wins ABOVE expected: debt wipes (no negative debt, no reward)", () => {
+    const r = calculate(base);
+    const expected = r.exnessWinTarget;
+    const actual = expected + 0.50; // overperformed
+    const journal = [trade("1", "LOSS", -50, actual)];
+    const rec = computeRecovery(r, journal);
+    expect(rec.slippageDebt).toBe(0);
+    // Overperformance is not a "credit" — the system never drops below base.
+    expect(rec.newExnessWinTarget).toBeCloseTo(r.exnessWinTarget, 6);
+  });
+
+  it("Dynamic Exness fuel rises with debt: pure × losses × (1 + bufferPct/100)", () => {
+    const r = calculate({ ...base, rr: 1.5, bufferPct: 20 });
+    const burned = (28.6 / 6) * 1.5 + 2.00; // $2.00 debt
+    const journal = [trade("1", "WIN", r.propWinPerTrade, -burned, 1.5)];
+    const rec = computeRecovery(r, journal);
+    const expectedDynamic = (r.exnessWinTarget + 2.00) * WORST_CASE_RR * r.winsToPass * 1.20;
+    expect(rec.dynamicExnessCapital).toBeCloseTo(expectedDynamic, 4);
+    expect(rec.dynamicExnessCapital).toBeGreaterThan(r.requiredExnessCapital);
+  });
+
+  it("Phase 2: target = (phase1TotalSpent + desiredProfit) / lossesToBlow — engine layer, not recovery", () => {
+    const r = calculate({ ...base, phase: 2 });
+    // Engine layer: phase1TotalSpent = 28.6 + 28.6*1.2 = 62.92 → base 62.92/6 = 10.4867.
+    // Recovery just consumes the engine's active phase base; no debt to apply on an
+    // empty journal.
+    expect(r.exnessWinTarget).toBeCloseTo(62.92 / 6, 4);
+    const journal: JournalTrade[] = [];
+    const rec = computeRecovery(r, journal);
+    expect(rec.phase).toBe(2);
+    expect(rec.slippageDebt).toBe(0);
+    expect(rec.newExnessWinTarget).toBeCloseTo(62.92 / 6, 4);
+  });
+
+  it("Recovery closes: after 3 clean prop wins at 1:2 R:R, no debt, fuel exhausted = pure capital", () => {
+    const r = calculate(base);
+    const win = r.exnessWinTarget;       // 4.7667
+    const exLoss = win * 2;               // 9.5333
     const journal = [
       trade("1", "WIN", r.propWinPerTrade, -exLoss),
       trade("2", "WIN", r.propWinPerTrade, -exLoss),
       trade("3", "WIN", r.propWinPerTrade, -exLoss),
     ];
     const rec = computeRecovery(r, journal);
-
-    expect(rec.loggedWins).toBe(3);
-    expect(rec.challengePassed).toBe(true);
-    // Net Exness P&L = -28.6 → fuel exhausted equals the whole pure capital.
+    expect(rec.slippageDebt).toBe(0);
     expect(rec.exnessFuelExhausted).toBeCloseTo(28.6, 6);
-    // Total money lost = fee + net fuel burn.
     expect(rec.totalMoneyLost).toBeCloseTo(28.6 + 28.6, 6);
-    // Payout 240 lands, fuel burn and fee are already counted.
-    expect(rec.netResultAfterPayout).toBeCloseTo(240 - 28.6 - 28.6, 6);
-  });
-
-  it("mixed run (1 loss + 3 wins): prop loss recovers fuel, so lost money shrinks", () => {
-    const r = calculate(base);
-    const win = r.exnessWinTarget;
-    const exLoss = win * 2;
-    const journal = [
-      trade("1", "LOSS", -50, win),
-      trade("2", "WIN", r.propWinPerTrade, -exLoss),
-      trade("3", "WIN", r.propWinPerTrade, -exLoss),
-      trade("4", "WIN", r.propWinPerTrade, -exLoss),
-    ];
-    const rec = computeRecovery(r, journal);
-
-    // Net prop equity = -50 + 300 = +250 (only 1 loss absorbed, 3 wins made).
-    // Target = $300, so 50/100 = 1 more win is still needed.
-    expect(rec.remainingWins).toBe(1);
-    expect(rec.challengePassed).toBe(false);
-
-    const netEx = win - exLoss * 3; // 4.7667 - 28.6
-    expect(rec.actualExnessPnl).toBeCloseTo(netEx, 6);
-    expect(rec.exnessFuelExhausted).toBeCloseTo(-netEx, 6);
-    expect(rec.totalMoneyLost).toBeCloseTo(28.6 - netEx, 6);
-    expect(rec.netResultAfterPayout).toBeCloseTo(240 + netEx - 28.6, 6);
-  });
-
-  it("losing streak (2 losses, challenge not passed): fuel recovering, nothing exhausted yet", () => {
-    const r = calculate(base);
-    const journal = [trade("1", "LOSS", -50, r.exnessWinTarget), trade("2", "LOSS", -50, r.exnessWinTarget)];
-    const rec = computeRecovery(r, journal);
-
-    expect(rec.challengePassed).toBe(false);
-    expect(rec.actualExnessPnl).toBeGreaterThan(0);
-    expect(rec.exnessFuelExhausted).toBe(0);
-    expect(rec.totalMoneyLost).toBeCloseTo(28.6, 6); // fee only so far
-    expect(rec.netResultAfterPayout).toBeCloseTo(240 + rec.actualExnessPnl - 28.6, 6);
-  });
-
-  it("self-healing still re-paces after a slipped Exness win", () => {
-    const r = calculate(base);
-    const slipped = r.exnessWinTarget - 0.27; // slippage ate $0.27 of the win
-    const journal = [trade("1", "LOSS", -50, slipped)];
-    const rec = computeRecovery(r, journal);
-
-    expect(rec.remainingLosses).toBe(5);
-    expect(rec.recoveryShortfall).toBeCloseTo(28.6 - slipped, 6);
-    expect(rec.newExnessWinTarget).toBeCloseTo((28.6 - slipped) / 5, 6);
-    expect(rec.adjustmentNeeded).toBe(true);
-    expect(rec.totalMoneyLost).toBeCloseTo(28.6, 6); // fuel recovered, fee still sunk
-  });
-
-  it("recovers slippage on a prop WIN leg and re-locks the pace (user case: lost 7.89 vs 7.15)", () => {
-    // User's real setup: R:R 1:1.5 → base pace 28.6/6 = 4.7667,
-    // expected Exness loss on a prop win = 4.7667 × 1.5 = 7.15.
-    const r = calculate({ ...base, rr: 1.5 });
-    expect(r.exnessWinTarget).toBeCloseTo(28.6 / 6, 6);
-
-    // Trade 1: prop WIN. Slippage made Exness lose 7.89 instead of 7.15 ($0.74 extra).
-    const slip = 0.74;
-    const burned = (28.6 / 6) * 1.5 + slip; // 7.89
-    const journal = [trade("1", "WIN", r.propWinPerTrade, -burned)];
-    const rec = computeRecovery(r, journal);
-
-    // No prop losses logged yet — all 6 loss-legs remain to earn the recovery.
-    expect(rec.remainingLosses).toBe(6);
-
-    // On-script next target (no slippage): (28.6 + 7.15) / 6 = 5.9583.
-    const onScript = (28.6 + 7.15) / 6;
-    // Healed next target: whole remaining recovery incl. the slipped 0.74, over 6 legs.
-    const healed = (28.6 + 7.89) / 6;
-    expect(rec.newExnessWinTarget).toBeCloseTo(healed, 6);
-    // The bump over on-script is exactly the slip amortized over the remaining legs.
-    expect(rec.newExnessWinTarget! - onScript).toBeCloseTo(slip / 6, 6);
-    expect(rec.adjustmentNeeded).toBe(true);
-
-    // Worst case from here (6 prop losses in a row, each earning the healed
-    // target): the loop still closes at exactly totalRecovery — the slipped
-    // $0.74 is fully recovered, no more, no less.
-    expect(-7.89 + 6 * healed).toBeCloseTo(28.6, 6);
-
-    // After the next prop-LOSS leg earns the healed target, the martingale
-    // balance-back begins: the give-back loss consumed NO blow-leg (net
-    // equity +75 − 50 = +25, still above starting equity → still 6 legs),
-    // so the pace DECAYS from 6.08 toward base as the slip is earned off.
-    const j2 = [...journal, trade("2", "LOSS", -50, healed)];
-    const rec2 = computeRecovery(r, j2);
-    expect(rec2.remainingLosses).toBe(6);                 // no leg consumed
-    expect(rec2.recoveryShortfall).toBeCloseTo(36.49 - healed, 4);
-    expect(rec2.newExnessWinTarget).toBeCloseTo((36.49 - healed) / 6, 4); // 5.068
-    expect(rec2.newExnessWinTarget!).toBeLessThan(healed);                // balancing back
-    expect(rec2.newExnessWinTarget!).toBeGreaterThan(r.exnessWinTarget);  // slip not yet fully off
-
-    // Trade 3: another loss leg — net equity is now −25 (below start), so the
-    // first real leg is consumed (5 left). The pace is now near base (slip
-    // mostly earned off): shortfall ≈ 25.34, /5 ≈ 5.068.
-    const j3 = [...j2, trade("3", "LOSS", -50, (36.49 - healed) / 6)];
-    const rec3 = computeRecovery(r, j3);
-    expect(rec3.remainingLosses).toBe(5);
-    expect(rec3.newExnessWinTarget).toBeCloseTo(5.0681, 3);
-    expect(rec3.newExnessWinTarget!).toBeLessThan(healed);                // well below T1's healed pace
-    expect(rec3.newExnessWinTarget!).toBeGreaterThan(r.exnessWinTarget);  // slip not yet fully off
-
-    // Full balance-back: once the legs have earned the entire recovery
-    // (shortfall 0), the target returns to EXACTLY the base pace 4.77 and
-    // the override disengages — never below base, never stuck high.
-    const closing = Array.from({ length: 6 }, (_, i) => trade(`c${i}`, "LOSS", -50, healed));
-    const recDone = computeRecovery(r, [...journal, ...closing]);
-    expect(recDone.recoveryShortfall).toBe(0);
-    expect(recDone.newExnessWinTarget).toBeCloseTo(r.exnessWinTarget, 6); // 4.7667
-    expect(recDone.adjustmentNeeded).toBe(false);
   });
 });
+
+// helper for the key wipe-on-Exness-win test
+function rec5_51_target(r: ReturnType<typeof calculate>) {
+  return r.exnessWinTarget + 0.74;
+}
