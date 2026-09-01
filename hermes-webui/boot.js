@@ -2713,9 +2713,6 @@ const _SKINS=[
   {name:'Zeus',     colors:['#FFD700','#FFBF00','#1A1A00']},
   {name:'Verdigris', value:'verdigris', colors:['#C89A5A','#0F1714','#22342C']},
   {name:'GizzyFx Pro', value:'gizzyfx-pro', colors:['#0a0a0a','#3b82f6','#60a5fa']},
-  {name:'GizzyFx Cyan', value:'gizzyfx', colors:['#061520','#00c8e8','#00e5c8']},
-  {name:'GizzyFx Blue', value:'gizzyfx-blue', colors:['#0a1628','#1e40af','#3b82f6']},
-  {name:'GizzyFx Purple', value:'gizzyfx-purple', colors:['#1a0a2e','#7c3aed','#a78bfa']},
 ];
 const _VALID_THEMES=new Set((_THEMES||[]).map(t=>t.value));
 const _VALID_SKINS=new Set((_SKINS||[]).map(s=>(s.value||s.name).toLowerCase()));
@@ -2824,7 +2821,6 @@ function _applyTheme(name){
 
 function _applySkin(name){
   const key=(name||'default').toLowerCase();
-  // Force GizzyFx Pro as the permanent default
   if(key==='default') {
     localStorage.setItem('hermes-skin', 'gizzyfx-pro');
     document.documentElement.dataset.skin='gizzyfx-pro';
@@ -3062,7 +3058,7 @@ function applyBotName(){
   const topbarTitle=$('topbarTitle');
   if(topbarTitle && (!S.session)) topbarTitle.textContent=name;
   const msg=$('msg');
-  if(msg) msg.placeholder='Message GizzyFx Co-pilot\u2026';
+  if(msg) msg.placeholder='Message '+name+'\u2026';
   if(typeof _applyBusyComposerPlaceholder==='function') _applyBusyComposerPlaceholder();
 }
 
@@ -3362,7 +3358,7 @@ window._mirrorSpeechSettingsFromServer=_mirrorSpeechSettingsFromServer;
     _applyComposerControlOrder(window._composerControlOrder);
     window._showTitlebarProfile=!!s.show_titlebar_profile;
     _applyTitlebarProfileVisibility();
-    window._botName=s.bot_name||'GizzyFx Co-pilot';
+    window._botName=s.bot_name||'Hermes';
     if(s.default_model_provider) window._activeProvider=s.default_model_provider;
     if(s.default_model){
       window._defaultModel=s.default_model;
@@ -3505,7 +3501,7 @@ window._mirrorSpeechSettingsFromServer=_mirrorSpeechSettingsFromServer;
     window._composerControlVisibility=_composerControlVisibilityFromSettings(null);
     window._composerControlOrder=[];
     _applyComposerControlOrder(window._composerControlOrder);
-    window._botName='GizzyFx Co-pilot';
+    window._botName='Hermes';
     _bootSettings={check_for_updates:false};
     if(typeof setLocale==='function'){
       const _lang=typeof resolvePreferredLocale==='function'
