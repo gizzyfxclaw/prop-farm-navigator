@@ -111,7 +111,15 @@ export const browserStorage: StorageAdapter = {
 
 export const storage: StorageAdapter = browserStorage;
 
-const PRESET_LADDER: { size: number; fee: number; targetPct: number; ddPct: number; dailyProfitCap?: number }[] = [
+interface Preset {
+  size: number;
+  fee: number;
+  targetPct: number;
+  ddPct: number;
+  dailyProfitCap?: number;
+}
+
+const PRESET_LADDER: Preset[] = [
   { size: 50, fee: 4.99, targetPct: 10, ddPct: 5, dailyProfitCap: 5 },
   { size: 100, fee: 9.99, targetPct: 10, ddPct: 5, dailyProfitCap: 10 },
   { size: 200, fee: 19.99, targetPct: 10, ddPct: 5, dailyProfitCap: 20 },
@@ -127,17 +135,20 @@ const PRESET_LADDER: { size: number; fee: number; targetPct: number; ddPct: numb
 ];
 
 export const defaultAccounts = (): PropAccount[] =>
-  PRESET_LADDER.map((p) => ({
-    id: `preset-${p.size}`,
-    firm: `Prop $${p.size.toLocaleString()}`,
-    size: p.size,
-    fee: p.fee,
-    targetPct: p.targetPct,
-    ddPct: p.ddPct,
-    ddType: "Static" as const,
-    splitPct: 80,
-    dailyProfitCap: p.dailyProfitCap,
-  }));
+  PRESET_LADDER.map((p) => {
+    const acc: PropAccount = {
+      id: `preset-${p.size}`,
+      firm: `Prop $${p.size.toLocaleString()}`,
+      size: p.size,
+      fee: p.fee,
+      targetPct: p.targetPct,
+      ddPct: p.ddPct,
+      ddType: "Static" as const,
+      splitPct: 80,
+    };
+    if (p.dailyProfitCap != null) acc.dailyProfitCap = p.dailyProfitCap;
+    return acc;
+  });
 
 const defaultEngine = (accountId: string): EngineSettings => ({
   selectedAccountId: accountId,
