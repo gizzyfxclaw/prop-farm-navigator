@@ -8,7 +8,7 @@ const LOCALES = {
     offline_title: 'Connection lost',
     offline_browser_detail: 'Your browser reports that this device is offline.',
     offline_network_detail: 'Hermes is unreachable from this browser right now.',
-    offline_autorefresh: 'I will refresh this page automatically when Hermes is reachable again.',
+    offline_autorefresh: 'I will refresh this page automatically when GizzyFx Co-pilot is reachable again.',
     offline_check_now: 'Check now',
     offline_checking: 'Checking…',
     offline_stream_waiting: 'Connection lost. Waiting to refresh…',
