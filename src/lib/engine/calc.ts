@@ -27,6 +27,8 @@ export interface PropAccount {
   /** profit split paid to the trader, in percent */
   splitPct: number;
   metaApiAccountId?: string;
+  /** Daily profit cap in USD — engine auto-reduces risk to stay under this cap */
+  dailyProfitCap?: number;
 }
 
 export interface EngineInputs {
@@ -88,6 +90,10 @@ export interface EngineResult {
   exnessTp: number;
   propLots: number;
   exnessLots: number;
+  /** Prop risk actually used (may be reduced by daily profit cap). */
+  cappedPropRisk: number;
+  /** True when daily profit cap forced a risk reduction. */
+  riskCapped: boolean;
 
   // shield chains (worst-case R:R = 2)
   phase1: PhaseChain;
@@ -158,9 +164,23 @@ export function calculate(input: EngineInputs): EngineResult {
   const propRiskUsd = Math.max(0.01, num(input.propRiskUsd, 1));
   const propWinPerTrade = propRiskUsd * rr;
 
+  // ---- Daily Profit Cap compliance ----
+  // If the account has a dailyProfitCap, ensure prop reward doesn't exceed it.
+  // If propRiskUsd * rr > dailyProfitCap, reduce risk to stay compliant.
+  let cappedPropRisk = propRiskUsd;
+  let riskCapped = false;
+  const dailyCap = account.dailyProfitCap != null && account.dailyProfitCap > 0 ? num(account.dailyProfitCap) : 0;
+  if (dailyCap > 0 && propWinPerTrade > dailyCap) {
+    cappedPropRisk = Math.floor((dailyCap / rr) * 100) / 100; // round down to cents
+    riskCapped = true;
+  }
+  // Use capped risk for all downstream calculations
+  const effectivePropRisk = cappedPropRisk;
+  const effectivePropWinPerTrade = effectivePropRisk * rr;
+
   // Full losses the prop account can absorb before the drawdown floor is hit.
-  const lossesToBlow = Math.max(1, Math.floor(maxDdUsd / propRiskUsd) || 1);
-  const winsToPass = Math.max(1, Math.ceil(targetUsd / propWinPerTrade) || 1);
+  const lossesToBlow = Math.max(1, Math.floor(maxDdUsd / effectivePropRisk) || 1);
+  const winsToPass = Math.max(1, Math.ceil(targetUsd / effectivePropWinPerTrade) || 1);
 
   // ---- Escalating shield (sized by selected R:R) ----
   const phase1 = buildChain(fee + desiredProfit, lossesToBlow, winsToPass, bufferPct, rr);
@@ -208,7 +228,7 @@ export function calculate(input: EngineInputs): EngineResult {
   const pipValue = livePipValue(input.pair, entryPrice);
   const exnessPipValue = input.exnessAccountType === "Cent" ? pipValue / 100 : pipValue;
 
-  const propLots = propRiskUsd / (propSlPips * pipValue);
+  const propLots = effectivePropRisk / (propSlPips * pipValue);
   const effectiveWinTarget =
     input.exnessWinTargetOverride != null && input.exnessWinTargetOverride > 0
       ? input.exnessWinTargetOverride
@@ -298,6 +318,8 @@ export function calculate(input: EngineInputs): EngineResult {
     exnessTp,
     propLots,
     exnessLots,
+    cappedPropRisk,
+    riskCapped,
     phase1,
     phase2,
     phase1TotalSpent,

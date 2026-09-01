@@ -109,19 +109,19 @@ export const browserStorage: StorageAdapter = {
 
 export const storage: StorageAdapter = browserStorage;
 
-const PRESET_LADDER: { size: number; fee: number; targetPct: number; ddPct: number }[] = [
-  { size: 50, fee: 4.99, targetPct: 10, ddPct: 5 },
-  { size: 100, fee: 9.99, targetPct: 10, ddPct: 5 },
-  { size: 200, fee: 19.99, targetPct: 10, ddPct: 5 },
-  { size: 500, fee: 34.99, targetPct: 10, ddPct: 5 },
-  { size: 1000, fee: 59, targetPct: 10, ddPct: 5 },
-  { size: 2500, fee: 135, targetPct: 10, ddPct: 5 },
-  { size: 5000, fee: 28.6, targetPct: 6, ddPct: 6 },
-  { size: 10000, fee: 28.6, targetPct: 6, ddPct: 6 },
-  { size: 25000, fee: 28.6, targetPct: 6, ddPct: 6 },
-  { size: 50000, fee: 28.6, targetPct: 6, ddPct: 6 },
-  { size: 100000, fee: 28.6, targetPct: 6, ddPct: 6 },
-  { size: 200000, fee: 28.6, targetPct: 6, ddPct: 6 },
+const PRESET_LADDER: { size: number; fee: number; targetPct: number; ddPct: number; dailyProfitCap?: number }[] = [
+  { size: 50, fee: 4.99, targetPct: 10, ddPct: 5, dailyProfitCap: 5 },
+  { size: 100, fee: 9.99, targetPct: 10, ddPct: 5, dailyProfitCap: 10 },
+  { size: 200, fee: 19.99, targetPct: 10, ddPct: 5, dailyProfitCap: 20 },
+  { size: 500, fee: 34.99, targetPct: 10, ddPct: 5, dailyProfitCap: 50 },
+  { size: 1000, fee: 59, targetPct: 10, ddPct: 5, dailyProfitCap: 100 },
+  { size: 2500, fee: 135, targetPct: 10, ddPct: 5, dailyProfitCap: 250 },
+  { size: 5000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 100 },
+  { size: 10000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 100 },
+  { size: 25000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 250 },
+  { size: 50000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 500 },
+  { size: 100000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 1000 },
+  { size: 200000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 2000 },
 ];
 
 export const defaultAccounts = (): PropAccount[] =>
@@ -134,6 +134,7 @@ export const defaultAccounts = (): PropAccount[] =>
     ddPct: p.ddPct,
     ddType: "Static" as const,
     splitPct: 80,
+    dailyProfitCap: p.dailyProfitCap,
   }));
 
 const defaultEngine = (accountId: string): EngineSettings => ({

@@ -425,6 +425,13 @@ function EnginePage() {
           <Row label="Prop risk (SL hit)" value={money(-engine.propRiskUsd)} tone="neg" />
           <Row label="Prop reward (TP hit)" value={money(r.propWinPerTrade, true)} tone="pos" />
 
+          {/* Daily Profit Cap compliance warning */}
+          {r.riskCapped && (
+            <div className="mt-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-2 text-[11px] text-amber-400">
+              ⚠️ Daily profit cap active — Prop Risk reduced from ${engine.propRiskUsd.toFixed(2)} to ${r.cappedPropRisk.toFixed(2)} to stay under the ${(r.cappedPropRisk * r.rr).toFixed(2)} cap.
+            </div>
+          )}
+
           {/* Exness side: martingale bump (base + slippage debt) */}
           <Row
             label={recovery.adjustmentNeeded ? "Base Exness win target" : "Exness reward (prop loses)"}
