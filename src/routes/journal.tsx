@@ -16,7 +16,7 @@ import {
 import { Badge, Button, Card, Field, Row, Select, Stat, TextInput } from "@/components/terminal/ui";
 import { money, tradePnl, type Direction } from "@/lib/engine/calc";
 import { PAIRS } from "@/lib/engine/pairs";
-import { fetchOpenState } from "@/lib/metaapi.functions";
+import { fetchHistoryDeals, fetchOpenState } from "@/lib/metaapi.functions";
 import { useStore, type JournalTrade } from "@/lib/store";
 import { useEngineWithRecovery } from "@/lib/useEngine";
 
@@ -103,7 +103,7 @@ function useLiveOpenPnl(
 /* ── Component ──────────────────────────────────────────────────────────── */
 
 function JournalPage() {
-  const { journal, addTrade, updateTrade, deleteTrade, clearJournal, engine, meta } = useStore();
+  const { journal, addTrade, updateTrade, deleteTrade, clearJournal, engine, meta, setEngine } = useStore();
   const { result: r, recovery } = useEngineWithRecovery();
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [pair, setPair] = useState<string>(engine.pair);
@@ -115,6 +115,24 @@ function JournalPage() {
   const [settleId, setSettleId] = useState<string | null>(null);
   const [settlePropPnl, setSettlePropPnl] = useState("");
   const [settleExPnl, setSettleExPnl] = useState("");
+
+  // Auto-Sync state
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [pendingDeal, setPendingDeal] = useState<{
+    id: string;
+    time: string;
+    symbol: string;
+    type: string;
+    volume: number;
+    price: number;
+    profit: number;
+    commission: number;
+    swap: number;
+  } | null>(null);
+
+  // Auto-Transition state
+  const [showTransition, setShowTransition] = useState(false);
 
   const openTrades = journal.filter((t) => t.result === "OPEN");
   const liveMap = useLiveOpenPnl(
@@ -155,6 +173,102 @@ function JournalPage() {
     setActualPropPnl("");
     setActualExPnl("");
     toast.success(`${result} logged — net ${money(netPnl, true)}`);
+  }
+
+  // ── Step 1: Auto-Sync from MetaApi ──────────────────────────────────────
+  async function syncExnessHistory() {
+    if (!meta.token || !meta.exnessAccountId) {
+      toast.error("Add your MetaApi token and Exness account ID in Settings first.");
+      return;
+    }
+    setSyncing(true);
+    try {
+      const res = await fetchHistoryDeals({ data: { token: meta.token, accountId: meta.exnessAccountId, days: 7 } });
+      if (!res.ok) {
+        toast.error(`Sync failed: ${res.error}`);
+        return;
+      }
+      const deals = res.data;
+      // Find the most recent deal not already in the journal
+      const loggedIds = new Set(journal.map((t) => t.ticket));
+      const newDeal = deals.find((d) => !loggedIds.has(d.id) && !loggedIds.has(d.orderId));
+      if (!newDeal) {
+        toast.success("No new deals to sync — journal is up to date.");
+        setLastSync(new Date().toLocaleTimeString());
+        return;
+      }
+      const netD = newDeal.profit + newDeal.commission + newDeal.swap;
+      setPendingDeal({
+        id: newDeal.id,
+        time: newDeal.time,
+        symbol: newDeal.symbol,
+        type: newDeal.type,
+        volume: newDeal.volume,
+        price: newDeal.price,
+        profit: newDeal.profit,
+        commission: newDeal.commission,
+        swap: newDeal.swap,
+      });
+      // Pre-fill the form
+      const closeTime = newDeal.time ? new Date(newDeal.time) : new Date();
+      setDate(closeTime.toISOString().slice(0, 10));
+      setActualExPnl(netD.toFixed(2));
+      toast.success(`Synced deal ${newDeal.id} — net ${money(netD, true)}. Did the Prop win or lose?`);
+      setLastSync(new Date().toLocaleTimeString());
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  // Called when the user confirms the Prop result for the synced deal
+  function confirmSyncedDeal(propResult: "WIN" | "LOSS") {
+    if (!pendingDeal) return;
+    const netD = pendingDeal.profit + pendingDeal.commission + pendingDeal.swap;
+    const derived = tradePnl(r, propResult === "WIN", engine.rr);
+    const propPnl = derived.propPnl;
+    const exPnl = netD;
+    const closeTime = pendingDeal.time ? new Date(pendingDeal.time) : new Date();
+    addTrade({
+      id: `deal-${pendingDeal.id}-${Date.now()}`,
+      date: closeTime.toISOString().slice(0, 10),
+      time: closeTime.toTimeString().slice(0, 8),
+      pair: pendingDeal.symbol.replace(new RegExp(`${meta.exnessSymbolSuffix ?? ""}$`), "").toUpperCase(),
+      dir: pendingDeal.type.includes("BUY") ? "LONG" : "SHORT",
+      result: propResult,
+      propPnl,
+      exPnl,
+      netPnl: propPnl + exPnl,
+      ticket: pendingDeal.id,
+      note: `Auto-synced from MetaApi deal ${pendingDeal.id}`,
+      details: {
+        entry: pendingDeal.price,
+        propSl: 0,
+        propTp: 0,
+        exSl: 0,
+        exTp: 0,
+        propLots: 0,
+        exLots: pendingDeal.volume,
+        rr: engine.rr,
+        phase: r.phase,
+        leg: "exness",
+      },
+    });
+    setPendingDeal(null);
+    toast.success(`${propResult} logged from synced deal — net ${money(propPnl + exPnl, true)}`);
+  }
+
+  // ── Step 2: Auto-Transition to Phase 2 ──────────────────────────────────
+  function triggerPhaseTransition() {
+    if (recovery.challengePassed && r.phase === 1) {
+      const p1Spent = r.totalRequiredCapital;
+      setEngine({
+        phase: 2,
+        carryPhase1TotalSpent: Math.round(p1Spent * 100) / 100,
+        carryPhase1Leftover: Math.round(recovery.actualExnessBalance * 100) / 100,
+      });
+      setShowTransition(true);
+      toast.success(`🎉 CHALLENGE PASSED! Phase 2 Mega Shield activated. P1 spent: ${money(p1Spent)}`);
+    }
   }
 
   function settle(trade: JournalTrade, result: "WIN" | "LOSS") {
@@ -354,6 +468,49 @@ function JournalPage() {
             </Button>
           </div>
         </div>
+
+        {/* Auto-Sync section */}
+        <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="ghost" onClick={syncExnessHistory} disabled={syncing}>
+              {syncing ? "Syncing…" : "🔄 Sync Exness History"}
+            </Button>
+            {lastSync && (
+              <span className="text-[11px] text-muted-foreground">Last sync: {lastSync}</span>
+            )}
+            {!meta.token || !meta.exnessAccountId ? (
+              <span className="text-[11px] text-amber-400">⚠️ Add MetaApi credentials in Settings</span>
+            ) : (
+              <span className="text-[11px] text-muted-foreground">
+                Fetches last 7 days of closed deals from MetaApi
+              </span>
+            )}
+          </div>
+
+          {/* Pending deal confirmation */}
+          {pendingDeal && (
+            <div className="mt-3 rounded-lg border border-primary/50 bg-primary/10 p-3">
+              <p className="text-[12px] text-primary font-semibold">
+                Synced deal {pendingDeal.id} — {pendingDeal.symbol} {pendingDeal.type.replace("DEAL_TYPE_", "")} {pendingDeal.volume} lots @ {pendingDeal.price}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Net Exness P&L: {money(pendingDeal.profit + pendingDeal.commission + pendingDeal.swap, true)}
+              </p>
+              <p className="mt-2 text-[12px] text-foreground">Did the Prop account WIN or LOSE this trade?</p>
+              <div className="mt-2 flex gap-2">
+                <Button variant="success" onClick={() => confirmSyncedDeal("WIN")}>
+                  Prop WON ✓
+                </Button>
+                <Button variant="danger" onClick={() => confirmSyncedDeal("LOSS")}>
+                  Prop LOST ✗
+                </Button>
+                <Button variant="ghost" onClick={() => setPendingDeal(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
         <p className="mt-3 text-[11.5px] text-muted-foreground">
           Override actual P&amp;L below (leave blank to use engine values):
         </p>
@@ -403,9 +560,23 @@ function JournalPage() {
 
         {/* Challenge passed */}
         {recovery.challengePassed && (
-          <p className="mt-3 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success font-semibold">
-            🎉 Challenge Passed! Request your payout. Switch to Phase 2 (Mega Shield) for the Funded Stage.
-          </p>
+          <div className="mt-3 space-y-2">
+            <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success font-semibold">
+              🎉 Challenge Passed! Request your payout. Switch to Phase 2 (Mega Shield) for the Funded Stage.
+            </p>
+            {r.phase === 1 && (
+              <Button variant="success" onClick={triggerPhaseTransition}>
+                🚀 Activate Phase 2 Mega Shield
+              </Button>
+            )}
+            {showTransition && r.phase === 2 && (
+              <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
+                ✅ Phase 2 activated! P1 spent: <strong>{money(r.phase1TotalSpent)}</strong>, Exness balance:{" "}
+                <strong>{money(recovery.actualExnessBalance)}</strong>. Deposit the Phase 2 refill to start the
+                Funded Stage.
+              </p>
+            )}
+          </div>
         )}
 
         {/* Buffer depleted */}
