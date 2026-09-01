@@ -24,16 +24,9 @@ export const Route = createFileRoute("/journal")({
   head: () => ({
     meta: [
       { title: "Trading Journal — GizzyFx" },
-      {
-        name: "description",
-        content:
-          "Automated hedge journal: prop and Exness P&L derived from live engine values, with equity curve, win rate and profit factor.",
-      },
+      { name: "description", content: "Automated hedge journal: prop and Exness P&L derived from live engine values, with equity curve, win rate and profit factor." },
       { property: "og:title", content: "Trading Journal — GizzyFx" },
-      {
-        property: "og:description",
-        content: "Log each mirrored trade and watch net P&L, win rate and profit factor update instantly.",
-      },
+      { property: "og:description", content: "Log each mirrored trade and watch net P&L, win rate and profit factor update instantly." },
     ],
   }),
   component: JournalPage,
@@ -41,13 +34,6 @@ export const Route = createFileRoute("/journal")({
 
 /* ── Live P&L hook for OPEN journal trades ──────────────────────────────── */
 
-/**
- * Polls MetaApi every 10 seconds for open positions and returns a map of
- * { journalTradeId → live floating profit (USD) }.
- *
- * Matches journal trades to MetaApi positions by normalising the symbol
- * (strip broker suffix, e.g. "EURUSDm" → "EURUSD") and direction.
- */
 function useLiveOpenPnl(
   openTrades: JournalTrade[],
   token: string,
@@ -67,18 +53,14 @@ function useLiveOpenPnl(
     if (!res.ok) return;
 
     const positions = res.data.positions;
-
-    // Build map: normalised symbol+dir → live profit
     const posMap = new Map<string, number>();
     for (const p of positions) {
       const sym = p.symbol.replace(new RegExp(`${exnessSymbolSuffix}$`), "").toUpperCase();
       const dir = p.type.includes("BUY") ? "LONG" : "SHORT";
       const key = `${sym}|${dir}`;
-      // Accumulate if multiple lots on same symbol/dir
       posMap.set(key, (posMap.get(key) ?? 0) + p.profit);
     }
 
-    // Match to journal trades
     const next = new Map<string, number>();
     for (const t of openTrades) {
       const key = `${t.pair.toUpperCase()}|${t.dir}`;
@@ -110,13 +92,9 @@ function JournalPage() {
   const [dir, setDir] = useState<Direction>(engine.direction);
   const [actualPropPnl, setActualPropPnl] = useState("");
   const [actualExPnl, setActualExPnl] = useState("");
-
-  // Settle a specific open trade with exact PnL override
   const [settleId, setSettleId] = useState<string | null>(null);
   const [settlePropPnl, setSettlePropPnl] = useState("");
   const [settleExPnl, setSettleExPnl] = useState("");
-
-  // Auto-Sync state
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [pendingDeal, setPendingDeal] = useState<{
@@ -130,8 +108,6 @@ function JournalPage() {
     commission: number;
     swap: number;
   } | null>(null);
-
-  // Auto-Transition state
   const [showTransition, setShowTransition] = useState(false);
 
   const openTrades = journal.filter((t) => t.result === "OPEN");
@@ -175,7 +151,6 @@ function JournalPage() {
     toast.success(`${result} logged — net ${money(netPnl, true)}`);
   }
 
-  // ── Step 1: Auto-Sync from MetaApi ──────────────────────────────────────
   async function syncExnessHistory() {
     if (!meta.token || !meta.exnessAccountId) {
       toast.error("Add your MetaApi token and Exness account ID in Settings first.");
@@ -189,7 +164,6 @@ function JournalPage() {
         return;
       }
       const deals = res.data;
-      // Find the most recent deal not already in the journal
       const loggedIds = new Set(journal.map((t) => t.ticket));
       const newDeal = deals.find((d) => !loggedIds.has(d.id) && !loggedIds.has(d.orderId));
       if (!newDeal) {
@@ -209,7 +183,6 @@ function JournalPage() {
         commission: newDeal.commission,
         swap: newDeal.swap,
       });
-      // Pre-fill the form
       const closeTime = newDeal.time ? new Date(newDeal.time) : new Date();
       setDate(closeTime.toISOString().slice(0, 10));
       setActualExPnl(netD.toFixed(2));
@@ -220,7 +193,6 @@ function JournalPage() {
     }
   }
 
-  // Called when the user confirms the Prop result for the synced deal
   function confirmSyncedDeal(propResult: "WIN" | "LOSS") {
     if (!pendingDeal) return;
     const netD = pendingDeal.profit + pendingDeal.commission + pendingDeal.swap;
@@ -257,7 +229,6 @@ function JournalPage() {
     toast.success(`${propResult} logged from synced deal — net ${money(propPnl + exPnl, true)}`);
   }
 
-  // ── Step 2: Auto-Transition to Phase 2 ──────────────────────────────────
   function triggerPhaseTransition() {
     if (recovery.challengePassed && r.phase === 1) {
       const p1Spent = r.totalRequiredCapital;
@@ -273,14 +244,12 @@ function JournalPage() {
 
   function settle(trade: JournalTrade, result: "WIN" | "LOSS") {
     if (settleId === trade.id && (settlePropPnl !== "" || settleExPnl !== "")) {
-      // Use exact values from the inline form
       const propPnl = settlePropPnl !== "" ? Number(settlePropPnl) : trade.propPnl;
       const exPnl = settleExPnl !== "" ? Number(settleExPnl) : trade.exPnl;
       const netPnl = propPnl + exPnl;
       updateTrade(trade.id, { result, propPnl, exPnl, netPnl });
       toast.success(`Settled as ${result} — net ${money(netPnl, true)}`);
     } else {
-      // Derive from engine
       const rr = trade.details?.rr ?? engine.rr;
       const derived = tradePnl(r, result === "WIN", rr);
       updateTrade(trade.id, {
@@ -305,7 +274,6 @@ function JournalPage() {
   const winRate = closed.length ? (wins.length / closed.length) * 100 : 0;
   const profitFactor = grossLoss > 0 ? gross / grossLoss : gross > 0 ? Infinity : 0;
 
-  // Real-cash money summary from the recovery engine — fills in as trades are logged.
   const moneyLost = recovery.totalMoneyLost;
   const fuelExhausted = recovery.exnessFuelExhausted;
 
@@ -321,23 +289,26 @@ function JournalPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Journal</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">
-          P&amp;L is derived automatically from the live engine state (risk {money(engine.propRiskUsd)}, R:R 1:
-          {engine.rr}). Open trades show live floating P&amp;L from MetaApi (refreshes every 10s).
-        </p>
+    <div className="engine-cockpit">
+      {/* ── HEADER ────────────────────────────────────────────────── */}
+      <div className="cockpit-header">
+        <div className="cockpit-header-left">
+          <span className="cockpit-title">Trade Journal</span>
+          <Badge tone="blue">{journal.length} trades</Badge>
+          {openTrades.length > 0 && <Badge tone="amber">{openTrades.length} open</Badge>}
+
+        </div>
+        <div className="cockpit-header-right">
+          <span className="cockpit-pair">{pair}</span>
+          <span className="cockpit-price">R:R 1:{engine.rr}</span>
+        </div>
       </div>
 
+      {/* ── STATS GRID ─────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Closed trades" value={closed.length} />
         <Stat label="Win rate" value={`${winRate.toFixed(1)}%`} tone="text-primary" />
-        <Stat
-          label="Net P&L"
-          value={money(net, true)}
-          tone={net >= 0 ? "text-success" : "text-destructive"}
-        />
+        <Stat label="Net P&L" value={money(net, true)} tone={net >= 0 ? "text-success" : "text-destructive"} />
         <Stat
           label="Profit factor"
           value={Number.isFinite(profitFactor) ? profitFactor.toFixed(2) : "∞"}
@@ -345,100 +316,65 @@ function JournalPage() {
         />
       </div>
 
-      {/* Targeted Slippage Martingale — the live debt + next-trade target */}
-      <Card
-        title="Targeted Slippage Martingale"
-        badge={
-          <Badge tone={recovery.adjustmentNeeded ? "amber" : "green"}>
-            {recovery.adjustmentNeeded ? "Debt active" : "No debt"}
-          </Badge>
-        }
-      >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label="Current slippage debt"
-            value={money(recovery.slippageDebt, true)}
-            tone={recovery.slippageDebt > 0 ? "text-amber-400" : "text-muted-foreground"}
-          />
-          <Stat
-            label="Base Exness win target"
-            value={money(recovery.baseExnessWinTarget)}
-            tone="text-muted-foreground"
-          />
-          <Stat
-            label="Next trade target (martingale)"
-            value={money(recovery.newExnessWinTarget, true)}
-            tone={recovery.adjustmentNeeded ? "text-amber-400" : "text-success"}
-          />
-          <Stat
-            label="Dynamic Exness risk (prop wins)"
-            value={money(-recovery.newExnessLossTarget)}
-            tone={recovery.adjustmentNeeded ? "text-amber-400" : "text-destructive"}
-          />
-        </div>
-        <p className="mt-3 text-[11.5px] text-muted-foreground">
-          {recovery.adjustmentNeeded ? (
-            <>
-              ⚡ Slippage debt of <strong>{money(recovery.slippageDebt)}</strong> from{" "}
-              {recovery.totalSlippageAccrued > 0 && (
-                <>total accrued {money(recovery.totalSlippageAccrued)}</>
-              )}
-              {recovery.totalSlippageAccrued > 0 ? " — " : " — "}
-              the next Exness win wipes it. Target bumped from {money(recovery.baseExnessWinTarget)}{" "}
-              to <strong>{money(recovery.newExnessWinTarget)}</strong>; lot size already adjusted.
-            </>
-          ) : (
-            <>
-              No debt open. Next Exness win target stays at the base pace of{" "}
-              {money(recovery.baseExnessWinTarget)}. Any slippage on a future trade will
-              accrue into a one-leg martingale bump that wipes on the next Exness win.
-            </>
-          )}
-        </p>
-      </Card>
+      {/* ── MARTINGALE + MONEY LOST ─────────────────────────────────── */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card
+          title="Targeted Slippage Martingale"
+          badge={
+            <Badge tone={recovery.adjustmentNeeded ? "amber" : "green"}>
+              {recovery.adjustmentNeeded ? "Debt active" : "No debt"}
+            </Badge>
+          }
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Stat
+              label="Current slippage debt"
+              value={money(recovery.slippageDebt, true)}
+              tone={recovery.slippageDebt > 0 ? "text-amber-400" : "text-muted-foreground"}
+            />
+            <Stat label="Base Exness win target" value={money(recovery.baseExnessWinTarget)} tone="text-muted-foreground" />
+            <Stat
+              label="Next trade target (martingale)"
+              value={money(recovery.newExnessWinTarget, true)}
+              tone={recovery.adjustmentNeeded ? "text-amber-400" : "text-success"}
+            />
+            <Stat
+              label="Dynamic Exness risk (prop wins)"
+              value={money(-recovery.newExnessLossTarget)}
+              tone={recovery.adjustmentNeeded ? "text-amber-400" : "text-destructive"}
+            />
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            {recovery.adjustmentNeeded ? (
+              <>⚡ Slippage debt of <strong>{money(recovery.slippageDebt)}</strong> — the next Exness win wipes it. Target bumped from {money(recovery.baseExnessWinTarget)} to <strong>{money(recovery.newExnessWinTarget)}</strong>; lot size already adjusted.</>
+            ) : (
+              <>No debt open. Next Exness win target stays at the base pace of {money(recovery.baseExnessWinTarget)}. Any slippage on a future trade will accrue into a one-leg martingale bump that wipes on the next Exness win.</>
+            )}
+          </p>
+        </Card>
 
-      {/* Real-cash summary — visible from the first logged trade, final once passed */}
-      <Card title="Money lost over the run" badge={<Badge tone="red">Real cash</Badge>}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label="Exness fuel exhausted"
-            value={money(fuelExhausted)}
-            tone={fuelExhausted > 0 ? "text-destructive" : "text-muted-foreground"}
-          />
-          <Stat
-            label="Prop fee"
-            value={money(recovery.propFee)}
-            tone="text-destructive"
-          />
-          <Stat
-            label="Total money lost"
-            value={money(moneyLost)}
-            tone={moneyLost > 0 ? "text-destructive" : "text-muted-foreground"}
-          />
-          <Stat
-            label={recovery.challengePassed ? "Net result after payout" : "Net result if passed now"}
-            value={money(recovery.netResultAfterPayout, true)}
-            tone={recovery.netResultAfterPayout >= 0 ? "text-success" : "text-destructive"}
-          />
-        </div>
-        <p className="mt-3 text-[11.5px] text-muted-foreground">
-          {recovery.challengePassed ? (
-            <>
-              Challenge passed. Of the {money(recovery.totalExnessLosses)} in gross Exness losses,
-              {" "}{money(recovery.totalExnessWins)} was recovered by prop-loss legs — net fuel burn{" "}
-              {money(fuelExhausted)}. Exness balance still holds {money(recovery.actualExnessBalance)}{" "}
-              (returnable principal). Collect the payout: <strong>{money(r.propPayout, true)}</strong>.
-            </>
-          ) : (
-            <>
-              Running totals. Gross Exness losses so far: {money(recovery.totalExnessLosses)}; recovered by
-              prop-loss legs: {money(recovery.totalExnessWins)} — net fuel burn {money(fuelExhausted)}.
-              The Exness tank still holds {money(recovery.actualExnessBalance)}.
-            </>
-          )}
-        </p>
-      </Card>
+        <Card title="Money lost over the run" badge={<Badge tone="red">Real cash</Badge>}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Stat label="Exness fuel exhausted" value={money(fuelExhausted)} tone={fuelExhausted > 0 ? "text-destructive" : "text-muted-foreground"} />
+            <Stat label="Prop fee" value={money(recovery.propFee)} tone="text-destructive" />
+            <Stat label="Total money lost" value={money(moneyLost)} tone={moneyLost > 0 ? "text-destructive" : "text-muted-foreground"} />
+            <Stat
+              label={recovery.challengePassed ? "Net result after payout" : "Net result if passed now"}
+              value={money(recovery.netResultAfterPayout, true)}
+              tone={recovery.netResultAfterPayout >= 0 ? "text-success" : "text-destructive"}
+            />
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            {recovery.challengePassed ? (
+              <>Challenge passed. Of the {money(recovery.totalExnessLosses)} in gross Exness losses, {money(recovery.totalExnessWins)} was recovered by prop-loss legs — net fuel burn {money(fuelExhausted)}. Exness balance still holds {money(recovery.actualExnessBalance)} (returnable principal). Collect the payout: <strong>{money(r.propPayout, true)}</strong>.</>
+            ) : (
+              <>Running totals. Gross Exness losses so far: {money(recovery.totalExnessLosses)}; recovered by prop-loss legs: {money(recovery.totalExnessWins)} — net fuel burn {money(fuelExhausted)}. The Exness tank still holds {money(recovery.actualExnessBalance)}.</>
+            )}
+          </p>
+        </Card>
+      </div>
 
+      {/* ── LOG A TRADE ─────────────────────────────────────────────── */}
       <Card title="Log a trade">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Date">
@@ -447,9 +383,7 @@ function JournalPage() {
           <Field label="Pair">
             <Select value={pair} onChange={(e) => setPair(e.target.value)}>
               {PAIRS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
+                <option key={p} value={p}>{p}</option>
               ))}
             </Select>
           </Field>
@@ -460,36 +394,27 @@ function JournalPage() {
             </Select>
           </Field>
           <div className="flex items-end gap-2">
-            <Button variant="success" onClick={() => log("WIN")}>
-              Log win
-            </Button>
-            <Button variant="danger" onClick={() => log("LOSS")}>
-              Log loss
-            </Button>
+            <Button variant="success" onClick={() => log("WIN")}>Log win</Button>
+            <Button variant="danger" onClick={() => log("LOSS")}>Log loss</Button>
           </div>
         </div>
 
         {/* Auto-Sync section */}
-        <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
+        <div className="mt-4 rounded border border-border bg-muted/30 p-3">
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="ghost" onClick={syncExnessHistory} disabled={syncing}>
               {syncing ? "Syncing…" : "🔄 Sync Exness History"}
             </Button>
-            {lastSync && (
-              <span className="text-[11px] text-muted-foreground">Last sync: {lastSync}</span>
-            )}
+            {lastSync && <span className="text-[11px] text-muted-foreground">Last sync: {lastSync}</span>}
             {!meta.token || !meta.exnessAccountId ? (
               <span className="text-[11px] text-amber-400">⚠️ Add MetaApi credentials in Settings</span>
             ) : (
-              <span className="text-[11px] text-muted-foreground">
-                Fetches last 7 days of closed deals from MetaApi
-              </span>
+              <span className="text-[11px] text-muted-foreground">Fetches last 7 days of closed deals from MetaApi</span>
             )}
           </div>
 
-          {/* Pending deal confirmation */}
           {pendingDeal && (
-            <div className="mt-3 rounded-lg border border-primary/50 bg-primary/10 p-3">
+            <div className="mt-3 rounded border border-primary/50 bg-primary/10 p-3">
               <p className="text-[12px] text-primary font-semibold">
                 Synced deal {pendingDeal.id} — {pendingDeal.symbol} {pendingDeal.type.replace("DEAL_TYPE_", "")} {pendingDeal.volume} lots @ {pendingDeal.price}
               </p>
@@ -498,111 +423,80 @@ function JournalPage() {
               </p>
               <p className="mt-2 text-[12px] text-foreground">Did the Prop account WIN or LOSE this trade?</p>
               <div className="mt-2 flex gap-2">
-                <Button variant="success" onClick={() => confirmSyncedDeal("WIN")}>
-                  Prop WON ✓
-                </Button>
-                <Button variant="danger" onClick={() => confirmSyncedDeal("LOSS")}>
-                  Prop LOST ✗
-                </Button>
-                <Button variant="ghost" onClick={() => setPendingDeal(null)}>
-                  Cancel
-                </Button>
+                <Button variant="success" onClick={() => confirmSyncedDeal("WIN")}>Prop WON ✓</Button>
+                <Button variant="danger" onClick={() => confirmSyncedDeal("LOSS")}>Prop LOST ✗</Button>
+                <Button variant="ghost" onClick={() => setPendingDeal(null)}>Cancel</Button>
               </div>
             </div>
           )}
         </div>
-        <p className="mt-3 text-[11.5px] text-muted-foreground">
-          Override actual P&amp;L below (leave blank to use engine values):
-        </p>
+        <p className="mt-3 text-[11px] text-muted-foreground">Override actual P&L below (leave blank to use engine values):</p>
         <div className="mt-2 grid gap-3 sm:grid-cols-2">
           <Field label="Actual Prop P&L ($)" hint="e.g. +125.00 or -62.50">
-            <TextInput
-              type="number"
-              step="0.01"
-              value={actualPropPnl}
-              onChange={(e) => setActualPropPnl(e.target.value)}
-              placeholder={`engine: ${money(tradePnl(r, true, engine.rr).propPnl, true)}`}
-            />
+            <TextInput type="number" step="0.01" value={actualPropPnl} onChange={(e) => setActualPropPnl(e.target.value)} placeholder={`engine: ${money(tradePnl(r, true, engine.rr).propPnl, true)}`} />
           </Field>
           <Field label="Actual Exness P&L ($)" hint="e.g. -250.00 or +125.00">
-            <TextInput
-              type="number"
-              step="0.01"
-              value={actualExPnl}
-              onChange={(e) => setActualExPnl(e.target.value)}
-              placeholder={`engine: ${money(tradePnl(r, true, engine.rr).exPnl, true)}`}
-            />
+            <TextInput type="number" step="0.01" value={actualExPnl} onChange={(e) => setActualExPnl(e.target.value)} placeholder={`engine: ${money(tradePnl(r, true, engine.rr).exPnl, true)}`} />
           </Field>
         </div>
       </Card>
 
+      {/* ── NEXT STEPS ──────────────────────────────────────────────── */}
       <Card title="Next steps">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Wins remaining" value={recovery.remainingWins} />
           <Stat label="Losses remaining" value={recovery.remainingLosses} />
-          <Stat
-            label="Exness balance"
-            value={money(recovery.actualExnessBalance)}
-            tone={recovery.actualExnessBalance >= 0 ? "text-success" : "text-destructive"}
-          />
+          <Stat label="Exness balance" value={money(recovery.actualExnessBalance)} tone={recovery.actualExnessBalance >= 0 ? "text-success" : "text-destructive"} />
           <Stat
             label={recovery.adjustmentNeeded ? "Next target (martingale) ⚡" : "Win target"}
             value={money(recovery.newExnessWinTarget)}
             tone={recovery.adjustmentNeeded ? "text-amber-400" : undefined}
           />
         </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-[12px] text-muted-foreground">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-[11px] text-muted-foreground">
           <div>Prop profit logged: <span className="text-success font-mono">{money(recovery.totalPropProfitLogged, true)}</span></div>
           <div>Prop loss logged: <span className="text-destructive font-mono">{money(-recovery.totalPropLossLogged)}</span></div>
           <div>Remaining target: <span className="font-mono text-foreground">{money(recovery.remainingPropTarget)}</span></div>
           <div>Remaining drawdown: <span className={`font-mono ${recovery.remainingDrawdown < r.maxDdUsd * 0.25 ? "text-destructive" : "text-foreground"}`}>{money(recovery.remainingDrawdown)}</span></div>
         </div>
 
-        {/* Challenge passed */}
         {recovery.challengePassed && (
           <div className="mt-3 space-y-2">
-            <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success font-semibold">
+            <p className="rounded border border-success/30 bg-success/10 px-3 py-2 text-[11px] text-success font-semibold">
               🎉 Challenge Passed! Request your payout. Switch to Phase 2 (Mega Shield) for the Funded Stage.
             </p>
             {r.phase === 1 && (
-              <Button variant="success" onClick={triggerPhaseTransition}>
-                🚀 Activate Phase 2 Mega Shield
-              </Button>
+              <Button variant="success" onClick={triggerPhaseTransition}>🚀 Activate Phase 2 Mega Shield</Button>
             )}
             {showTransition && r.phase === 2 && (
-              <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
-                ✅ Phase 2 activated! P1 spent: <strong>{money(r.phase1TotalSpent)}</strong>, Exness balance:{" "}
-                <strong>{money(recovery.actualExnessBalance)}</strong>. Deposit the Phase 2 refill to start the
-                Funded Stage.
+              <p className="rounded border border-success/30 bg-success/10 px-3 py-2 text-[11px] text-success">
+                ✅ Phase 2 activated! P1 spent: <strong>{money(r.phase1TotalSpent)}</strong>, Exness balance: <strong>{money(recovery.actualExnessBalance)}</strong>. Deposit the Phase 2 refill to start the Funded Stage.
               </p>
             )}
           </div>
         )}
 
-        {/* Buffer depleted */}
         {recovery.bufferDepleted && !recovery.challengePassed && (
-          <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-destructive font-semibold">
+          <p className="mt-3 rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive font-semibold">
             ⚠️ CRITICAL: Exness Buffer Depleted — deposit <strong>{money(recovery.depositNeeded)}</strong> to maintain the zero-loss loop.
           </p>
         )}
 
-        {/* Martingale bump active */}
         {recovery.adjustmentNeeded && !recovery.challengePassed && (
-          <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-400">
-            ⚡ Martingale active: debt <strong>{money(recovery.slippageDebt)}</strong> added to the
-            next Exness target ({money(recovery.baseExnessWinTarget)} →{" "}
-            {money(recovery.newExnessWinTarget, true)}). The next Exness win wipes it.
+          <p className="mt-3 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
+            ⚡ Martingale active: debt <strong>{money(recovery.slippageDebt)}</strong> added to the next Exness target ({money(recovery.baseExnessWinTarget)} → {money(recovery.newExnessWinTarget, true)}). The next Exness win wipes it.
           </p>
         )}
 
         {!recovery.adjustmentNeeded && closed.length > 0 && !recovery.challengePassed && (
-          <p className="mt-3 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
+          <p className="mt-3 rounded border border-success/30 bg-success/10 px-3 py-2 text-[11px] text-success">
             No slippage debt. Every Exness trade has come in on or better than script.
           </p>
         )}
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* ── EQUITY CURVE + WIN/LOSS ─────────────────────────────────── */}
+      <div className="grid gap-5 lg:grid-cols-3">
         <Card title="Equity curve" className="lg:col-span-2">
           <div className="h-64">
             {curve.length ? (
@@ -611,21 +505,12 @@ function JournalPage() {
                   <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
                   <XAxis dataKey="i" stroke="var(--color-muted-foreground)" fontSize={11} />
                   <YAxis stroke="var(--color-muted-foreground)" fontSize={11} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--color-card)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 12,
-                      fontSize: 12,
-                    }}
-                  />
+                  <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }} />
                   <Line type="monotone" dataKey="equity" stroke="var(--color-primary)" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <p className="grid h-full place-items-center text-[13px] text-muted-foreground">
-                Log a trade to build the curve.
-              </p>
+              <p className="grid h-full place-items-center text-[13px] text-muted-foreground">Log a trade to build the curve.</p>
             )}
           </div>
         </Card>
@@ -639,14 +524,7 @@ function JournalPage() {
                       <Cell key={d.name} fill={d.fill} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--color-card)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 12,
-                      fontSize: 12,
-                    }}
-                  />
+                  <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -656,7 +534,7 @@ function JournalPage() {
         </Card>
       </div>
 
-      {/* ── Trades table ─────────────────────────────────────── */}
+      {/* ── TRADES TABLE ────────────────────────────────────────────── */}
       <Card
         title={`Trades (${journal.length})`}
         badge={
@@ -667,26 +545,25 @@ function JournalPage() {
           ) : undefined
         }
       >
-        {/* Live indicator if MetaApi configured and there are open trades */}
         {openTrades.length > 0 && meta.token && meta.exnessAccountId && (
           <div className="mb-3 flex items-center gap-2 text-[11px] text-muted-foreground">
             <span className="inline-block h-2 w-2 rounded-full bg-success animate-pulse" />
-            Live P&amp;L updating from MetaApi every 10s
+            Live P&L updating from MetaApi every 10s
             {liveMap.size === 0 && " — matching positions…"}
           </div>
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full text-[12.5px]">
+          <table className="w-full text-[12px]">
             <thead>
-              <tr className="text-left text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">
-                <th className="py-2 pr-3">Date</th>
-                <th className="py-2 pr-3">Pair</th>
-                <th className="py-2 pr-3">Dir</th>
-                <th className="py-2 pr-3">Result</th>
-                <th className="py-2 pr-3">Prop P&L</th>
-                <th className="py-2 pr-3">Exness P&L</th>
-                <th className="py-2 pr-3">Net</th>
+              <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                <th className="py-2 pr-3 font-medium">Date</th>
+                <th className="py-2 pr-3 font-medium">Pair</th>
+                <th className="py-2 pr-3 font-medium">Dir</th>
+                <th className="py-2 pr-3 font-medium">Result</th>
+                <th className="py-2 pr-3 font-medium">Prop P&L</th>
+                <th className="py-2 pr-3 font-medium">Exness P&L</th>
+                <th className="py-2 pr-3 font-medium">Net</th>
                 <th className="py-2" />
               </tr>
             </thead>
@@ -698,19 +575,17 @@ function JournalPage() {
                   const isOpen = t.result === "OPEN";
                   const livePnl = liveMap.get(t.id);
                   const hasLive = isOpen && livePnl !== undefined;
-
-                  // Display values: for OPEN, prefer live; for closed, use stored
                   const displayProp = hasLive ? livePnl : t.propPnl;
-                  const displayEx   = hasLive ? 0 : t.exPnl;
-                  const displayNet  = hasLive ? livePnl : t.netPnl;
+                  const displayEx = hasLive ? 0 : t.exPnl;
+                  const displayNet = hasLive ? livePnl : t.netPnl;
 
                   return (
                     <>
                       <tr key={t.id} className="border-t border-border">
-                        <td className="py-2 pr-3 text-[11px] text-muted-foreground">{t.date}</td>
-                        <td className="py-2 pr-3 text-foreground">{t.pair}</td>
-                        <td className="py-2 pr-3">{t.dir}</td>
-                        <td className="py-2 pr-3">
+                        <td className="py-1.5 pr-3 text-[11px] text-muted-foreground">{t.date}</td>
+                        <td className="py-1.5 pr-3 text-foreground">{t.pair}</td>
+                        <td className="py-1.5 pr-3">{t.dir}</td>
+                        <td className="py-1.5 pr-3">
                           <div className="flex items-center gap-1.5">
                             <Badge tone={t.result === "WIN" ? "green" : t.result === "LOSS" ? "red" : "amber"}>
                               {t.result}
@@ -720,39 +595,36 @@ function JournalPage() {
                             )}
                           </div>
                         </td>
-                        {/* Prop P&L — for OPEN, shows live floating total; for closed, stored */}
-                        <td className={displayProp >= 0 ? "py-2 pr-3 text-success" : "py-2 pr-3 text-destructive"}>
+                        <td className={displayProp >= 0 ? "py-1.5 pr-3 text-success" : "py-1.5 pr-3 text-destructive"}>
                           {isOpen && hasLive ? (
                             <span className="font-semibold">{money(displayProp, true)}<span className="ml-1 text-[9px] text-muted-foreground">live</span></span>
                           ) : (
                             money(displayProp, true)
                           )}
                         </td>
-                        <td className={displayEx >= 0 ? "py-2 pr-3 text-success" : "py-2 pr-3 text-destructive"}>
+                        <td className={displayEx >= 0 ? "py-1.5 pr-3 text-success" : "py-1.5 pr-3 text-destructive"}>
                           {isOpen && !hasLive ? <span className="text-muted-foreground">—</span> : money(displayEx, true)}
                         </td>
-                        <td className={displayNet >= 0 ? "py-2 pr-3 font-semibold text-success" : "py-2 pr-3 font-semibold text-destructive"}>
+                        <td className={displayNet >= 0 ? "py-1.5 pr-3 font-semibold text-success" : "py-1.5 pr-3 font-semibold text-destructive"}>
                           {money(displayNet, true)}
                         </td>
-                        <td className="py-2">
+                        <td className="py-1.5">
                           <div className="flex justify-end gap-1.5">
                             {isOpen && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setSettleId(settleId === t.id ? null : t.id);
-                                    setSettlePropPnl("");
-                                    setSettleExPnl("");
-                                  }}
-                                  className="rounded-lg border border-primary/40 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10"
-                                >
-                                  Settle…
-                                </button>
-                              </>
+                              <button
+                                onClick={() => {
+                                  setSettleId(settleId === t.id ? null : t.id);
+                                  setSettlePropPnl("");
+                                  setSettleExPnl("");
+                                }}
+                                className="rounded border border-primary/40 px-2 py-1 text-[10px] font-semibold text-primary hover:bg-primary/10"
+                              >
+                                Settle…
+                              </button>
                             )}
                             <button
                               onClick={() => deleteTrade(t.id)}
-                              className="rounded-lg border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                              className="rounded border border-border px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
                             >
                               Delete
                             </button>
@@ -760,14 +632,11 @@ function JournalPage() {
                         </td>
                       </tr>
 
-                      {/* ── Inline settle form (expand on "Settle…") ── */}
                       {settleId === t.id && (
                         <tr key={`${t.id}-settle`} className="border-b border-primary/20 bg-primary/5">
                           <td colSpan={8} className="px-3 py-3">
                             <div className="flex flex-wrap items-end gap-3">
-                              <p className="w-full text-[11px] text-muted-foreground mb-1">
-                                Enter actual P&amp;L, then click Win or Loss (blank = engine-derived):
-                              </p>
+                              <p className="w-full text-[11px] text-muted-foreground mb-1">Enter actual P&L, then click Win or Loss (blank = engine-derived):</p>
                               <div className="flex items-center gap-2">
                                 <label className="text-[11px] text-muted-foreground w-24">Prop P&L ($)</label>
                                 <input
@@ -776,7 +645,7 @@ function JournalPage() {
                                   value={settlePropPnl}
                                   onChange={(e) => setSettlePropPnl(e.target.value)}
                                   placeholder={hasLive ? money(livePnl, true) : "engine value"}
-                                  className="w-32 rounded-md border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                                  className="w-32 rounded border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                                 />
                               </div>
                               <div className="flex items-center gap-2">
@@ -787,24 +656,24 @@ function JournalPage() {
                                   value={settleExPnl}
                                   onChange={(e) => setSettleExPnl(e.target.value)}
                                   placeholder="0.00"
-                                  className="w-32 rounded-md border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                                  className="w-32 rounded border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                                 />
                               </div>
                               <button
                                 onClick={() => settle(t, "WIN")}
-                                className="rounded-lg border border-success/40 bg-success/10 px-3 py-1 text-[11px] font-semibold text-success hover:bg-success/20"
+                                className="rounded border border-success/40 bg-success/10 px-3 py-1 text-[10px] font-semibold text-success hover:bg-success/20"
                               >
                                 ✓ Win
                               </button>
                               <button
                                 onClick={() => settle(t, "LOSS")}
-                                className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive/20"
+                                className="rounded border border-destructive/40 bg-destructive/10 px-3 py-1 text-[10px] font-semibold text-destructive hover:bg-destructive/20"
                               >
                                 ✗ Loss
                               </button>
                               <button
                                 onClick={() => setSettleId(null)}
-                                className="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                                className="px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground"
                               >
                                 Cancel
                               </button>
