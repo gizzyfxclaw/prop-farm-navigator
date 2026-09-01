@@ -13,6 +13,8 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StoreProvider } from "../lib/store";
+import { NotificationProvider } from "../lib/notifications";
+import { NotificationBell } from "../components/terminal/NotificationBell";
 import { LogoMark, LogoWordmark, LogoWatermark } from "../components/brand/logo";
 
 const NAV = [
@@ -299,15 +301,16 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <StoreProvider>
-        {/* Ambient layers — behind everything */}
-        <GlowOrbs />
-        <ParticleField />
-        <LogoWatermark />
+      <NotificationProvider>
+        <StoreProvider>
+          {/* Ambient layers — behind everything */}
+          <GlowOrbs />
+          <ParticleField />
+          <LogoWatermark />
 
-        <div className="relative min-h-screen" style={{ zIndex: 1 }}>
-          {/* ── Glass header ───────────────────────────────────── */}
-          <header
+          <div className="relative min-h-screen" style={{ zIndex: 1 }}>
+            {/* ── Glass header ───────────────────────────────────── */}
+            <header
             className="sticky top-0 z-30"
             style={{
               background: "oklch(var(--gz-s3) / 0.88)",
@@ -335,6 +338,7 @@ function RootComponent() {
 
               <div className="flex items-center gap-3">
                 <Clock />
+                <NotificationBell />
                 <ThemeSwitcher />
                 <button
                   onClick={handleLogout}
@@ -431,6 +435,7 @@ function RootComponent() {
           }}
         />
       </StoreProvider>
+      </NotificationProvider>
     </QueryClientProvider>
   );
 }

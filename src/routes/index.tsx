@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { Alert, Badge, Button, Card, Field, Row, Select, TextInput } from "@/components/terminal/ui";
 import { money, pendingOrderType, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
+import { useNotifications } from "@/lib/notifications";
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
 import { placePendingOrder } from "@/lib/metaapi.functions";
 import { marketStatus } from "@/lib/market-hours";
@@ -38,9 +39,33 @@ function EnginePage() {
   // Recovery state: drives dynamic remaining counts + alerts on Engine page too
   const recovery = computeRecovery(r, journal);
   const selectedAccount = useSelectedAccount();
+  const { addNotification } = useNotifications();
   const liveAccounts = useLiveAccounts();
   const [status, setStatus] = useState<{ tone: "green" | "red" | "amber"; text: string } | null>(null);
   const [busy, setBusy] = useState<"trade" | "trade-prop" | null>(null);
+
+  // Push notifications for critical engine events
+  const lastRiskCapped = useRef(false);
+  const lastBufferDepleted = useRef(false);
+  useEffect(() => {
+    if (r.riskCapped && !lastRiskCapped.current) {
+      addNotification({
+        title: "⚠️ Daily Profit Cap Active",
+        body: `Prop Risk reduced from $${engine.propRiskUsd.toFixed(2)} to $${r.cappedPropRisk.toFixed(2)} (reward capped at $${(r.cappedPropRisk * r.rr).toFixed(2)})`,
+        type: "warning",
+      });
+    }
+    lastRiskCapped.current = r.riskCapped;
+
+    if (recovery.bufferDepleted && !lastBufferDepleted.current) {
+      addNotification({
+        title: "🚨 Exness Buffer Depleted",
+        body: `Deposit $${recovery.depositNeeded.toFixed(2)} to maintain the zero-loss loop.`,
+        type: "error",
+      });
+    }
+    lastBufferDepleted.current = recovery.bufferDepleted;
+  }, [r.riskCapped, recovery.bufferDepleted, recovery.depositNeeded, engine.propRiskUsd, r.cappedPropRisk, r.rr, addNotification]);
   // Re-evaluated each minute so the countdown and the disabled state stay honest
   // without the page needing a reload across the Friday close / Sunday open.
   const [market, setMarket] = useState(() => marketStatus());
