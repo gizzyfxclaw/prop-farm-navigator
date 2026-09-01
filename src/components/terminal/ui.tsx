@@ -16,21 +16,17 @@ export function Card({
 }) {
   return (
     <section
-      className={cn("card-neon lift rounded-xl p-5", className)}
-      style={{
-        background: "oklch(0.128 0.024 292 / 0.72)",
-        backdropFilter: "blur(16px) saturate(1.4)",
-        WebkitBackdropFilter: "blur(16px) saturate(1.4)",
-        border: "1px solid oklch(0.680 0.230 295 / 0.13)",
-        boxShadow: "0 0 12px oklch(0.680 0.230 295 / 0.08), inset 0 1px 0 oklch(1 0 0 / 0.04)",
-      }}
+      className={cn(
+        "bg-[#0a0a0a] border border-[#1a1a1a]",
+        className,
+      )}
     >
       {(title || badge) && (
-        <header className="mb-4 flex items-center justify-between gap-3">
+        <header className="flex items-center justify-between gap-3 px-3 py-2 border-b border-[#1a1a1a] bg-[#0f0f0f]">
           {title && (
             <h2
-              className="font-display text-[11px] font-semibold uppercase text-muted-foreground"
-              style={{ letterSpacing: "0.22em" }}
+              className="font-mono text-[10px] font-bold uppercase text-[#8a8a8a]"
+              style={{ letterSpacing: "0.08em" }}
             >
               {title}
             </h2>
@@ -38,7 +34,7 @@ export function Card({
           {badge}
         </header>
       )}
-      {children}
+      <div className="p-3">{children}</div>
     </section>
   );
 }
@@ -53,16 +49,16 @@ export function Badge({
   children: ReactNode;
 }) {
   const tones = {
-    blue:    "bg-primary/12 text-primary border border-primary/25",
-    green:   "bg-success/12 text-success border border-success/25",
-    red:     "bg-destructive/12 text-destructive border border-destructive/25",
-    amber:   "bg-warning/12 text-warning border border-warning/25",
-    neutral: "bg-muted/80 text-muted-foreground border border-white/[0.06]",
+    blue:    "bg-[#1a2a3a] text-[#6ab4ff] border border-[#2a3a4a]",
+    green:   "bg-[#0a2a1a] text-[#4ade80] border border-[#1a3a2a]",
+    red:     "bg-[#2a0a0a] text-[#f87171] border border-[#3a1a1a]",
+    amber:   "bg-[#2a1a0a] text-[#fbbf24] border border-[#3a2a1a]",
+    neutral: "bg-[#1a1a1a] text-[#8a8a8a] border border-[#2a2a2a]",
   } as const;
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]",
+        "inline-flex items-center px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase",
         tones[tone],
         className,
       )}
@@ -84,21 +80,22 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+    <label className="flex flex-col gap-1">
+      <span className="text-[9px] font-bold uppercase text-[#6a6a6a] tracking-wide font-mono">
         {label}
       </span>
       {children}
-      {hint && <span className="text-[10.5px] text-muted-foreground/70">{hint}</span>}
+      {hint && <span className="text-[9px] text-[#5a5a5a] font-mono">{hint}</span>}
     </label>
   );
 }
 
 const controlClass =
-  "h-11 w-full rounded-lg px-3 font-mono text-sm text-foreground outline-none transition-all " +
-  "bg-input border border-border " +
-  "focus:border-primary/50 focus:ring-2 focus:ring-primary/25 " +
-  "disabled:opacity-60";
+  "h-8 w-full px-2 font-mono text-[11px] text-[#e0e0e0] outline-none " +
+  "bg-[#0a0a0a] border border-[#2a2a2a] " +
+  "focus:border-[#4a4a4a] " +
+  "placeholder:text-[#4a4a4a] " +
+  "disabled:opacity-50 disabled:cursor-not-allowed";
 
 export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cn(controlClass, props.className)} />;
@@ -106,7 +103,7 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select {...props} className={cn(controlClass, "appearance-none pr-8", props.className)}>
+    <select {...props} className={cn(controlClass, "appearance-none pr-6", props.className)}>
       {props.children}
     </select>
   );
@@ -121,25 +118,28 @@ export function Button({
 }) {
   const variants = {
     primary:
-      "btn-sweep bg-gradient-to-br from-primary to-primary/80 text-primary-foreground " +
-      "shadow-[0_0_20px_oklch(0.680_0.230_295_/_0.30)] hover:shadow-[0_0_28px_oklch(0.680_0.230_295_/_0.45)]",
+      "bg-[#1a1a1a] border border-[#3a3a3a] text-[#e0e0e0] " +
+      "hover:bg-[#2a2a2a] hover:border-[#4a4a4a] " +
+      "active:bg-[#0a0a0a]",
     ghost:
-      "border border-border bg-secondary/60 text-foreground backdrop-blur-sm " +
-      "hover:bg-secondary hover:border-primary/30",
+      "bg-transparent border border-[#2a2a2a] text-[#8a8a8a] " +
+      "hover:bg-[#1a1a1a] hover:text-[#e0e0e0] hover:border-[#3a3a3a]",
     danger:
-      "bg-destructive/15 border border-destructive/35 text-destructive hover:bg-destructive/25",
+      "bg-[#2a0a0a] border border-[#4a1a1a] text-[#f87171] " +
+      "hover:bg-[#3a1a1a] hover:border-[#5a2a2a]",
     success:
-      "btn-sweep bg-gradient-to-br from-success to-success/80 text-background " +
-      "shadow-[0_0_20px_oklch(0.680_0.230_295_/_0.30)]",
+      "bg-[#0a2a1a] border border-[#1a4a2a] text-[#4ade80] " +
+      "hover:bg-[#1a3a2a] hover:border-[#2a5a3a]",
   } as const;
 
   return (
     <button
       {...props}
       className={cn(
-        "press inline-flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold",
-        "transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        "disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none",
+        "inline-flex h-8 items-center justify-center gap-1.5 px-3 text-[11px] font-bold uppercase font-mono",
+        "transition-colors duration-75",
+        "focus-visible:outline-none focus-visible:border-[#6ab4ff]",
+        "disabled:cursor-not-allowed disabled:opacity-40",
         variants[variant],
         className,
       )}
@@ -161,21 +161,21 @@ export function Row({
   strong?: boolean;
 }) {
   const tones = {
-    default: "text-foreground",
-    pos: "text-success",
-    neg: "text-destructive",
-    accent: "text-primary",
-    warn: "text-warning",
+    default: "text-[#e0e0e0]",
+    pos: "#4ade80",
+    neg: "#f87171",
+    accent: "#6ab4ff",
+    warn: "#fbbf24",
   } as const;
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-4 py-1.5 text-[13px]",
-        strong && "mt-1 border-t border-border pt-2.5 font-semibold",
+        "flex items-center justify-between gap-3 py-0.5 text-[11px] font-mono",
+        strong && "mt-1 border-t border-[#1a1a1a] pt-1.5 font-bold",
       )}
     >
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn("font-mono tabular-nums", tones[tone])}>{value}</span>
+      <span className="text-[#6a6a6a] uppercase tracking-wide">{label}</span>
+      <span className="tabular-nums" style={{ color: tones[tone] }}>{value}</span>
     </div>
   );
 }
@@ -190,15 +190,15 @@ export function Alert({
   children?: ReactNode;
 }) {
   const tones = {
-    green: "border-success/40 bg-success/10 text-success",
-    red: "border-destructive/40 bg-destructive/10 text-destructive",
-    amber: "border-warning/40 bg-warning/10 text-warning",
+    green: "border-l-[#4ade80] bg-[#0a1a0a] text-[#4ade80]",
+    red: "border-l-[#f87171] bg-[#1a0a0a] text-[#f87171]",
+    amber: "border-l-[#fbbf24] bg-[#1a1a0a] text-[#fbbf24]",
   } as const;
   return (
-    <div className={cn("rounded-lg border p-4 backdrop-blur-sm", tones[level])}>
-      <p className="font-display text-sm font-bold uppercase tracking-[0.12em]">{title}</p>
+    <div className={cn("border-l-2 px-3 py-2", tones[level])}>
+      <p className="font-mono text-[10px] font-bold uppercase tracking-wide">{title}</p>
       {children && (
-        <p className="mt-1.5 text-[12.5px] leading-relaxed text-foreground/80">{children}</p>
+        <p className="mt-1 text-[10px] leading-snug text-[#8a8a8a]">{children}</p>
       )}
     </div>
   );
@@ -214,19 +214,11 @@ export function Stat({
   tone?: string | undefined;
 }) {
   return (
-    <div
-      className="lift rounded-xl p-4"
-      style={{
-        background: "oklch(0.128 0.024 292 / 0.72)",
-        backdropFilter: "blur(16px) saturate(1.4)",
-        WebkitBackdropFilter: "blur(16px) saturate(1.4)",
-        border: "1px solid oklch(0.680 0.230 295 / 0.13)",
-      }}
-    >
-      <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+    <div className="bg-[#0a0a0a] border border-[#1a1a1a] p-2.5">
+      <p className="text-[9px] font-bold uppercase text-[#6a6a6a] tracking-wide font-mono">
         {label}
       </p>
-      <p className={cn("mt-2 font-mono text-2xl font-bold tabular-nums", tone)}>{value}</p>
+      <p className={cn("mt-1 font-mono text-lg font-bold tabular-nums", tone)}>{value}</p>
     </div>
   );
 }

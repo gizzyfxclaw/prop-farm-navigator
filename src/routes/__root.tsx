@@ -15,6 +15,9 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StoreProvider } from "../lib/store";
 import { NotificationProvider } from "../lib/notifications";
 import { NotificationBell } from "../components/terminal/NotificationBell";
+import { MarketStatus } from "../components/terminal/MarketStatus";
+import { ConnectionIndicator } from "../components/terminal/ConnectionIndicator";
+import { AccountBalance } from "../components/terminal/AccountBalance";
 import { LogoMark, LogoWordmark, LogoWatermark } from "../components/brand/logo";
 
 const NAV = [
@@ -309,97 +312,123 @@ function RootComponent() {
           <LogoWatermark />
 
           <div className="relative min-h-screen" style={{ zIndex: 1 }}>
-            {/* ── Glass header ───────────────────────────────────── */}
+            {/* ── Bloomberg-style Trading Command Bar ─────────────── */}
             <header
-            className="sticky top-0 z-30"
-            style={{
-              background: "oklch(var(--gz-s3) / 0.88)",
-              backdropFilter: "blur(28px) saturate(1.8)",
-              WebkitBackdropFilter: "blur(28px) saturate(1.8)",
-              borderBottom: "1px solid oklch(var(--gz-p) / 0.14)",
-              boxShadow: "0 1px 0 oklch(var(--gz-p) / 0.08), 0 4px 40px oklch(0 0 0 / 0.45)",
-            }}
-          >
-            {/* Top accent bar */}
-            <div style={{
-              position: "absolute", top: 0, left: 0, right: 0, height: "2px",
-              background: "linear-gradient(90deg, transparent 0%, oklch(var(--gz-p) / 0.8) 20%, oklch(var(--gz-h)) 50%, oklch(var(--gz-p) / 0.8) 80%, transparent 100%)",
-            }} />
+              className="sticky top-0 z-30"
+              style={{
+                background: "oklch(var(--gz-s3) / 0.92)",
+                backdropFilter: "blur(24px) saturate(1.6)",
+                WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+                borderBottom: "1px solid oklch(var(--gz-p) / 0.12)",
+                boxShadow: "0 1px 0 oklch(var(--gz-p) / 0.06), 0 4px 32px oklch(0 0 0 / 0.50)",
+              }}
+            >
+              {/* Top accent line */}
+              <div style={{
+                position: "absolute", top: 0, left: 0, right: 0, height: "1px",
+                background: "linear-gradient(90deg, transparent 0%, oklch(var(--gz-p) / 0.6) 20%, oklch(var(--gz-h) / 0.8) 50%, oklch(var(--gz-p) / 0.6) 80%, transparent 100%)",
+              }} />
 
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5">
-              <Link
-                to="/"
-                className="glow-hover flex items-center gap-2.5 select-none"
-                aria-label="GizzyFx home"
+              {/* ── Top Status Bar (Bloomberg-style) ─────────── */}
+              <div
+                className="mx-auto max-w-7xl px-4"
+                style={{
+                  borderBottom: "1px solid oklch(var(--gz-p) / 0.08)",
+                  background: "oklch(var(--gz-s1) / 0.40)",
+                }}
               >
-                <LogoMark size={34} />
-                <LogoWordmark height={21} />
-              </Link>
-
-              <div className="flex items-center gap-3">
-                <Clock />
-                <NotificationBell />
-                <ThemeSwitcher />
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    height: 28, padding: "0 10px", borderRadius: 8,
-                    border: "1px solid oklch(var(--gz-p) / 0.22)",
-                    background: "oklch(var(--gz-p) / 0.08)",
-                    color: "oklch(var(--gz-mut))",
-                    fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
-                    cursor: "pointer", textTransform: "uppercase",
-                    transition: "all 0.18s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "oklch(0.500 0.200 25 / 0.15)";
-                    e.currentTarget.style.borderColor = "oklch(0.500 0.200 25 / 0.35)";
-                    e.currentTarget.style.color = "oklch(0.720 0.180 25)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "oklch(var(--gz-p) / 0.08)";
-                    e.currentTarget.style.borderColor = "oklch(var(--gz-p) / 0.22)";
-                    e.currentTarget.style.color = "oklch(var(--gz-mut))";
-                  }}
-                >
-                  Sign out
-                </button>
+                <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center gap-4">
+                    <MarketStatus />
+                    <div className="h-3 w-px" style={{ background: "oklch(var(--gz-p) / 0.15)" }} />
+                    <ConnectionIndicator />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <AccountBalance />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Navigation row */}
-            <div className="mx-auto max-w-6xl overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <nav className="flex min-w-max items-center gap-0.5">
-                {NAV.map((item) => (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    activeOptions={{ exact: item.to === "/" }}
-                    className="press relative whitespace-nowrap rounded-md px-3 py-1.5 text-[12.5px] font-medium tracking-wide transition-all duration-200"
-                    style={{ color: "oklch(var(--gz-mut))" }}
-                    activeProps={{
-                      style: {
-                        color: "oklch(var(--gz-p))",
-                        background: "oklch(var(--gz-p) / 0.10)",
-                        boxShadow: "0 0 16px oklch(var(--gz-p) / 0.18)",
-                        textShadow: "0 0 12px oklch(var(--gz-p) / 0.50)",
-                      }
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.color = "oklch(var(--gz-txt))";
-                      (e.currentTarget as HTMLElement).style.background = "oklch(1 0 0 / 0.04)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.color = "oklch(var(--gz-mut))";
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
-                    }}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
-            </div>
-          </header>
+              {/* ── Main Command Bar ──────────────────────────── */}
+              <div className="mx-auto max-w-7xl px-4">
+                <div className="flex items-center justify-between py-2">
+                  {/* Logo + Nav */}
+                  <div className="flex items-center gap-6">
+                    <Link
+                      to="/"
+                      className="glow-hover flex items-center gap-2 select-none"
+                      aria-label="GizzyFx home"
+                    >
+                      <LogoMark size={28} />
+                      <LogoWordmark height={18} />
+                    </Link>
+
+                    {/* Navigation tabs */}
+                    <nav className="flex items-center gap-0.5">
+                      {NAV.map((item) => (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          activeOptions={{ exact: item.to === "/" }}
+                          className="press relative whitespace-nowrap rounded px-2.5 py-1.5 text-[11px] font-medium tracking-wide transition-all duration-150"
+                          style={{ color: "oklch(var(--gz-mut))" }}
+                          activeProps={{
+                            style: {
+                              color: "oklch(var(--gz-p))",
+                              background: "oklch(var(--gz-p) / 0.10)",
+                              boxShadow: "0 0 12px oklch(var(--gz-p) / 0.15)",
+                              textShadow: "0 0 10px oklch(var(--gz-p) / 0.40)",
+                            }
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLElement).style.color = "oklch(var(--gz-txt))";
+                            (e.currentTarget as HTMLElement).style.background = "oklch(1 0 0 / 0.04)";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLElement).style.color = "oklch(var(--gz-mut))";
+                            (e.currentTarget as HTMLElement).style.background = "transparent";
+                          }}
+                        >
+                          {item.label}
+                        </Link>
+                      ))}
+                    </nav>
+                  </div>
+
+                  {/* Right controls */}
+                  <div className="flex items-center gap-3">
+                    <Clock />
+                    <div className="h-4 w-px" style={{ background: "oklch(var(--gz-p) / 0.15)" }} />
+                    <NotificationBell />
+                    <ThemeSwitcher />
+                    <button
+                      onClick={handleLogout}
+                      style={{
+                        height: 24, padding: "0 8px", borderRadius: 6,
+                        border: "1px solid oklch(var(--gz-p) / 0.20)",
+                        background: "oklch(var(--gz-p) / 0.06)",
+                        color: "oklch(var(--gz-mut))",
+                        fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
+                        cursor: "pointer", textTransform: "uppercase",
+                        transition: "all 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "oklch(0.500 0.200 25 / 0.12)";
+                        e.currentTarget.style.borderColor = "oklch(0.500 0.200 25 / 0.30)";
+                        e.currentTarget.style.color = "oklch(0.720 0.180 25)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "oklch(var(--gz-p) / 0.06)";
+                        e.currentTarget.style.borderColor = "oklch(var(--gz-p) / 0.20)";
+                        e.currentTarget.style.color = "oklch(var(--gz-mut))";
+                      }}
+                    >
+                      Exit
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </header>
 
           {/* ── Page content ─────────────────────────────────── */}
           <main key={pathname} className="stagger mx-auto max-w-6xl px-4 py-6">
