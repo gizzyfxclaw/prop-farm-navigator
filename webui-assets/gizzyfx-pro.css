@@ -1,16 +1,8 @@
 /**
- * GizzyFx Professional Trading Co-Pilot — Complete Hermes WebUI Redesign
+ * GizzyFx Pro — Professional Trading Terminal Skin
  * 
- * A sharp, matte, institutional aesthetic for the Hermes WebUI chat interface.
- * Transforms the chat into a professional trading co-pilot command center.
- * 
- * Features:
- * - Bloomberg-style dark institutional palette
- * - Sharp corners, matte surfaces, no glassmorphism
- * - Professional typography (Inter + JetBrains Mono)
- * - Trading status bar with market/connection indicators
- * - Dense information layout
- * - Status indicators for market hours, data feed, P&L
+ * Transforms the Hermes WebUI into a professional trading command center.
+ * Bloomberg-style dense layout, institutional aesthetic, data-first design.
  * 
  * Select via Settings → Appearance → Skin → "gizzyfx-pro"
  */
@@ -18,7 +10,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ══════════════════════════════════════════════════════════════════════
-   CORE PALETTE — Professional Trading Co-Pilot
+   CORE PALETTE — Professional Trading Terminal
    ══════════════════════════════════════════════════════════════════════ */
 
 :root[data-skin="gizzyfx-pro"] {
@@ -153,7 +145,7 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   APP LAYOUT
+   APP LAYOUT — Trading Terminal Structure
    ══════════════════════════════════════════════════════════════════════ */
 
 :root[data-skin="gizzyfx-pro"] #app,
@@ -498,182 +490,246 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   SETTINGS
+   GIZZYFX NAV BAR (bottom navigation)
    ══════════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] [class*="settings"] {
-  font-family: var(--font-ui) !important;
+#gizzyfx-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--gz-surface);
+  border-top: 1px solid var(--gz-border);
+  backdrop-filter: none;
+  font-family: var(--font-ui);
 }
 
-:root[data-skin="gizzyfx-pro"] [class*="settings-section-title"] {
+#gizzyfx-nav .gizzyfx-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gz-muted);
+  text-decoration: none;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+
+#gizzyfx-nav .gizzyfx-nav-link:hover {
+  color: var(--gz-text);
+  background: var(--gz-surface-2);
+  border-color: var(--gz-border);
+}
+
+#gizzyfx-nav .gizzyfx-nav-primary {
+  color: var(--gz-accent-2) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+#gizzyfx-nav .gizzyfx-nav-primary:hover {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: var(--gz-accent) !important;
+}
+
+#gizzyfx-nav .gizzyfx-nav-link svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Push content up so nav doesn't overlap ── */
+:root[data-skin="gizzyfx-pro"] #app {
+  padding-bottom: 48px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TRADING TERMINAL HEADER ENHANCEMENTS
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Title bar links (Trading Engine, Strategy) ── */
+:root[data-skin="gizzyfx-pro"] .app-titlebar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--gz-muted);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+:root[data-skin="gizzyfx-pro"] .app-titlebar-link:hover {
+  color: var(--gz-text);
+  background: var(--gz-surface-2);
+  border-color: var(--gz-border);
+}
+
+:root[data-skin="gizzyfx-pro"] .app-titlebar-link svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ── Empty state — trading terminal feel ── */
+:root[data-skin="gizzyfx-pro"] .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+}
+
+:root[data-skin="gizzyfx-pro"] .empty-state h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--gz-text);
+  margin-bottom: 8px;
+}
+
+:root[data-skin="gizzyfx-pro"] .empty-state p {
+  font-size: 13px;
+  color: var(--gz-muted);
+  margin-bottom: 24px;
+}
+
+/* ── Suggestion buttons — trading style ── */
+:root[data-skin="gizzyfx-pro"] .suggestion-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+:root[data-skin="gizzyfx-pro"] .suggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gz-text);
+  background: var(--gz-surface);
+  border: 1px solid var(--gz-border);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+:root[data-skin="gizzyfx-pro"] .suggestion:hover {
+  background: var(--gz-surface-2);
+  border-color: var(--gz-accent);
+  color: var(--gz-accent-2);
+}
+
+:root[data-skin="gizzyfx-pro"] .suggestion svg {
+  width: 12px;
+  height: 12px;
+  color: var(--gz-muted);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   DENSE MODE — Trading Terminal Information Density
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Compact spacing ── */
+:root[data-skin="gizzyfx-pro"] [class*="panel-head"] {
+  padding: 8px 12px !important;
   font-size: 11px !important;
   font-weight: 600 !important;
-  letter-spacing: 0.05em !important;
-  text-transform: uppercase !important;
-  color: var(--gz-muted) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="settings-label"] {
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  color: var(--gz-text) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   PULSE DOT ANIMATION
-   ══════════════════════════════════════════════════════════════════════ */
-
-@media (prefers-reduced-motion: no-preference) {
-  :root[data-skin="gizzyfx-pro"] [class*="pulse"] {
-    animation: gz-pro-pulse 2s ease-in-out infinite;
-  }
-
-  :root[data-skin="gizzyfx-pro"] .animate-in {
-    animation: gz-pro-rise 0.2s ease-out both;
-  }
-}
-
-@keyframes gz-pro-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-@keyframes gz-pro-rise {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: none; }
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   REDUCED MOTION
-   ══════════════════════════════════════════════════════════════════════ */
-
-@media (prefers-reduced-motion: reduce) {
-  :root[data-skin="gizzyfx-pro"] *,
-  :root[data-skin="gizzyfx-pro"] *::before,
-  :root[data-skin="gizzyfx-pro"] *::after {
-    animation: none !important;
-    transition: none !important;
-  }
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   TRADING CO-PILOT STATUS BAR
-   ══════════════════════════════════════════════════════════════════════ */
-
-/* ── Status bar at top of chat area ── */
-.gz-copilot-statusbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  background: var(--gz-surface);
-  border-bottom: 1px solid var(--gz-border);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.03em;
-  color: var(--gz-muted);
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.gz-copilot-statusbar-left,
-.gz-copilot-statusbar-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.gz-copilot-status-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.gz-copilot-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.gz-copilot-status-dot.green {
-  background: var(--gz-success);
-  box-shadow: 0 0 4px var(--gz-success);
-}
-
-.gz-copilot-status-dot.red {
-  background: var(--gz-danger);
-}
-
-.gz-copilot-status-dot.amber {
-  background: var(--gz-warning);
-}
-
-.gz-copilot-status-label {
-  color: var(--gz-muted);
-}
-
-.gz-copilot-status-value {
-  color: var(--gz-text);
-  font-weight: 500;
-}
-
-.gz-copilot-status-value.positive {
-  color: var(--gz-success);
-}
-
-.gz-copilot-status-value.negative {
-  color: var(--gz-danger);
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   FILE TREE
-   ══════════════════════════════════════════════════════════════════════ */
-
-:root[data-skin="gizzyfx-pro"] [class*="file-tree"] {
-  font-family: var(--font-mono) !important;
+:root[data-skin="gizzyfx-pro"] [class*="panel-head"] span {
   font-size: 11px !important;
 }
 
-:root[data-skin="gizzyfx-pro"] [class*="file-tree"] [class*="item"]:hover {
-  background: var(--gz-surface-2) !important;
+/* ── Tighter message spacing ── */
+:root[data-skin="gizzyfx-pro"] [class*="message"] {
+  margin-bottom: 4px !important;
+  padding: 8px 12px !important;
+}
+
+/* ── Compact composer ── */
+:root[data-skin="gizzyfx-pro"] textarea {
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+  min-height: 36px !important;
+  max-height: 120px !important;
+}
+
+/* ── Dense tables ── */
+:root[data-skin="gizzyfx-pro"] th {
+  padding: 6px 10px !important;
+  font-size: 9px !important;
+}
+
+:root[data-skin="gizzyfx-pro"] td {
+  padding: 6px 10px !important;
+  font-size: 11px !important;
+}
+
+/* ── Compact buttons ── */
+:root[data-skin="gizzyfx-pro"] button {
+  padding: 5px 10px !important;
+  font-size: 11px !important;
+}
+
+/* ── Smaller sidebar items ── */
+:root[data-skin="gizzyfx-pro"] [class*="session-item"] {
+  padding: 5px 8px !important;
+  margin: 1px 4px !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="session-title"] {
+  font-size: 11px !important;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   MISC ELEMENTS
+   RESPONSIVE
    ══════════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] [class*="divider"] {
-  background: var(--gz-border) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="skeleton"],
-:root[data-skin="gizzyfx-pro"] [class*="shimmer"] {
-  background: linear-gradient(
-    90deg,
-    var(--gz-surface-2) 25%,
-    var(--gz-surface-3) 50%,
-    var(--gz-surface-2) 75%
-  ) !important;
-  background-size: 200% 100% !important;
-}
-
-/* ── Picker grid (skin selector) ── */
-:root[data-skin="gizzyfx-pro"] [class*="skin-picker"] {
-  gap: 6px !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="skin-picker"] [class*="item"] {
-  border-radius: 4px !important;
-}
-
-/* ── Empty states ── */
-:root[data-skin="gizzyfx-pro"] [class*="empty-state"] {
-  color: var(--gz-muted) !important;
-  font-size: 12px !important;
-}
-
-/* ── Loading spinner ── */
-:root[data-skin="gizzyfx-pro"] [class*="spinner"] {
-  border-color: var(--gz-border) !important;
-  border-top-color: var(--gz-accent) !important;
+@media (max-width: 768px) {
+  #gizzyfx-nav {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+  
+  #gizzyfx-nav .gizzyfx-nav-link {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  
+  #gizzyfx-nav .gizzyfx-nav-link span {
+    display: none;
+  }
+  
+  #gizzyfx-nav .gizzyfx-nav-link svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  :root[data-skin="gizzyfx-pro"] .suggestion-grid {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  :root[data-skin="gizzyfx-pro"] .suggestion {
+    width: 100%;
+    max-width: 280px;
+    justify-content: center;
+  }
 }
