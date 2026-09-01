@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Badge, Button, Card, Field, Select, Stat, TextInput } from "@/components/terminal/ui";
+import { Badge, Button, Card, Field, Row, Select, Stat, TextInput } from "@/components/terminal/ui";
 import { money, tradePnl, type Direction } from "@/lib/engine/calc";
 import { PAIRS } from "@/lib/engine/pairs";
 import { fetchOpenState } from "@/lib/metaapi.functions";
@@ -191,6 +191,10 @@ function JournalPage() {
   const winRate = closed.length ? (wins.length / closed.length) * 100 : 0;
   const profitFactor = grossLoss > 0 ? gross / grossLoss : gross > 0 ? Infinity : 0;
 
+  // Real-cash money summary from the recovery engine — fills in as trades are logged.
+  const moneyLost = recovery.totalMoneyLost;
+  const fuelExhausted = recovery.exnessFuelExhausted;
+
   let running = 0;
   const curve = closed.map((t, i) => {
     running += t.netPnl;
@@ -226,6 +230,48 @@ function JournalPage() {
           tone="text-primary"
         />
       </div>
+
+      {/* Real-cash summary — visible from the first logged trade, final once passed */}
+      <Card title="Money lost over the run" badge={<Badge tone="red">Real cash</Badge>}>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="Exness fuel exhausted"
+            value={money(fuelExhausted)}
+            tone={fuelExhausted > 0 ? "text-destructive" : "text-muted-foreground"}
+          />
+          <Stat
+            label="Prop fee"
+            value={money(recovery.propFee)}
+            tone="text-destructive"
+          />
+          <Stat
+            label="Total money lost"
+            value={money(moneyLost)}
+            tone={moneyLost > 0 ? "text-destructive" : "text-muted-foreground"}
+          />
+          <Stat
+            label={recovery.challengePassed ? "Net result after payout" : "Net result if passed now"}
+            value={money(recovery.netResultAfterPayout, true)}
+            tone={recovery.netResultAfterPayout >= 0 ? "text-success" : "text-destructive"}
+          />
+        </div>
+        <p className="mt-3 text-[11.5px] text-muted-foreground">
+          {recovery.challengePassed ? (
+            <>
+              Challenge passed. Of the {money(recovery.totalExnessLosses)} in gross Exness losses,
+              {" "}{money(recovery.totalExnessWins)} was recovered by prop-loss legs — net fuel burn{" "}
+              {money(fuelExhausted)}. Exness balance still holds {money(recovery.actualExnessBalance)}{" "}
+              (returnable principal). Collect the payout: <strong>{money(r.propPayout, true)}</strong>.
+            </>
+          ) : (
+            <>
+              Running totals. Gross Exness losses so far: {money(recovery.totalExnessLosses)}; recovered by
+              prop-loss legs: {money(recovery.totalExnessWins)} — net fuel burn {money(fuelExhausted)}.
+              The Exness tank still holds {money(recovery.actualExnessBalance)}.
+            </>
+          )}
+        </p>
+      </Card>
 
       <Card title="Log a trade">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

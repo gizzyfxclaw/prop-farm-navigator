@@ -44,6 +44,16 @@ export interface RecoveryState {
   /** true when newExnessWinTarget differs materially from the current engine target. */
   adjustmentNeeded: boolean;
 
+  // ── final money summary (fills in as trades are logged) ─────────────────────
+  /** Prop challenge fee paid upfront (real cash). */
+  propFee: number;
+  /** Net Exness fuel consumed so far: starting tank − current balance (≥ 0). */
+  exnessFuelExhausted: number;
+  /** Total real money lost over the run: prop fee + gross Exness losses logged. */
+  totalMoneyLost: number;
+  /** Whole-operation cash delta once the payout lands: payout + net Exness P&L − fee. */
+  netResultAfterPayout: number;
+
   // ── edge case alerts ────────────────────────────────────────────────────────
   /** Challenge is complete — prop target reached. */
   challengePassed: boolean;
@@ -150,6 +160,17 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     ? Math.max(0, exnessNeededToFinish - actualExnessBalance)
     : 0;
 
+  // ── PART 5: Final money summary (real cash consumed by the run) ───────────
+  const propFee = r.propFee;
+  // Net drawdown of the Exness fuel tank: deposit − current balance = −net P&L.
+  const exnessFuelExhausted = Math.max(0, -actualExnessPnl);
+  // Real cash lost over the whole run: the challenge fee plus the net fuel burn.
+  // (Net, not gross — prop losses recover fuel, so gross would double-count.)
+  const totalMoneyLost = propFee + exnessFuelExhausted;
+  // Cash delta of the whole operation once the prop payout is collected —
+  // the fuel still sitting in the Exness tank is returnable principal, not lost.
+  const netResultAfterPayout = r.propPayout + actualExnessPnl - propFee;
+
   return {
     loggedWins,
     loggedLosses,
@@ -170,5 +191,9 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     challengePassed,
     bufferDepleted,
     depositNeeded,
+    propFee,
+    exnessFuelExhausted,
+    totalMoneyLost,
+    netResultAfterPayout,
   };
 }

@@ -459,7 +459,10 @@ function EnginePage() {
         </Card>
       </div>
 
-      <Card title="Total capital needed" badge={<Badge tone="amber">Worst case 1:2</Badge>}>
+      <Card
+        title="Total capital needed"
+        badge={<Badge tone="amber">Worst case 1:2</Badge>}
+      >
         {r.capitalBreakdown.map((b, i) => (
           <Row
             key={b.label}
@@ -475,6 +478,38 @@ function EnginePage() {
           <Row label="Prop payout at target" value={money(r.propPayout, true)} tone="pos" />
           <Row label="Net profit if passed" value={money(r.netProfitIfPassed, true)} tone={r.netProfitIfPassed >= 20 ? "pos" : "neg"} />
         </div>
+
+        {/* Real-cash running summary — final once the challenge is passed */}
+        <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Row
+              label={recovery.challengePassed ? "Exness fuel exhausted (final)" : "Exness fuel exhausted (so far)"}
+              value={money(recovery.exnessFuelExhausted)}
+              tone="neg"
+            />
+            <Row
+              label="Prop fee"
+              value={money(recovery.propFee)}
+              tone="neg"
+            />
+            <Row
+              label={recovery.challengePassed ? "Total money lost (final)" : "Total money lost (so far)"}
+              value={money(recovery.totalMoneyLost)}
+              tone="neg"
+              strong
+            />
+            <Row
+              label={recovery.challengePassed ? "Net result after payout (final)" : "Net result if passed now"}
+              value={money(recovery.netResultAfterPayout, true)}
+              tone={recovery.netResultAfterPayout >= 0 ? "pos" : "neg"}
+            />
+          </div>
+          <p className="mt-2 text-[10.5px] text-muted-foreground">
+            Real cash spent: the prop fee plus the net Exness fuel burn. Money still sitting in the Exness
+            tank ({money(recovery.actualExnessBalance)}) is returnable principal, not lost.
+          </p>
+        </div>
+
         <p className="mt-3 text-[10.5px] text-muted-foreground">
           Capital always assumes the worst-case 1:2 rotation, so switching to 1:1.5 can never blow the fuel
           account. Buffer applied: {engine.bufferPct}%.
@@ -499,8 +534,11 @@ function EnginePage() {
         {recovery.challengePassed && (
           <Alert level="green" title="🎉 Challenge Passed! Request your payout.">
             Prop target reached ({money(recovery.totalPropProfitLogged, true)} logged).
-            Request your payout, then switch to Phase 2 (Mega Shield) to start the Funded Stage.
-            Exness balance: {money(recovery.actualExnessBalance)}.
+            Total money lost over the run: <strong>{money(recovery.totalMoneyLost)}</strong> — Exness fuel
+            exhausted {money(recovery.exnessFuelExhausted)} plus the {money(recovery.propFee)} prop fee.
+            Net result after payout: <strong>{money(recovery.netResultAfterPayout, true)}</strong>.
+            Exness balance: {money(recovery.actualExnessBalance)} (returnable). Switch to Phase 2 (Mega
+            Shield) for the Funded Stage.
           </Alert>
         )}
 

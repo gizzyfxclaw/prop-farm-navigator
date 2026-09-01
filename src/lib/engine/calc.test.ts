@@ -31,6 +31,7 @@ describe("engine", () => {
     const r = calculate(base);
     expect(r.targetUsd).toBe(300);
     expect(r.maxDdUsd).toBe(300);
+    expect(r.propFee).toBe(28.6);
     expect(r.lossesToBlow).toBe(6);
     expect(r.winsToPass).toBe(3);
     expect(r.propWinPerTrade).toBe(100);

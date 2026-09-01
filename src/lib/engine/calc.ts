@@ -60,6 +60,8 @@ export interface EngineResult {
   // account level
   targetUsd: number;
   maxDdUsd: number;
+  /** Challenge fee paid upfront (real cash). */
+  propFee: number;
   propWinPerTrade: number;
   lossesToBlow: number;
   winsToPass: number;
@@ -266,6 +268,7 @@ export function calculate(input: EngineInputs): EngineResult {
   return {
     targetUsd,
     maxDdUsd,
+    propFee: fee,
     propWinPerTrade,
     lossesToBlow,
     winsToPass,
