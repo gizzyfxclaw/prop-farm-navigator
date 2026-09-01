@@ -1,512 +1,237 @@
 /**
- * GizzyFx Pro — Professional Trading Terminal Skin
- * 
- * Transforms the Hermes WebUI into a professional trading command center.
- * Bloomberg-style dense layout, institutional aesthetic, data-first design.
- * 
- * Select via Settings → Appearance → Skin → "gizzyfx-pro"
+ * GizzyFx Pro — Trading Terminal Skin for Hermes WebUI
+ * Mobile-first, responsive, uses standard hex colors for compatibility.
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-/* ══════════════════════════════════════════════════════════════════════
-   CORE PALETTE — Professional Trading Terminal
-   ══════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   PALETTE
+   ══════════════════════════════════════════════════════════════════ */
 
 :root[data-skin="gizzyfx-pro"] {
-  /* ── Background surfaces ── */
-  --gz-bg:          #0a0a0a;
-  --gz-surface:     #111111;
-  --gz-surface-2:   #161616;
-  --gz-surface-3:   #1c1c1c;
-  --gz-surface-4:   #222222;
-  --gz-border:      #2a2a2a;
-  --gz-border-2:    #333333;
-  --gz-border-3:    #444444;
-  
-  /* ── Text ── */
-  --gz-text:        #e0e0e0;
-  --gz-text-strong: #ffffff;
-  --gz-muted:        #777777;
-  --gz-muted-2:       #555555;
-  
-  /* ── Accent / Brand ── */
-  --gz-accent:      #3b82f6;
-  --gz-accent-2:    #60a5fa;
-  --gz-accent-3:    #93bbfd;
-  --gz-accent-dim:  #1d4ed8;
-  
-  /* ── Semantic colors ── */
-  --gz-success:     #22c55e;
-  --gz-success-dim: #16a34a;
-  --gz-danger:      #ef4444;
-  --gz-danger-dim:  #dc2626;
-  --gz-warning:     #f59e0b;
-  --gz-warning-dim: #d97706;
-  --gz-info:        #06b6d4;
-  --gz-info-dim:    #0891b2;
-  
-  /* ── Chart colors ── */
-  --gz-bull:        #22c55e;
-  --gz-bear:        #ef4444;
-  --gz-neutral:     #6b7280;
-  
-  /* ── Override Hermes CSS variables ── */
+  --gz-p:   #00c8e8;
+  --gz-h:   #00e5c8;
+  --gz-bg:  #061520;
+  --gz-s1:  #0a1e2e;
+  --gz-s2:  #0f2438;
+  --gz-s3:  #081929;
+  --gz-inp: #0a1e2e;
+  --gz-txt: #e8f4f8;
+  --gz-mut: #5a8a9f;
+
   --bg:              var(--gz-bg);
-  --sidebar:         var(--gz-surface);
-  --border:          var(--gz-border);
-  --border2:         var(--gz-border-2);
-  --text:            var(--gz-text);
-  --muted:           var(--gz-muted);
-  --accent:          var(--gz-accent);
-  --blue:            var(--gz-accent-2);
-  --gold:            var(--gz-warning);
-  --code-bg:         var(--gz-surface-2);
-  --surface:         var(--gz-surface);
-  --topbar-bg:       var(--gz-surface);
+  --sidebar:         var(--gz-s1);
+  --border:          rgba(0, 200, 232, 0.10);
+  --border2:         rgba(0, 200, 232, 0.18);
+  --text:            var(--gz-txt);
+  --muted:           var(--gz-mut);
+  --accent:          var(--gz-p);
+  --blue:            var(--gz-h);
+  --gold:            #f59e0b;
+  --code-bg:         var(--gz-s2);
+  --surface:         var(--gz-s2);
+  --topbar-bg:       rgba(8, 25, 41, 0.92);
   --main-bg:         var(--gz-bg);
-  --focus-ring:      rgba(59, 130, 246, 0.35);
-  --focus-glow:      rgba(59, 130, 246, 0.1);
-  --input-bg:        var(--gz-surface-2);
-  --hover-bg:        var(--gz-surface-3);
-  --strong:          var(--gz-text-strong);
-  --em:              var(--gz-muted);
-  --code-text:       var(--gz-text);
-  --code-inline-bg:  var(--gz-surface-2);
-  --pre-text:        var(--gz-text);
-  --accent-hover:    var(--gz-accent-2);
-  --accent-bg:       rgba(59, 130, 246, 0.08);
-  --accent-bg-strong: rgba(59, 130, 246, 0.15);
-  --accent-text:     var(--gz-accent-2);
-  --error:           var(--gz-danger);
-  --success:         var(--gz-success);
-  --warning:         var(--gz-warning);
-  --info:            var(--gz-info);
-  
-  /* ── Radius — sharp institutional ── */
-  --radius-sm:       2px;
-  --radius-md:       4px;
-  --radius-card:     4px;
-  --radius-lg:       6px;
-  --radius-pill:     999px;
-  
-  /* ── Surfaces ── */
-  --surface-subtle:       var(--gz-surface-2);
-  --surface-subtle-hover: var(--gz-surface-3);
-  --border-subtle:        var(--gz-border);
-  --border-muted:         var(--gz-border-2);
-  
-  /* ── Typography ── */
+  --focus-ring:      rgba(0, 200, 232, 0.40);
+  --focus-glow:      rgba(0, 200, 232, 0.10);
+  --input-bg:        var(--gz-inp);
+  --hover-bg:        var(--gz-s3);
+  --strong:          #ffffff;
+  --em:              var(--gz-mut);
+  --code-text:       var(--gz-txt);
+  --code-inline-bg:  var(--gz-s2);
+  --pre-text:        var(--gz-txt);
+  --accent-hover:    var(--gz-h);
+  --accent-bg:       rgba(0, 200, 232, 0.08);
+  --accent-bg-strong: rgba(0, 200, 232, 0.15);
+  --accent-text:     var(--gz-h);
+  --error:           #ef4444;
+  --success:         #22c55e;
+  --warning:         #f59e0b;
+  --info:            #06b6d4;
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-card: 4px;
+  --radius-lg: 6px;
+  --radius-pill: 999px;
+  --surface-subtle:       var(--gz-s2);
+  --surface-subtle-hover: var(--gz-s3);
+  --border-subtle:        rgba(0, 200, 232, 0.10);
+  --border-muted:         rgba(0, 200, 232, 0.18);
   --font-ui:           "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   --font-conversation:  "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   --font-mono:          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   BODY & AMBIENT
-   ══════════════════════════════════════════════════════════════════════ */
+/* Blue variant */
+:root[data-skin="gizzyfx-pro"][data-theme="blue"] {
+  --gz-p:   #3b82f6;
+  --gz-h:   #60a5fa;
+  --gz-bg:  #0a1628;
+  --gz-s1:  #0f1e38;
+  --gz-s2:  #142848;
+  --gz-s3:  #0c1a30;
+  --gz-inp: #0f1e38;
+  --gz-txt: #e4eaf8;
+  --gz-mut: #5a7a9f;
+}
+
+/* Purple variant */
+:root[data-skin="gizzyfx-pro"][data-theme="purple"] {
+  --gz-p:   #a78bfa;
+  --gz-h:   #c4b5fd;
+  --gz-bg:  #1a0a2e;
+  --gz-s1:  #241445;
+  --gz-s2:  #2e1c58;
+  --gz-s3:  #201038;
+  --gz-inp: #241445;
+  --gz-txt: #ebe7f5;
+  --gz-mut: #7d719a;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BODY
+   ══════════════════════════════════════════════════════════════════ */
 
 :root[data-skin="gizzyfx-pro"] body {
   background: var(--gz-bg) !important;
-  background-image: none !important;
   font-family: var(--font-ui) !important;
   font-size: 13px !important;
-  line-height: 1.5 !important;
-  color: var(--gz-text) !important;
+  line-height: 1.4 !important;
+  color: var(--gz-txt) !important;
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
 }
 
-:root[data-skin="gizzyfx-pro"] body::before,
-:root[data-skin="gizzyfx-pro"] body::after {
-  display: none !important;
-}
+/* ══════════════════════════════════════════════════════════════════
+   SCROLLBAR
+   ══════════════════════════════════════════════════════════════════ */
 
-/* ══════════════════════════════════════════════════════════════════════
-   SCROLLBAR — Institutional thin
-   ══════════════════════════════════════════════════════════════════════ */
+:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar { width: 6px; height: 6px; }
+:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-track { background: var(--gz-s3); }
+:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-thumb { background: rgba(0, 200, 232, 0.20); border-radius: 3px; }
+:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-thumb:hover { background: rgba(0, 200, 232, 0.35); }
 
-:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-track {
-  background: var(--gz-surface-2);
-}
-
-:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-thumb {
-  background: var(--gz-border-2);
-  border-radius: 3px;
-}
-
-:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-thumb:hover {
-  background: var(--gz-muted);
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   APP LAYOUT — Trading Terminal Structure
-   ══════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   APP LAYOUT
+   ══════════════════════════════════════════════════════════════════ */
 
 :root[data-skin="gizzyfx-pro"] #app,
-:root[data-skin="gizzyfx-pro"] main {
-  position: relative;
-  z-index: 1;
+:root[data-skin="gizzyfx-pro"] main { position: relative; z-index: 1; }
+
+/* ── Title bar ── */
+:root[data-skin="gizzyfx-pro"] .app-titlebar {
+  position: sticky !important;
+  top: 0;
+  z-index: 30;
+  background: rgba(8, 25, 41, 0.92) !important;
+  backdrop-filter: blur(24px) saturate(1.6) !important;
+  border-bottom: 1px solid rgba(0, 200, 232, 0.12) !important;
+  box-shadow: 0 1px 0 rgba(0, 200, 232, 0.06), 0 4px 32px rgba(0, 0, 0, 0.50) !important;
 }
+
+:root[data-skin="gizzyfx-pro"] .app-titlebar-title { font-weight: 600; color: var(--gz-txt); }
 
 /* ── Sidebar ── */
 :root[data-skin="gizzyfx-pro"] [class*="sidebar"] {
-  background: var(--gz-surface) !important;
-  border-right: 1px solid var(--gz-border) !important;
-  backdrop-filter: none !important;
+  background: var(--gz-s1) !important;
+  border-right: 1px solid rgba(0, 200, 232, 0.10) !important;
 }
 
-/* ── Top bar / Title bar ── */
-:root[data-skin="gizzyfx-pro"] [class*="titlebar"],
-:root[data-skin="gizzyfx-pro"] [class*="topbar"],
-:root[data-skin="gizzyfx-pro"] [class*="header"] {
-  background: var(--gz-surface) !important;
-  border-bottom: 1px solid var(--gz-border) !important;
-  backdrop-filter: none !important;
-  font-family: var(--font-ui) !important;
-}
-
-/* ── Main content area ── */
+/* ── Main ── */
 :root[data-skin="gizzyfx-pro"] [class*="main"],
-:root[data-skin="gizzyfx-pro"] [class*="chat"] {
-  background: var(--gz-bg) !important;
-}
+:root[data-skin="gizzyfx-pro"] [class*="chat"] { background: var(--gz-bg) !important; }
 
-/* ── Right panel ── */
-:root[data-skin="gizzyfx-pro"] [class*="rightpanel"],
+/* ── Panel ── */
 :root[data-skin="gizzyfx-pro"] [class*="panel-view"] {
-  background: var(--gz-surface) !important;
-  border-color: var(--gz-border) !important;
-  backdrop-filter: none !important;
+  background: var(--gz-s1) !important;
+  border-color: rgba(0, 200, 232, 0.10) !important;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   CARDS / PANELS
-   ══════════════════════════════════════════════════════════════════════ */
-
-:root[data-skin="gizzyfx-pro"] [class*="card"],
-:root[data-skin="gizzyfx-pro"] [class*="panel"] {
-  background: var(--gz-surface) !important;
-  border: 1px solid var(--gz-border) !important;
-  border-radius: 4px !important;
-  backdrop-filter: none !important;
-  box-shadow: none !important;
+/* ── Rail ── */
+:root[data-skin="gizzyfx-pro"] .rail {
+  background: var(--gz-s1) !important;
+  border-right: 1px solid rgba(0, 200, 232, 0.10) !important;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   MESSAGE BUBBLES
-   ══════════════════════════════════════════════════════════════════════ */
+:root[data-skin="gizzyfx-pro"] .rail-btn { color: var(--gz-mut) !important; border-radius: 4px !important; }
+:root[data-skin="gizzyfx-pro"] .rail-btn:hover { background: var(--gz-s2) !important; color: var(--gz-txt) !important; }
+:root[data-skin="gizzyfx-pro"] .rail-btn.active { background: rgba(0, 200, 232, 0.12) !important; color: var(--gz-h) !important; }
 
-:root[data-skin="gizzyfx-pro"] [class*="message"] {
-  border-radius: 4px !important;
-  font-family: var(--font-conversation) !important;
-}
+/* ══════════════════════════════════════════════════════════════════
+   MESSAGES
+   ══════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] [class*="msg-body"] {
-  font-family: var(--font-conversation) !important;
-  font-size: 13px !important;
-  line-height: 1.6 !important;
-}
-
+:root[data-skin="gizzyfx-pro"] [class*="message"] { border-radius: 4px !important; font-family: var(--font-conversation) !important; }
+:root[data-skin="gizzyfx-pro"] [class*="msg-body"] { font-family: var(--font-conversation) !important; font-size: 13px !important; line-height: 1.6 !important; }
 :root[data-skin="gizzyfx-pro"] [class*="msg-body"] h1,
 :root[data-skin="gizzyfx-pro"] [class*="msg-body"] h2,
-:root[data-skin="gizzyfx-pro"] [class*="msg-body"] h3,
-:root[data-skin="gizzyfx-pro"] [class*="msg-body"] h4 {
-  font-family: var(--font-ui) !important;
-  font-weight: 600 !important;
-  color: var(--gz-text-strong) !important;
-}
+:root[data-skin="gizzyfx-pro"] [class*="msg-body"] h3 { font-family: var(--font-ui) !important; font-weight: 600 !important; color: var(--gz-txt) !important; }
 
-:root[data-skin="gizzyfx-pro"] [class*="msg-role"] {
-  font-family: var(--font-ui) !important;
-  font-size: 11px !important;
-}
+:root[data-skin="gizzyfx-pro"] [class*="user-bubble"] { background: var(--gz-s2) !important; border: 1px solid rgba(0, 200, 232, 0.10) !important; }
+:root[data-skin="gizzyfx-pro"] [class*="assistant-bubble"] { background: var(--gz-s1) !important; border: 1px solid rgba(0, 200, 232, 0.10) !important; }
 
-/* ── User bubble ── */
-:root[data-skin="gizzyfx-pro"] [class*="user-bubble"] {
-  background: var(--gz-surface-2) !important;
-  border: 1px solid var(--gz-border) !important;
-}
+/* ══════════════════════════════════════════════════════════════════
+   CODE
+   ══════════════════════════════════════════════════════════════════ */
 
-/* ── Assistant bubble ── */
-:root[data-skin="gizzyfx-pro"] [class*="assistant-bubble"] {
-  background: var(--gz-surface) !important;
-  border: 1px solid var(--gz-border) !important;
-}
+:root[data-skin="gizzyfx-pro"] pre { background: var(--gz-s2) !important; border: 1px solid rgba(0, 200, 232, 0.10) !important; border-radius: 4px !important; font-family: var(--font-mono) !important; }
+:root[data-skin="gizzyfx-pro"] pre code { font-family: var(--font-mono) !important; font-size: 12px !important; color: var(--gz-txt) !important; }
+:root[data-skin="gizzyfx-pro"] code { font-family: var(--font-mono) !important; font-size: 12px !important; background: var(--gz-s2) !important; border-radius: 2px !important; }
+:root[data-skin="gizzyfx-pro"] :not(pre) > code { color: var(--gz-h) !important; background: rgba(0, 200, 232, 0.08) !important; }
 
-/* ══════════════════════════════════════════════════════════════════════
-   CODE BLOCKS & INLINE CODE
-   ══════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   COMPOSER
+   ══════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] pre {
-  background: var(--gz-surface-2) !important;
-  border: 1px solid var(--gz-border) !important;
-  border-radius: 4px !important;
-  font-family: var(--font-mono) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] pre code {
-  font-family: var(--font-mono) !important;
-  font-size: 12px !important;
-  line-height: 1.5 !important;
-  color: var(--gz-text) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] code {
-  font-family: var(--font-mono) !important;
-  font-size: 12px !important;
-  background: var(--gz-surface-2) !important;
-  border-radius: 2px !important;
-  padding: 1px 4px !important;
-}
-
-:root[data-skin="gizzyfx-pro"] :not(pre) > code {
-  color: var(--gz-accent-2) !important;
-  background: rgba(59, 130, 246, 0.1) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   COMPOSER (INPUT AREA)
-   ══════════════════════════════════════════════════════════════════════ */
-
-:root[data-skin="gizzyfx-pro"] [class*="composer"] {
-  background: var(--gz-surface) !important;
-  border-top: 1px solid var(--gz-border) !important;
-  backdrop-filter: none !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="composer-wrap"] {
-  background: var(--gz-surface) !important;
-  border-color: var(--gz-border) !important;
-}
-
+:root[data-skin="gizzyfx-pro"] [class*="composer"] { background: var(--gz-s1) !important; border-top: 1px solid rgba(0, 200, 232, 0.10) !important; }
 :root[data-skin="gizzyfx-pro"] textarea,
-:root[data-skin="gizzyfx-pro"] input[type="text"] {
-  background: var(--gz-surface-2) !important;
-  border: 1px solid var(--gz-border) !important;
-  border-radius: 4px !important;
-  color: var(--gz-text) !important;
-  font-family: var(--font-ui) !important;
-  font-size: 13px !important;
-}
-
+:root[data-skin="gizzyfx-pro"] input[type="text"] { background: var(--gz-inp) !important; border: 1px solid rgba(0, 200, 232, 0.10) !important; border-radius: 4px !important; color: var(--gz-txt) !important; font-family: var(--font-ui) !important; font-size: 13px !important; }
 :root[data-skin="gizzyfx-pro"] textarea:focus,
-:root[data-skin="gizzyfx-pro"] input[type="text"]:focus {
-  border-color: var(--gz-accent) !important;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important;
-  outline: none !important;
-}
+:root[data-skin="gizzyfx-pro"] input[type="text"]:focus { border-color: rgba(0, 200, 232, 0.50) !important; box-shadow: 0 0 0 1px rgba(0, 200, 232, 0.20) !important; outline: none !important; }
 
-/* ══════════════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════════
    BUTTONS
-   ══════════════════════════════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] button {
-  border-radius: 4px !important;
-  font-family: var(--font-ui) !important;
-  font-weight: 500 !important;
-  font-size: 12px !important;
-}
+:root[data-skin="gizzyfx-pro"] button { border-radius: 4px !important; font-family: var(--font-ui) !important; font-weight: 500 !important; font-size: 12px !important; }
+:root[data-skin="gizzyfx-pro"] [class*="btn-primary"] { background: var(--gz-p) !important; border: none !important; color: var(--gz-bg) !important; }
+:root[data-skin="gizzyfx-pro"] [class*="btn-primary"]:hover { background: var(--gz-h) !important; }
 
-:root[data-skin="gizzyfx-pro"] [class*="btn-primary"],
-:root[data-skin="gizzyfx-pro"] [class*="btn-accent"] {
-  background: var(--gz-accent) !important;
-  border: none !important;
-  color: white !important;
-}
+/* ══════════════════════════════════════════════════════════════════
+   SESSION LIST
+   ══════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] [class*="btn-primary"]:hover {
-  background: var(--gz-accent-2) !important;
-}
+:root[data-skin="gizzyfx-pro"] [class*="session-item"] { border-radius: 4px !important; margin: 2px 6px !important; font-family: var(--font-ui) !important; }
+:root[data-skin="gizzyfx-pro"] [class*="session-item"]:hover { background: var(--gz-s2) !important; }
+:root[data-skin="gizzyfx-pro"] [class*="session-item"][class*="active"] { background: rgba(0, 200, 232, 0.12) !important; border-left: 2px solid var(--gz-p) !important; font-weight: 500 !important; }
 
-/* ══════════════════════════════════════════════════════════════════════
-   SELECTS & DROPDOWNS
-   ══════════════════════════════════════════════════════════════════════ */
-
-:root[data-skin="gizzyfx-pro"] select {
-  background: var(--gz-surface-2) !important;
-  border: 1px solid var(--gz-border) !important;
-  border-radius: 4px !important;
-  color: var(--gz-text) !important;
-  font-family: var(--font-ui) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="dropdown"] {
-  background: var(--gz-surface-2) !important;
-  border: 1px solid var(--gz-border) !important;
-  border-radius: 4px !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   SESSION LIST (SIDEBAR)
-   ══════════════════════════════════════════════════════════════════════ */
-
-:root[data-skin="gizzyfx-pro"] [class*="session-item"] {
-  border-radius: 4px !important;
-  margin: 2px 6px !important;
-  font-family: var(--font-ui) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="session-item"]:hover {
-  background: var(--gz-surface-2) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="session-item"][class*="active"] {
-  background: var(--gz-surface-3) !important;
-  border-left: 2px solid var(--gz-accent) !important;
-  font-weight: 500 !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="session-meta"] {
-  font-size: 10px !important;
-  color: var(--gz-muted) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="session-title"] {
-  font-size: 12px !important;
-  color: var(--gz-text) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════════
    TABLES
-   ══════════════════════════════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] table {
-  border-collapse: collapse;
-  font-size: 12px;
-  font-family: var(--font-mono) !important;
-}
+:root[data-skin="gizzyfx-pro"] table { border-collapse: collapse; font-size: 12px; font-family: var(--font-mono) !important; }
+:root[data-skin="gizzyfx-pro"] th { background: var(--gz-s2); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gz-mut); padding: 6px 10px; border-bottom: 1px solid rgba(0, 200, 232, 0.10); font-family: var(--font-ui) !important; text-align: left; }
+:root[data-skin="gizzyfx-pro"] td { padding: 6px 10px; border-bottom: 1px solid rgba(0, 200, 232, 0.06); color: var(--gz-txt); }
+:root[data-skin="gizzyfx-pro"] tr:hover td { background: var(--gz-s2); }
 
-:root[data-skin="gizzyfx-pro"] th {
-  background: var(--gz-surface-2);
-  font-weight: 600;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--gz-muted);
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--gz-border);
-  font-family: var(--font-ui) !important;
-  text-align: left;
-}
-
-:root[data-skin="gizzyfx-pro"] td {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--gz-border);
-  color: var(--gz-text);
-}
-
-:root[data-skin="gizzyfx-pro"] tr:hover td {
-  background: var(--gz-surface-2);
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   TOOLTIPS
-   ══════════════════════════════════════════════════════════════════════ */
-
-:root[data-skin="gizzyfx-pro"] [class*="tooltip"] {
-  background: var(--gz-surface-4) !important;
-  border: 1px solid var(--gz-border-2) !important;
-  border-radius: 4px !important;
-  font-size: 11px !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   MODALS & DIALOGS
-   ══════════════════════════════════════════════════════════════════════ */
-
-:root[data-skin="gizzyfx-pro"] [class*="modal"] {
-  background: var(--gz-surface) !important;
-  border: 1px solid var(--gz-border) !important;
-  border-radius: 6px !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="modal-backdrop"] {
-  background: rgba(0, 0, 0, 0.7) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   BADGES & STATUS INDICATORS
-   ══════════════════════════════════════════════════════════════════════ */
-
-:root[data-skin="gizzyfx-pro"] [class*="badge"] {
-  border-radius: 2px !important;
-  font-size: 10px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.05em !important;
-  text-transform: uppercase !important;
-  padding: 2px 6px !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="status"] {
-  font-size: 10px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.05em !important;
-  text-transform: uppercase !important;
-}
-
-/* ── Status tones ── */
-:root[data-skin="gizzyfx-pro"] [class*="status-online"],
-:root[data-skin="gizzyfx-pro"] [class*="status-live"] {
-  color: var(--gz-success) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="status-offline"],
-:root[data-skin="gizzyfx-pro"] [class*="status-error"] {
-  color: var(--gz-danger) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="status-warning"] {
-  color: var(--gz-warning) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   NAVIGATION
-   ══════════════════════════════════════════════════════════════════════ */
-
-:root[data-skin="gizzyfx-pro"] [class*="nav"] {
-  background: var(--gz-surface) !important;
-  border-color: var(--gz-border) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="nav-link"] {
-  font-family: var(--font-ui) !important;
-  font-size: 12px !important;
-  color: var(--gz-muted) !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="nav-link"]:hover,
-:root[data-skin="gizzyfx-pro"] [class*="nav-link"][class*="active"] {
-  color: var(--gz-text) !important;
-  background: var(--gz-surface-2) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   GIZZYFX NAV BAR (bottom navigation)
-   ══════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   GIZZYFX NAV
+   ══════════════════════════════════════════════════════════════════ */
 
 #gizzyfx-nav {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 0; left: 0; right: 0;
   z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 8px 16px;
-  background: var(--gz-surface);
-  border-top: 1px solid var(--gz-border);
-  backdrop-filter: none;
+  background: var(--gz-s1);
+  border-top: 1px solid rgba(0, 200, 232, 0.10);
   font-family: var(--font-ui);
 }
 
@@ -518,218 +243,46 @@
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--gz-muted);
+  color: var(--gz-mut);
   text-decoration: none;
   transition: all 0.15s;
   border: 1px solid transparent;
 }
 
 #gizzyfx-nav .gizzyfx-nav-link:hover {
-  color: var(--gz-text);
-  background: var(--gz-surface-2);
-  border-color: var(--gz-border);
+  color: var(--gz-txt);
+  background: var(--gz-s2);
+  border-color: rgba(0, 200, 232, 0.18);
 }
 
 #gizzyfx-nav .gizzyfx-nav-primary {
-  color: var(--gz-accent-2) !important;
-  border-color: rgba(59, 130, 246, 0.3) !important;
-  background: rgba(59, 130, 246, 0.08) !important;
+  color: var(--gz-h) !important;
+  border-color: rgba(0, 200, 232, 0.20) !important;
+  background: rgba(0, 200, 232, 0.10) !important;
 }
 
-#gizzyfx-nav .gizzyfx-nav-primary:hover {
-  background: rgba(59, 130, 246, 0.15) !important;
-  border-color: var(--gz-accent) !important;
+#gizzyfx-nav .gizzyfx-nav-primary:hover { background: rgba(0, 200, 232, 0.18) !important; }
+#gizzyfx-nav .gizzyfx-nav-link svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+:root[data-skin="gizzyfx-pro"] #app { padding-bottom: 48px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE — Mobile-first
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Small phones */
+@media (max-width: 480px) {
+  :root[data-skin="gizzyfx-pro"] body { font-size: 12px !important; }
+  :root[data-skin="gizzyfx-pro"] [class*="msg-body"] { font-size: 12px !important; }
+  :root[data-skin="gizzyfx-pro"] textarea,
+  :root[data-skin="gizzyfx-pro"] input[type="text"] { font-size: 12px !important; }
+  :root[data-skin="gizzyfx-pro"] button { font-size: 11px !important; }
+  :root[data-skin="gizzyfx-pro"] .app-titlebar-title { font-size: 13px !important; }
 }
-
-#gizzyfx-nav .gizzyfx-nav-link svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-/* ── Push content up so nav doesn't overlap ── */
-:root[data-skin="gizzyfx-pro"] #app {
-  padding-bottom: 48px;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   TRADING TERMINAL HEADER ENHANCEMENTS
-   ══════════════════════════════════════════════════════════════════════ */
-
-/* ── Title bar links (Trading Engine, Strategy) ── */
-:root[data-skin="gizzyfx-pro"] .app-titlebar-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--gz-muted);
-  text-decoration: none;
-  border: 1px solid transparent;
-  transition: all 0.15s;
-}
-
-:root[data-skin="gizzyfx-pro"] .app-titlebar-link:hover {
-  color: var(--gz-text);
-  background: var(--gz-surface-2);
-  border-color: var(--gz-border);
-}
-
-:root[data-skin="gizzyfx-pro"] .app-titlebar-link svg {
-  width: 12px;
-  height: 12px;
-}
-
-/* ── Empty state — trading terminal feel ── */
-:root[data-skin="gizzyfx-pro"] .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 24px;
-  text-align: center;
-}
-
-:root[data-skin="gizzyfx-pro"] .empty-state h2 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--gz-text);
-  margin-bottom: 8px;
-}
-
-:root[data-skin="gizzyfx-pro"] .empty-state p {
-  font-size: 13px;
-  color: var(--gz-muted);
-  margin-bottom: 24px;
-}
-
-/* ── Suggestion buttons — trading style ── */
-:root[data-skin="gizzyfx-pro"] .suggestion-grid {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-:root[data-skin="gizzyfx-pro"] .suggestion {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--gz-text);
-  background: var(--gz-surface);
-  border: 1px solid var(--gz-border);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-:root[data-skin="gizzyfx-pro"] .suggestion:hover {
-  background: var(--gz-surface-2);
-  border-color: var(--gz-accent);
-  color: var(--gz-accent-2);
-}
-
-:root[data-skin="gizzyfx-pro"] .suggestion svg {
-  width: 12px;
-  height: 12px;
-  color: var(--gz-muted);
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   DENSE MODE — Trading Terminal Information Density
-   ══════════════════════════════════════════════════════════════════════ */
-
-/* ── Compact spacing ── */
-:root[data-skin="gizzyfx-pro"] [class*="panel-head"] {
-  padding: 8px 12px !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="panel-head"] span {
-  font-size: 11px !important;
-}
-
-/* ── Tighter message spacing ── */
-:root[data-skin="gizzyfx-pro"] [class*="message"] {
-  margin-bottom: 4px !important;
-  padding: 8px 12px !important;
-}
-
-/* ── Compact composer ── */
-:root[data-skin="gizzyfx-pro"] textarea {
-  padding: 8px 12px !important;
-  font-size: 12px !important;
-  min-height: 36px !important;
-  max-height: 120px !important;
-}
-
-/* ── Dense tables ── */
-:root[data-skin="gizzyfx-pro"] th {
-  padding: 6px 10px !important;
-  font-size: 9px !important;
-}
-
-:root[data-skin="gizzyfx-pro"] td {
-  padding: 6px 10px !important;
-  font-size: 11px !important;
-}
-
-/* ── Compact buttons ── */
-:root[data-skin="gizzyfx-pro"] button {
-  padding: 5px 10px !important;
-  font-size: 11px !important;
-}
-
-/* ── Smaller sidebar items ── */
-:root[data-skin="gizzyfx-pro"] [class*="session-item"] {
-  padding: 5px 8px !important;
-  margin: 1px 4px !important;
-}
-
-:root[data-skin="gizzyfx-pro"] [class*="session-title"] {
-  font-size: 11px !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   RESPONSIVE
-   ══════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
-  #gizzyfx-nav {
-    padding: 6px 8px;
-    gap: 4px;
-  }
-  
-  #gizzyfx-nav .gizzyfx-nav-link {
-    padding: 4px 8px;
-    font-size: 10px;
-  }
-  
-  #gizzyfx-nav .gizzyfx-nav-link span {
-    display: none;
-  }
-  
-  #gizzyfx-nav .gizzyfx-nav-link svg {
-    width: 16px;
-    height: 16px;
-  }
-  
-  :root[data-skin="gizzyfx-pro"] .suggestion-grid {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  :root[data-skin="gizzyfx-pro"] .suggestion {
-    width: 100%;
-    max-width: 280px;
-    justify-content: center;
-  }
+  #gizzyfx-nav { padding: 6px 8px; gap: 4px; }
+  #gizzyfx-nav .gizzyfx-nav-link { padding: 4px 8px; font-size: 10px; }
+  #gizzyfx-nav .gizzyfx-nav-link span { display: none; }
+  #gizzyfx-nav .gizzyfx-nav-link svg { width: 16px; height: 16px; }
 }
