@@ -114,4 +114,42 @@ describe("recovery money summary", () => {
     expect(rec.adjustmentNeeded).toBe(true);
     expect(rec.totalMoneyLost).toBeCloseTo(28.6, 6); // fuel recovered, fee still sunk
   });
+
+  it("recovers slippage on a prop WIN leg and re-locks the pace (user case: lost 7.89 vs 7.15)", () => {
+    // User's real setup: R:R 1:1.5 → base pace 28.6/6 = 4.7667,
+    // expected Exness loss on a prop win = 4.7667 × 1.5 = 7.15.
+    const r = calculate({ ...base, rr: 1.5 });
+    expect(r.exnessWinTarget).toBeCloseTo(28.6 / 6, 6);
+
+    // Trade 1: prop WIN. Slippage made Exness lose 7.89 instead of 7.15 ($0.74 extra).
+    const slip = 0.74;
+    const burned = (28.6 / 6) * 1.5 + slip; // 7.89
+    const journal = [trade("1", "WIN", r.propWinPerTrade, -burned)];
+    const rec = computeRecovery(r, journal);
+
+    // No prop losses logged yet — all 6 loss-legs remain to earn the recovery.
+    expect(rec.remainingLosses).toBe(6);
+
+    // On-script next target (no slippage): (28.6 + 7.15) / 6 = 5.9583.
+    const onScript = (28.6 + 7.15) / 6;
+    // Healed next target: whole remaining recovery incl. the slipped 0.74, over 6 legs.
+    const healed = (28.6 + 7.89) / 6;
+    expect(rec.newExnessWinTarget).toBeCloseTo(healed, 6);
+    // The bump over on-script is exactly the slip amortized over the remaining legs.
+    expect(rec.newExnessWinTarget! - onScript).toBeCloseTo(slip / 6, 6);
+    expect(rec.adjustmentNeeded).toBe(true);
+
+    // Worst case from here (6 prop losses in a row, each earning the healed
+    // target): the loop still closes at exactly totalRecovery — the slipped
+    // $0.74 is fully recovered, no more, no less.
+    expect(-7.89 + 6 * healed).toBeCloseTo(28.6, 6);
+
+    // After the next prop loss earns the healed target, the pace RE-LOCKS:
+    // it does not keep climbing, and it does not revert below the healed pace
+    // (reverting would leave the 0.74 unrecovered).
+    const j2 = [...journal, trade("2", "LOSS", -50, healed)];
+    const rec2 = computeRecovery(r, j2);
+    expect(rec2.remainingLosses).toBe(5);
+    expect(rec2.newExnessWinTarget).toBeCloseTo(healed, 6);
+  });
 });
