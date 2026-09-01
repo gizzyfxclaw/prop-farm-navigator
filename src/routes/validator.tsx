@@ -53,7 +53,7 @@ function ValidatorPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Validator</h1>
         <p className="mt-1 text-[13px] text-muted-foreground">
-          Every account scored with the current engine inputs and worst-case 1:3 shield math.
+          Every account scored with the current engine inputs and the selected R:R shield math.
         </p>
       </div>
 

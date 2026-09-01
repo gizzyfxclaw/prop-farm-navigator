@@ -25,7 +25,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "GizzyFx Engine — Inverted Mirror Hedge Calculator" },
       {
         property: "og:description",
-        content: "Real-time prop/Exness mirror sizing with worst-case shield capital and live MT5 execution.",
+        content: "Real-time prop/Exness mirror sizing with selected-R:R shield capital and live MT5 execution.",
       },
     ],
   }),
@@ -537,8 +537,9 @@ function EnginePage() {
         </div>
 
         <p className="mt-3 text-[10.5px] text-muted-foreground">
-          Capital always assumes the worst-case 1:3 rotation, so switching to 1:2.5, 1:2 or
-          1:1.5 can never blow the fuel account. Buffer applied: {engine.bufferPct}%.
+          Capital is sized for the selected R:R (currently 1:{engine.rr}). 
+          Switching the R:R selector dynamically recalculates the fuel requirement. 
+          Buffer applied: {engine.bufferPct}%.
         </p>
       </Card>
 

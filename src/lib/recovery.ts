@@ -1,5 +1,4 @@
 import type { EngineResult } from "./engine/calc";
-import { WORST_CASE_RR } from "./engine/calc";
 import type { JournalTrade } from "./store";
 
 /**
@@ -77,7 +76,7 @@ export interface RecoveryState {
    */
   newExnessWinTarget: number;
   /**
-   * `newExnessWinTarget * WORST_CASE_RR` — the Exness risk on a prop win
+   * `newExnessWinTarget * r.rr` — the Exness risk on a prop win
    * when the martingale is active.
    */
   newExnessLossTarget: number;
@@ -241,7 +240,7 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
   // ── PART 5: Apply martingale bump to the active base target ─────────────
   const baseExnessWinTarget = r.exnessWinTarget;
   const newExnessWinTarget  = baseExnessWinTarget + slippageDebt;
-  const newExnessLossTarget = newExnessWinTarget * WORST_CASE_RR;
+  const newExnessLossTarget = newExnessWinTarget * r.rr;
   const adjustmentNeeded    = slippageDebt > 0.005; // half-pip dust threshold
 
   // ── PART 6: Dynamic capital needed for the bump ─────────────────────────

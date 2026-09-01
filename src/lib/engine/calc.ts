@@ -3,13 +3,13 @@ import { livePipValue, pairSpec, roundPrice, type PairSymbol } from "./pairs";
 /**
  * GizzyFx mathematical engine.
  *
- * Every capital-requirement number uses the WORST-CASE R:R multiplier of 3,
- * so rotating between 1:1.5 / 1:2 / 1:2.5 / 1:3 can never blow the Exness fuel
- * account. The selector in the UI clamps at 1:3; if you push past that, the
- * engine still uses 3 so you can never under-fuel by accident.
+ * Capital-requirement numbers are sized for the SELECTED R:R multiplier,
+ * so the user sees exact capital needs for each R:R ratio (1:1.5 / 1:2 /
+ * 1:2.5 / 1:3). The UI clamps at 1:3.
+ *
  * Live trade sizing (lots, SL/TP prices) uses the R:R actually selected.
  */
-export const WORST_CASE_RR = 3;
+export const MAX_RR = 3;
 
 export type DrawdownType = "Static" | "Trailing";
 export type Direction = "LONG" | "SHORT";
@@ -67,6 +67,8 @@ export interface EngineResult {
   propWinPerTrade: number;
   lossesToBlow: number;
   winsToPass: number;
+  /** Selected R:R multiplier (1.5 / 2 / 2.5 / 3). */
+  rr: number;
 
   // pips / prices
   pipValue: number;
@@ -122,9 +124,9 @@ const num = (v: unknown, fallback = 0): number => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-function buildChain(totalRecovery: number, lossesToBlow: number, winsToPass: number, bufferPct: number): PhaseChain {
+function buildChain(totalRecovery: number, lossesToBlow: number, winsToPass: number, bufferPct: number, rr: number): PhaseChain {
   const exnessWinTarget = totalRecovery / lossesToBlow;
-  const exnessLossTarget = exnessWinTarget * WORST_CASE_RR;
+  const exnessLossTarget = exnessWinTarget * rr;
   const pureExnessCapital = exnessLossTarget * winsToPass;
   const bufferedExnessCapital = pureExnessCapital * (1 + bufferPct / 100);
   const exnessBurnIfPassed = exnessLossTarget * winsToPass;
@@ -160,8 +162,8 @@ export function calculate(input: EngineInputs): EngineResult {
   const lossesToBlow = Math.max(1, Math.floor(maxDdUsd / propRiskUsd) || 1);
   const winsToPass = Math.max(1, Math.ceil(targetUsd / propWinPerTrade) || 1);
 
-  // ---- Escalating shield (worst case R:R = 2) ----
-  const phase1 = buildChain(fee + desiredProfit, lossesToBlow, winsToPass, bufferPct);
+  // ---- Escalating shield (sized by selected R:R) ----
+  const phase1 = buildChain(fee + desiredProfit, lossesToBlow, winsToPass, bufferPct, rr);
   const phase1TotalSpent =
     input.phase === 2 && input.carryPhase1TotalSpent != null && input.carryPhase1TotalSpent > 0
       ? num(input.carryPhase1TotalSpent)
@@ -171,7 +173,7 @@ export function calculate(input: EngineInputs): EngineResult {
       ? num(input.carryPhase1Leftover)
       : phase1.leftoverIfPassed;
 
-  const phase2 = buildChain(phase1TotalSpent + desiredProfit, lossesToBlow, winsToPass, bufferPct);
+  const phase2 = buildChain(phase1TotalSpent + desiredProfit, lossesToBlow, winsToPass, bufferPct, rr);
   const phase2RefillRequired = phase2.bufferedExnessCapital - phase1Leftover;
 
   const active = input.phase === 1 ? phase1 : phase2;
@@ -182,14 +184,14 @@ export function calculate(input: EngineInputs): EngineResult {
     input.phase === 1
       ? [
           { label: "Prop challenge fee", value: fee },
-          { label: "Exness fuel (worst case 1:3)", value: phase1.pureExnessCapital },
+          { label: `Exness fuel (R:R 1:${rr})`, value: phase1.pureExnessCapital },
           { label: `Safety buffer (${bufferPct}%)`, value: phase1.bufferedExnessCapital - phase1.pureExnessCapital },
           { label: "Total capital needed", value: totalRequiredCapital },
         ]
       : [
           { label: "Phase 1 total already spent", value: phase1TotalSpent },
           { label: "Phase 1 leftover Exness balance", value: -phase1Leftover },
-          { label: "Phase 2 Exness fuel (worst case 1:3)", value: phase2.pureExnessCapital },
+          { label: `Phase 2 Exness fuel (R:R 1:${rr})`, value: phase2.pureExnessCapital },
           { label: `Safety buffer (${bufferPct}%)`, value: phase2.bufferedExnessCapital - phase2.pureExnessCapital },
           { label: "Total capital needed", value: totalRequiredCapital },
         ];
@@ -217,7 +219,7 @@ export function calculate(input: EngineInputs): EngineResult {
   // the effective win target so that "Total Capital Needed" and "Exness risk"
   // update correctly when R:R or any other input changes — the override must
   // propagate through the ENTIRE result, not just lot sizing.
-  const effectiveLossTarget = effectiveWinTarget * WORST_CASE_RR;
+  const effectiveLossTarget = effectiveWinTarget * rr;
   const effectivePureCapital = effectiveLossTarget * winsToPass;
   const effectiveBufferedCapital = effectivePureCapital * (1 + bufferPct / 100);
 
@@ -278,6 +280,7 @@ export function calculate(input: EngineInputs): EngineResult {
     propWinPerTrade,
     lossesToBlow,
     winsToPass,
+    rr,
     pipValue,
     exnessPipValue,
     pipSize: spec.pipSize,
@@ -310,14 +313,14 @@ export function calculate(input: EngineInputs): EngineResult {
       ? (input.phase === 1
           ? [
               { label: "Prop challenge fee", value: fee },
-              { label: "Exness fuel — adjusted (worst case 1:3)", value: effectivePureCapital },
+              { label: `Exness fuel — adjusted (R:R 1:${rr})`, value: effectivePureCapital },
               { label: `Safety buffer (${bufferPct}%)`, value: effectiveBufferedCapital - effectivePureCapital },
               { label: "Total capital needed (adjusted)", value: effectiveTotalRequired },
             ]
           : [
               { label: "Phase 1 total already spent", value: phase1TotalSpent },
               { label: "Phase 1 leftover Exness balance", value: -phase1Leftover },
-              { label: "Phase 2 Exness fuel — adjusted (worst case 1:3)", value: effectivePureCapital },
+              { label: `Phase 2 Exness fuel — adjusted (R:R 1:${rr})`, value: effectivePureCapital },
               { label: `Safety buffer (${bufferPct}%)`, value: effectiveBufferedCapital - effectivePureCapital },
               { label: "Total capital needed (adjusted)", value: effectiveTotalRequired },
             ])

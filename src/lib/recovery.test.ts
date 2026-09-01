@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculate, WORST_CASE_RR, type EngineInputs, type PropAccount } from "./engine/calc";
+import { calculate, type EngineInputs, type PropAccount } from "./engine/calc";
 import { computeRecovery } from "./recovery";
 import type { JournalTrade } from "./store";
 
@@ -78,7 +78,7 @@ describe("Targeted Slippage Martingale (TSM)", () => {
     expect(rec.adjustmentNeeded).toBe(true);
     // base = 4.7667, debt = 0.74, next target = 5.5067
     expect(rec.newExnessWinTarget).toBeCloseTo(4.7667 + 0.74, 4);
-    expect(rec.newExnessLossTarget).toBeCloseTo((4.7667 + 0.74) * WORST_CASE_RR, 3);
+    expect(rec.newExnessLossTarget).toBeCloseTo((4.7667 + 0.74) * 1.5, 3);
   });
 
   it("prop LOSS slip: actual exness win less than expected → debt grows by the gap", () => {
@@ -156,7 +156,7 @@ describe("Targeted Slippage Martingale (TSM)", () => {
     const burned = (28.6 / 6) * 1.5 + 2.00; // $2.00 debt
     const journal = [trade("1", "WIN", r.propWinPerTrade, -burned, 1.5)];
     const rec = computeRecovery(r, journal);
-    const expectedDynamic = (r.exnessWinTarget + 2.00) * WORST_CASE_RR * r.winsToPass * 1.20;
+    const expectedDynamic = (r.exnessWinTarget + 2.00) * 1.5 * r.winsToPass * 1.20;
     expect(rec.dynamicExnessCapital).toBeCloseTo(expectedDynamic, 4);
     expect(rec.dynamicExnessCapital).toBeGreaterThan(r.requiredExnessCapital);
   });
@@ -196,16 +196,16 @@ describe("Targeted Slippage Martingale (TSM)", () => {
 
   it("Phase 2: target = (phase1TotalSpent + desiredProfit) / lossesToBlow — engine layer, not recovery", () => {
     const r = calculate({ ...base, phase: 2 });
-    // Engine layer: with WORST_CASE_RR=3, phase1TotalSpent = 28.6 + (4.7667×3×3×1.20) = 80.08.
-    // P2 base = 80.08/6 = 13.3467.
+    // Engine layer: with selected R:R=2, phase1TotalSpent = 28.6 + (4.7667×2×3×1.20) = 62.92.
+    // P2 base = 62.92/6 = 10.4867.
     // Recovery just consumes the engine's active phase base; no debt to apply on an
     // empty journal.
-    expect(r.exnessWinTarget).toBeCloseTo(80.08 / 6, 4);
+    expect(r.exnessWinTarget).toBeCloseTo(62.92 / 6, 4);
     const journal: JournalTrade[] = [];
     const rec = computeRecovery(r, journal);
     expect(rec.phase).toBe(2);
     expect(rec.slippageDebt).toBe(0);
-    expect(rec.newExnessWinTarget).toBeCloseTo(80.08 / 6, 4);
+    expect(rec.newExnessWinTarget).toBeCloseTo(62.92 / 6, 4);
   });
 
   it("Recovery closes: after 3 clean prop wins at 1:2 R:R, no debt, fuel exhausted = pure capital", () => {

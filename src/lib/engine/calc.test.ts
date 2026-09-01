@@ -63,52 +63,51 @@ describe("engine", () => {
     expect(r.pipValue).toBe(9);
   });
 
-  it("uses worst-case R:R of 3 for phase 1 capital even at 1:1.5", () => {
+  it("sizes phase 1 capital for the SELECTED R:R of 1.5 (not worst-case)", () => {
     const r = calculate({ ...base, rr: 1.5 });
     const win = 28.6 / 6;
     // At 1:1.5 it takes 4 wins to clear the $300 target.
     expect(r.winsToPass).toBe(4);
     expect(r.phase1.exnessWinTarget).toBeCloseTo(win, 6);
-    // Capital always sized for worst-case 1:3, regardless of selected R:R.
-    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 3, 6);
-    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 3 * 4, 6);
-    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 3 * 4 * 1.2, 6);
-    expect(r.phase1TotalSpent).toBeCloseTo(28.6 + win * 3 * 4 * 1.2, 6);
-    expect(r.phase1Leftover).toBeCloseTo(win * 3 * 4 * 0.2, 6);
+    // Capital sized for the SELECTED R:R of 1.5.
+    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 1.5, 6);
+    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 1.5 * 4, 6);
+    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 1.5 * 4 * 1.2, 6);
+    expect(r.phase1TotalSpent).toBeCloseTo(28.6 + win * 1.5 * 4 * 1.2, 6);
+    expect(r.phase1Leftover).toBeCloseTo(win * 1.5 * 4 * 0.2, 6);
   });
 
-  it("at 1:2.5 selection: 3 prop wins needed, capital still sized for worst-case 1:3", () => {
+  it("at 1:2.5 selection: 3 prop wins needed, capital sized for selected R:R of 2.5", () => {
     const r = calculate({ ...base, rr: 2.5 });
     const win = 28.6 / 6;
     // $300 / ($50 × 2.5 = $125) = 2.4 → 3 wins
     expect(r.winsToPass).toBe(3);
     expect(r.phase1.exnessWinTarget).toBeCloseTo(win, 6);
-    // Worst-case 1:3 still used for capital sizing.
-    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 3, 6);
-    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 3 * 3, 6);
-    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 3 * 3 * 1.2, 6);
+    // Capital sized for the SELECTED R:R of 2.5.
+    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 2.5, 6);
+    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 2.5 * 3, 6);
+    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 2.5 * 3 * 1.2, 6);
   });
 
-  it("at 1:3 selection: 2 prop wins needed, capital sized for worst-case 1:3", () => {
+  it("at 1:3 selection: 2 prop wins needed, capital sized for selected R:R of 3", () => {
     const r = calculate({ ...base, rr: 3 });
     const win = 28.6 / 6;
     // $300 / ($50 × 3 = $150) = 2
     expect(r.winsToPass).toBe(2);
     expect(r.phase1.exnessWinTarget).toBeCloseTo(win, 6);
-    // Same formula — selected R:R matches worst-case.
+    // Capital sized for the SELECTED R:R of 3.
     expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 3, 6);
     expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 3 * 2, 6);
     expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 3 * 2 * 1.2, 6);
   });
 
-  it("at 1:2 selection: 3 prop wins needed, capital sized for worst-case 1:3 (more buffer than needed)", () => {
+  it("at 1:2 selection: 3 prop wins needed, capital sized for selected R:R of 2", () => {
     const r = calculate({ ...base, rr: 2 });
     const win = 28.6 / 6;
     expect(r.winsToPass).toBe(3);
-    // Even though the selected R:R is 1:2, capital stays sized at 1:3 — you
-    // can never under-fuel by switching R:R after deposit.
-    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 3, 6);
-    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 3 * 3, 6);
+    // Capital sized for the SELECTED R:R of 2.
+    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 2, 6);
+    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 2 * 3, 6);
   });
 
   it("carries phase 1 into phase 2 without recharging the fee", () => {
