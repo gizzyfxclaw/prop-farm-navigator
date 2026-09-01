@@ -455,8 +455,8 @@ function EnginePage() {
 
         <Card title="Risk per trade">
           {/* Prop side: LOCKED — never auto-changed */}
-          <Row label="Prop risk (SL hit)" value={money(-engine.propRiskUsd)} tone="neg" />
-          <Row label="Prop reward (TP hit)" value={money(r.propWinPerTrade, true)} tone="pos" />
+          <Row label="Prop risk (SL hit)" value={money(-r.cappedPropRisk)} tone="neg" />
+          <Row label="Prop reward (TP hit)" value={money(r.cappedPropRisk * r.rr, true)} tone="pos" />
 
           {/* Daily Profit Cap compliance warning */}
           {r.riskCapped && (
