@@ -197,10 +197,15 @@ export function calculate(input: EngineInputs): EngineResult {
       ? num(input.carryPhase1Leftover)
       : phase1.leftoverIfPassed;
 
-  // Phase 2 recovery target: only recover ACTUAL capital burned (fee + exness fuel used),
-  // NOT the safety buffer (which still sits in the Exness account if Phase 2 is blown).
-  const actualCapitalBurnedP1 = fee + phase1.exnessBurnIfPassed;
-  const phase2 = buildChain(actualCapitalBurnedP1 + desiredProfit, lossesToBlow, winsToPass, bufferPct, rr);
+  // Phase 2 recovery target: Deficit-Based Recovery
+  // Recovers Prop Fee + ALL exhausted fuel (planned burn + martingale slippage)
+  // trueDeficit = fee + exnessBurnIfPassed + (bufferedCapital - currentBalance)
+  const actualExnessBalance = input.actualExnessBalance != null && input.actualExnessBalance > 0
+    ? num(input.actualExnessBalance)
+    : phase1.bufferedExnessCapital; // fallback: assume no extra exhaustion
+  const totalExhaustedFuel = phase1.exnessBurnIfPassed + (phase1.bufferedExnessCapital - actualExnessBalance);
+  const trueDeficit = fee + totalExhaustedFuel;
+  const phase2 = buildChain(trueDeficit + desiredProfit, lossesToBlow, winsToPass, bufferPct, rr);
   const phase2RefillRequired = phase2.bufferedExnessCapital - phase1Leftover;
 
   const active = input.phase === 1 ? phase1 : phase2;
