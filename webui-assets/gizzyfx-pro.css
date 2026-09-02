@@ -276,14 +276,53 @@
   :root[data-skin="gizzyfx-pro"] body { font-size: 12px !important; }
   :root[data-skin="gizzyfx-pro"] [class*="msg-body"] { font-size: 12px !important; }
   :root[data-skin="gizzyfx-pro"] textarea,
-  :root[data-skin="gizzyfx-pro"] input[type="text"] { font-size: 12px !important; }
-  :root[data-skin="gizzyfx-pro"] button { font-size: 11px !important; }
+  :root[data-skin="gizzyfx-pro"] input[type="text"] { font-size: 14px !important; min-height: 40px; }
+  :root[data-skin="gizzyfx-pro"] button { font-size: 12px !important; min-height: 36px; }
   :root[data-skin="gizzyfx-pro"] .app-titlebar-title { font-size: 13px !important; }
+  
+  /* Stack nav items */
+  :root[data-skin="gizzyfx-pro"] .app-titlebar { flex-wrap: wrap; padding: 6px 8px; }
+  :root[data-skin="gizzyfx-pro"] .app-titlebar-left,
+  :root[data-skin="gizzyfx-pro"] .app-titlebar-right { flex-wrap: wrap; gap: 4px; }
+  
+  /* Full-width composer */
+  :root[data-skin="gizzyfx-pro"] .composer { padding: 8px; }
+  :root[data-skin="gizzyfx-pro"] .composer textarea { font-size: 14px !important; }
+  
+  /* Stack messages */
+  :root[data-skin="gizzyfx-pro"] .message { padding: 8px; }
+  
+  /* Hide non-essential elements */
+  :root[data-skin="gizzyfx-pro"] .hide-mobile { display: none !important; }
 }
 
 @media (max-width: 768px) {
-  #gizzyfx-nav { padding: 6px 8px; gap: 4px; }
+  #gizzyfx-nav { padding: 6px 8px; gap: 4px; flex-wrap: wrap; }
   #gizzyfx-nav .gizzyfx-nav-link { padding: 4px 8px; font-size: 10px; }
   #gizzyfx-nav .gizzyfx-nav-link span { display: none; }
   #gizzyfx-nav .gizzyfx-nav-link svg { width: 16px; height: 16px; }
+  
+  /* App layout */
+  :root[data-skin="gizzyfx-pro"] .app { flex-direction: column; }
+  :root[data-skin="gizzyfx-pro"] .app-sidebar { width: 100% !important; max-width: 100% !important; }
+  :root[data-skin="gizzyfx-pro"] .app-main { padding: 8px; }
+  
+  /* Cards and panels */
+  :root[data-skin="gizzyfx-pro"] .card, 
+  :root[data-skin="gizzyfx-pro"] [class*="panel"] { padding: 8px !important; }
+  
+  /* Tables */
+  :root[data-skin="gizzyfx-pro"] table { font-size: 11px; }
+  :root[data-skin="gizzyfx-pro"] th, 
+  :root[data-skin="gizzyfx-pro"] td { padding: 4px 6px; }
+  
+  /* Improve touch targets */
+  :root[data-skin="gizzyfx-pro"] a, 
+  :root[data-skin="gizzyfx-pro"] button { min-height: 32px; min-width: 32px; }
+}
+
+/* Tablet and large phone */
+@media (min-width: 481px) and (max-width: 768px) {
+  :root[data-skin="gizzyfx-pro"] body { font-size: 13px !important; }
+  :root[data-skin="gizzyfx-pro"] .app-main { padding: 12px; }
 }

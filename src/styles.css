@@ -505,3 +505,110 @@
   font-weight: 600;
   color: oklch(var(--gz-p));
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — Android phone optimization
+   ══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  body { font-size: 12px; }
+  
+  .engine-cockpit { gap: 0.5rem; }
+  
+  .cockpit-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .cockpit-header-left,
+  .cockpit-header-right {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .cockpit-title { font-size: 12px; }
+  .cockpit-pair { font-size: 11px; }
+  .cockpit-price { font-size: 12px; }
+  
+  /* Stack grid columns on mobile */
+  .grid.sm\\:grid-cols-2,
+  .grid.sm\\:grid-cols-3,
+  .grid.sm\\:grid-cols-4,
+  .grid.lg\\:grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+  
+  /* Inputs */
+  input, select, button {
+    font-size: 14px !important; /* Prevents zoom on iOS/Android */
+    min-height: 36px;
+  }
+  
+  /* Cards */
+  .card, [class*="card"] {
+    padding: 0.75rem !important;
+  }
+  
+  /* Mirror ticket table */
+  .mirror-ticket table {
+    font-size: 11px;
+  }
+  
+  /* Risk per trade */
+  .risk-per-trade .row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  
+  /* Phase toggle buttons */
+  .phase-toggle {
+    flex-direction: row;
+    width: 100%;
+  }
+  
+  .phase-toggle button {
+    flex: 1;
+    font-size: 11px;
+    padding: 0.5rem;
+  }
+  
+  /* Hide non-essential columns on mobile */
+  .hide-mobile { display: none !important; }
+  
+  /* Full-width inputs on mobile */
+  .input-group {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  /* Stack action buttons */
+  .action-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .action-buttons button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  body { font-size: 11px; }
+  
+  .cockpit-header { padding: 0.4rem 0.5rem; }
+  .cockpit-title { font-size: 11px; }
+  
+  /* Smaller badges on tiny screens */
+  .badge, [class*="badge"] {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+  
+  /* Compact spacing */
+  .engine-cockpit { gap: 0.4rem; }
+}
