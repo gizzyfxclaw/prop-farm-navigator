@@ -6,91 +6,82 @@ interface NewsItem {
   source: string;
   datetime: number;
   url: string;
-  impact: "low" | "medium" | "high";
+  impact: "high" | "medium" | "low";
   currency: string;
   pairs: string[];
+  minutesUntil: number;
+  hazardLevel: "critical" | "warning" | "caution" | "safe";
 }
 
-const CURRENCY_TO_PAIRS: Record<string, string[]> = {
-  US: ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF"],
-  EU: ["EURUSD", "EURJPY", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF"],
-  GB: ["GBPUSD", "GBPJPY", "EURGBP", "GBPAUD", "GBPNZD", "GBPCAD", "GBPCHF"],
-  JP: ["USDJPY", "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CADJPY", "CHFJPY"],
-  AU: ["AUDUSD", "AUDJPY", "EURAUD", "GBPAUD", "AUDNZD", "AUDCAD", "AUDCHF"],
-  NZ: ["NZDUSD", "NZDJPY", "EURNZD", "GBPNZD", "AUDNZD", "NZDCAD", "NZDCHF"],
-  CA: ["USDCAD", "CADJPY", "EURCAD", "GBPCAD", "AUDCAD", "NZDCAD", "CADCHF"],
-  CH: ["USDCHF", "EURCHF", "GBPCHF", "AUDCHF", "NZDCHF", "CADCHF", "CHFJPY"],
+const IMPACT_COLORS = {
+  high: "oklch(0.680 0.230 295 / 0.13)",
+  medium: "oklch(0.680 0.230 295 / 0.13)",
+  low: "oklch(0.680 0.230 295 / 0.13)",
 };
 
-function getAffectedPairs(currency: string): string[] {
-  return CURRENCY_TO_PAIRS[currency] ?? [];
+const IMPACT_LABELS = {
+  high: "HIGH",
+  medium: "MEDIUM",
+  low: "LOW",
+};
+
+const HAZARD_CRITICAL = "critical"; // < 30 min
+const HAZARD_WARNING = "warning";   // 30 min - 2 hr
+const HAZARD_CAUTION = "caution";   // 2-3 hr
+const HAZARD_SAFE = "safe";         // > 3 hr
+
+const CURRENCY_TO_PAIRS: Record<string, string[]> = {
+  USD: ["EURUSD", "USDJPY", "GBPUSD"],
+  EUR: ["EURUSD"],
+  JPY: ["USDJPY"],
+  GBP: ["GBPUSD"],
+};
+
+function detectCurrency(headline: string): string[] {
+  const upper = headline.toUpperCase();
+  const currencies: string[] = [];
+  if (upper.includes("USD") || upper.includes("DOLLAR") || upper.includes("FED") || upper.includes("FOMC")) currencies.push("USD");
+  if (upper.includes("EUR") || upper.includes("ECB")) currencies.push("EUR");
+  if (upper.includes("JPY") || upper.includes("YEN") || upper.includes("BOJ")) currencies.push("JPY");
+  if (upper.includes("GBP") || upper.includes("STERLING") || upper.includes("BOE")) currencies.push("GBP");
+  if (currencies.length === 0) currencies.push("USD");
+  return currencies;
 }
 
-const HIGH_IMPACT_KEYWORDS = [
-  "non-farm", "nfp", "payroll", "employment", "unemployment", "jobs report",
-  "interest rate", "rate decision", "rate hike", "rate cut", "fed", "fomc",
-  "ecb", "boe", "boj", "rba", "rbnz", "boc", "snb",
-  "gdp", "gross domestic product",
-  "cpi", "inflation", "consumer price", "producer price", "ppi",
-  "retail sales", "industrial production", "manufacturing pmi", "services pmi",
-  "trade balance", "current account",
-  "consumer confidence", "business confidence", "zing", "ism",
-  "housing starts", "building permits", "existing home sales", "new home sales",
-  "durable goods", "factory orders",
-  "central bank", "monetary policy", "quantitative easing", "qe",
-];
-
-function detectImpact(headline: string): "low" | "medium" | "high" {
-  const lower = headline.toLowerCase();
-  for (const keyword of HIGH_IMPACT_KEYWORDS) {
-    if (lower.includes(keyword)) return "high";
-  }
-  return "medium";
+function detectImpact(headline: string): "high" | "medium" | "low" {
+  const upper = headline.toUpperCase();
+  const high = ["NFP", "NON-FARM", "FOMC", "FED", "FEDERAL RESERVE", "CPI", "INFLATION", "GDP", "GROSS DOMESTIC", "PAYROLL", "INTEREST RATE", "RATE DECISION", "MONETARY POLICY", "PRESS CONFERENCE", "JEROME POWELL", "LAGARDE"];
+  const medium = ["RETAIL SALES", "INDUSTRIAL PROD", "MANUFACTURING", "TRADE BALANCE", "CURRENT ACCOUNT", "UNEMPLOYMENT", "JOBS", "PMI", "SENTIMENT", "CONFIDENCE", "HOUSING", "BUILDING", "PERMITS", "NEW HOME"];
+  if (high.some((k) => upper.includes(k))) return "high";
+  if (medium.some((k) => upper.includes(k))) return "medium";
+  return "low";
 }
 
-function detectCurrency(headline: string): string {
-  const lower = headline.toLowerCase();
-  if (lower.includes("euro") || lower.includes("eur") || lower.includes("ecb")) return "EU";
-  if (lower.includes("pound") || lower.includes("sterling") || lower.includes("gbp") || lower.includes("boe")) return "GB";
-  if (lower.includes("yen") || lower.includes("jpy") || lower.includes("boj")) return "JP";
-  if (lower.includes("aussie") || lower.includes("aud") || lower.includes("rba")) return "AU";
-  if (lower.includes("kiwi") || lower.includes("nzd") || lower.includes("rbnz")) return "NZ";
-  if (lower.includes("loonie") || lower.includes("cad") || lower.includes("boc")) return "CA";
-  if (lower.includes("franc") || lower.includes("chf") || lower.includes("snb")) return "CH";
-  return "US";
+function classifyHazard(minutes: number, impact: "high" | "medium" | "low"): typeof HAZARD_CRITICAL | typeof HAZARD_WARNING | typeof HAZARD_CAUTION | typeof HAZARD_SAFE {
+  if (impact === "high" && minutes <= 30) return HAZARD_CRITICAL;
+  if (impact === "high" && minutes <= 120) return HAZARD_WARNING;
+  if (impact === "high" && minutes <= 180) return HAZARD_CAUTION;
+  if (impact === "medium" && minutes <= 30) return HAZARD_WARNING;
+  if (impact === "medium" && minutes <= 120) return HAZARD_CAUTION;
+  return HAZARD_SAFE;
 }
 
-const FOREX_KEYWORDS = [
-  "forex", "fx", "currency", "currencies", "exchange rate",
-  "dollar", "euro", "pound", "sterling", "yen", "franc",
-  "fed", "federal reserve", "ecb", "boe", "boj", "rba", "rbnz", "boc", "snb",
-  "interest rate", "rate decision", "rate hike", "rate cut",
-  "gdp", "inflation", "cpi", "ppi", "payroll", "employment",
-  "retail sales", "trade balance", "pmi", "consumer confidence",
-  "oil", "crude", "gold", "commodities",
-  "war", "geopolitical", "sanctions", "tariff",
-];
-
-function isForexRelevant(headline: string): boolean {
-  const lower = headline.toLowerCase();
-  return FOREX_KEYWORDS.some(k => lower.includes(k));
-}
-
-function getFlag(country: string): string {
-  const flags: Record<string, string> = {
-    US: "🇺🇸", EU: "🇪🇺", GB: "🇬🇧", JP: "🇯🇵", DE: "🇩🇪",
-    FR: "🇫🇷", IT: "🇮🇹", ES: "🇪🇸", CA: "🇨🇦", AU: "🇦🇺",
-    NZ: "🇳🇿", CH: "🇨🇭", CN: "🇨🇳", BR: "🇧🇷", IN: "🇮🇳",
-    RU: "🇷🇺", ZA: "🇿🇦", MX: "🇲🇽", TR: "🇹🇷", KR: "🇰🇷",
-  };
-  return flags[country] ?? "🌍";
+function formatCountdown(minutes: number): string {
+  if (minutes <= 0) return "NOW";
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
 export const Route = createFileRoute("/calendar")({
   head: () => ({
     meta: [
       { title: "Economic Calendar — GizzyFx" },
-      { name: "description", content: "High-impact news events and slippage alerts." },
+      {
+        name: "description",
+        content: "Strategy-aware economic calendar with trade timing.",
+      },
     ],
   }),
   component: CalendarPage,
@@ -100,17 +91,40 @@ function CalendarPage() {
   const [events, setEvents] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [lastFetch, setLastFetch] = useState<string | null>(null);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch("/api/economic-events");
+      const res = await fetch("/api/economic-events?impact=all&hours=168");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setEvents(data.events ?? []);
-      setError(null);
-    } catch (err) {
-      setError("Could not load events. Retrying...");
+      const now = Math.floor(Date.now() / 1000);
+      const items: NewsItem[] = (data.events || [])
+        .map((e: any) => {
+          const eTime = e.datetime || now;
+          const minutesUntil = Math.max(0, Math.floor((eTime - now) / 60));
+          const currency = e.currency || "USD";
+          const pairs = e.pairs?.split(",").map((s: string) => s.trim()) || CURRENCY_TO_PAIRS[currency] || ["EURUSD", "USDJPY", "GBPUSD"];
+          const impact = e.impact || detectImpact(e.event_name || e.headline || "");
+          return {
+            headline: e.event_name || e.headline || "Unknown",
+            source: e.source || "Finnhub",
+            datetime: eTime,
+            url: e.url || "#",
+            impact,
+            currency,
+            pairs,
+            minutesUntil,
+            hazardLevel: classifyHazard(minutesUntil, impact),
+          };
+        })
+        .sort((a: NewsItem, b: NewsItem) => a.datetime - b.datetime);
+      setEvents(items);
+      setLastFetch(new Date().toLocaleTimeString("en-GB"));
+    } catch (err: any) {
+      setError(err.message || "Failed to load events");
     } finally {
       setLoading(false);
     }
@@ -118,35 +132,16 @@ function CalendarPage() {
 
   useEffect(() => {
     fetchEvents();
-    const id = setInterval(fetchEvents, 60_000);
+    const id = setInterval(fetchEvents, 60000);
     return () => clearInterval(id);
   }, [fetchEvents]);
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const critical = events.filter((e) => e.hazardLevel === HAZARD_CRITICAL);
+  const warning = events.filter((e) => e.hazardLevel === HAZARD_WARNING);
+  const caution = events.filter((e) => e.hazardLevel === HAZARD_CAUTION);
+  const safe = events.filter((e) => e.hazardLevel === HAZARD_SAFE);
 
-  const getTimeUntil = (timestamp: number) => {
-    const diff = timestamp * 1000 - now;
-    if (diff <= 0) return "LIVE";
-    const hours = Math.floor(diff / 3_600_000);
-    const minutes = Math.floor((diff % 3_600_000) / 60_000);
-    const seconds = Math.floor((diff % 60_000) / 1000);
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    if (minutes > 0) return `${minutes}m ${seconds}s`;
-    return `${seconds}s`;
-  };
-
-  const isSafeToTrade = (event: NewsItem) => {
-    const timeUntil = event.datetime * 1000 - now;
-    if (event.impact === "high" && timeUntil < 30 * 60 * 1000) return false;
-    if (event.impact === "medium" && timeUntil < 15 * 60 * 1000) return false;
-    return true;
-  };
-
-  const safeEvents = events.filter(isSafeToTrade);
-  const dangerEvents = events.filter(e => !isSafeToTrade(e));
+  const tradingBlocked = critical.length > 0 || warning.length > 0;
 
   return (
     <div className="space-y-4">
@@ -154,115 +149,168 @@ function CalendarPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Economic Calendar</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            News events filtered to your pairs: EURUSD, USDJPY, GBPUSD
+            Strategy-aware trade timing based on news events and their impact.
           </p>
         </div>
-        <button
-          onClick={fetchEvents}
-          className="rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          {lastFetch && (
+            <span className="text-[10px] text-muted-foreground self-center">Updated {lastFetch}</span>
+          )}
+          <button
+            onClick={fetchEvents}
+            disabled={loading}
+            className="h-9 rounded-lg border border-white/10 bg-white/5 px-4 text-[13px] font-medium text-foreground transition-colors hover:bg-white/10 disabled:opacity-50"
+          >
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </div>
 
-      {/* Next High-Impact Alert */}
-      {dangerEvents.length > 0 && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{getFlag(dangerEvents[0].currency)}</span>
-                <span className="text-sm font-semibold text-red-400">⚠️ Trading Hazard</span>
-              </div>
-              <p className="mt-1 text-base font-bold text-foreground">{dangerEvents[0].headline}</p>
-              <p className="text-[12px] text-muted-foreground">
-                {dangerEvents[0].currency} · {dangerEvents[0].source}
-              </p>
-              {dangerEvents[0].pairs && (
-                <p className="mt-1 text-[11px] text-amber-400">
-                  Affects: {dangerEvents[0].pairs.slice(0, 4).join(", ")}
-                </p>
-              )}
-            </div>
-            <div className="text-right">
-              <div className="text-[10px] text-muted-foreground">Countdown</div>
-              <div className="text-lg font-bold text-red-400">{getTimeUntil(dangerEvents[0].datetime)}</div>
-              <div className="text-[10px] text-red-400">AVOID TRADING</div>
-            </div>
+      {/* Trading Status Banner */}
+      {tradingBlocked ? (
+        <div
+          className="rounded-xl p-4 text-center"
+          style={{
+            background: "oklch(0.680 0.230 295 / 0.13)",
+            border: "1px solid oklch(0.680 0.230 295 / 0.25)",
+          }}
+        >
+          <div className="text-lg font-bold" style={{ color: "oklch(0.680 0.230 295)" }}>
+            ⚠️ TRADING HAZARD — AVOID NEW ENTRIES
           </div>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            High-impact news within 2 hours. Wait for the event to pass before entering trades.
+          </p>
+        </div>
+      ) : caution.length > 0 ? (
+        <div
+          className="rounded-xl p-4 text-center"
+          style={{
+            background: "oklch(0.680 0.230 295 / 0.08)",
+            border: "1px solid oklch(0.680 0.230 295 / 0.15)",
+          }}
+        >
+          <div className="text-lg font-bold" style={{ color: "oklch(0.680 0.230 295)" }}>
+            ⚡ CAUTION — NEWS WITHIN 2-3 HOURS
+          </div>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            News events approaching. Avoid new entries for the next 2-3 hours.
+          </p>
+        </div>
+      ) : (
+        <div
+          className="rounded-xl p-4 text-center"
+          style={{
+            background: "oklch(0.680 0.230 295 / 0.08)",
+            border: "1px solid oklch(0.680 0.230 295 / 0.15)",
+          }}
+        >
+          <div className="text-lg font-bold" style={{ color: "oklch(0.680 0.230 295)" }}>
+            ✅ SAFE TO TRADE
+          </div>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            No high-impact news in the next 3 hours. Follow your strategy rules.
+          </p>
         </div>
       )}
 
-      {/* Safe to Trade */}
-      {safeEvents.length > 0 && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">✅</span>
-            <span className="text-sm font-semibold text-emerald-400">Safe to Trade</span>
+      {/* Alert Summary */}
+      {events.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.13)" }}>
+            <div className="text-xl font-bold" style={{ color: "oklch(0.680 0.230 295)" }}>{critical.length}</div>
+            <div className="text-[11px] text-muted-foreground">CRITICAL</div>
           </div>
-          <p className="mt-1 text-[12px] text-muted-foreground">
-            {safeEvents.length} upcoming event{safeEvents.length > 1 ? "s" : ""} outside danger windows. No restrictions.
-          </p>
+          <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.13)" }}>
+            <div className="text-xl font-bold" style={{ color: "oklch(0.680 0.230 295)" }}>{warning.length}</div>
+            <div className="text-[11px] text-muted-foreground">WARNING</div>
+          </div>
+          <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.13)" }}>
+            <div className="text-xl font-bold" style={{ color: "oklch(0.680 0.230 295)" }}>{caution.length}</div>
+            <div className="text-[11px] text-muted-foreground">CAUTION</div>
+          </div>
+          <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.13)" }}>
+            <div className="text-xl font-bold" style={{ color: "oklch(0.680 0.230 295)" }}>{safe.length}</div>
+            <div className="text-[11px] text-muted-foreground">SAFE</div>
+          </div>
         </div>
       )}
 
       {/* Events List */}
       <div className="space-y-2">
-        {events.map((event, i) => {
-          const safe = isSafeToTrade(event);
-          return (
+        {loading && events.length === 0 ? (
+          <div className="rounded-xl p-8 text-center text-[13px] text-muted-foreground">Loading events…</div>
+        ) : error ? (
+          <div className="rounded-xl p-8 text-center text-[13px]" style={{ color: "oklch(0.680 0.230 295)" }}>
+            {error}
+          </div>
+        ) : events.length === 0 ? (
+          <div className="rounded-xl p-8 text-center text-[13px] text-muted-foreground">
+            No upcoming events match your filter.
+          </div>
+        ) : (
+          events.map((event, i) => (
             <div
               key={i}
-              className={`flex items-center justify-between rounded-xl border p-3 transition-colors ${
-                safe ? "border-border bg-card hover:bg-muted/30" : "border-red-500/20 bg-red-500/5"
-              }`}
+              className="flex items-start gap-3 rounded-xl p-3"
+              style={{
+                background: "oklch(0.680 0.230 295 / 0.05)",
+                border: `1px solid ${IMPACT_COLORS[event.impact]}`,
+              }}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-lg">{getFlag(event.currency)}</span>
-                <div>
-                  <a href={event.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-foreground hover:underline">
-                    {event.headline}
-                  </a>
-                  <p className="text-[11px] text-muted-foreground">
-                    {event.currency} · {event.source}
-                  </p>
-                  {event.pairs && (
-                    <p className="text-[10px] text-amber-400/80">
-                      {event.pairs.slice(0, 4).join(", ")}
-                    </p>
-                  )}
+              <div className="min-w-[60px] text-center">
+                <div className="text-sm font-bold text-foreground">{formatCountdown(event.minutesUntil)}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  {new Date(event.datetime * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-16 text-right">
-                  <div className="text-[9px] text-muted-foreground">In</div>
-                  <div className={`text-[12px] font-mono ${safe ? "text-emerald-400" : "text-red-400"}`}>
-                    {getTimeUntil(event.datetime)}
-                  </div>
+              <div className="flex-1 min-w-0">
+                <a
+                  href={event.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[13px] font-medium text-foreground hover:text-cyan-400"
+                >
+                  {event.headline}
+                </a>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  <span
+                    className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+                    style={{
+                      background: event.impact === "high" ? "oklch(0.680 0.230 295 / 0.2)" : "oklch(0.680 0.230 295 / 0.1)",
+                      color: event.impact === "high" ? "oklch(0.680 0.230 295)" : "oklch(0.680 0.230 295)",
+                    }}
+                  >
+                    {IMPACT_LABELS[event.impact]}
+                  </span>
+                  {event.pairs.map((p) => (
+                    <span key={p} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      {p}
+                    </span>
+                  ))}
+                  <span className="text-[10px] text-muted-foreground">{event.source}</span>
                 </div>
-                <span className={`rounded border px-2 py-0.5 text-[10px] font-bold ${
-                  event.impact === "high" ? "bg-red-500/20 text-red-400 border-red-500/30" :
-                  event.impact === "medium" ? "bg-amber-500/20 text-amber-400 border-amber-500/30" :
-                  "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                }`}>
-                  {event.impact === "high" ? "HIGH" : event.impact === "medium" ? "MED" : "LOW"}
-                </span>
               </div>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
 
-      {/* Trading Rules */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h3 className="mb-2 text-sm font-semibold text-foreground">Strategy Rules</h3>
+      {/* Strategy Rules */}
+      <div
+        className="rounded-xl p-4"
+        style={{
+          background: "oklch(0.680 0.230 295 / 0.05)",
+          border: "1px solid oklch(0.680 0.230 295 / 0.13)",
+        }}
+      >
+        <h3 className="text-sm font-semibold text-foreground mb-2">Strategy Rules</h3>
         <ul className="space-y-1 text-[12px] text-muted-foreground">
-          <li>• <strong className="text-red-400">HIGH impact:</strong> No pending orders ±30min · Avoid new entries</li>
-          <li>• <strong className="text-amber-400">MEDIUM impact:</strong> Avoid new entries ±15min</li>
-          <li>• <strong className="text-emerald-400">LOW impact:</strong> Safe to trade</li>
-          <li>• <strong className="text-foreground">Best liquidity:</strong> London/NY overlap (13:00-16:00 EST)</li>
+          <li>• <strong className="text-foreground">No pending orders</strong> ±30 min before/after HIGH impact news</li>
+          <li>• <strong className="text-foreground">Avoid new entries</strong> ±2-3 hours before HIGH impact events</li>
           <li>• <strong className="text-foreground">Vary entry times:</strong> 08:13, 10:42, 14:05</li>
           <li>• <strong className="text-foreground">Vary SL pips:</strong> 28, 35, 22</li>
+          <li>• <strong className="text-foreground">Best liquidity:</strong> London/NY overlap (13:00-16:00 EST)</li>
         </ul>
       </div>
     </div>
