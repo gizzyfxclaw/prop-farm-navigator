@@ -120,6 +120,9 @@
   --shadow-lg: 0 4px 16px oklch(0 0 0 / 0.50);
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   BASE — Mobile-first, large & visible
+   ══════════════════════════════════════════════════════════════════ */
 @layer base {
   * { border-color: var(--color-border); }
 
@@ -129,8 +132,8 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: 16px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "tnum" 1, "cv11" 1;
@@ -507,11 +510,53 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   MOBILE RESPONSIVE — Android phone optimization
+   PROFESSIONAL TRADING UI — Mobile-first, large & visible
    ══════════════════════════════════════════════════════════════════ */
 
+/* Large phones & small tablets */
+@media (min-width: 481px) and (max-width: 768px) {
+  .grid.sm\\:grid-cols-2,
+  .grid.sm\\:grid-cols-3,
+  .grid.sm\\:grid-cols-4,
+  .grid.lg\\:grid-cols-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Touch-friendly buttons globally */
+button, [role="button"], .btn {
+  min-height: 40px;
+  font-size: 14px;
+  padding: 0.5rem 1rem;
+}
+
+/* Larger data display */
+.data-cell, .cockpit-price, .cockpit-pair {
+  font-weight: 600;
+}
+
+/* Better contrast on muted text */
+.text-muted-foreground {
+  color: oklch(var(--gz-mut)) !important;
+  opacity: 0.9;
+}
+
+/* Professional card styling */
+.card, [class*="card"] {
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Visible focus states for accessibility */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid oklch(var(--gz-p));
+  outline-offset: 2px;
+}
+
 @media (max-width: 768px) {
-  body { font-size: 12px; }
+  body { font-size: 15px; }
   
   .engine-cockpit { gap: 0.5rem; }
   
@@ -519,7 +564,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.75rem 1rem;
   }
   
   .cockpit-header-left,
@@ -529,9 +574,9 @@
     gap: 0.5rem;
   }
   
-  .cockpit-title { font-size: 12px; }
-  .cockpit-pair { font-size: 11px; }
-  .cockpit-price { font-size: 12px; }
+  .cockpit-title { font-size: 15px; }
+  .cockpit-pair { font-size: 13px; }
+  .cockpit-price { font-size: 14px; }
   
   /* Stack grid columns on mobile */
   .grid.sm\\:grid-cols-2,
@@ -541,20 +586,20 @@
     grid-template-columns: 1fr;
   }
   
-  /* Inputs */
+  /* Inputs — large touch targets */
   input, select, button {
-    font-size: 14px !important; /* Prevents zoom on iOS/Android */
-    min-height: 36px;
+    font-size: 16px !important; /* Prevents zoom on iOS/Android */
+    min-height: 40px;
   }
   
   /* Cards */
   .card, [class*="card"] {
-    padding: 0.75rem !important;
+    padding: 1rem !important;
   }
   
   /* Mirror ticket table */
   .mirror-ticket table {
-    font-size: 11px;
+    font-size: 13px;
   }
   
   /* Risk per trade */
@@ -572,8 +617,8 @@
   
   .phase-toggle button {
     flex: 1;
-    font-size: 11px;
-    padding: 0.5rem;
+    font-size: 14px;
+    padding: 0.75rem;
   }
   
   /* Hide non-essential columns on mobile */
@@ -594,6 +639,7 @@
   .action-buttons button {
     width: 100%;
     justify-content: center;
+    font-size: 14px;
   }
 }
 

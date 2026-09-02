@@ -111,7 +111,7 @@ export default {
 
         const token = await signSession(email, secret);
         const dest = next && next.startsWith("/") ? next : "/";
-        return new Response(JSON.stringify({ ok: true, dest }), {
+        return new Response(JSON.stringify({ ok: true, dest, token }), {
           headers: {
             "Content-Type": "application/json",
             "Set-Cookie": buildSessionCookie(token),
