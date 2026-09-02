@@ -419,7 +419,9 @@ function EnginePage() {
         ))}
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <Row label={recovery.adjustmentNeeded ? "Exness fuel — dynamic (martingale)" : "Exness fuel required (buffered)"} value={money(recovery.dynamicExnessCapital)} tone="accent" />
-          <Row label="Phase 2 refill required" value={money(r.phase2RefillRequired)} tone="accent" />
+          {engine.phase === 2 && (
+            <Row label="Phase 2 refill required" value={money(r.phase2RefillRequired)} tone="accent" />
+          )}
           <Row label="Prop payout at target" value={money(r.propPayout, true)} tone="pos" />
           <Row label="Net profit if passed" value={money(r.netProfitIfPassed, true)} tone={r.netProfitIfPassed >= 20 ? "pos" : "neg"} />
         </div>

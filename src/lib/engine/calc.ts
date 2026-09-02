@@ -278,10 +278,16 @@ export function calculate(input: EngineInputs): EngineResult {
   const exnessSl = roundPrice(long ? entryPrice + tpDistance : entryPrice - tpDistance, spec.decimals);
   const exnessTp = roundPrice(long ? entryPrice - slDistance : entryPrice + slDistance, spec.decimals);
 
-  // ---- Final P&L (fee + phase 1 burn always accounted for via totalRequiredCapital) ----
+  // ---- Final P&L (respects current phase) ----
   const propPayout = targetUsd * (num(account.splitPct) / 100);
-  const leftoverExnessBalance = phase2.bufferedExnessCapital - phase2.exnessBurnIfPassed;
-  const netProfitIfPassed = propPayout + leftoverExnessBalance - (phase1TotalSpent + phase2RefillRequired);
+  // Phase 1: use Phase 1 leftover, don't deduct Phase 2 refill
+  // Phase 2: use Phase 2 leftover, deduct Phase 2 refill
+  const leftoverExnessBalance = input.phase === 1
+    ? phase1.leftoverIfPassed
+    : phase2.bufferedExnessCapital - phase2.exnessBurnIfPassed;
+  const netProfitIfPassed = input.phase === 1
+    ? propPayout + phase1.leftoverIfPassed - phase1TotalSpent
+    : propPayout + leftoverExnessBalance - (phase1TotalSpent + phase2RefillRequired);
 
   let verdict: EngineResult["verdict"];
   if (account.ddType === "Trailing") {
