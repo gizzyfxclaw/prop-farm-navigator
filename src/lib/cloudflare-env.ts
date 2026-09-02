@@ -37,6 +37,14 @@ export interface CFEnv {
    *  VPS) — lets the site's own chart show the same real TradingView data
    *  Hermes analyzes, instead of a separate Yahoo Finance feed. */
   TVREMIX_API_KEY?: string;
+  /** Finnhub.io API key for economic calendar data */
+  FINNHUB_API_KEY?: string;
+  /** Webhook secret for Finnhub push notifications */
+  FINNHUB_WEBHOOK_SECRET?: string;
+  /** Bot token for Telegram alerts */
+  TELEGRAM_BOT_TOKEN?: string;
+  /** Chat ID for Telegram alerts */
+  TELEGRAM_CHAT_ID?: string;
 }
 
 export const envStorage = new AsyncLocalStorage<CFEnv>();

@@ -16,3 +16,7 @@ database_id = "d727a172-e3de-44f6-a7eb-c9b9604dced2"
 [[kv_namespaces]]
 binding = "KV"
 id = "4562a4fb86e148138a8234883c48d39e"
+
+# Scheduled job: fetch economic events every 15 minutes
+[triggers]
+crons = ["*/15 * * * *"]

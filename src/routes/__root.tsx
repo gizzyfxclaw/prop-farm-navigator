@@ -23,6 +23,7 @@ import { LogoMark, LogoWordmark, LogoWatermark } from "../components/brand/logo"
 
 const NAV = [
   { to: "/", label: "Engine",         short: "Engine"  },
+  { to: "/calendar", label: "Calendar",     short: "News"    },
   { to: "/validator", label: "Validator",   short: "Valid."  },
   { to: "/accounts",  label: "Accounts",    short: "Accts"   },
   { to: "/journal",   label: "Journal",     short: "Journal" },

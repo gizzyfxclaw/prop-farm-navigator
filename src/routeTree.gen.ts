@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as BacktestRouteImport } from './routes/backtest'
+import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as HermesRouteImport } from './routes/hermes'
 import { Route as JournalRouteImport } from './routes/journal'
@@ -19,6 +20,8 @@ import { Route as LiveRouteImport } from './routes/live'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ValidatorRouteImport } from './routes/validator'
+import { Route as ApiEconomic_eventsRouteImport } from './routes/api/economic_events'
+import { Route as ApiFinnhub_webhookRouteImport } from './routes/api/finnhub_webhook'
 import { Route as ApiOhlcvRouteImport } from './routes/api/ohlcv'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
@@ -45,6 +48,11 @@ const AccountsRoute = AccountsRouteImport.update({
 const BacktestRoute = BacktestRouteImport.update({
   id: '/backtest',
   path: '/backtest',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConsoleRoute = ConsoleRouteImport.update({
@@ -80,6 +88,16 @@ const SettingsRoute = SettingsRouteImport.update({
 const ValidatorRoute = ValidatorRouteImport.update({
   id: '/validator',
   path: '/validator',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEconomic_eventsRoute = ApiEconomic_eventsRouteImport.update({
+  id: '/api/economic_events',
+  path: '/api/economic_events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFinnhub_webhookRoute = ApiFinnhub_webhookRouteImport.update({
+  id: '/api/finnhub_webhook',
+  path: '/api/finnhub_webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOhlcvRoute = ApiOhlcvRouteImport.update({
@@ -147,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
   '/backtest': typeof BacktestRoute
+  '/calendar': typeof CalendarRoute
   '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
@@ -154,6 +173,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
+  '/api/economic_events': typeof ApiEconomic_eventsRoute
+  '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
@@ -171,6 +192,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
   '/backtest': typeof BacktestRoute
+  '/calendar': typeof CalendarRoute
   '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
@@ -178,6 +200,8 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
+  '/api/economic_events': typeof ApiEconomic_eventsRoute
+  '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
@@ -196,6 +220,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
   '/backtest': typeof BacktestRoute
+  '/calendar': typeof CalendarRoute
   '/console': typeof ConsoleRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
@@ -203,6 +228,8 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
+  '/api/economic_events': typeof ApiEconomic_eventsRoute
+  '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
@@ -222,6 +249,7 @@ export interface FileRouteTypes {
     | '/'
     | '/accounts'
     | '/backtest'
+    | '/calendar'
     | '/console'
     | '/hermes'
     | '/journal'
@@ -229,6 +257,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/validator'
+    | '/api/economic_events'
+    | '/api/finnhub_webhook'
     | '/api/ohlcv'
     | '/api/hermes'
     | '/api/hermes/accounts'
@@ -246,6 +276,7 @@ export interface FileRouteTypes {
     | '/'
     | '/accounts'
     | '/backtest'
+    | '/calendar'
     | '/console'
     | '/hermes'
     | '/journal'
@@ -253,6 +284,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/validator'
+    | '/api/economic_events'
+    | '/api/finnhub_webhook'
     | '/api/ohlcv'
     | '/api/hermes'
     | '/api/hermes/accounts'
@@ -270,6 +303,7 @@ export interface FileRouteTypes {
     | '/'
     | '/accounts'
     | '/backtest'
+    | '/calendar'
     | '/console'
     | '/hermes'
     | '/journal'
@@ -277,6 +311,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/validator'
+    | '/api/economic_events'
+    | '/api/finnhub_webhook'
     | '/api/ohlcv'
     | '/api/hermes/_debug'
     | '/api/hermes/accounts'
@@ -295,6 +331,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountsRoute: typeof AccountsRoute
   BacktestRoute: typeof BacktestRoute
+  CalendarRoute: typeof CalendarRoute
   ConsoleRoute: typeof ConsoleRoute
   HermesRoute: typeof HermesRoute
   JournalRoute: typeof JournalRoute
@@ -302,6 +339,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
   ValidatorRoute: typeof ValidatorRoute
+  ApiEconomic_eventsRoute: typeof ApiEconomic_eventsRoute
+  ApiFinnhub_webhookRoute: typeof ApiFinnhub_webhookRoute
   ApiOhlcvRoute: typeof ApiOhlcvRoute
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
@@ -337,6 +376,13 @@ declare module '@tanstack/react-router' {
       path: '/backtest'
       fullPath: '/backtest'
       preLoaderRoute: typeof BacktestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/console': {
@@ -386,6 +432,20 @@ declare module '@tanstack/react-router' {
       path: '/validator'
       fullPath: '/validator'
       preLoaderRoute: typeof ValidatorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/economic_events': {
+      id: '/api/economic_events'
+      path: '/api/economic_events'
+      fullPath: '/api/economic_events'
+      preLoaderRoute: typeof ApiEconomic_eventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/finnhub_webhook': {
+      id: '/api/finnhub_webhook'
+      path: '/api/finnhub_webhook'
+      fullPath: '/api/finnhub_webhook'
+      preLoaderRoute: typeof ApiFinnhub_webhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/ohlcv': {
@@ -479,6 +539,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountsRoute: AccountsRoute,
   BacktestRoute: BacktestRoute,
+  CalendarRoute: CalendarRoute,
   ConsoleRoute: ConsoleRoute,
   HermesRoute: HermesRoute,
   JournalRoute: JournalRoute,
@@ -486,6 +547,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
   ValidatorRoute: ValidatorRoute,
+  ApiEconomic_eventsRoute: ApiEconomic_eventsRoute,
+  ApiFinnhub_webhookRoute: ApiFinnhub_webhookRoute,
   ApiOhlcvRoute: ApiOhlcvRoute,
   ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
