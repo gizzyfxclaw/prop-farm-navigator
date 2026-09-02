@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Button } from "@/components/terminal/ui";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Button } from "@/components/terminal/ui";
+
+const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
 
 export const Route = createFileRoute("/console")({
   head: () => ({
@@ -15,42 +18,77 @@ export const Route = createFileRoute("/console")({
 });
 
 function ConsolePage() {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    setLoaded(false);
+    setBlocked(false);
+    const id = window.setTimeout(() => {
+      setLoaded((isLoaded) => {
+        if (!isLoaded) setBlocked(true);
+        return isLoaded;
+      });
+    }, 6000);
+    return () => window.clearTimeout(id);
+  }, [reloadKey]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Agent Console</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            The GizzyFx Co-pilot console for strategy teaching and market analysis.
+            The GizzyFx Co-pilot console, running inside the terminal.
           </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => setReloadKey((k) => k + 1)}>
+            Reload
+          </Button>
+          <a href={HERMES_CONSOLE_URL} target="_blank" rel="noreferrer">
+            <Button variant="ghost">Open in new tab ↗</Button>
+          </a>
         </div>
       </div>
 
+      {blocked && (
+        <Alert level="amber" title="Console refused to embed">
+          The GizzyFx Co-pilot console still sends <code>frame-ancestors &apos;none&apos;</code>, so the
+          browser is blocking it. On the VPS run{" "}
+          <code>bash /opt/hermes-webui/hermes/webui-extension/allow-embedding.sh</code> to allow
+          this origin, then press Reload. Until then, use "Open in new tab".
+        </Alert>
+      )}
+
       <div
-        className="relative flex flex-col items-center justify-center rounded-xl p-12 text-center"
+        className="relative overflow-hidden rounded-xl"
         style={{
           border: "1px solid oklch(0.680 0.230 295 / 0.13)",
           boxShadow: "0 0 12px oklch(0.680 0.230 295 / 0.08)",
-          minHeight: 400,
-          background: "oklch(0.085 0.020 292)",
+          height: "calc(100svh - 160px)",
+          minHeight: 500,
         }}
       >
-        <div className="mb-4 text-4xl">🤖</div>
-        <h2 className="mb-2 text-lg font-semibold text-foreground">GizzyFx Co-pilot</h2>
-        <p className="mb-6 max-w-md text-[13px] text-muted-foreground">
-          The Hermes agent console is a heavy web app that doesn't run well embedded in an iframe on mobile devices.
-          Open it in a new tab for the best experience.
-        </p>
-        <div className="flex gap-3">
-          <a href="https://hermes.gizzyfxstrategy.dpdns.org" target="_blank" rel="noreferrer">
-            <Button className="h-10 px-6 text-base">
-              Open Console in New Tab ↗
-            </Button>
-          </a>
-        </div>
-        <p className="mt-4 text-[10px] text-muted-foreground">
-          Use the console to teach strategies, request backtests, and review market analysis.
-        </p>
+        {!loaded && !blocked && (
+          <div className="absolute inset-0 grid place-items-center">
+            <span className="animate-pulse text-[13px] text-muted-foreground">
+              Loading console…
+            </span>
+          </div>
+        )}
+        <iframe
+          key={reloadKey}
+          ref={frameRef}
+          src={HERMES_CONSOLE_URL}
+          title="GizzyFx Co-pilot console"
+          onLoad={() => setLoaded(true)}
+          className="h-full w-full"
+          style={{ border: 0, background: "oklch(0.085 0.020 292)" }}
+          allow="clipboard-write; microphone"
+        />
       </div>
     </div>
   );
