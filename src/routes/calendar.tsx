@@ -76,26 +76,15 @@ function isForexRelevant(headline: string): boolean {
   return FOREX_KEYWORDS.some(k => lower.includes(k));
 }
 
-const IMPACT_STYLES = {
-  high: "bg-red-500/20 text-red-400 border-red-500/30",
-  medium: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  low: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-};
-
-const IMPACT_LABELS = {
-  high: "HIGH",
-  medium: "MED",
-  low: "LOW",
-};
-
-const CURRENCY_FLAGS: Record<string, string> = {
-  US: "🇺🇸", EU: "🇪🇺", GB: "🇬🇧", JP: "🇯🇵", DE: "🇩🇪",
-  FR: "🇫🇷", IT: "🇮🇹", ES: "🇪🇸", CA: "🇨🇦", AU: "🇦🇺",
-  NZ: "🇳🇿", CH: "🇨🇭", CN: "🇨🇳", BR: "🇧🇷", IN: "🇮🇳",
-  RU: "🇷🇺", ZA: "🇿🇦", MX: "🇲🇽", TR: "🇹🇷", KR: "🇰🇷",
-};
-
-const TRADED_PAIRS = ["EURUSD", "USDJPY", "GBPUSD"];
+function getFlag(country: string): string {
+  const flags: Record<string, string> = {
+    US: "🇺🇸", EU: "🇪🇺", GB: "🇬🇧", JP: "🇯🇵", DE: "🇩🇪",
+    FR: "🇫🇷", IT: "🇮🇹", ES: "🇪🇸", CA: "🇨🇦", AU: "🇦🇺",
+    NZ: "🇳🇿", CH: "🇨🇭", CN: "🇨🇳", BR: "🇧🇷", IN: "🇮🇳",
+    RU: "🇷🇺", ZA: "🇿🇦", MX: "🇲🇽", TR: "🇹🇷", KR: "🇰🇷",
+  };
+  return flags[country] ?? "🌍";
+}
 
 export const Route = createFileRoute("/calendar")({
   head: () => ({
@@ -111,7 +100,7 @@ function CalendarPage() {
   const [events, setEvents] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const [now, setNow] = useState(Date.now());
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -129,11 +118,35 @@ function CalendarPage() {
 
   useEffect(() => {
     fetchEvents();
+    const id = setInterval(fetchEvents, 60_000);
+    return () => clearInterval(id);
   }, [fetchEvents]);
 
-  const filtered = events.filter((e) => filter === "all" || e.impact === filter);
-  const highImpact = events.filter((e) => e.impact === "high");
-  const nextHigh = highImpact.length > 0 ? highImpact[0] : null;
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const getTimeUntil = (timestamp: number) => {
+    const diff = timestamp * 1000 - now;
+    if (diff <= 0) return "LIVE";
+    const hours = Math.floor(diff / 3_600_000);
+    const minutes = Math.floor((diff % 3_600_000) / 60_000);
+    const seconds = Math.floor((diff % 60_000) / 1000);
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  };
+
+  const isSafeToTrade = (event: NewsItem) => {
+    const timeUntil = event.datetime * 1000 - now;
+    if (event.impact === "high" && timeUntil < 30 * 60 * 1000) return false;
+    if (event.impact === "medium" && timeUntil < 15 * 60 * 1000) return false;
+    return true;
+  };
+
+  const safeEvents = events.filter(isSafeToTrade);
+  const dangerEvents = events.filter(e => !isSafeToTrade(e));
 
   return (
     <div className="space-y-4">
@@ -152,66 +165,60 @@ function CalendarPage() {
         </button>
       </div>
 
-      {nextHigh && (
+      {/* Next High-Impact Alert */}
+      {dangerEvents.length > 0 && (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-lg">{CURRENCY_FLAGS[nextHigh.currency] ?? "🌍"}</span>
-                <span className="text-sm font-semibold text-red-400">Next High-Impact Event</span>
+                <span className="text-lg">{getFlag(dangerEvents[0].currency)}</span>
+                <span className="text-sm font-semibold text-red-400">⚠️ Trading Hazard</span>
               </div>
-              <p className="mt-1 text-base font-bold text-foreground">{nextHigh.headline}</p>
+              <p className="mt-1 text-base font-bold text-foreground">{dangerEvents[0].headline}</p>
               <p className="text-[12px] text-muted-foreground">
-                {nextHigh.currency} · {nextHigh.source}
+                {dangerEvents[0].currency} · {dangerEvents[0].source}
               </p>
-              {nextHigh.pairs && (
+              {dangerEvents[0].pairs && (
                 <p className="mt-1 text-[11px] text-amber-400">
-                  Affects: {nextHigh.pairs.slice(0, 4).join(", ")}
+                  Affects: {dangerEvents[0].pairs.slice(0, 4).join(", ")}
                 </p>
               )}
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] text-muted-foreground">Countdown</div>
+              <div className="text-lg font-bold text-red-400">{getTimeUntil(dangerEvents[0].datetime)}</div>
+              <div className="text-[10px] text-red-400">AVOID TRADING</div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex gap-2">
-        {(["all", "high", "medium", "low"] as const).map((level) => (
-          <button
-            key={level}
-            onClick={() => setFilter(level)}
-            className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-              filter === level
-                ? "bg-primary text-primary-foreground"
-                : "border border-border bg-card text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {level === "all" ? "All" : level === "high" ? "🔴 High" : level === "medium" ? "🟡 Med" : "🟢 Low"}
-          </button>
-        ))}
-      </div>
+      {/* Safe to Trade */}
+      {safeEvents.length > 0 && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">✅</span>
+            <span className="text-sm font-semibold text-emerald-400">Safe to Trade</span>
+          </div>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            {safeEvents.length} upcoming event{safeEvents.length > 1 ? "s" : ""} outside danger windows. No restrictions.
+          </p>
+        </div>
+      )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <span className="animate-pulse text-[13px] text-muted-foreground">Loading events...</span>
-        </div>
-      ) : error ? (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-center text-[13px] text-amber-400">
-          {error}
-          <button onClick={fetchEvents} className="ml-2 underline">Retry</button>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <p className="text-[13px] text-muted-foreground">No upcoming events match your filter.</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((event, i) => (
+      {/* Events List */}
+      <div className="space-y-2">
+        {events.map((event, i) => {
+          const safe = isSafeToTrade(event);
+          return (
             <div
               key={i}
-              className="flex items-center justify-between rounded-xl border border-border bg-card p-3 transition-colors hover:bg-muted/30"
+              className={`flex items-center justify-between rounded-xl border p-3 transition-colors ${
+                safe ? "border-border bg-card hover:bg-muted/30" : "border-red-500/20 bg-red-500/5"
+              }`}
             >
               <div className="flex items-center gap-3">
-                <span className="text-lg">{CURRENCY_FLAGS[event.currency] ?? "🌍"}</span>
+                <span className="text-lg">{getFlag(event.currency)}</span>
                 <div>
                   <a href={event.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-foreground hover:underline">
                     {event.headline}
@@ -226,21 +233,36 @@ function CalendarPage() {
                   )}
                 </div>
               </div>
-              <span className={`rounded border px-2 py-0.5 text-[10px] font-bold ${IMPACT_STYLES[event.impact]}`}>
-                {IMPACT_LABELS[event.impact]}
-              </span>
+              <div className="flex items-center gap-3">
+                <div className="w-16 text-right">
+                  <div className="text-[9px] text-muted-foreground">In</div>
+                  <div className={`text-[12px] font-mono ${safe ? "text-emerald-400" : "text-red-400"}`}>
+                    {getTimeUntil(event.datetime)}
+                  </div>
+                </div>
+                <span className={`rounded border px-2 py-0.5 text-[10px] font-bold ${
+                  event.impact === "high" ? "bg-red-500/20 text-red-400 border-red-500/30" :
+                  event.impact === "medium" ? "bg-amber-500/20 text-amber-400 border-amber-500/30" :
+                  "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                }`}>
+                  {event.impact === "high" ? "HIGH" : event.impact === "medium" ? "MED" : "LOW"}
+                </span>
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
+      {/* Trading Rules */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <h3 className="mb-2 text-sm font-semibold text-foreground">Slippage Avoidance Rules</h3>
+        <h3 className="mb-2 text-sm font-semibold text-foreground">Strategy Rules</h3>
         <ul className="space-y-1 text-[12px] text-muted-foreground">
-          <li>• <strong className="text-red-400">NO pending orders</strong> ±30min before/after high-impact news</li>
-          <li>• <strong className="text-amber-400">Avoid new entries</strong> ±15min before medium-impact news</li>
-          <li>• <strong className="text-emerald-400">Low-impact events</strong> — safe to trade, minimal slippage</li>
+          <li>• <strong className="text-red-400">HIGH impact:</strong> No pending orders ±30min · Avoid new entries</li>
+          <li>• <strong className="text-amber-400">MEDIUM impact:</strong> Avoid new entries ±15min</li>
+          <li>• <strong className="text-emerald-400">LOW impact:</strong> Safe to trade</li>
           <li>• <strong className="text-foreground">Best liquidity:</strong> London/NY overlap (13:00-16:00 EST)</li>
+          <li>• <strong className="text-foreground">Vary entry times:</strong> 08:13, 10:42, 14:05</li>
+          <li>• <strong className="text-foreground">Vary SL pips:</strong> 28, 35, 22</li>
         </ul>
       </div>
     </div>
