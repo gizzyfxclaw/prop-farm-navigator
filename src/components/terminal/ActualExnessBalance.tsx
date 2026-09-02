@@ -15,7 +15,8 @@ export function ActualExnessBalance() {
   const live = useLiveAccounts(20_000);
   const [isManual, setIsManual] = useState(true);
 
-  const liveBalance = live.exness.snapshot?.equity ?? 0;
+  // MetaApi returns balance in cents for Cent accounts — convert to dollars
+  const liveBalance = (live.exness.snapshot?.equity ?? 0) / 100;
   const configured = live.configured;
   const hasLiveData = configured && liveBalance > 0;
 
@@ -34,6 +35,7 @@ export function ActualExnessBalance() {
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
           Actual Exness Balance ($)
+          <span className="ml-1 text-[9px] text-muted-foreground">(auto-converted from cents)</span>
         </span>
         <Badge tone={isManual ? "amber" : "green"}>
           {isManual ? "MANUAL" : "LIVE"}
@@ -56,7 +58,7 @@ export function ActualExnessBalance() {
             onClick={async () => {
               await live.refresh();
               if (live.exness.snapshot) {
-                setEngine({ actualExnessBalance: Number(live.exness.snapshot.equity.toFixed(2)) });
+                setEngine({ actualExnessBalance: Number(((live.exness.snapshot.equity ?? 0) / 100).toFixed(2)) });
                 setIsManual(false);
               }
             }}

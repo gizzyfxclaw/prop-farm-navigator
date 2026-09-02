@@ -15,7 +15,13 @@ export function LiveAccountsPanel({
   result: EngineResult;
   account: PropAccount;
 }) {
-  const ex = live.exness.snapshot;
+  const ex = live.exness.snapshot ? {
+    ...live.exness.snapshot,
+    balance: (live.exness.snapshot.balance ?? 0) / 100,
+    equity: (live.exness.snapshot.equity ?? 0) / 100,
+    margin: (live.exness.snapshot.margin ?? 0) / 100,
+    freeMargin: (live.exness.snapshot.freeMargin ?? 0) / 100,
+  } : null;
   const pr = live.prop.snapshot;
   const required = result.requiredExnessCapital;
   const fuelGap = ex ? ex.equity - required : null;

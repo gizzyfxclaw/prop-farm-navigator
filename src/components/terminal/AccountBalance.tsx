@@ -17,9 +17,9 @@ export function AccountBalance() {
   const [prevEquity, setPrevEquity] = useState<number | null>(null);
   const [dailyPnl, setDailyPnl] = useState<number>(0);
 
-  const equity = live.exness.snapshot?.equity ?? 0;
+  const equity = (live.exness.snapshot?.equity ?? 0) / 100;
   const currency = live.exness.snapshot?.currency ?? "USD";
-  const balance = live.exness.snapshot?.balance ?? 0;
+  const balance = (live.exness.snapshot?.balance ?? 0) / 100;
 
   // Track daily P&L by comparing to first equity reading of the session
   useEffect(() => {
