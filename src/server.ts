@@ -153,7 +153,10 @@ export default {
         url.pathname === "/api/ohlcv" ||
         url.pathname.startsWith("/api/economic-events") ||
         url.pathname === "/api/fetch-events" ||
-        url.pathname === "/calendar";
+        url.pathname === "/api/events" ||
+        url.pathname === "/api/news" ||
+        url.pathname === "/calendar" ||
+        url.pathname === "/news";
 
       if (!isPublic) {
         const token = parseSessionToken(request.headers.get("cookie"));

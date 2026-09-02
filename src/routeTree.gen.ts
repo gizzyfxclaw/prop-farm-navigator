@@ -21,6 +21,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ValidatorRouteImport } from './routes/validator'
 import { Route as ApiEconomicEventsRouteImport } from './routes/api/economic-events'
+import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFinnhub_webhookRouteImport } from './routes/api/finnhub_webhook'
 import { Route as ApiOhlcvRouteImport } from './routes/api/ohlcv'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
@@ -93,6 +94,11 @@ const ValidatorRoute = ValidatorRouteImport.update({
 const ApiEconomicEventsRoute = ApiEconomicEventsRouteImport.update({
   id: '/api/economic-events',
   path: '/api/economic-events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEventsRoute = ApiEventsRouteImport.update({
+  id: '/api/events',
+  path: '/api/events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFinnhub_webhookRoute = ApiFinnhub_webhookRouteImport.update({
@@ -174,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
+  '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
   '/api/hermes': typeof ApiHermesDebugRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
+  '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
   '/api/hermes': typeof ApiHermesDebugRoute
@@ -229,6 +237,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/validator': typeof ValidatorRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
+  '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
@@ -258,6 +267,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/validator'
     | '/api/economic-events'
+    | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
     | '/api/hermes'
@@ -285,6 +295,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/validator'
     | '/api/economic-events'
+    | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
     | '/api/hermes'
@@ -312,6 +323,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/validator'
     | '/api/economic-events'
+    | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
     | '/api/hermes/_debug'
@@ -340,6 +352,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   ValidatorRoute: typeof ValidatorRoute
   ApiEconomicEventsRoute: typeof ApiEconomicEventsRoute
+  ApiEventsRoute: typeof ApiEventsRoute
   ApiFinnhub_webhookRoute: typeof ApiFinnhub_webhookRoute
   ApiOhlcvRoute: typeof ApiOhlcvRoute
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
@@ -439,6 +452,13 @@ declare module '@tanstack/react-router' {
       path: '/api/economic-events'
       fullPath: '/api/economic-events'
       preLoaderRoute: typeof ApiEconomicEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/events': {
+      id: '/api/events'
+      path: '/api/events'
+      fullPath: '/api/events'
+      preLoaderRoute: typeof ApiEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/finnhub_webhook': {
@@ -548,6 +568,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   ValidatorRoute: ValidatorRoute,
   ApiEconomicEventsRoute: ApiEconomicEventsRoute,
+  ApiEventsRoute: ApiEventsRoute,
   ApiFinnhub_webhookRoute: ApiFinnhub_webhookRoute,
   ApiOhlcvRoute: ApiOhlcvRoute,
   ApiHermesDebugRoute: ApiHermesDebugRoute,

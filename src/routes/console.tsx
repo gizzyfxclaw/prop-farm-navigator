@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Button } from "@/components/terminal/ui";
+import { Button } from "@/components/terminal/ui";
 
 const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
 
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/console")({
       { title: "Agent Console — GizzyFx" },
       {
         name: "description",
-        content: "The Hermes agent console, embedded in the GizzyFx terminal.",
+        content: "The GizzyFx Co-pilot console, embedded in the terminal.",
       },
     ],
   }),
@@ -31,7 +31,7 @@ function ConsolePage() {
         if (!isLoaded) setBlocked(true);
         return isLoaded;
       });
-    }, 6000);
+    }, 8000);
     return () => window.clearTimeout(id);
   }, [reloadKey]);
 
@@ -54,15 +54,6 @@ function ConsolePage() {
         </div>
       </div>
 
-      {blocked && (
-        <Alert level="amber" title="Console refused to embed">
-          The GizzyFx Co-pilot console still sends <code>frame-ancestors &apos;none&apos;</code>, so the
-          browser is blocking it. On the VPS run{" "}
-          <code>bash /opt/hermes-webui/hermes/webui-extension/allow-embedding.sh</code> to allow
-          this origin, then press Reload. Until then, use "Open in new tab".
-        </Alert>
-      )}
-
       <div
         className="relative overflow-hidden rounded-xl"
         style={{
@@ -79,12 +70,27 @@ function ConsolePage() {
             </span>
           </div>
         )}
+        {blocked && (
+          <div className="absolute inset-0 grid place-items-center">
+            <div className="text-center">
+              <div className="text-lg font-semibold text-foreground mb-2">Console not loading</div>
+              <p className="text-[13px] text-muted-foreground mb-4">
+                The console may be blocked by browser security policies.
+                Try opening it in a new tab.
+              </p>
+              <a href={HERMES_CONSOLE_URL} target="_blank" rel="noreferrer">
+                <Button>Open Console in New Tab ↗</Button>
+              </a>
+            </div>
+          </div>
+        )}
         <iframe
           key={reloadKey}
           ref={frameRef}
           src={HERMES_CONSOLE_URL}
           title="GizzyFx Co-pilot console"
           onLoad={() => setLoaded(true)}
+          onError={() => setBlocked(true)}
           className="h-full w-full"
           style={{ border: 0, background: "oklch(0.085 0.020 292)" }}
           allow="clipboard-write; microphone"

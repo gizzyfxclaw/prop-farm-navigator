@@ -1,16 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 
-interface NewsItem {
-  headline: string;
-  source: string;
-  datetime: number;
-  url: string;
-  impact: "high" | "medium" | "low";
+interface CalendarEvent {
+  id: string;
+  time: string;
+  country: string;
   currency: string;
-  pairs: string[];
+  impact: "high" | "medium" | "low";
+  event: string;
+  actual: string;
+  forecast: string;
+  previous: string;
   minutesUntil: number;
   hazardLevel: "critical" | "warning" | "caution" | "safe";
+  pairs: string[];
 }
 
 interface SessionOverlap {
@@ -21,61 +24,12 @@ interface SessionOverlap {
   minutesUntil: number;
 }
 
-const CURRENCY_TO_PAIRS: Record<string, string[]> = {
-  US: ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF"],
-  EU: ["EURUSD", "EURJPY", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF"],
-  GB: ["GBPUSD", "GBPJPY", "EURGBP", "GBPAUD", "GBPNZD", "GBPCAD", "GBPCHF"],
-  JP: ["USDJPY", "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CADJPY", "CHFJPY"],
-  CA: ["USDCAD", "CADJPY", "EURCAD", "GBPCAD", "AUDCAD", "NZDCAD", "CADCHF"],
-  AU: ["AUDUSD", "AUDJPY", "EURAUD", "GBPAUD", "AUDNZD", "AUDCAD", "AUDCHF"],
-  NZ: ["NZDUSD", "NZDJPY", "EURNZD", "GBPNZD", "AUDNZD", "NZDCAD", "NZDCHF"],
-  CH: ["USDCHF", "EURCHF", "GBPCHF", "AUDCHF", "NZDCHF", "CADCHF", "CHFJPY"],
-};
-
 const SESSIONS = [
-  { label: "London/NY Overlap", start: "13:00", end: "16:00", tz: "EST", active: false },
-  { label: "London Open", start: "03:00", end: "12:00", tz: "EST", active: false },
-  { label: "NY Open", start: "08:00", end: "17:00", tz: "EST", active: false },
-  { label: "Sydney/Tokyo", start: "19:00", end: "04:00", tz: "EST", active: false },
+  { label: "London/NY Overlap", start: "13:00", end: "16:00" },
+  { label: "London Open", start: "03:00", end: "12:00" },
+  { label: "NY Open", start: "08:00", end: "17:00" },
+  { label: "Sydney/Tokyo", start: "19:00", end: "04:00" },
 ];
-
-function getAffectedPairs(currency: string): string[] {
-  return CURRENCY_TO_PAIRS[currency] ?? [];
-}
-
-const HIGH_IMPACT_KEYWORDS = [
-  "non-farm", "nfp", "payroll", "employment", "unemployment", "jobs report",
-  "interest rate", "rate decision", "rate hike", "rate cut", "fed", "fomc",
-  "ecb", "boe", "boj", "rba", "rbnz", "boc", "snb",
-  "gdp", "gross domestic product",
-  "cpi", "inflation", "consumer price", "producer price", "ppi",
-  "retail sales", "industrial production", "manufacturing pmi", "services pmi",
-  "trade balance", "current account",
-  "consumer confidence", "business confidence", "zing", "ism",
-  "housing starts", "building permits", "existing home sales", "new home sales",
-  "durable goods", "factory orders",
-  "central bank", "monetary policy", "quantitative easing", "qe",
-];
-
-function detectImpact(headline: string): "high" | "medium" | "low" {
-  const lower = headline.toLowerCase();
-  for (const keyword of HIGH_IMPACT_KEYWORDS) {
-    if (lower.includes(keyword)) return "high";
-  }
-  return "medium";
-}
-
-function detectCurrency(headline: string): string {
-  const lower = headline.toLowerCase();
-  if (lower.includes("euro") || lower.includes("eur") || lower.includes("ecb")) return "EU";
-  if (lower.includes("pound") || lower.includes("sterling") || lower.includes("gbp") || lower.includes("boe")) return "GB";
-  if (lower.includes("yen") || lower.includes("jpy") || lower.includes("boj")) return "JP";
-  if (lower.includes("aussie") || lower.includes("aud") || lower.includes("rba")) return "AU";
-  if (lower.includes("kiwi") || lower.includes("nzd") || lower.includes("rbnz")) return "NZ";
-  if (lower.includes("loonie") || lower.includes("cad") || lower.includes("boc")) return "CA";
-  if (lower.includes("franc") || lower.includes("chf") || lower.includes("snb")) return "CH";
-  return "US";
-}
 
 function classifyHazard(minutes: number, impact: "high" | "medium" | "low"): "critical" | "warning" | "caution" | "safe" {
   if (impact === "high" && minutes <= 30) return "critical";
@@ -127,51 +81,39 @@ export const Route = createFileRoute("/calendar")({
   head: () => ({
     meta: [
       { title: "Economic Calendar — GizzyFx" },
-      {
-        name: "description",
-        content: "Strategy-aware economic calendar with trade timing.",
-      },
+      { name: "description", content: "Strategy-aware economic calendar with trade timing." },
     ],
   }),
   component: CalendarPage,
 });
 
 function CalendarPage() {
-  const [events, setEvents] = useState<NewsItem[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionOverlap[]>(getSessionStatus());
-  const [now, setNow] = useState(new Date());
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/economic-events?impact=all&hours=168");
+      const res = await fetch("/api/events?days=7");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const nowSec = Math.floor(Date.now() / 1000);
-      const items: NewsItem[] = (data.events || [])
+      const items: CalendarEvent[] = (data.events || [])
         .map((e: any) => {
           const eTime = e.datetime || nowSec;
           const minutesUntil = Math.max(0, Math.floor((eTime - nowSec) / 60));
-          const currency = e.currency || "USD";
-          const pairs = e.pairs?.split(",").map((s: string) => s.trim()) || getAffectedPairs(currency);
-          const impact = e.impact || detectImpact(e.event_name || e.headline || "");
+          const impact = e.impact || "medium";
           return {
-            headline: e.event_name || e.headline || "Unknown",
-            source: e.source || "Finnhub",
-            datetime: eTime,
-            url: e.url || "#",
-            impact,
-            currency,
-            pairs,
+            ...e,
             minutesUntil,
             hazardLevel: classifyHazard(minutesUntil, impact),
           };
         })
-        .sort((a: NewsItem, b: NewsItem) => a.datetime - b.datetime);
+        .sort((a: CalendarEvent, b: CalendarEvent) => a.minutesUntil - b.minutesUntil);
       setEvents(items);
       setLastFetch(new Date().toLocaleTimeString("en-GB"));
     } catch (err: any) {
@@ -186,7 +128,6 @@ function CalendarPage() {
     const id = setInterval(() => {
       fetchEvents();
       setSessions(getSessionStatus());
-      setNow(new Date());
     }, 60000);
     return () => clearInterval(id);
   }, [fetchEvents]);
@@ -198,11 +139,6 @@ function CalendarPage() {
 
   const tradingBlocked = critical.length > 0 || warning.length > 0;
   const tradingCaution = caution.length > 0 && !tradingBlocked;
-
-  const activeSession = sessions.find((s) => s.active);
-  const nextSession = sessions
-    .filter((s) => !s.active && s.minutesUntil > 0)
-    .sort((a, b) => a.minutesUntil - b.minutesUntil)[0];
 
   return (
     <div className="space-y-4">
@@ -246,12 +182,12 @@ function CalendarPage() {
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {critical.map((e, i) => (
               <span key={i} className="rounded-full px-3 py-1 text-[11px] font-bold" style={{ background: "oklch(0.680 0.230 295 / 0.2)", color: "oklch(0.680 0.230 295)" }}>
-                🔴 {e.headline.slice(0, 40)} ({formatCountdown(e.minutesUntil)})
+                🔴 {e.event.slice(0, 40)} ({formatCountdown(e.minutesUntil)})
               </span>
             ))}
             {warning.map((e, i) => (
               <span key={i} className="rounded-full px-3 py-1 text-[11px] font-bold" style={{ background: "oklch(0.680 0.230 295 / 0.1)", color: "oklch(0.680 0.230 295)" }}>
-                🟡 {e.headline.slice(0, 40)} ({formatCountdown(e.minutesUntil)})
+                🟡 {e.event.slice(0, 40)} ({formatCountdown(e.minutesUntil)})
               </span>
             ))}
           </div>
@@ -273,7 +209,7 @@ function CalendarPage() {
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {caution.map((e, i) => (
               <span key={i} className="rounded-full px-3 py-1 text-[11px] font-bold" style={{ background: "oklch(0.680 0.230 295 / 0.1)", color: "oklch(0.680 0.230 295)" }}>
-                🟠 {e.headline.slice(0, 40)} ({formatCountdown(e.minutesUntil)})
+                🟠 {e.event.slice(0, 40)} ({formatCountdown(e.minutesUntil)})
               </span>
             ))}
           </div>
@@ -358,7 +294,7 @@ function CalendarPage() {
         </div>
       </div>
 
-      {/* EVENTS LIST */}
+      {/* EVENTS TABLE */}
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-foreground">Upcoming Events</h3>
         {loading && events.length === 0 ? (
@@ -372,52 +308,72 @@ function CalendarPage() {
             No upcoming events match your filter.
           </div>
         ) : (
-          events.map((event, i) => (
-            <div
-              key={i}
-              className="flex items-start gap-3 rounded-xl p-3"
-              style={{
-                background: event.hazardLevel === "critical" ? "oklch(0.680 0.230 295 / 0.1)" : "oklch(0.680 0.230 295 / 0.03)",
-                border: `1px solid ${event.hazardLevel === "critical" ? "oklch(0.680 0.230 295 / 0.3)" : "oklch(0.680 0.230 295 / 0.08)"}`,
-              }}
-            >
-              <div className="min-w-[70px] text-center">
-                <div className="text-sm font-black" style={{ color: event.hazardLevel === "critical" ? "oklch(0.680 0.230 295)" : "oklch(0.680 0.230 295)" }}>
-                  {formatCountdown(event.minutesUntil)}
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {new Date(event.datetime * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <a
-                  href={event.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[13px] font-medium text-foreground hover:text-cyan-400"
-                >
-                  {event.headline}
-                </a>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  <span
-                    className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid oklch(0.680 0.230 295 / 0.13)" }}>
+            <table className="w-full text-[12px]">
+              <thead>
+                <tr className="bg-white/5">
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Time</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Event</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Imp</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Actual</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Forecast</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Previous</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Pairs</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Hazard</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event, i) => (
+                  <tr
+                    key={event.id}
+                    className="border-t border-white/5"
                     style={{
-                      background: event.impact === "high" ? "oklch(0.680 0.230 295 / 0.2)" : "oklch(0.680 0.230 295 / 0.1)",
-                      color: event.impact === "high" ? "oklch(0.680 0.230 295)" : "oklch(0.680 0.230 295)",
+                      background: event.hazardLevel === "critical" ? "oklch(0.680 0.230 295 / 0.08)" : "transparent",
                     }}
                   >
-                    {event.impact === "high" ? "🔴 HIGH" : event.impact === "medium" ? "🟡 MED" : "🟢 LOW"}
-                  </span>
-                  {event.pairs.map((p) => (
-                    <span key={p} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      {p}
-                    </span>
-                  ))}
-                  <span className="text-[10px] text-muted-foreground">{event.source}</span>
-                </div>
-              </div>
-            </div>
-          ))
+                    <td className="px-3 py-2 font-mono text-foreground">
+                      {new Date(event.time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                    </td>
+                    <td className="px-3 py-2 text-foreground">{event.event}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+                        style={{
+                          background: event.impact === "high" ? "oklch(0.680 0.230 295 / 0.2)" : "oklch(0.680 0.230 295 / 0.1)",
+                          color: event.impact === "high" ? "oklch(0.680 0.230 295)" : "oklch(0.680 0.230 295)",
+                        }}
+                      >
+                        {event.impact === "high" ? "HIGH" : event.impact === "medium" ? "MED" : "LOW"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-foreground">{event.actual}</td>
+                    <td className="px-3 py-2 text-foreground">{event.forecast}</td>
+                    <td className="px-3 py-2 text-foreground">{event.previous}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1">
+                        {event.pairs.map((p) => (
+                          <span key={p} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {p}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+                        style={{
+                          background: event.hazardLevel === "critical" ? "oklch(0.680 0.230 295 / 0.2)" : event.hazardLevel === "warning" ? "oklch(0.680 0.230 295 / 0.1)" : event.hazardLevel === "caution" ? "oklch(0.680 0.230 295 / 0.05)" : "oklch(0.680 0.230 295 / 0.03)",
+                          color: event.hazardLevel === "critical" ? "oklch(0.680 0.230 295)" : event.hazardLevel === "warning" ? "oklch(0.680 0.230 295)" : event.hazardLevel === "caution" ? "oklch(0.680 0.230 295)" : "oklch(0.680 0.230 295)",
+                        }}
+                      >
+                        {event.hazardLevel === "critical" ? "🔴 NOW" : event.hazardLevel === "warning" ? `🟡 ${formatCountdown(event.minutesUntil)}` : event.hazardLevel === "caution" ? `🟠 ${formatCountdown(event.minutesUntil)}` : "🟢 SAFE"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
