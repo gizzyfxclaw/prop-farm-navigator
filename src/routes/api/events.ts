@@ -41,10 +41,10 @@ function getPairs(currency: string): string[] {
   return CURRENCY_TO_PAIRS[currency] || ["EURUSD", "USDJPY", "GBPUSD"];
 }
 
-// Conservative mapping: treat importance >= 1 as high for maximum protection
+// TradingView importance: -1 = low, 0 = medium, 1 = high
 function mapImportance(imp: number): "high" | "medium" | "low" {
   if (imp >= 1) return "high";
-  if (imp >= 0) return "medium";
+  if (imp === 0) return "medium";
   return "low";
 }
 

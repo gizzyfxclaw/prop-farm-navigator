@@ -32,6 +32,8 @@ const SESSIONS = [
 ];
 
 function classifyHazard(minutes: number, impact: "high" | "medium" | "low"): "critical" | "warning" | "caution" | "safe" {
+  // Negative minutes = event already passed → always safe
+  if (minutes < 0) return "safe";
   if (impact === "high" && minutes <= 30) return "critical";
   if (impact === "high" && minutes <= 120) return "warning";
   if (impact === "high" && minutes <= 180) return "caution";
@@ -41,7 +43,14 @@ function classifyHazard(minutes: number, impact: "high" | "medium" | "low"): "cr
 }
 
 function formatCountdown(minutes: number): string {
-  if (minutes <= 0) return "NOW";
+  if (minutes < 0) {
+    const ago = Math.abs(minutes);
+    if (ago < 60) return `${ago}m ago`;
+    const h = Math.floor(ago / 60);
+    const m = ago % 60;
+    return m === 0 ? `${h}h ago` : `${h}h ${m}m ago`;
+  }
+  if (minutes === 0) return "NOW";
   if (minutes < 60) return `${minutes}m`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
@@ -50,8 +59,15 @@ function formatCountdown(minutes: number): string {
 
 function getSessionStatus(): SessionOverlap[] {
   const now = new Date();
-  const estHour = now.getUTCHours() - 4;
-  const estMin = now.getUTCMinutes();
+  // Determine US Eastern offset: EDT (UTC-4) Mar-Nov, EST (UTC-5) Nov-Mar
+  const jan = new Date(now.getFullYear(), 0, 1);
+  const jul = new Date(now.getFullYear(), 6, 1);
+  const stdOffset = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
+  // Use Intl to get actual ET offset
+  const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
+  const etDate = new Date(etStr);
+  const estHour = etDate.getHours();
+  const estMin = etDate.getMinutes();
   const estTotal = estHour * 60 + estMin;
 
   return SESSIONS.map((s) => {
@@ -105,7 +121,7 @@ function CalendarPage() {
       const items: CalendarEvent[] = (data.events || [])
         .map((e: any) => {
           const eTime = e.datetime || nowSec;
-          const minutesUntil = Math.max(0, Math.floor((eTime - nowSec) / 60));
+          const minutesUntil = Math.floor((eTime - nowSec) / 60);
           const impact = e.impact || "medium";
           return {
             ...e,
@@ -177,7 +193,7 @@ function CalendarPage() {
             🚫 DO NOT TRADE NOW
           </div>
           <p className="mt-2 text-[14px] text-muted-foreground">
-            High-impact news within 2 hours. Spreads will spike. Wait for the event to pass.
+            High-impact news within 2 hours or medium-impact within 30 min. Spreads will spike. Wait for the event to pass.
           </p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {critical.map((e, i) => (
@@ -280,12 +296,12 @@ function CalendarPage() {
         <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.08)", border: "1px solid oklch(0.680 0.230 295 / 0.15)" }}>
           <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>{warning.length}</div>
           <div className="text-[11px] font-medium" style={{ color: "oklch(0.680 0.230 295)" }}>WARNING</div>
-          <div className="text-[10px] text-muted-foreground">30min-2hr HIGH</div>
+          <div className="text-[10px] text-muted-foreground">30min-2hr HIGH / &lt;30min MED</div>
         </div>
         <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.05)", border: "1px solid oklch(0.680 0.230 295 / 0.1)" }}>
           <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>{caution.length}</div>
           <div className="text-[11px] font-medium" style={{ color: "oklch(0.680 0.230 295)" }}>CAUTION</div>
-          <div className="text-[10px] text-muted-foreground">2-3hr HIGH</div>
+          <div className="text-[10px] text-muted-foreground">2-3hr HIGH / 30min-2hr MED</div>
         </div>
         <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.03)", border: "1px solid oklch(0.680 0.230 295 / 0.08)" }}>
           <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>{safe.length}</div>
@@ -366,7 +382,7 @@ function CalendarPage() {
                           color: event.hazardLevel === "critical" ? "oklch(0.680 0.230 295)" : event.hazardLevel === "warning" ? "oklch(0.680 0.230 295)" : event.hazardLevel === "caution" ? "oklch(0.680 0.230 295)" : "oklch(0.680 0.230 295)",
                         }}
                       >
-                        {event.hazardLevel === "critical" ? "🔴 NOW" : event.hazardLevel === "warning" ? `🟡 ${formatCountdown(event.minutesUntil)}` : event.hazardLevel === "caution" ? `🟠 ${formatCountdown(event.minutesUntil)}` : "🟢 SAFE"}
+                        {event.hazardLevel === "critical" ? "🔴 NOW" : event.hazardLevel === "warning" ? `🟡 ${formatCountdown(event.minutesUntil)}` : event.hazardLevel === "caution" ? `🟠 ${formatCountdown(event.minutesUntil)}` : event.minutesUntil < 0 ? `⬜ ${formatCountdown(event.minutesUntil)}` : "🟢 SAFE"}
                       </span>
                     </td>
                   </tr>
