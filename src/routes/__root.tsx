@@ -212,7 +212,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=1280, initial-scale=1" },
       { title: "GizzyFx — Institutional Prop Farming Terminal" },
       { name: "description", content: "Dual-account hedge calculator, prop firm validator and MetaApi Cloud execution terminal for prop farming." },
       { property: "og:type", content: "website" },
@@ -422,26 +422,24 @@ function RootComponent() {
                     <button
                       onClick={handleLogout}
                       style={{
-                        height: 24, padding: "0 8px", borderRadius: 6,
-                        border: "1px solid oklch(var(--gz-p) / 0.20)",
-                        background: "oklch(var(--gz-p) / 0.06)",
-                        color: "oklch(var(--gz-mut))",
-                        fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
+                        height: 32, padding: "0 14px", borderRadius: 8,
+                        border: "1px solid oklch(0.500 0.200 25 / 0.25)",
+                        background: "oklch(0.500 0.200 25 / 0.08)",
+                        color: "oklch(0.720 0.180 25)",
+                        fontSize: 12, fontWeight: 700, letterSpacing: "0.04em",
                         cursor: "pointer", textTransform: "uppercase",
                         transition: "all 0.15s ease",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "oklch(0.500 0.200 25 / 0.12)";
-                        e.currentTarget.style.borderColor = "oklch(0.500 0.200 25 / 0.30)";
-                        e.currentTarget.style.color = "oklch(0.720 0.180 25)";
+                        e.currentTarget.style.background = "oklch(0.500 0.200 25 / 0.15)";
+                        e.currentTarget.style.borderColor = "oklch(0.500 0.200 25 / 0.40)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "oklch(var(--gz-p) / 0.06)";
-                        e.currentTarget.style.borderColor = "oklch(var(--gz-p) / 0.20)";
-                        e.currentTarget.style.color = "oklch(var(--gz-mut))";
+                        e.currentTarget.style.background = "oklch(0.500 0.200 25 / 0.08)";
+                        e.currentTarget.style.borderColor = "oklch(0.500 0.200 25 / 0.25)";
                       }}
                     >
-                      Exit
+                      Sign Out
                     </button>
                   </div>
                 </div>
