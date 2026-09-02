@@ -212,7 +212,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=1280, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "GizzyFx — Institutional Prop Farming Terminal" },
       { name: "description", content: "Dual-account hedge calculator, prop firm validator and MetaApi Cloud execution terminal for prop farming." },
       { property: "og:type", content: "website" },
