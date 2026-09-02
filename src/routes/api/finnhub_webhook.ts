@@ -12,6 +12,21 @@ interface FinnhubEvent {
   previous?: string;
 }
 
+const CURRENCY_TO_PAIRS: Record<string, string[]> = {
+  US: ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF"],
+  EU: ["EURUSD", "EURJPY", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF"],
+  GB: ["GBPUSD", "GBPJPY", "EURGBP", "GBPAUD", "GBPNZD", "GBPCAD", "GBPCHF"],
+  JP: ["USDJPY", "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CADJPY", "CHFJPY"],
+  AU: ["AUDUSD", "AUDJPY", "EURAUD", "GBPAUD", "AUDNZD", "AUDCAD", "AUDCHF"],
+  NZ: ["NZDUSD", "NZDJPY", "EURNZD", "GBPNZD", "AUDNZD", "NZDCAD", "NZDCHF"],
+  CA: ["USDCAD", "CADJPY", "EURCAD", "GBPCAD", "AUDCAD", "NZDCAD", "CADCHF"],
+  CH: ["USDCHF", "EURCHF", "GBPCHF", "AUDCHF", "NZDCHF", "CADCHF", "CHFJPY"],
+};
+
+function getAffectedPairs(currency: string): string[] {
+  return CURRENCY_TO_PAIRS[currency] ?? [];
+}
+
 export const Route = createFileRoute("/api/finnhub_webhook")({
   server: {
     handlers: {
@@ -22,7 +37,6 @@ export const Route = createFileRoute("/api/finnhub_webhook")({
           return Response.json({ error: "DB not configured" }, { status: 500 });
         }
 
-        // Verify webhook secret
         const secret = request.headers.get("X-Finnhub-Secret");
         const expectedSecret = env?.FINNHUB_WEBHOOK_SECRET;
         if (!secret || secret !== expectedSecret) {
@@ -41,12 +55,14 @@ export const Route = createFileRoute("/api/finnhub_webhook")({
 
         for (const event of events) {
           if (!event.eventName || !event.eventTime) continue;
+          
+          const pairs = getAffectedPairs(event.currency);
 
           try {
             await db.prepare(`
               INSERT OR IGNORE INTO economic_events 
-              (event_name, country, currency, event_time, impact, actual, estimate, previous, source)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'finnhub_webhook')
+              (event_name, country, currency, event_time, impact, actual, estimate, previous, source, pairs)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'finnhub_webhook', ?)
             `).bind(
               event.eventName,
               event.country ?? "",
@@ -56,6 +72,7 @@ export const Route = createFileRoute("/api/finnhub_webhook")({
               event.actual ?? null,
               event.estimate ?? null,
               event.previous ?? null,
+              JSON.stringify(pairs),
             ).run();
             inserted++;
           } catch (err) {

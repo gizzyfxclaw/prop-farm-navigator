@@ -19,7 +19,6 @@ interface Env {
   TELEGRAM_CHAT_ID: string;
 }
 
-// Map country codes to flags
 const COUNTRY_FLAGS: Record<string, string> = {
   US: "🇺🇸", EU: "🇪🇺", GB: "🇬🇧", JP: "🇯🇵", DE: "🇩🇪",
   FR: "🇫🇷", IT: "🇮🇹", ES: "🇪🇸", CA: "🇨🇦", AU: "🇦🇺",
@@ -37,6 +36,49 @@ function impactEmoji(impact: string): string {
   return "🟢";
 }
 
+// Map currency codes to forex pairs
+const CURRENCY_TO_PAIRS: Record<string, string[]> = {
+  US: ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF"],
+  EU: ["EURUSD", "EURJPY", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF"],
+  GB: ["GBPUSD", "GBPJPY", "EURGBP", "GBPAUD", "GBPNZD", "GBPCAD", "GBPCHF"],
+  JP: ["USDJPY", "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CADJPY", "CHFJPY"],
+  AU: ["AUDUSD", "AUDJPY", "EURAUD", "GBPAUD", "AUDNZD", "AUDCAD", "AUDCHF"],
+  NZ: ["NZDUSD", "NZDJPY", "EURNZD", "GBPNZD", "AUDNZD", "NZDCAD", "NZDCHF"],
+  CA: ["USDCAD", "CADJPY", "EURCAD", "GBPCAD", "AUDCAD", "NZDCAD", "CADCHF"],
+  CH: ["USDCHF", "EURCHF", "GBPCHF", "AUDCHF", "NZDCHF", "CADCHF", "CHFJPY"],
+};
+
+function getAffectedPairs(currency: string): string[] {
+  return CURRENCY_TO_PAIRS[currency] ?? [];
+}
+
+// Create table if it doesn't exist
+async function ensureTable(db: D1Database): Promise<boolean> {
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS economic_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_name TEXT NOT NULL,
+        country TEXT,
+        currency TEXT,
+        event_time TEXT,
+        impact TEXT CHECK(impact IN ('low', 'medium', 'high')),
+        actual TEXT,
+        estimate TEXT,
+        previous TEXT,
+        pairs TEXT,
+        source TEXT DEFAULT 'finnhub',
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(event_name, event_time, country)
+      )
+    `).run();
+    return true;
+  } catch (err) {
+    console.error("Failed to create table:", err);
+    return false;
+  }
+}
+
 export async function fetchFinnhubEvents(apiKey: string): Promise<FinnhubEvent[]> {
   const url = `https://finnhub.io/api/v1/calendar/economic?token=${apiKey}`;
   const res = await fetch(url, {
@@ -51,11 +93,14 @@ export async function storeEvents(db: D1Database, events: FinnhubEvent[]): Promi
   let inserted = 0;
   for (const event of events) {
     if (!event.eventName || !event.eventTime) continue;
+    
+    const pairs = getAffectedPairs(event.currency);
+    
     try {
       await db.prepare(`
         INSERT OR IGNORE INTO economic_events 
-        (event_name, country, currency, event_time, impact, actual, estimate, previous, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'finnhub_poll')
+        (event_name, country, currency, event_time, impact, actual, estimate, previous, source, pairs)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'finnhub_poll', ?)
       `).bind(
         event.eventName,
         event.country ?? "",
@@ -65,6 +110,7 @@ export async function storeEvents(db: D1Database, events: FinnhubEvent[]): Promi
         event.actual ?? null,
         event.estimate ?? null,
         event.previous ?? null,
+        JSON.stringify(pairs),
       ).run();
       inserted++;
     } catch (err) {
@@ -87,10 +133,11 @@ export async function sendTelegramAlert(
       minute: "2-digit",
       timeZone: "UTC",
     });
-    return `${impactEmoji(e.impact)} ${getFlag(e.country)} ${e.eventName}\n   ${e.currency} · ${time} UTC · ${e.impact.toUpperCase()} impact`;
+    const pairs = getAffectedPairs(e.currency);
+    return `${impactEmoji(e.impact)} ${getFlag(e.country)} ${e.eventName}\n   ${e.currency} · ${time} UTC · ${e.impact.toUpperCase()}\n   Pairs: ${pairs.join(", ")}`;
   });
 
-  const message = `⚠️ *News Alert — ${events.length} upcoming event${events.length > 1 ? "s" : ""}}*\n\n${lines.join("\n\n")}\n\n🔴 Avoid pending orders ±30min\n🟡 Be cautious ±15min\n🟢 Low impact — safe to trade`;
+  const message = `⚠️ *News Alert — ${events.length} upcoming event${events.length > 1 ? "s" : ""}\n\n${lines.join("\n\n")}\n\n🔴 Avoid pending orders ±30min\n🟡 Be cautious ±15min\n🟢 Low impact — safe to trade`;
 
   await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
@@ -105,6 +152,13 @@ export async function sendTelegramAlert(
 }
 
 export async function scheduled(event: ScheduledEvent, env: Env, ctx: Promise<void>) {
+  // Ensure table exists first
+  const tableReady = await ensureTable(env.DB);
+  if (!tableReady) {
+    console.error("Failed to ensure economic_events table exists");
+    return;
+  }
+
   // Fetch and store events
   try {
     const events = await fetchFinnhubEvents(env.FINNHUB_API_KEY);

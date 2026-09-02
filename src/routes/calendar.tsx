@@ -11,6 +11,7 @@ interface EconomicEvent {
   actual: string | null;
   estimate: string | null;
   previous: string | null;
+  pairs: string | null;
 }
 
 const IMPACT_STYLES = {
@@ -31,6 +32,21 @@ const CURRENCY_FLAGS: Record<string, string> = {
   NZ: "🇳🇿", CH: "🇨🇭", CN: "🇨🇳", BR: "🇧🇷", IN: "🇮🇳",
   RU: "🇷🇺", ZA: "🇿🇦", MX: "🇲🇽", TR: "🇹🇷", KR: "🇰🇷",
 };
+
+// Map currency codes to the pairs we trade
+const CURRENCY_TO_PAIRS: Record<string, string[]> = {
+  US: ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF"],
+  EU: ["EURUSD", "EURJPY", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF"],
+  GB: ["GBPUSD", "GBPJPY", "EURGBP", "GBPAUD", "GBPNZD", "GBPCAD", "GBPCHF"],
+  JP: ["USDJPY", "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CADJPY", "CHFJPY"],
+  AU: ["AUDUSD", "AUDJPY", "EURAUD", "GBPAUD", "AUDNZD", "AUDCAD", "AUDCHF"],
+  NZ: ["NZDUSD", "NZDJPY", "EURNZD", "GBPNZD", "AUDNZD", "NZDCAD", "NZDCHF"],
+  CA: ["USDCAD", "CADJPY", "EURCAD", "GBPCAD", "AUDCAD", "NZDCAD", "CADCHF"],
+  CH: ["USDCHF", "EURCHF", "GBPCHF", "AUDCHF", "NZDCHF", "CADCHF", "CHFJPY"],
+};
+
+// The pairs we actually trade
+const TRADED_PAIRS = ["EURUSD", "USDJPY", "GBPUSD"];
 
 export const Route = createFileRoute("/calendar")({
   head: () => ({
@@ -67,10 +83,16 @@ function CalendarPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const [lastFetch, setLastFetch] = useState<string | null>(null);
+  const [pairFilter, setPairFilter] = useState<string>("all");
 
   const fetchEvents = useCallback(async () => {
     try {
-      const res = await fetch("/api/economic-events");
+      const params = new URLSearchParams();
+      if (filter !== "all") params.set("impact", filter);
+      if (pairFilter !== "all") params.set("pair", pairFilter);
+      params.set("hours", "168");
+
+      const res = await fetch(`/api/economic-events?${params}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setEvents(data.events ?? []);
@@ -81,7 +103,7 @@ function CalendarPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter, pairFilter]);
 
   useEffect(() => {
     fetchEvents();
@@ -100,7 +122,7 @@ function CalendarPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Economic Calendar</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            News events that cause slippage — trade around them, not into them.
+            News events filtered to your pairs: EURUSD, USDJPY, GBPUSD
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -129,6 +151,11 @@ function CalendarPage() {
               <p className="text-[12px] text-muted-foreground">
                 {nextHigh.country} · {nextHigh.currency} · {new Date(nextHigh.event_time).toLocaleString()}
               </p>
+              {nextHigh.pairs && (
+                <p className="mt-1 text-[11px] text-amber-400">
+                  Affects: {JSON.parse(nextHigh.pairs).join(", ")}
+                </p>
+              )}
             </div>
             <div className="text-right">
               <div className="text-[10px] text-muted-foreground">Countdown</div>
@@ -138,21 +165,38 @@ function CalendarPage() {
         </div>
       )}
 
-      {/* Impact Filter */}
-      <div className="flex gap-2">
-        {(["all", "high", "medium", "low"] as const).map((level) => (
-          <button
-            key={level}
-            onClick={() => setFilter(level)}
-            className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-              filter === level
-                ? "bg-primary text-primary-foreground"
-                : "border border-border bg-card text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {level === "all" ? "All" : level === "high" ? "🔴 High" : level === "medium" ? "🟡 Med" : "🟢 Low"}
-          </button>
-        ))}
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2">
+          {(["all", "high", "medium", "low"] as const).map((level) => (
+            <button
+              key={level}
+              onClick={() => setFilter(level)}
+              className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                filter === level
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border bg-card text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {level === "all" ? "All" : level === "high" ? "🔴 High" : level === "medium" ? "🟡 Med" : "🟢 Low"}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          {["all", ...TRADED_PAIRS].map((pair) => (
+            <button
+              key={pair}
+              onClick={() => setPairFilter(pair)}
+              className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                pairFilter === pair
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border bg-card text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {pair === "all" ? "All Pairs" : pair}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Events Table */}
@@ -182,6 +226,12 @@ function CalendarPage() {
                   <p className="text-[11px] text-muted-foreground">
                     {event.country} · {event.currency} · {new Date(event.event_time).toLocaleString()}
                   </p>
+                  {event.pairs && (
+                    <p className="text-[10px] text-amber-400/80">
+                      {JSON.parse(event.pairs).slice(0, 4).join(", ")}
+                      {JSON.parse(event.pairs).length > 4 && ` +${JSON.parse(event.pairs).length - 4} more`}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
