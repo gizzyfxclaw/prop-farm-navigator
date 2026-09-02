@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
+import { ActualExnessBalance } from "@/components/terminal/ActualExnessBalance";
 import { Alert, Badge, Button, Card, Field, Row, Select, TextInput } from "@/components/terminal/ui";
 import { money, pendingOrderType, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
 import { useNotifications } from "@/lib/notifications";
@@ -290,7 +291,7 @@ function EnginePage() {
               </Select>
             </Field>
             <Field label="Actual Exness balance ($)" hint="Your live Exness account balance (overrides calculated)">
-              <TextInput type="number" step="0.01" value={engine.actualExnessBalance} onChange={(e) => setEngine({ actualExnessBalance: Number(e.target.value) })} />
+              <ActualExnessBalance />
             </Field>
             <Field
               label="Entry price"
