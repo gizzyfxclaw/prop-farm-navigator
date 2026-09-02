@@ -236,7 +236,7 @@ function EnginePage() {
       <LiveAccountsPanel live={liveAccounts} result={r} account={selectedAccount} />
 
       {/* ── INPUTS + MIRROR TICKET ──────────────────────────────── */}
-      <div className="grid gap-5 grid-cols-1 lg:grid-cols-2">
+      <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
         <Card title="Inputs" badge={<Badge tone={engine.phase === 1 ? "blue" : "amber"}>Phase {engine.phase}</Badge>}>
           <div className="mb-4 grid grid-cols-2 gap-2">
             {[1, 2].map((p) => (

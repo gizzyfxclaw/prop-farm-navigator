@@ -447,7 +447,7 @@ function RootComponent() {
             </header>
 
           {/* ── Page content ─────────────────────────────────── */}
-          <main key={pathname} className="stagger w-full max-w-sm px-2 py-4 sm:px-4 sm:py-6 lg:mx-auto lg:max-w-7xl">
+          <main key={pathname} className="stagger w-full px-4 py-6 lg:mx-auto lg:max-w-7xl">
             <Outlet />
           </main>
 

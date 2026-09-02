@@ -132,24 +132,21 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-size: 14px;
-    line-height: 1.4;
+    font-size: 16px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "tnum" 1, "cv11" 1;
     overflow-x: hidden;
-    display: flex;
-    justify-content: center;
   }
 
   #app, .relative.min-h-screen {
     width: 100%;
-    max-width: 480px;
+    max-width: 1280px;
     min-height: 100vh;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    align-items: center;
   }
 
   input[type="number"]::-webkit-outer-spin-button,
@@ -572,31 +569,26 @@ select:focus-visible {
 }
 
 @media (max-width: 768px) {
-  body { font-size: 15px; }
+  body { font-size: 16px; }
   
   #app, .relative.min-h-screen {
     width: 100%;
-    max-width: 480px;
     min-height: 100vh;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     overflow-x: hidden;
   }
   
   .engine-cockpit { gap: 0.75rem; }
   
   .cockpit-header {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
     gap: 0.5rem;
-    padding: 0.75rem 0.5rem;
+    padding: 0.75rem;
   }
   
   .cockpit-header-left,
   .cockpit-header-right {
-    width: 100%;
+    width: auto;
     flex-wrap: wrap;
     gap: 0.5rem;
   }
