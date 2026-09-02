@@ -99,7 +99,16 @@ function HermesPage() {
   const [understanding, setUnderstanding] = useState<HermesUnderstanding | null>(null);
   const [chartPair, setChartPair] = useState<string>("EURUSD");
   const [chartInterval, setChartInterval] = useState<string>("1h");
-  const [chartMode, setChartMode] = useState<"tv" | "lw">("tv");
+  const [tvRequested, setTvRequested] = useState(false);
+  const [chartMode, setChartMode] = useState<"tv" | "lw">(
+    typeof window !== "undefined" && window.innerWidth < 768 ? "lw" : "tv"
+  );
+
+  // Switch to TV mode — track if user explicitly requested it on mobile
+  const handleSetTvMode = () => {
+    setTvRequested(true);
+    setChartMode("tv");
+  };
   const [bars, setBars] = useState<OHLCBar[]>([]);
   const [barsLoading, setBarsLoading] = useState(false);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
@@ -530,7 +539,7 @@ function HermesPage() {
           {/* Which chart */}
           <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background/60 p-0.5">
             <button
-              onClick={() => setChartMode("tv")}
+              onClick={() => handleSetTvMode()}
               disabled={analyzing}
               title={analyzing ? "Available once the analysis finishes" : "TradingView — full toolbar and indicators"}
               className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-40 ${
@@ -598,7 +607,7 @@ function HermesPage() {
 
         <div className={`${analyzing ? "scanline" : ""} min-h-0 flex-1`}>
           {chartMode === "tv" ? (
-            <TradingViewChart pair={chartPair} height="100%" />
+            <TradingViewChart pair={chartPair} height="100%" lazy={!tvRequested} />
           ) : (
             <LWChart bars={bars} drawings={drawings} height="100%" loading={barsLoading} storageKey={chartPair} />
           )}
