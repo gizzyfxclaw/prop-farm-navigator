@@ -226,6 +226,21 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     const rr = t.details?.rr ?? 1.5;
     const expected = expectedExnessPnl(r, t.result, rr, t);
 
+    // VALIDATION: Skip trades with wrong-sign Exness P&L that would create
+    // fake slippage debt. On prop WIN, Exness should LOSE (negative P&L).
+    // On prop LOSS, Exness should WIN (positive P&L). Wrong signs indicate
+    // data entry errors, not real slippage.
+    if (t.result === "WIN" && t.exPnl > 0) {
+      // Exness P&L is positive when it should be negative — skip this trade
+      // for slippage calculation to avoid fake debt.
+      continue;
+    }
+    if (t.result === "LOSS" && t.exPnl < 0) {
+      // Exness P&L is negative when it should be positive — skip this trade
+      // for slippage calculation to avoid fake debt.
+      continue;
+    }
+
     if (t.result === "LOSS") {
       // Exness expected to win `expected`. Compare actual positive amount.
       if (t.exPnl >= expected) {
