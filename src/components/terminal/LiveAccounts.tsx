@@ -54,7 +54,7 @@ export function LiveAccountsPanel({
       )}
 
       {ex && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Exness balance" value={money(ex.balance)} />
           <Stat label="Exness equity" value={money(ex.equity)} />
           <Stat label="Free margin" value={money(ex.freeMargin)} />

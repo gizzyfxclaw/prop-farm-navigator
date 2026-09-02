@@ -238,23 +238,23 @@ function EnginePage() {
       {/* ── INPUTS + MIRROR TICKET ──────────────────────────────── */}
       <div className="grid gap-5 grid-cols-1 lg:grid-cols-2">
         <Card title="Inputs" badge={<Badge tone={engine.phase === 1 ? "blue" : "amber"}>Phase {engine.phase}</Badge>}>
-          <div className="mb-4 flex gap-2">
+          <div className="mb-4 grid grid-cols-2 gap-2">
             {[1, 2].map((p) => (
               <button
                 key={p}
                 onClick={() => setEngine({ phase: p as 1 | 2 })}
-                className={`h-9 flex-1 rounded text-[12px] font-semibold transition-colors ${
+                className={`h-9 rounded text-[12px] font-semibold transition-colors truncate ${
                   engine.phase === p
                     ? "bg-primary text-primary-foreground"
                     : "border border-border bg-secondary text-muted-foreground"
                 }`}
               >
-                {p === 1 ? "Phase 1 · Micro Shield" : "Phase 2 · Mega Shield"}
+                {p === 1 ? "Phase 1" : "Phase 2"}
               </button>
             ))}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
             <Field label="Prop account" hint={`${r.targetUsd ? money(r.targetUsd) : "$0.00"} target · ${money(r.maxDdUsd)} max DD`}>
               <Select value={engine.selectedAccountId} onChange={(e) => setEngine({ selectedAccountId: e.target.value })}>
                 {accounts.map((a) => (

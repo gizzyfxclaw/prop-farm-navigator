@@ -132,11 +132,12 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-size: 16px;
-    line-height: 1.5;
+    font-size: 14px;
+    line-height: 1.4;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "tnum" 1, "cv11" 1;
+    overflow-x: hidden;
   }
 
   input[type="number"]::-webkit-outer-spin-button,
@@ -563,6 +564,7 @@ select:focus-visible {
   #app, .relative.min-h-screen {
     width: 100%;
     min-height: 100vh;
+    overflow-x: hidden;
   }
   
   .engine-cockpit { gap: 0.75rem; }
@@ -571,7 +573,7 @@ select:focus-visible {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 0.5rem;
   }
   
   .cockpit-header-left,
@@ -585,38 +587,29 @@ select:focus-visible {
   .cockpit-pair { font-size: 13px; }
   .cockpit-price { font-size: 14px; }
   
-  /* Stack grid columns on mobile */
-  .grid.sm\\:grid-cols-2,
-  .grid.sm\\:grid-cols-3,
-  .grid.sm\\:grid-cols-4,
-  .grid.lg\\:grid-cols-2 {
-    grid-template-columns: 1fr;
+  .grid {
+    grid-template-columns: 1fr !important;
   }
   
-  /* Inputs — large touch targets */
   input, select, button {
     font-size: 16px !important;
     min-height: 40px;
   }
   
-  /* Cards */
   .card, [class*="card"] {
-    padding: 1rem !important;
+    padding: 0.75rem !important;
   }
   
-  /* Mirror ticket table */
   .mirror-ticket table {
     font-size: 13px;
   }
   
-  /* Risk per trade */
   .risk-per-trade .row {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
   }
   
-  /* Phase toggle buttons */
   .phase-toggle {
     flex-direction: row;
     width: 100%;
@@ -628,16 +621,13 @@ select:focus-visible {
     padding: 0.75rem;
   }
   
-  /* Hide non-essential columns on mobile */
   .hide-mobile { display: none !important; }
   
-  /* Full-width inputs on mobile */
   .input-group {
     flex-direction: column;
     width: 100%;
   }
   
-  /* Stack action buttons */
   .action-buttons {
     flex-direction: column;
     width: 100%;

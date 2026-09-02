@@ -332,7 +332,7 @@ function RootComponent() {
 
               {/* ── Top Status Bar (Bloomberg-style) ─────────── */}
               <div
-                className="mx-auto w-full px-2 sm:px-4 lg:max-w-7xl"
+                className="mx-auto w-full px-2 sm:px-4 lg:max-w-7xl hidden sm:block"
                 style={{
                   borderBottom: "1px solid oklch(var(--gz-p) / 0.08)",
                   background: "oklch(var(--gz-s1) / 0.40)",
@@ -366,14 +366,14 @@ function RootComponent() {
                       <LogoWordmark height={18} />
                     </Link>
 
-                    {/* Navigation tabs */}
-                    <nav className="flex items-center gap-0.5">
+                    {/* Navigation tabs — scrollable on mobile */}
+                    <nav className="flex items-center gap-0.5 overflow-x-auto max-w-[60vw] sm:max-w-none">
                       {NAV.map((item) => (
                         <Link
                           key={item.to}
                           to={item.to}
                           activeOptions={{ exact: item.to === "/" }}
-                          className="press relative whitespace-nowrap rounded px-2.5 py-1.5 text-[11px] font-medium tracking-wide transition-all duration-150"
+                          className="press relative whitespace-nowrap rounded px-2 py-1 text-[10px] font-medium tracking-wide transition-all duration-150"
                           style={{ color: "oklch(var(--gz-mut))" }}
                           activeProps={{
                             style: {
@@ -396,12 +396,12 @@ function RootComponent() {
                         </Link>
                       ))}
                     </nav>
-                    {/* Open Agent Console button */}
+                    {/* Open Agent Console button — hidden on mobile */}
                     <a
                       href="https://hermes.gizzyfxstrategy.dpdns.org"
                       target="_blank"
                       rel="noreferrer"
-                      className="press relative whitespace-nowrap rounded px-2.5 py-1.5 text-[11px] font-medium tracking-wide transition-all duration-150"
+                      className="press relative whitespace-nowrap rounded px-2 py-1 text-[10px] font-medium tracking-wide transition-all duration-150 hidden sm:inline-block"
                       style={{
                         color: "oklch(var(--gz-p))",
                         background: "oklch(var(--gz-p) / 0.10)",
@@ -414,9 +414,9 @@ function RootComponent() {
                   </div>
 
                   {/* Right controls */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <Clock />
-                    <div className="h-4 w-px" style={{ background: "oklch(var(--gz-p) / 0.15)" }} />
+                    <div className="h-4 w-px hidden sm:block" style={{ background: "oklch(var(--gz-p) / 0.15)" }} />
                     <NotificationBell />
                     <ThemeSwitcher />
                     <button
