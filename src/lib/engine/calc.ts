@@ -45,6 +45,8 @@ export interface EngineInputs {
   exnessAccountType: ExnessAccountType;
   /** Actual Exness account balance (user-entered, overrides calculated) */
   actualExnessBalance?: number | null;
+  /** Actual Exness losses from journal (sum of absolute Exness P&L). */
+  actualExnessLosses?: number | null;
   /** Phase 2 carry-over overrides. When omitted the Phase 1 chain supplies them. */
   carryPhase1TotalSpent?: number | null;
   carryPhase1Leftover?: number | null;
@@ -199,11 +201,14 @@ export function calculate(input: EngineInputs): EngineResult {
 
   // Phase 2 recovery target: Deficit-Based Recovery
   // Recovers Prop Fee + ALL exhausted fuel (planned burn + martingale slippage)
-  // trueDeficit = fee + exnessBurnIfPassed + (bufferedCapital - currentBalance)
+  // trueDeficit = fee + actualExnessLosses (from journal)
   const actualExnessBalance = input.actualExnessBalance != null && input.actualExnessBalance > 0
     ? num(input.actualExnessBalance)
-    : phase1.bufferedExnessCapital; // fallback: assume no extra exhaustion
-  const totalExhaustedFuel = Math.max(0, phase1.exnessBurnIfPassed + (phase1.bufferedExnessCapital - actualExnessBalance));
+    : phase1.bufferedExnessCapital;
+  const actualExnessLosses = input.actualExnessLosses != null && input.actualExnessLosses > 0
+    ? num(input.actualExnessLosses)
+    : phase1.exnessBurnIfPassed; // fallback: assume planned burn
+  const totalExhaustedFuel = Math.max(0, actualExnessLosses);
   const trueDeficit = Math.max(0, fee + totalExhaustedFuel);
   const phase2 = buildChain(trueDeficit + desiredProfit, lossesToBlow, winsToPass, bufferPct, rr);
   const phase2RefillRequired = phase2.bufferedExnessCapital - phase1Leftover;

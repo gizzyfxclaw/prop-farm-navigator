@@ -8,6 +8,11 @@ export function useEngine(): EngineResult {
   const { engine, journal } = useStore();
 
   return useMemo(() => {
+    // Compute actual Exness losses from journal for Phase 2 recovery
+    const actualExnessLosses = journal
+      .filter((t) => t.result !== "OPEN" && t.exPnl < 0)
+      .reduce((s, t) => s + Math.abs(t.exPnl), 0);
+
     // First pass: compute without recovery override to get the base engine state.
     const base = calculate({
       account,
@@ -22,6 +27,7 @@ export function useEngine(): EngineResult {
       entryPrice: engine.entryPrice,
       exnessAccountType: engine.exnessAccountType,
       actualExnessBalance: engine.actualExnessBalance,
+      actualExnessLosses,
       carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
       carryPhase1Leftover: engine.carryPhase1Leftover,
     });
@@ -43,6 +49,7 @@ export function useEngine(): EngineResult {
       entryPrice: engine.entryPrice,
       exnessAccountType: engine.exnessAccountType,
       actualExnessBalance: engine.actualExnessBalance,
+      actualExnessLosses,
       carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
       carryPhase1Leftover: engine.carryPhase1Leftover,
       exnessWinTargetOverride: recovery.newExnessWinTarget,
@@ -56,6 +63,11 @@ export function useEngineWithRecovery(): { result: EngineResult; recovery: Recov
   const { engine, journal } = useStore();
 
   return useMemo(() => {
+    // Compute actual Exness losses from journal for Phase 2 recovery
+    const actualExnessLosses = journal
+      .filter((t) => t.result !== "OPEN" && t.exPnl < 0)
+      .reduce((s, t) => s + Math.abs(t.exPnl), 0);
+
     const base = calculate({
       account,
       phase: engine.phase,
@@ -69,6 +81,7 @@ export function useEngineWithRecovery(): { result: EngineResult; recovery: Recov
       entryPrice: engine.entryPrice,
       exnessAccountType: engine.exnessAccountType,
       actualExnessBalance: engine.actualExnessBalance,
+      actualExnessLosses,
       carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
       carryPhase1Leftover: engine.carryPhase1Leftover,
     });
@@ -88,6 +101,8 @@ export function useEngineWithRecovery(): { result: EngineResult; recovery: Recov
             direction: engine.direction,
             entryPrice: engine.entryPrice,
             exnessAccountType: engine.exnessAccountType,
+            actualExnessBalance: engine.actualExnessBalance,
+            actualExnessLosses,
             carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
             carryPhase1Leftover: engine.carryPhase1Leftover,
             exnessWinTargetOverride: recovery.newExnessWinTarget,
