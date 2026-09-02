@@ -194,18 +194,16 @@ describe("Targeted Slippage Martingale (TSM)", () => {
     expect(bumped.propLots).toBeCloseTo(r.propLots, 6);
   });
 
-  it("Phase 2: target = (phase1TotalSpent + desiredProfit) / lossesToBlow — engine layer, not recovery", () => {
+  it("Phase 2: target = (actualCapitalBurnedP1 + desiredProfit) / lossesToBlow — engine layer, not recovery", () => {
     const r = calculate({ ...base, phase: 2 });
-    // Engine layer: with selected R:R=2, phase1TotalSpent = 28.6 + (4.7667×2×3×1.20) = 62.92.
-    // P2 base = 62.92/6 = 10.4867.
-    // Recovery just consumes the engine's active phase base; no debt to apply on an
-    // empty journal.
-    expect(r.exnessWinTarget).toBeCloseTo(62.92 / 6, 4);
+    // Engine layer: actualCapitalBurnedP1 = fee + exnessBurnIfPassed = 28.6 + 28.6 = 57.2.
+    // P2 base = 57.2/6 = 9.5333 (NOT 62.92/6 which includes the buffer).
+    expect(r.exnessWinTarget).toBeCloseTo(57.2 / 6, 4);
     const journal: JournalTrade[] = [];
     const rec = computeRecovery(r, journal);
     expect(rec.phase).toBe(2);
     expect(rec.slippageDebt).toBe(0);
-    expect(rec.newExnessWinTarget).toBeCloseTo(62.92 / 6, 4);
+    expect(rec.newExnessWinTarget).toBeCloseTo(57.2 / 6, 4);
   });
 
   it("Recovery closes: after 3 clean prop wins at 1:2 R:R, no debt, fuel exhausted = pure capital", () => {

@@ -113,7 +113,9 @@ describe("engine", () => {
   it("carries phase 1 into phase 2 without recharging the fee", () => {
     const p1 = calculate(base);
     const p2 = calculate({ ...base, phase: 2 });
-    expect(p2.phase2.totalRecovery).toBeCloseTo(p1.phase1TotalSpent, 6);
+    // Phase 2 recovers only actual capital burned (fee + exness fuel), NOT the buffer
+    const actualCapitalBurnedP1 = 28.6 + p1.phase1.exnessBurnIfPassed;
+    expect(p2.phase2.totalRecovery).toBeCloseTo(actualCapitalBurnedP1, 6);
     expect(p2.phase2RefillRequired).toBeCloseTo(
       p2.phase2.bufferedExnessCapital - p1.phase1Leftover,
       6,
