@@ -103,6 +103,7 @@
   color: var(--gz-txt) !important;
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
+  zoom: 0.85;
 }
 
 /* ══════════════════════════════════════════════════════════════════

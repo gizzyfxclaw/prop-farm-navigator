@@ -2712,7 +2712,7 @@ const _SKINS=[
   {name:'Geist Contrast', value:'geist-contrast', colors:['#000000','#ffffff','#FFF175']},
   {name:'Zeus',     colors:['#FFD700','#FFBF00','#1A1A00']},
   {name:'Verdigris', value:'verdigris', colors:['#C89A5A','#0F1714','#22342C']},
-  {name:'GizzyFx Pro', value:'gizzyfx-pro', colors:['#0a0a0a','#3b82f6','#60a5fa']},
+  {name:'GizzyFx Pro', value:'gizzyfx-pro', colors:['#061520','#00c8e8','#00e5c8']},
 ];
 const _VALID_THEMES=new Set((_THEMES||[]).map(t=>t.value));
 const _VALID_SKINS=new Set((_SKINS||[]).map(s=>(s.value||s.name).toLowerCase()));
