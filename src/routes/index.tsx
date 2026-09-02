@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { ActualExnessBalance } from "@/components/terminal/ActualExnessBalance";
+import { RulesAlertPanel } from "@/components/terminal/RulesAlertPanel";
 import { Alert, Badge, Button, Card, Field, Row, Select, TextInput } from "@/components/terminal/ui";
 import { money, pendingOrderType, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
 import { useNotifications } from "@/lib/notifications";
@@ -202,6 +203,9 @@ function EnginePage() {
           {live && <span className="cockpit-price">{formatPrice(live.price, dec)}</span>}
         </div>
       </div>
+
+      {/* ── RULES & ALERTS ─────────────────────────────────────── */}
+      <RulesAlertPanel />
 
       {/* ── LIVE MT5 FEED ───────────────────────────────────────── */}
       <Card title="Live MT5 feed" badge={<Badge tone={livePrice.configured ? (live ? "green" : "amber") : "blue"}>{livePrice.configured ? (live ? "LIVE" : "CONNECTING") : "SETUP"}</Badge>}>
