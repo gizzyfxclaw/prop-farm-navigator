@@ -203,8 +203,8 @@ export function calculate(input: EngineInputs): EngineResult {
   const actualExnessBalance = input.actualExnessBalance != null && input.actualExnessBalance > 0
     ? num(input.actualExnessBalance)
     : phase1.bufferedExnessCapital; // fallback: assume no extra exhaustion
-  const totalExhaustedFuel = phase1.exnessBurnIfPassed + (phase1.bufferedExnessCapital - actualExnessBalance);
-  const trueDeficit = fee + totalExhaustedFuel;
+  const totalExhaustedFuel = Math.max(0, phase1.exnessBurnIfPassed + (phase1.bufferedExnessCapital - actualExnessBalance));
+  const trueDeficit = Math.max(0, fee + totalExhaustedFuel);
   const phase2 = buildChain(trueDeficit + desiredProfit, lossesToBlow, winsToPass, bufferPct, rr);
   const phase2RefillRequired = phase2.bufferedExnessCapital - phase1Leftover;
 

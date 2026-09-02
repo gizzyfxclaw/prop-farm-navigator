@@ -238,7 +238,7 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
   }
 
   // ── PART 5: Apply martingale bump to the active base target ─────────────
-  const baseExnessWinTarget = r.exnessWinTarget;
+  const baseExnessWinTarget = Math.max(0, r.exnessWinTarget);
   const newExnessWinTarget  = baseExnessWinTarget + slippageDebt;
   const newExnessLossTarget = newExnessWinTarget * r.rr;
   const adjustmentNeeded    = slippageDebt > 0.005; // half-pip dust threshold

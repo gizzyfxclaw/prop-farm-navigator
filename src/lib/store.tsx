@@ -162,7 +162,7 @@ const defaultEngine = (accountId: string): EngineSettings => ({
   direction: "LONG",
   entryPrice: 1.085,
   exnessAccountType: "Cent",
-  actualExnessBalance: 100,
+  actualExnessBalance: 0,
   carryPhase1TotalSpent: null,
   carryPhase1Leftover: null,
 });
