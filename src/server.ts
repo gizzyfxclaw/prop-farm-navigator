@@ -4,6 +4,7 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { envStorage, type CFEnv } from "./lib/cloudflare-env";
 import { parseSessionToken, verifySession, signSession, buildSessionCookie, clearSessionCookie } from "./lib/auth";
+import { fetchNews, storeEvents, sendTelegramAlert } from "./worker/scheduled";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -151,6 +152,7 @@ export default {
         url.pathname.startsWith("/api/hermes/") ||
         url.pathname === "/api/ohlcv" ||
         url.pathname.startsWith("/api/economic-events") ||
+        url.pathname === "/api/fetch-events" ||
         url.pathname === "/calendar";
 
       if (!isPublic) {

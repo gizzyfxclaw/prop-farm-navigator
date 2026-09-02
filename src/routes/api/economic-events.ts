@@ -1,91 +1,130 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getCFEnv } from "@/lib/cloudflare-env";
 
-interface EconomicEvent {
-  id: number;
-  event_name: string;
-  country: string;
-  currency: string;
-  event_time: string;
+interface NewsItem {
+  headline: string;
+  source: string;
+  datetime: number;
+  url: string;
   impact: "low" | "medium" | "high";
-  actual: string | null;
-  estimate: string | null;
-  previous: string | null;
-  pairs: string | null;
+  currency: string;
+  pairs: string[];
 }
 
-async function ensureTable(db: any): Promise<boolean> {
-  try {
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS economic_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        event_name TEXT NOT NULL,
-        country TEXT,
-        currency TEXT,
-        event_time TEXT,
-        impact TEXT CHECK(impact IN ('low', 'medium', 'high')),
-        actual TEXT,
-        estimate TEXT,
-        previous TEXT,
-        pairs TEXT,
-        source TEXT DEFAULT 'finnhub',
-        created_at TEXT DEFAULT (datetime('now')),
-        UNIQUE(event_name, event_time, country)
-      )
-    `).run();
-    return true;
-  } catch (err) {
-    console.error("Failed to create table:", err);
-    return false;
+const CURRENCY_TO_PAIRS: Record<string, string[]> = {
+  US: ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF"],
+  EU: ["EURUSD", "EURJPY", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF"],
+  GB: ["GBPUSD", "GBPJPY", "EURGBP", "GBPAUD", "GBPNZD", "GBPCAD", "GBPCHF"],
+  JP: ["USDJPY", "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CADJPY", "CHFJPY"],
+  AU: ["AUDUSD", "AUDJPY", "EURAUD", "GBPAUD", "AUDNZD", "AUDCAD", "AUDCHF"],
+  NZ: ["NZDUSD", "NZDJPY", "EURNZD", "GBPNZD", "AUDNZD", "NZDCAD", "NZDCHF"],
+  CA: ["USDCAD", "CADJPY", "EURCAD", "GBPCAD", "AUDCAD", "NZDCAD", "CADCHF"],
+  CH: ["USDCHF", "EURCHF", "GBPCHF", "AUDCHF", "NZDCHF", "CADCHF", "CHFJPY"],
+};
+
+function getAffectedPairs(currency: string): string[] {
+  return CURRENCY_TO_PAIRS[currency] ?? [];
+}
+
+const HIGH_IMPACT_KEYWORDS = [
+  "non-farm", "nfp", "payroll", "employment", "unemployment", "jobs report",
+  "interest rate", "rate decision", "rate hike", "rate cut", "fed", "fomc",
+  "ecb", "boe", "boj", "rba", "rbnz", "boc", "snb",
+  "gdp", "gross domestic product",
+  "cpi", "inflation", "consumer price", "producer price", "ppi",
+  "retail sales", "industrial production", "manufacturing pmi", "services pmi",
+  "trade balance", "current account",
+  "consumer confidence", "business confidence", "zing", "ism",
+  "housing starts", "building permits", "existing home sales", "new home sales",
+  "durable goods", "factory orders",
+  "central bank", "monetary policy", "quantitative easing", "qe",
+];
+
+function detectImpact(headline: string): "low" | "medium" | "high" {
+  const lower = headline.toLowerCase();
+  for (const keyword of HIGH_IMPACT_KEYWORDS) {
+    if (lower.includes(keyword)) return "high";
   }
+  return "medium";
+}
+
+function detectCurrency(headline: string): string {
+  const lower = headline.toLowerCase();
+  if (lower.includes("euro") || lower.includes("eur") || lower.includes("ecb")) return "EU";
+  if (lower.includes("pound") || lower.includes("sterling") || lower.includes("gbp") || lower.includes("boe")) return "GB";
+  if (lower.includes("yen") || lower.includes("jpy") || lower.includes("boj")) return "JP";
+  if (lower.includes("aussie") || lower.includes("aud") || lower.includes("rba")) return "AU";
+  if (lower.includes("kiwi") || lower.includes("nzd") || lower.includes("rbnz")) return "NZ";
+  if (lower.includes("loonie") || lower.includes("cad") || lower.includes("boc")) return "CA";
+  if (lower.includes("franc") || lower.includes("chf") || lower.includes("snb")) return "CH";
+  return "US";
+}
+
+// More inclusive forex relevance check
+const FOREX_KEYWORDS = [
+  "forex", "fx", "currency", "currencies", "exchange rate",
+  "dollar", "euro", "pound", "sterling", "yen", "franc",
+  "fed", "federal reserve", "ecb", "boe", "boj", "rba", "rbnz", "boc", "snb",
+  "interest rate", "rate decision", "rate hike", "rate cut",
+  "gdp", "inflation", "cpi", "ppi", "payroll", "employment",
+  "retail sales", "trade balance", "pmi", "consumer confidence",
+  "oil", "crude", "gold", "commodities",
+  "war", "geopolitical", "sanctions", "tariff",
+];
+
+function isForexRelevant(headline: string): boolean {
+  const lower = headline.toLowerCase();
+  return FOREX_KEYWORDS.some(k => lower.includes(k));
+}
+
+function getFlag(country: string): string {
+  const flags: Record<string, string> = {
+    US: "🇺🇸", EU: "🇪🇺", GB: "🇬🇧", JP: "🇯🇵", DE: "🇩🇪",
+    FR: "🇫🇷", IT: "🇮🇹", ES: "🇪🇸", CA: "🇨🇦", AU: "🇦🇺",
+    NZ: "🇳🇿", CH: "🇨🇭", CN: "🇨🇳", BR: "🇧🇷", IN: "🇮🇳",
+    RU: "🇷🇺", ZA: "🇿🇦", MX: "🇲🇽", TR: "🇹🇷", KR: "🇰🇷",
+  };
+  return flags[country] ?? "🌍";
 }
 
 export const Route = createFileRoute("/api/economic-events")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
-        const url = new URL(request.url);
-        const impact = url.searchParams.get("impact") ?? "all";
-        const hours = parseInt(url.searchParams.get("hours") ?? "168");
-        const pair = url.searchParams.get("pair") ?? "all";
-
+      async GET() {
         const env = getCFEnv();
-        const db = env?.DB;
-        if (!db) {
-          return Response.json({ error: "DB not configured", events: [] }, { status: 500 });
+        const apiKey = env?.FINNHUB_API_KEY;
+        if (!apiKey) {
+          return Response.json({ events: [], error: "No API key" });
         }
-
-        // Ensure table exists
-        const tableReady = await ensureTable(db);
-        if (!tableReady) {
-          return Response.json({ error: "Table not ready", events: [] }, { status: 500 });
-        }
-
-        let sql = `SELECT * FROM economic_events WHERE event_time > datetime('now')`;
-        const params: string[] = [];
-
-        if (impact !== "all") {
-          sql += ` AND impact = ?`;
-          params.push(impact);
-        }
-
-        if (pair !== "all") {
-          sql += ` AND (pairs LIKE ? OR currency = ?)`;
-          params.push(`%${pair}%`);
-          params.push(pair.substring(0, 3));
-        }
-
-        sql += ` AND event_time < datetime('now', '+${hours} hours')`;
-        sql += ` ORDER BY event_time ASC`;
 
         try {
-          const result = await db.prepare(sql).bind(...params).all<EconomicEvent>();
-          return Response.json({
-            events: result.results ?? [],
-            count: result.results?.length ?? 0,
-          });
+          const [forexNews, generalNews] = await Promise.all([
+            fetch(`https://finnhub.io/api/v1/news?category=forex&token=${apiKey}`).then(r => r.ok ? r.json() : []),
+            fetch(`https://finnhub.io/api/v1/news?category=general&token=${apiKey}`).then(r => r.ok ? r.json() : []),
+          ]);
+
+          const allNews = [...(forexNews || []), ...(generalNews || [])];
+          
+          const events: NewsItem[] = allNews
+            .filter((item: any) => item.headline && isForexRelevant(item.headline))
+            .map((item: any) => {
+              const headline = item.headline;
+              const currency = detectCurrency(headline);
+              return {
+                headline,
+                source: item.source || "Unknown",
+                datetime: item.datetime,
+                url: item.url || "",
+                impact: detectImpact(headline),
+                currency,
+                pairs: getAffectedPairs(currency),
+              };
+            })
+            .sort((a, b) => b.datetime - a.datetime);
+
+          return Response.json({ events, count: events.length });
         } catch (err) {
-          return Response.json({ error: "DB query failed", events: [] }, { status: 500 });
+          return Response.json({ events: [], error: "Fetch failed" });
         }
       },
     },

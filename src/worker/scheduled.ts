@@ -1,17 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 import type { ScheduledEvent } from "@cloudflare/workers-types";
 
-interface FinnhubEvent {
-  eventName: string;
-  country: string;
-  currency: string;
-  eventTime: string;
-  impact: "low" | "medium" | "high";
-  actual?: string;
-  estimate?: string;
-  previous?: string;
-}
-
 interface Env {
   DB: D1Database;
   FINNHUB_API_KEY: string;
@@ -36,7 +25,6 @@ function impactEmoji(impact: string): string {
   return "🟢";
 }
 
-// Map currency codes to forex pairs
 const CURRENCY_TO_PAIRS: Record<string, string[]> = {
   US: ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF"],
   EU: ["EURUSD", "EURJPY", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF"],
@@ -52,7 +40,57 @@ function getAffectedPairs(currency: string): string[] {
   return CURRENCY_TO_PAIRS[currency] ?? [];
 }
 
-// Create table if it doesn't exist
+const HIGH_IMPACT_KEYWORDS = [
+  "non-farm", "nfp", "payroll", "employment", "unemployment", "jobs report",
+  "interest rate", "rate decision", "rate hike", "rate cut", "fed", "fomc",
+  "ecb", "boe", "boj", "rba", "rbnz", "boc", "snb",
+  "gdp", "gross domestic product",
+  "cpi", "inflation", "consumer price", "producer price", "ppi",
+  "retail sales", "industrial production", "manufacturing pmi", "services pmi",
+  "trade balance", "current account",
+  "consumer confidence", "business confidence", "zing", "ism",
+  "housing starts", "building permits", "existing home sales", "new home sales",
+  "durable goods", "factory orders",
+  "central bank", "monetary policy", "quantitative easing", "qe",
+];
+
+function detectImpact(headline: string): "low" | "medium" | "high" {
+  const lower = headline.toLowerCase();
+  for (const keyword of HIGH_IMPACT_KEYWORDS) {
+    if (lower.includes(keyword)) return "high";
+  }
+  return "medium";
+}
+
+function detectCurrency(headline: string): string {
+  const lower = headline.toLowerCase();
+  if (lower.includes("euro") || lower.includes("eur") || lower.includes("ecb")) return "EU";
+  if (lower.includes("pound") || lower.includes("sterling") || lower.includes("gbp") || lower.includes("boe")) return "GB";
+  if (lower.includes("yen") || lower.includes("jpy") || lower.includes("boj")) return "JP";
+  if (lower.includes("aussie") || lower.includes("aud") || lower.includes("rba")) return "AU";
+  if (lower.includes("kiwi") || lower.includes("nzd") || lower.includes("rbnz")) return "NZ";
+  if (lower.includes("loonie") || lower.includes("cad") || lower.includes("boc")) return "CA";
+  if (lower.includes("franc") || lower.includes("chf") || lower.includes("snb")) return "CH";
+  return "US";
+}
+
+// Check if news is relevant to our traded pairs
+const FOREX_KEYWORDS = [
+  "forex", "fx", "currency", "currencies", "exchange rate",
+  "dollar", "euro", "pound", "sterling", "yen", "franc",
+  "fed", "federal reserve", "ecb", "boe", "boj", "rba", "rbnz", "boc", "snb",
+  "interest rate", "rate decision", "rate hike", "rate cut",
+  "gdp", "inflation", "cpi", "ppi", "payroll", "employment",
+  "retail sales", "trade balance", "pmi", "consumer confidence",
+  "oil", "crude", "gold", "commodities",
+  "war", "geopolitical", "sanctions", "tariff",
+];
+
+function isForexRelevant(headline: string): boolean {
+  const lower = headline.toLowerCase();
+  return FOREX_KEYWORDS.some(k => lower.includes(k));
+}
+
 async function ensureTable(db: D1Database): Promise<boolean> {
   try {
     await db.prepare(`
@@ -79,37 +117,44 @@ async function ensureTable(db: D1Database): Promise<boolean> {
   }
 }
 
-export async function fetchFinnhubEvents(apiKey: string): Promise<FinnhubEvent[]> {
-  const url = `https://finnhub.io/api/v1/calendar/economic?token=${apiKey}`;
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) throw new Error(`Finnhub API ${res.status}`);
-  const data = (await res.json()) as { economicCalendar?: FinnhubEvent[] };
-  return data.economicCalendar ?? [];
+// Fetch news from Finnhub (free tier)
+async function fetchNews(apiKey: string): Promise<any[]> {
+  const [forexNews, generalNews] = await Promise.all([
+    fetch(`https://finnhub.io/api/v1/news?category=forex&token=${apiKey}`).then(r => r.ok ? r.json() : []),
+    fetch(`https://finnhub.io/api/v1/news?category=general&token=${apiKey}`).then(r => r.ok ? r.json() : []),
+  ]);
+  
+  return [...(forexNews || []), ...(generalNews || [])];
 }
 
-export async function storeEvents(db: D1Database, events: FinnhubEvent[]): Promise<number> {
+export async function storeEvents(db: D1Database, events: any[]): Promise<number> {
   let inserted = 0;
   for (const event of events) {
-    if (!event.eventName || !event.eventTime) continue;
+    const headline = event.headline || event.eventName || "";
+    if (!headline) continue;
     
-    const pairs = getAffectedPairs(event.currency);
+    // Only store forex-relevant news
+    if (!isForexRelevant(headline)) continue;
+    
+    const currency = detectCurrency(headline);
+    const pairs = getAffectedPairs(currency);
+    const impact = detectImpact(headline);
+    const eventTime = new Date((event.datetime || Date.now() / 1000) * 1000).toISOString().slice(0, 19).replace("T", " ");
     
     try {
       await db.prepare(`
         INSERT OR IGNORE INTO economic_events 
         (event_name, country, currency, event_time, impact, actual, estimate, previous, source, pairs)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'finnhub_poll', ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'finnhub', ?)
       `).bind(
-        event.eventName,
-        event.country ?? "",
-        event.currency ?? "",
-        event.eventTime,
-        event.impact ?? "low",
-        event.actual ?? null,
-        event.estimate ?? null,
-        event.previous ?? null,
+        headline,
+        currency,
+        currency,
+        eventTime,
+        impact,
+        event.actual?.toString() ?? null,
+        event.estimate?.toString() ?? null,
+        event.previous?.toString() ?? null,
         JSON.stringify(pairs),
       ).run();
       inserted++;
@@ -123,21 +168,20 @@ export async function storeEvents(db: D1Database, events: FinnhubEvent[]): Promi
 export async function sendTelegramAlert(
   botToken: string,
   chatId: string,
-  events: FinnhubEvent[],
+  events: any[],
 ): Promise<void> {
   if (!botToken || !chatId || events.length === 0) return;
 
   const lines = events.map((e) => {
-    const time = new Date(e.eventTime).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "UTC",
-    });
-    const pairs = getAffectedPairs(e.currency);
-    return `${impactEmoji(e.impact)} ${getFlag(e.country)} ${e.eventName}\n   ${e.currency} · ${time} UTC · ${e.impact.toUpperCase()}\n   Pairs: ${pairs.join(", ")}`;
+    const headline = e.headline || e.eventName || "Unknown";
+    const currency = detectCurrency(headline);
+    const impact = detectImpact(headline);
+    const pairs = getAffectedPairs(currency);
+    const time = e.event_time ? new Date(e.event_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) : "Now";
+    return `${impactEmoji(impact)} ${getFlag(currency)} ${headline}\n   ${currency} · ${time} UTC · ${impact.toUpperCase()}\n   Pairs: ${pairs.join(", ")}`;
   });
 
-  const message = `⚠️ *News Alert — ${events.length} upcoming event${events.length > 1 ? "s" : ""}\n\n${lines.join("\n\n")}\n\n🔴 Avoid pending orders ±30min\n🟡 Be cautious ±15min\n🟢 Low impact — safe to trade`;
+  const message = `⚠️ *Forex News Alert — ${events.length} event${events.length > 1 ? "s" : ""}\n\n${lines.join("\n\n")}\n\n🔴 High impact — avoid pending orders\n🟡 Medium — be cautious\n🟢 Low — safe to trade`;
 
   await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
@@ -152,33 +196,33 @@ export async function sendTelegramAlert(
 }
 
 export async function scheduled(event: ScheduledEvent, env: Env, ctx: Promise<void>) {
-  // Ensure table exists first
   const tableReady = await ensureTable(env.DB);
   if (!tableReady) {
     console.error("Failed to ensure economic_events table exists");
     return;
   }
 
-  // Fetch and store events
+  // Fetch news from Finnhub
   try {
-    const events = await fetchFinnhubEvents(env.FINNHUB_API_KEY);
-    const inserted = await storeEvents(env.DB, events);
-    console.log(`Stored ${inserted}/${events.length} economic events`);
+    const news = await fetchNews(env.FINNHUB_API_KEY);
+    const inserted = await storeEvents(env.DB, news);
+    console.log(`Stored ${inserted}/${news.length} forex-relevant news events`);
   } catch (err) {
     console.error("Failed to fetch/store events:", err);
   }
 
-  // Check for upcoming high-impact events within 15 minutes
+  // Check for high-impact events and send Telegram alerts
   try {
-    const upcoming = await env.DB.prepare(`
+    const highImpact = await env.DB.prepare(`
       SELECT * FROM economic_events 
-      WHERE event_time > datetime('now') 
+      WHERE event_time > datetime('now', '-1 hour')
       AND impact = 'high'
-      AND event_time < datetime('now', '+15 minutes')
-    `).all<FinnhubEvent>();
+      ORDER BY event_time DESC
+      LIMIT 5
+    `).all();
 
-    if (upcoming.results && upcoming.results.length > 0) {
-      await sendTelegramAlert(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, upcoming.results);
+    if (highImpact.results && highImpact.results.length > 0) {
+      await sendTelegramAlert(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, highImpact.results);
     }
   } catch (err) {
     console.error("Failed to send Telegram alerts:", err);

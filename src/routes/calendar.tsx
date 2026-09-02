@@ -1,17 +1,79 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 
-interface EconomicEvent {
-  id: number;
-  event_name: string;
-  country: string;
-  currency: string;
-  event_time: string;
+interface NewsItem {
+  headline: string;
+  source: string;
+  datetime: number;
+  url: string;
   impact: "low" | "medium" | "high";
-  actual: string | null;
-  estimate: string | null;
-  previous: string | null;
-  pairs: string | null;
+  currency: string;
+  pairs: string[];
+}
+
+const CURRENCY_TO_PAIRS: Record<string, string[]> = {
+  US: ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF"],
+  EU: ["EURUSD", "EURJPY", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF"],
+  GB: ["GBPUSD", "GBPJPY", "EURGBP", "GBPAUD", "GBPNZD", "GBPCAD", "GBPCHF"],
+  JP: ["USDJPY", "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CADJPY", "CHFJPY"],
+  AU: ["AUDUSD", "AUDJPY", "EURAUD", "GBPAUD", "AUDNZD", "AUDCAD", "AUDCHF"],
+  NZ: ["NZDUSD", "NZDJPY", "EURNZD", "GBPNZD", "AUDNZD", "NZDCAD", "NZDCHF"],
+  CA: ["USDCAD", "CADJPY", "EURCAD", "GBPCAD", "AUDCAD", "NZDCAD", "CADCHF"],
+  CH: ["USDCHF", "EURCHF", "GBPCHF", "AUDCHF", "NZDCHF", "CADCHF", "CHFJPY"],
+};
+
+function getAffectedPairs(currency: string): string[] {
+  return CURRENCY_TO_PAIRS[currency] ?? [];
+}
+
+const HIGH_IMPACT_KEYWORDS = [
+  "non-farm", "nfp", "payroll", "employment", "unemployment", "jobs report",
+  "interest rate", "rate decision", "rate hike", "rate cut", "fed", "fomc",
+  "ecb", "boe", "boj", "rba", "rbnz", "boc", "snb",
+  "gdp", "gross domestic product",
+  "cpi", "inflation", "consumer price", "producer price", "ppi",
+  "retail sales", "industrial production", "manufacturing pmi", "services pmi",
+  "trade balance", "current account",
+  "consumer confidence", "business confidence", "zing", "ism",
+  "housing starts", "building permits", "existing home sales", "new home sales",
+  "durable goods", "factory orders",
+  "central bank", "monetary policy", "quantitative easing", "qe",
+];
+
+function detectImpact(headline: string): "low" | "medium" | "high" {
+  const lower = headline.toLowerCase();
+  for (const keyword of HIGH_IMPACT_KEYWORDS) {
+    if (lower.includes(keyword)) return "high";
+  }
+  return "medium";
+}
+
+function detectCurrency(headline: string): string {
+  const lower = headline.toLowerCase();
+  if (lower.includes("euro") || lower.includes("eur") || lower.includes("ecb")) return "EU";
+  if (lower.includes("pound") || lower.includes("sterling") || lower.includes("gbp") || lower.includes("boe")) return "GB";
+  if (lower.includes("yen") || lower.includes("jpy") || lower.includes("boj")) return "JP";
+  if (lower.includes("aussie") || lower.includes("aud") || lower.includes("rba")) return "AU";
+  if (lower.includes("kiwi") || lower.includes("nzd") || lower.includes("rbnz")) return "NZ";
+  if (lower.includes("loonie") || lower.includes("cad") || lower.includes("boc")) return "CA";
+  if (lower.includes("franc") || lower.includes("chf") || lower.includes("snb")) return "CH";
+  return "US";
+}
+
+const FOREX_KEYWORDS = [
+  "forex", "fx", "currency", "currencies", "exchange rate",
+  "dollar", "euro", "pound", "sterling", "yen", "franc",
+  "fed", "federal reserve", "ecb", "boe", "boj", "rba", "rbnz", "boc", "snb",
+  "interest rate", "rate decision", "rate hike", "rate cut",
+  "gdp", "inflation", "cpi", "ppi", "payroll", "employment",
+  "retail sales", "trade balance", "pmi", "consumer confidence",
+  "oil", "crude", "gold", "commodities",
+  "war", "geopolitical", "sanctions", "tariff",
+];
+
+function isForexRelevant(headline: string): boolean {
+  const lower = headline.toLowerCase();
+  return FOREX_KEYWORDS.some(k => lower.includes(k));
 }
 
 const IMPACT_STYLES = {
@@ -45,67 +107,28 @@ export const Route = createFileRoute("/calendar")({
   component: CalendarPage,
 });
 
-function Countdown({ target }: { target: string }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const diff = new Date(target).getTime() - now;
-  if (diff <= 0) return <span className="text-red-400 font-bold animate-pulse">LIVE</span>;
-
-  const hours = Math.floor(diff / 3_600_000);
-  const minutes = Math.floor((diff % 3_600_000) / 60_000);
-  const seconds = Math.floor((diff % 60_000) / 1000);
-
-  if (hours < 1) return <span className="text-amber-400 font-mono font-bold">{minutes}m {seconds.toString().padStart(2, "0")}s</span>;
-  if (hours < 24) return <span className="text-emerald-400 font-mono">{hours}h {minutes}m</span>;
-  return <span className="text-muted-foreground font-mono">{Math.floor(hours / 24)}d {hours % 24}h</span>;
-}
-
 function CalendarPage() {
-  const [events, setEvents] = useState<EconomicEvent[]>([]);
+  const [events, setEvents] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "high" | "medium" | "low">("all");
-  const [lastFetch, setLastFetch] = useState<string | null>(null);
-  const [pairFilter, setPairFilter] = useState<string>("all");
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (filter !== "all") params.set("impact", filter);
-      if (pairFilter !== "all") params.set("pair", pairFilter);
-      params.set("hours", "168");
-
-      const res = await fetch(`/api/economic-events?${params}`);
+      const res = await fetch("/api/economic-events");
       const data = await res.json();
-      
-      if (data.error && data.events.length === 0) {
-        setError(data.error);
-      } else {
-        setEvents(data.events ?? []);
-        setLastFetch(new Date().toLocaleTimeString());
-        setError(null);
-      }
+      setEvents(data.events ?? []);
+      setError(null);
     } catch (err) {
       setError("Could not load events. Retrying...");
     } finally {
       setLoading(false);
     }
-  }, [filter, pairFilter]);
+  }, []);
 
-  // Fetch on mount and when filters change
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents]);
-
-  // Auto-refresh every 60 seconds
-  useEffect(() => {
-    const id = setInterval(fetchEvents, 60_000);
-    return () => clearInterval(id);
   }, [fetchEvents]);
 
   const filtered = events.filter((e) => filter === "all" || e.impact === filter);
@@ -121,17 +144,12 @@ function CalendarPage() {
             News events filtered to your pairs: EURUSD, USDJPY, GBPUSD
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {lastFetch && (
-            <span className="text-[10px] text-muted-foreground">Updated {lastFetch}</span>
-          )}
-          <button
-            onClick={fetchEvents}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Refresh
-          </button>
-        </div>
+        <button
+          onClick={fetchEvents}
+          className="rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Refresh
+        </button>
       </div>
 
       {nextHigh && (
@@ -139,58 +157,37 @@ function CalendarPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-lg">{CURRENCY_FLAGS[nextHigh.country] ?? "🌍"}</span>
+                <span className="text-lg">{CURRENCY_FLAGS[nextHigh.currency] ?? "🌍"}</span>
                 <span className="text-sm font-semibold text-red-400">Next High-Impact Event</span>
               </div>
-              <p className="mt-1 text-base font-bold text-foreground">{nextHigh.event_name}</p>
+              <p className="mt-1 text-base font-bold text-foreground">{nextHigh.headline}</p>
               <p className="text-[12px] text-muted-foreground">
-                {nextHigh.country} · {nextHigh.currency} · {new Date(nextHigh.event_time).toLocaleString()}
+                {nextHigh.currency} · {nextHigh.source}
               </p>
               {nextHigh.pairs && (
                 <p className="mt-1 text-[11px] text-amber-400">
-                  Affects: {JSON.parse(nextHigh.pairs).join(", ")}
+                  Affects: {nextHigh.pairs.slice(0, 4).join(", ")}
                 </p>
               )}
-            </div>
-            <div className="text-right">
-              <div className="text-[10px] text-muted-foreground">Countdown</div>
-              <div className="text-lg font-bold"><Countdown target={nextHigh.event_time} /></div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex gap-2">
-          {(["all", "high", "medium", "low"] as const).map((level) => (
-            <button
-              key={level}
-              onClick={() => setFilter(level)}
-              className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                filter === level
-                  ? "bg-primary text-primary-foreground"
-                  : "border border-border bg-card text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {level === "all" ? "All" : level === "high" ? "🔴 High" : level === "medium" ? "🟡 Med" : "🟢 Low"}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          {["all", ...TRADED_PAIRS].map((pair) => (
-            <button
-              key={pair}
-              onClick={() => setPairFilter(pair)}
-              className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                pairFilter === pair
-                  ? "bg-primary text-primary-foreground"
-                  : "border border-border bg-card text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {pair === "all" ? "All Pairs" : pair}
-            </button>
-          ))}
-        </div>
+      <div className="flex gap-2">
+        {(["all", "high", "medium", "low"] as const).map((level) => (
+          <button
+            key={level}
+            onClick={() => setFilter(level)}
+            className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+              filter === level
+                ? "bg-primary text-primary-foreground"
+                : "border border-border bg-card text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {level === "all" ? "All" : level === "high" ? "🔴 High" : level === "medium" ? "🟡 Med" : "🟢 Low"}
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -204,51 +201,34 @@ function CalendarPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <p className="text-[13px] text-muted-foreground">No upcoming events match your filter. Pull to refresh.</p>
+          <p className="text-[13px] text-muted-foreground">No upcoming events match your filter.</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((event) => (
+          {filtered.map((event, i) => (
             <div
-              key={event.id}
+              key={i}
               className="flex items-center justify-between rounded-xl border border-border bg-card p-3 transition-colors hover:bg-muted/30"
             >
               <div className="flex items-center gap-3">
-                <span className="text-lg">{CURRENCY_FLAGS[event.country] ?? "🌍"}</span>
+                <span className="text-lg">{CURRENCY_FLAGS[event.currency] ?? "🌍"}</span>
                 <div>
-                  <p className="text-sm font-medium text-foreground">{event.event_name}</p>
+                  <a href={event.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-foreground hover:underline">
+                    {event.headline}
+                  </a>
                   <p className="text-[11px] text-muted-foreground">
-                    {event.country} · {event.currency} · {new Date(event.event_time).toLocaleString()}
+                    {event.currency} · {event.source}
                   </p>
                   {event.pairs && (
                     <p className="text-[10px] text-amber-400/80">
-                      {JSON.parse(event.pairs).slice(0, 4).join(", ")}
-                      {JSON.parse(event.pairs).length > 4 && ` +${JSON.parse(event.pairs).length - 4} more`}
+                      {event.pairs.slice(0, 4).join(", ")}
                     </p>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                {event.actual && (
-                  <div className="text-right">
-                    <div className="text-[9px] text-muted-foreground">Actual</div>
-                    <div className="text-[12px] font-mono text-foreground">{event.actual}</div>
-                  </div>
-                )}
-                {event.estimate && (
-                  <div className="text-right">
-                    <div className="text-[9px] text-muted-foreground">Estimate</div>
-                    <div className="text-[12px] text-muted-foreground">{event.estimate}</div>
-                  </div>
-                )}
-                <div className="w-16 text-right">
-                  <div className="text-[9px] text-muted-foreground">In</div>
-                  <div className="text-[12px]"><Countdown target={event.event_time} /></div>
-                </div>
-                <span className={`rounded border px-2 py-0.5 text-[10px] font-bold ${IMPACT_STYLES[event.impact]}`}>
-                  {IMPACT_LABELS[event.impact]}
-                </span>
-              </div>
+              <span className={`rounded border px-2 py-0.5 text-[10px] font-bold ${IMPACT_STYLES[event.impact]}`}>
+                {IMPACT_LABELS[event.impact]}
+              </span>
             </div>
           ))}
         </div>
