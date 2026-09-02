@@ -34,7 +34,6 @@ function HermesPage() {
           background: "linear-gradient(135deg, oklch(0.15 0.02 292) 0%, oklch(0.12 0.03 295) 100%)",
         }}
       >
-        <div className="mb-4 text-5xl">🤖</div>
         <h2 className="mb-2 text-xl font-bold text-foreground">GizzyFx Co-pilot</h2>
         <p className="mx-auto mb-6 max-w-md text-[13px] text-muted-foreground">
           The Trading Agent console is a full AI chat interface for market analysis, strategy teaching,
