@@ -144,6 +144,8 @@ function JournalPage() {
         exLots: r.exnessLots,
         rr: engine.rr,
         phase: r.phase,
+        baseExnessWinTarget: r.phase === 1 ? r.phase1.exnessWinTarget : r.phase2.exnessWinTarget,
+        propRiskAtLog: r.cappedPropRisk,
       },
     });
     setActualPropPnl("");
@@ -223,6 +225,8 @@ function JournalPage() {
         rr: engine.rr,
         phase: r.phase,
         leg: "exness",
+        baseExnessWinTarget: r.phase === 1 ? r.phase1.exnessWinTarget : r.phase2.exnessWinTarget,
+        propRiskAtLog: r.cappedPropRisk,
       },
     });
     setPendingDeal(null);
@@ -231,7 +235,9 @@ function JournalPage() {
 
   function triggerPhaseTransition() {
     if (recovery.challengePassed && r.phase === 1) {
-      const p1Spent = r.totalRequiredCapital;
+      // Use phase1TotalSpent (not totalRequiredCapital) — the latter may be
+      // inflated by an active martingale override and would distort Phase 2 math.
+      const p1Spent = r.phase1TotalSpent;
       setEngine({
         phase: 2,
         carryPhase1TotalSpent: Math.round(p1Spent * 100) / 100,
@@ -250,13 +256,21 @@ function JournalPage() {
       updateTrade(trade.id, { result, propPnl, exPnl, netPnl });
       toast.success(`Settled as ${result} — net ${money(netPnl, true)}`);
     } else {
+      // Use the trade's stored R:R and base target if available, so that settling
+      // an old OPEN trade doesn't use current-phase engine values.
       const rr = trade.details?.rr ?? engine.rr;
-      const derived = tradePnl(r, result === "WIN", rr);
+      const baseTarget = trade.details?.baseExnessWinTarget
+        ?? (trade.details?.phase != null
+          ? (trade.details.phase === 1 ? r.phase1.exnessWinTarget : r.phase2.exnessWinTarget)
+          : r.exnessWinTarget);
+      const storedRisk = trade.details?.propRiskAtLog ?? r.cappedPropRisk;
+      const propPnl = result === "WIN" ? storedRisk * rr : -storedRisk;
+      const exPnl = result === "WIN" ? -(baseTarget * rr) : baseTarget;
       updateTrade(trade.id, {
         result,
-        propPnl: derived.propPnl,
-        exPnl: derived.exPnl,
-        netPnl: derived.netPnl,
+        propPnl,
+        exPnl,
+        netPnl: propPnl + exPnl,
       });
       toast.success(`Settled as ${result}`);
     }

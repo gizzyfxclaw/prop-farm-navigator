@@ -121,18 +121,34 @@ export interface RecoveryState {
 
 /**
  * The Exness P&L the engine expects for a single trade:
- *   - prop loss → exness win (positive), equal to `phase.exnessWinTarget`
- *   - prop win  → exness loss (negative), equal to `phase.exnessWinTarget * rr`
+ *   - prop loss → exness win (positive), equal to the phase's base exnessWinTarget
+ *   - prop win  → exness loss (negative), equal to the phase's base exnessWinTarget * rr
  *
- * Uses the live engine's currently-selected phase figures.
+ * Uses the PHASE-SPECIFIC base target so that Phase 1 trades are compared
+ * against Phase 1 numbers even when the engine is currently showing Phase 2.
+ * Falls back to r.exnessWinTarget for trades without a stored phase.
  */
 function expectedExnessPnl(
   r: EngineResult,
   result: "WIN" | "LOSS",
   rr: number,
+  trade?: JournalTrade,
 ): number {
-  if (result === "LOSS") return r.exnessWinTarget;             // prop lost, exness wins
-  return -(r.exnessWinTarget * rr);                              // prop won, exness loses
+  // Best source: the trade stored the base target at log time.
+  // Fallback: derive from the phase stored in trade details.
+  // Last resort: use r.exnessWinTarget (current engine state).
+  let baseTarget: number;
+  if (trade?.details?.baseExnessWinTarget != null && trade.details.baseExnessWinTarget > 0) {
+    baseTarget = trade.details.baseExnessWinTarget;
+  } else if (trade?.details?.phase != null) {
+    const chain = trade.details.phase === 1 ? r.phase1 : r.phase2;
+    baseTarget = chain.exnessWinTarget;
+  } else {
+    baseTarget = r.exnessWinTarget;
+  }
+
+  if (result === "LOSS") return baseTarget;                      // prop lost, exness wins
+  return -(baseTarget * rr);                                     // prop won, exness loses
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -208,7 +224,7 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     // OPEN trades are filtered out above; this narrows for the helper.
     if (t.result === "OPEN") continue;
     const rr = t.details?.rr ?? 1.5;
-    const expected = expectedExnessPnl(r, t.result, rr);
+    const expected = expectedExnessPnl(r, t.result, rr, t);
 
     if (t.result === "LOSS") {
       // Exness expected to win `expected`. Compare actual positive amount.
