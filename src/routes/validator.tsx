@@ -49,7 +49,7 @@ function ValidatorPage() {
     .sort((a, b) => b.result.netProfitIfPassed - a.result.netProfitIfPassed);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Validator</h1>
         <p className="mt-1 text-[13px] text-muted-foreground">

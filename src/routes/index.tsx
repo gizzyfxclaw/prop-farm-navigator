@@ -333,7 +333,7 @@ function EnginePage() {
         </Card>
 
         {/* ── MIRROR TICKET ──────────────────────────────────────── */}
-        <div className="space-y-5">
+        <div className="space-y-5 w-full">
           <Card title="Mirror ticket">
             {/* Mobile: Card layout */}
             <div className="sm:hidden space-y-2">
