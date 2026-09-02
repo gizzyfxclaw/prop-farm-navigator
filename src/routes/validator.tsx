@@ -61,7 +61,7 @@ function ValidatorPage() {
         {r.verdict.detail}
       </Alert>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total capital needed" value={money(r.totalRequiredCapital)} tone="text-primary" />
         <Stat label="Prop payout at target" value={money(r.propPayout)} tone="text-success" />
         <Stat
@@ -83,7 +83,45 @@ function ValidatorPage() {
       </Card>
 
       <Card title="All accounts ranked">
-        <div className="overflow-x-auto">
+        {/* Mobile: Card layout */}
+        <div className="sm:hidden space-y-2">
+          {ranked.map(({ account, result }) => (
+            <div
+              key={account.id}
+              className={`rounded border p-2 ${
+                engine.selectedAccountId === account.id
+                  ? "border-emerald-600 bg-emerald-950/20"
+                  : "border-[#1a1a1a] bg-[#0a0a0a]"
+              }`}
+              onClick={() => setEngine({ selectedAccountId: account.id })}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-mono text-[11px] font-bold text-foreground">{account.firm}</span>
+                <Badge tone={result.verdict.level === "green" ? "green" : "red"}>
+                  {result.verdict.level === "green" ? "Trade" : "Skip"}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
+                <div className="text-[#888]">Fee: <span className="text-foreground">{money(account.fee)}</span></div>
+                <div className="text-[#888]">DD: <span className="text-foreground">{account.ddType}</span></div>
+                <div className="text-[#888]">Capital: <span className="text-foreground">{money(result.totalRequiredCapital)}</span></div>
+                <div className="text-[#888]">Net: <span className={result.netProfitIfPassed >= 20 ? "text-emerald-400" : "text-red-400"}>{money(result.netProfitIfPassed, true)}</span></div>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEngine({ selectedAccountId: account.id });
+                }}
+                className="mt-2 w-full rounded border border-[#333] py-1 text-[10px] font-semibold text-[#888] hover:text-white"
+              >
+                {engine.selectedAccountId === account.id ? "Selected" : "Select"}
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop: Table layout */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-[12.5px]">
             <thead>
               <tr className="text-left text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">

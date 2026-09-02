@@ -332,7 +332,7 @@ function RootComponent() {
 
               {/* ── Top Status Bar (Bloomberg-style) ─────────── */}
               <div
-                className="mx-auto max-w-7xl px-4"
+                className="mx-auto w-full px-2 sm:px-4 lg:max-w-7xl"
                 style={{
                   borderBottom: "1px solid oklch(var(--gz-p) / 0.08)",
                   background: "oklch(var(--gz-s1) / 0.40)",
@@ -353,7 +353,7 @@ function RootComponent() {
               </div>
 
               {/* ── Main Command Bar ──────────────────────────── */}
-              <div className="mx-auto max-w-7xl px-4">
+              <div className="mx-auto w-full px-2 sm:px-4 lg:max-w-7xl">
                 <div className="flex items-center justify-between py-2">
                   {/* Logo + Nav */}
                   <div className="flex items-center gap-6">
@@ -447,13 +447,13 @@ function RootComponent() {
             </header>
 
           {/* ── Page content ─────────────────────────────────── */}
-          <main key={pathname} className="stagger mx-auto max-w-6xl px-4 py-6">
+          <main key={pathname} className="stagger w-full px-2 py-4 sm:px-4 sm:py-6 lg:mx-auto lg:max-w-6xl">
             <Outlet />
           </main>
 
           {/* ── Footer ──────────────────────────────────────── */}
           <footer
-            className="mx-auto max-w-6xl px-4 py-8"
+            className="mx-auto w-full px-2 py-4 sm:px-4 sm:py-8 lg:max-w-7xl"
             style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.09)" }}
           >
             <div className="flex flex-wrap items-center justify-between gap-4">

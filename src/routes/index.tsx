@@ -236,7 +236,7 @@ function EnginePage() {
       <LiveAccountsPanel live={liveAccounts} result={r} account={selectedAccount} />
 
       {/* ── INPUTS + MIRROR TICKET ──────────────────────────────── */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 grid-cols-1 lg:grid-cols-2">
         <Card title="Inputs" badge={<Badge tone={engine.phase === 1 ? "blue" : "amber"}>Phase {engine.phase}</Badge>}>
           <div className="mb-4 flex gap-2">
             {[1, 2].map((p) => (
@@ -335,7 +335,27 @@ function EnginePage() {
         {/* ── MIRROR TICKET ──────────────────────────────────────── */}
         <div className="space-y-5">
           <Card title="Mirror ticket">
-            <div className="overflow-x-auto">
+            {/* Mobile: Card layout */}
+            <div className="sm:hidden space-y-2">
+              {[
+                ["Direction", r.propDirection, r.exnessDirection],
+                ["Lot size (MT5)", r.propLots.toFixed(2), r.exnessLots.toFixed(2)],
+                ["SL / TP pips", `${r.propSlPips} / ${r.propTpPips}`, `${r.exnessSlPips} / ${r.exnessTpPips}`],
+                ["Entry", formatPrice(r.entryPrice, dec), formatPrice(r.entryPrice, dec)],
+                ["Stop loss", formatPrice(r.propSl, dec), formatPrice(r.exnessSl, dec)],
+                ["Take profit", formatPrice(r.propTp, dec), formatPrice(r.exnessTp, dec)],
+              ].map(([label, a, b]) => (
+                <div key={label} className="flex items-center justify-between border-t border-[#1a1a1a] py-1.5">
+                  <span className="font-sans text-[10px] text-[#888]">{label}</span>
+                  <div className="flex gap-4 font-mono text-[11px]">
+                    <span className="text-primary">{a}</span>
+                    <span className="text-emerald-400">{b}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop: Table layout */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
