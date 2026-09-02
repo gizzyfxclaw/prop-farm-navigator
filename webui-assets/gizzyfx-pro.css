@@ -98,12 +98,12 @@
 :root[data-skin="gizzyfx-pro"] body {
   background: var(--gz-bg) !important;
   font-family: var(--font-ui) !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   line-height: 1.4 !important;
   color: var(--gz-txt) !important;
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
-  zoom: 0.85;
+  zoom: 1.15;
 }
 
 /* ══════════════════════════════════════════════════════════════════
