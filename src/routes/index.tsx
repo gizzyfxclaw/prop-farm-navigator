@@ -376,7 +376,7 @@ function EnginePage() {
             <Row label="Prop reward (TP hit)" value={money(r.cappedPropRisk * r.rr, true)} tone="pos" />
             {r.riskCapped && (
               <div className="mt-2 rounded border border-amber-500/50 bg-amber-500/10 p-2 text-[10px] text-amber-400">
-                ⚠️ Daily profit cap active — Prop Risk reduced from ${engine.propRiskUsd.toFixed(2)} to ${r.cappedPropRisk.toFixed(2)} to stay under the ${(r.cappedPropRisk * r.rr).toFixed(2)} cap.
+                ⚠️ Daily profit cap active — Prop Risk reduced from ${engine.propRiskUsd.toFixed(2)} to ${r.cappedPropRisk.toFixed(2)} so the ${money(r.cappedPropRisk * r.rr)} reward stays under the ${money(selectedAccount.dailyProfitCap ?? 0)} daily cap.
               </div>
             )}
             <Row

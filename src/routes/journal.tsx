@@ -589,8 +589,8 @@ function JournalPage() {
                   const isOpen = t.result === "OPEN";
                   const livePnl = liveMap.get(t.id);
                   const hasLive = isOpen && livePnl !== undefined;
-                  const displayProp = hasLive ? livePnl : t.propPnl;
-                  const displayEx = hasLive ? 0 : t.exPnl;
+                  const displayProp = t.propPnl;
+                  const displayEx = hasLive ? livePnl : t.exPnl;
                   const displayNet = hasLive ? livePnl : t.netPnl;
 
                   return (
@@ -610,14 +610,16 @@ function JournalPage() {
                           </div>
                         </td>
                         <td className={displayProp >= 0 ? "py-1.5 pr-3 text-success" : "py-1.5 pr-3 text-destructive"}>
-                          {isOpen && hasLive ? (
-                            <span className="font-semibold">{money(displayProp, true)}<span className="ml-1 text-[9px] text-muted-foreground">live</span></span>
-                          ) : (
-                            money(displayProp, true)
-                          )}
+                          {money(displayProp, true)}
                         </td>
                         <td className={displayEx >= 0 ? "py-1.5 pr-3 text-success" : "py-1.5 pr-3 text-destructive"}>
-                          {isOpen && !hasLive ? <span className="text-muted-foreground">—</span> : money(displayEx, true)}
+                          {isOpen && hasLive ? (
+                            <span className="font-semibold">{money(displayEx, true)}<span className="ml-1 text-[9px] text-muted-foreground">live</span></span>
+                          ) : isOpen && !hasLive ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            money(displayEx, true)
+                          )}
                         </td>
                         <td className={displayNet >= 0 ? "py-1.5 pr-3 font-semibold text-success" : "py-1.5 pr-3 font-semibold text-destructive"}>
                           {money(displayNet, true)}
