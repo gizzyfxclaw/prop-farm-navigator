@@ -33,19 +33,6 @@ const CURRENCY_FLAGS: Record<string, string> = {
   RU: "🇷🇺", ZA: "🇿🇦", MX: "🇲🇽", TR: "🇹🇷", KR: "🇰🇷",
 };
 
-// Map currency codes to the pairs we trade
-const CURRENCY_TO_PAIRS: Record<string, string[]> = {
-  US: ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF"],
-  EU: ["EURUSD", "EURJPY", "EURGBP", "EURAUD", "EURNZD", "EURCAD", "EURCHF"],
-  GB: ["GBPUSD", "GBPJPY", "EURGBP", "GBPAUD", "GBPNZD", "GBPCAD", "GBPCHF"],
-  JP: ["USDJPY", "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CADJPY", "CHFJPY"],
-  AU: ["AUDUSD", "AUDJPY", "EURAUD", "GBPAUD", "AUDNZD", "AUDCAD", "AUDCHF"],
-  NZ: ["NZDUSD", "NZDJPY", "EURNZD", "GBPNZD", "AUDNZD", "NZDCAD", "NZDCHF"],
-  CA: ["USDCAD", "CADJPY", "EURCAD", "GBPCAD", "AUDCAD", "NZDCAD", "CADCHF"],
-  CH: ["USDCHF", "EURCHF", "GBPCHF", "AUDCHF", "NZDCHF", "CADCHF", "CHFJPY"],
-};
-
-// The pairs we actually trade
 const TRADED_PAIRS = ["EURUSD", "USDJPY", "GBPUSD"];
 
 export const Route = createFileRoute("/calendar")({
@@ -86,6 +73,7 @@ function CalendarPage() {
   const [pairFilter, setPairFilter] = useState<string>("all");
 
   const fetchEvents = useCallback(async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams();
       if (filter !== "all") params.set("impact", filter);
@@ -93,11 +81,15 @@ function CalendarPage() {
       params.set("hours", "168");
 
       const res = await fetch(`/api/economic-events?${params}`);
-      if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      setEvents(data.events ?? []);
-      setLastFetch(new Date().toLocaleTimeString());
-      setError(null);
+      
+      if (data.error && data.events.length === 0) {
+        setError(data.error);
+      } else {
+        setEvents(data.events ?? []);
+        setLastFetch(new Date().toLocaleTimeString());
+        setError(null);
+      }
     } catch (err) {
       setError("Could not load events. Retrying...");
     } finally {
@@ -105,8 +97,13 @@ function CalendarPage() {
     }
   }, [filter, pairFilter]);
 
+  // Fetch on mount and when filters change
   useEffect(() => {
     fetchEvents();
+  }, [fetchEvents]);
+
+  // Auto-refresh every 60 seconds
+  useEffect(() => {
     const id = setInterval(fetchEvents, 60_000);
     return () => clearInterval(id);
   }, [fetchEvents]);
@@ -117,7 +114,6 @@ function CalendarPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Economic Calendar</h1>
@@ -138,7 +134,6 @@ function CalendarPage() {
         </div>
       </div>
 
-      {/* Next High-Impact Alert */}
       {nextHigh && (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
           <div className="flex items-center justify-between">
@@ -165,7 +160,6 @@ function CalendarPage() {
         </div>
       )}
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <div className="flex gap-2">
           {(["all", "high", "medium", "low"] as const).map((level) => (
@@ -199,7 +193,6 @@ function CalendarPage() {
         </div>
       </div>
 
-      {/* Events Table */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <span className="animate-pulse text-[13px] text-muted-foreground">Loading events...</span>
@@ -207,10 +200,11 @@ function CalendarPage() {
       ) : error ? (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-center text-[13px] text-amber-400">
           {error}
+          <button onClick={fetchEvents} className="ml-2 underline">Retry</button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <p className="text-[13px] text-muted-foreground">No upcoming events match your filter.</p>
+          <p className="text-[13px] text-muted-foreground">No upcoming events match your filter. Pull to refresh.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -260,7 +254,6 @@ function CalendarPage() {
         </div>
       )}
 
-      {/* Trading Rules Reminder */}
       <div className="rounded-xl border border-border bg-card p-4">
         <h3 className="mb-2 text-sm font-semibold text-foreground">Slippage Avoidance Rules</h3>
         <ul className="space-y-1 text-[12px] text-muted-foreground">

@@ -149,7 +149,9 @@ export default {
         // gate must not shadow them, or the Hermes agent gets redirected
         // to /login on every call instead of ever reaching its own auth.
         url.pathname.startsWith("/api/hermes/") ||
-        url.pathname === "/api/ohlcv";
+        url.pathname === "/api/ohlcv" ||
+        url.pathname.startsWith("/api/economic-events") ||
+        url.pathname === "/calendar";
 
       if (!isPublic) {
         const token = parseSessionToken(request.headers.get("cookie"));
