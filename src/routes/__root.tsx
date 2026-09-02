@@ -313,10 +313,10 @@ function RootComponent() {
           <ParticleField />
           <LogoWatermark />
 
-          <div className="relative min-h-screen" style={{ zIndex: 1 }}>
+          <div className="relative min-h-screen w-full" style={{ zIndex: 1 }}>
             {/* ── Bloomberg-style Trading Command Bar ─────────────── */}
             <header
-              className="sticky top-0 z-30"
+              className="sticky top-0 z-30 w-full"
               style={{
                 background: "oklch(var(--gz-s3) / 0.92)",
                 backdropFilter: "blur(24px) saturate(1.6)",
@@ -333,12 +333,13 @@ function RootComponent() {
 
               {/* ── Top Status Bar (Bloomberg-style) ─────────── */}
               <div
-                className="mx-auto w-full px-2 sm:px-4 lg:max-w-7xl hidden sm:block"
+                className="w-full hidden sm:block"
                 style={{
                   borderBottom: "1px solid oklch(var(--gz-p) / 0.08)",
                   background: "oklch(var(--gz-s1) / 0.40)",
                 }}
               >
+                <div className="mx-auto w-full px-2 sm:px-4 lg:px-8" style={{ maxWidth: "1280px" }}>
                 <div className="flex items-center justify-between py-1">
                   <div className="flex items-center gap-4">
                     <MarketStatus />
@@ -352,10 +353,11 @@ function RootComponent() {
                   </div>
                 </div>
               </div>
+              </div>
 
               {/* ── Main Command Bar ──────────────────────────── */}
-              <div className="mx-auto w-full px-2 sm:px-4 lg:max-w-7xl">
-                <div className="flex items-center justify-between py-2">
+              <div className="mx-auto w-full px-2 sm:px-4 lg:px-8" style={{ maxWidth: "1280px" }}>
+                <div className="flex items-center justify-between py-2.5 sm:py-3">
                   {/* Logo + Nav */}
                   <div className="flex items-center gap-6">
                     <Link
@@ -374,7 +376,7 @@ function RootComponent() {
                           key={item.to}
                           to={item.to}
                           activeOptions={{ exact: item.to === "/" }}
-                          className="press relative whitespace-nowrap rounded px-2 py-1 text-[10px] font-medium tracking-wide transition-all duration-150"
+                          className="press relative whitespace-nowrap rounded px-2.5 py-1.5 text-[11px] sm:text-[12px] lg:text-[13px] font-semibold tracking-wide transition-all duration-150"
                           style={{ color: "oklch(var(--gz-mut))" }}
                           activeProps={{
                             style: {
@@ -402,7 +404,7 @@ function RootComponent() {
                       href="https://hermes.gizzyfxstrategy.dpdns.org"
                       target="_blank"
                       rel="noreferrer"
-                      className="press relative whitespace-nowrap rounded px-2 py-1 text-[10px] font-medium tracking-wide transition-all duration-150 hidden sm:inline-block"
+                      className="press relative whitespace-nowrap rounded px-3 py-1.5 text-[11px] sm:text-[12px] lg:text-[13px] font-semibold tracking-wide transition-all duration-150 hidden sm:inline-block"
                       style={{
                         color: "oklch(var(--gz-p))",
                         background: "oklch(var(--gz-p) / 0.10)",
@@ -448,21 +450,21 @@ function RootComponent() {
             </header>
 
           {/* ── Page content ─────────────────────────────────── */}
-          <main key={pathname} className="stagger w-full px-4 py-6 lg:mx-auto lg:max-w-7xl">
+          <main key={pathname} className="stagger w-full px-4 pt-5 pb-8 sm:px-6 lg:px-8 mx-auto" style={{ maxWidth: "1280px" }}>
             <Outlet />
           </main>
 
           {/* ── Footer ──────────────────────────────────────── */}
           <footer
-            className="mx-auto w-full px-2 py-4 sm:px-4 sm:py-8 lg:max-w-7xl"
-            style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.09)" }}
+            className="w-full px-4 py-4 sm:px-6 sm:py-8 lg:px-8 mx-auto"
+            style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.09)", maxWidth: "1280px" }}
           >
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>
+              <p className="text-[12px] sm:text-[13px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>
                 <span className="font-display font-semibold tracking-widest" style={{ color: "oklch(var(--gz-mut))" }}>GIZZYFX</span>
                 {" "}· Institutional terminal — hedge calculator, validator & MetaApi execution.
               </p>
-              <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>Educational use · Trade at your own risk.</p>
+              <p className="text-[12px] sm:text-[13px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>Educational use · Trade at your own risk.</p>
             </div>
           </footer>
         </div>
