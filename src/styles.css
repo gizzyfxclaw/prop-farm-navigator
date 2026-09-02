@@ -132,7 +132,7 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-size: 16px;
+    font-size: 18px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -555,19 +555,30 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+@media (min-width: 1200px) {
+  body {
+    font-size: 18px;
+  }
+  
+  .engine-cockpit {
+    zoom: 1.15;
+    transform-origin: top center;
+  }
+}
+
 @media (max-width: 768px) {
   body { font-size: 15px; }
   
   /* Scale down desktop layout to fit mobile screens */
   #app, .relative.min-h-screen {
-    width: 1280px;
-    transform: scale(calc(100vw / 1280));
+    width: 1600px;
+    transform: scale(calc(100vw / 1600));
     transform-origin: top left;
     height: auto;
-    min-height: calc(100vh / (calc(100vw / 1280)));
+    min-height: calc(100vh / (calc(100vw / 1600)));
   }
   
-  .engine-cockpit { gap: 0.5rem; }
+  .engine-cockpit { gap: 0.75rem; }
   
   .cockpit-header {
     flex-direction: column;
