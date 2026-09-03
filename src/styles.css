@@ -729,17 +729,26 @@ select:focus-visible {
    DESKTOP REFINEMENTS — full-width fluid, larger, bolder
    ══════════════════════════════════════════════════════════════════ */
 @media (min-width: 1024px) {
-  body { font-size: 15px; }
+  body { font-size: 16px; }
 
   /* Page titles — big, bold, impactful */
-  h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; }
-  h2 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
-  h3 { font-size: 1.15rem; font-weight: 700; }
+  h1 { font-size: 2.25rem; font-weight: 800; letter-spacing: -0.02em; }
+  h2 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em; }
+  h3 { font-size: 1.25rem; font-weight: 700; }
+
+  /* ── Scale up ALL hardcoded tiny fonts ────────────────────────── */
+  /* 9px → 12px, 10px → 13px, 11px → 14px, 12px → 15px */
+  .text-\[9px\]  { font-size: 12px !important; }
+  .text-\[10px\] { font-size: 13px !important; }
+  .text-\[11px\] { font-size: 14px !important; }
+  .text-\[12px\] { font-size: 15px !important; }
+  .text-\[13px\] { font-size: 15px !important; }
+  .text-\[14px\] { font-size: 16px !important; }
 
   /* Data tables — readable across wide screens */
-  table { font-size: 14px; }
-  th { font-weight: 700; font-size: 12px; }
-  td { padding: 10px 14px; }
+  table { font-size: 15px; }
+  th { font-weight: 700; font-size: 13px; }
+  td { padding: 12px 16px; }
 
   /* Cards and panels get more padding */
   .panel, .card, [class*="rounded-xl"] {
@@ -751,24 +760,48 @@ select:focus-visible {
 
   /* Cockpit */
   .cockpit-header { padding: 1.25rem 1.75rem; }
-  .cockpit-title { font-size: 20px; font-weight: 800; }
-  .cockpit-pair { font-size: 17px; font-weight: 600; }
-  .cockpit-price { font-size: 18px; font-weight: 700; }
+  .cockpit-title { font-size: 22px; font-weight: 800; }
+  .cockpit-pair { font-size: 18px; font-weight: 600; }
+  .cockpit-price { font-size: 20px; font-weight: 700; }
 
-  /* Descriptions / muted text */
-  .text-muted-foreground { font-size: 14px; }
+  /* Descriptions / muted text — more visible */
+  .text-muted-foreground { font-size: 15px; }
+
+  /* Input fields */
+  input, select, textarea { font-size: 15px !important; }
+
+  /* Buttons */
+  button { font-size: 14px; }
+
+  /* Badge / labels */
+  .badge, [class*="badge"] { font-size: 12px; padding: 3px 8px; }
+
+  /* Mono text in data rows */
+  .font-mono { font-size: inherit; }
+
+  /* Status bar items */
+  .status-bar { font-size: 13px; }
 }
 
 /* Extra-wide screens (1440px+) */
 @media (min-width: 1440px) {
-  body { font-size: 16px; }
+  body { font-size: 17px; }
 
-  h1 { font-size: 2.25rem; }
-  h2 { font-size: 1.65rem; }
-  h3 { font-size: 1.25rem; }
+  h1 { font-size: 2.5rem; }
+  h2 { font-size: 1.75rem; }
+  h3 { font-size: 1.35rem; }
 
-  table { font-size: 15px; }
-  th { font-size: 13px; }
+  /* Scale up even more */
+  .text-\[9px\]  { font-size: 13px !important; }
+  .text-\[10px\] { font-size: 14px !important; }
+  .text-\[11px\] { font-size: 15px !important; }
+  .text-\[12px\] { font-size: 16px !important; }
+  .text-\[13px\] { font-size: 16px !important; }
+  .text-\[14px\] { font-size: 17px !important; }
+
+  table { font-size: 16px; }
+  th { font-size: 14px; }
+  td { padding: 14px 18px; }
 
   .panel, .card, [class*="rounded-xl"] {
     padding: 1.75rem;
@@ -777,7 +810,9 @@ select:focus-visible {
   .grid { gap: 1.5rem; }
 
   .cockpit-header { padding: 1.5rem 2rem; }
-  .cockpit-title { font-size: 22px; }
-  .cockpit-pair { font-size: 18px; }
-  .cockpit-price { font-size: 20px; }
+  .cockpit-title { font-size: 24px; }
+  .cockpit-pair { font-size: 20px; }
+  .cockpit-price { font-size: 22px; }
+
+  input, select, textarea { font-size: 16px !important; }
 }
