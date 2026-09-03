@@ -223,6 +223,14 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
   for (const t of closed) {
     // OPEN trades are filtered out above; this narrows for the helper.
     if (t.result === "OPEN") continue;
+
+    // ── PHASE-AWARE SLIPPAGE: In Phase 2, skip Phase 1 trades ──────────
+    // Phase 2's trueDeficit = fee + actualExnessLosses already includes ALL
+    // Phase 1 slippage in the base target. Counting Phase 1 slippage here
+    // would double-count it. Only accumulate slippage from the CURRENT phase.
+    const tradePhase = t.details?.phase ?? r.phase;
+    if (r.phase === 2 && tradePhase === 1) continue;
+
     const rr = t.details?.rr ?? 1.5;
     const expected = expectedExnessPnl(r, t.result, rr, t);
 

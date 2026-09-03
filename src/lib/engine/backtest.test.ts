@@ -34,7 +34,7 @@ const baseInputs: EngineInputs = {
 function makeJournalEntry(id: string, propPnl: number, exPnl: number, r: any): JournalTrade {
   return {
     id, date: "2026-09-02", time: "12:00:00", pair: "EURUSD",
-    dir: "LONG", result: "WIN", propPnl, exPnl, netPnl: propPnl + exPnl,
+    dir: "LONG", result: propPnl >= 0 ? "WIN" : "LOSS", propPnl, exPnl, netPnl: propPnl + exPnl,
     details: {
       entry: r.entryPrice, propSl: r.propSl, propTp: r.propTp,
       exSl: r.exnessSl, exTp: r.exnessTp, propLots: r.propLots, exLots: r.exnessLots,
@@ -153,8 +153,8 @@ describe("Comprehensive Backtest — Full Lifecycle", () => {
         ...journal,
         // Phase 2 Trade 1: Prop loses, Exness wins less than expected (slippage)
         makeJournalEntry("p2-1", -50, 8.0, r2),
-        // Phase 2 Trade 2: Martingale bump active, recovers more
-        makeJournalEntry("p2-2", -50, 14.18, r2),
+        // Phase 2 Trade 2: Still has slippage (expected ~11.09, got 10.0)
+        makeJournalEntry("p2-2", -50, 10.0, r2),
       ];
 
       const recovery2 = computeRecovery(r2, p2Journal);
