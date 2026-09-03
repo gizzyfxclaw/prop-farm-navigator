@@ -4,6 +4,7 @@ import { useEngine } from "@/lib/useEngine";
 import { useStore } from "@/lib/store";
 import { computeRecovery } from "@/lib/recovery";
 import { marketStatus } from "@/lib/market-hours";
+import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
 import {
   CheckCircle2, AlertTriangle, XCircle, Info, Clock, Shield, ShieldAlert,
   ShieldCheck, ShieldX, Activity, TrendingUp, Zap, Radio, CircleDot,
@@ -48,8 +49,8 @@ const RULES: Rule[] = [
   {
     id: "session",
     category: "execution",
-    text: "Best window: London/NY overlap (13:00–16:00 ET)",
-    detail: "Peak liquidity. Acceptable: London (08:00–12:00) or NY (13:00–17:00).",
+    text: "Best window: London/NY overlap (18:00–21:00 WAT)",
+    detail: "Peak liquidity. Acceptable: London (13:00–17:00 WAT) or NY (18:00–22:00 WAT).",
   },
   {
     id: "news",
@@ -109,15 +110,7 @@ const API_REFRESH_MS = 120_000;
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
-function getEasternTime(): { hours: number; minutes: number; seconds: number; totalSeconds: number } {
-  const now = new Date();
-  const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
-  const etDate = new Date(etStr);
-  const h = etDate.getHours();
-  const m = etDate.getMinutes();
-  const s = etDate.getSeconds();
-  return { hours: h, minutes: m, seconds: s, totalSeconds: h * 3600 + m * 60 + s };
-}
+// getEasternTime and getWATTime imported from @/lib/timezone
 
 function formatCountdown(totalSeconds: number): string {
   if (totalSeconds < 0) {
@@ -446,7 +439,8 @@ export function RulesAlertPanel() {
     }
   };
 
-  const etClock = `${String(et.hours).padStart(2, "0")}:${String(et.minutes).padStart(2, "0")}:${String(et.seconds).padStart(2, "0")} ET`;
+  const wat = getWATTime();
+  const dualClock = `${formatTime(wat)} WAT · ${formatTime(et)} ET`;
 
   return (
     <div style={{ background: "oklch(0.13 0.01 295)", border: "1px solid oklch(0.680 0.230 295 / 0.13)", borderRadius: "12px", overflow: "hidden" }}>
@@ -484,7 +478,7 @@ export function RulesAlertPanel() {
               <div className="h-1.5 w-1.5 rounded-full relative" style={{ background: "oklch(0.680 0.230 295)" }} />
             </div>
             <span className="font-mono text-[10px] tabular-nums" style={{ color: "oklch(0.680 0.230 295)" }}>
-              {etClock}
+              {dualClock}
             </span>
           </div>
           <button
@@ -513,7 +507,7 @@ export function RulesAlertPanel() {
               {v.sub}
             </div>
             <div className="flex justify-center gap-4 mt-2 text-[10px] font-mono tabular-nums" style={{ color: v.color, opacity: 0.6 }}>
-              <span>{String(et.hours).padStart(2, "0")}:{String(et.minutes).padStart(2, "0")}:{String(et.seconds).padStart(2, "0")} ET</span>
+              <span>{formatTime(wat)} WAT · {formatTime(et)} ET</span>
               <span>·</span>
               <span>{okCount} rules OK</span>
               {warningCount > 0 && <><span>·</span><span>{warningCount} warnings</span></>}

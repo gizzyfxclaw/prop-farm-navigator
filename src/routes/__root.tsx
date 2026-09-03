@@ -256,9 +256,10 @@ function RootShell({ children }: { children: ReactNode }) {
 function Clock() {
   const [now, setNow] = useState<string>("--:--:--");
   useEffect(() => {
-    const tick = () => setNow(
-      new Date().toLocaleTimeString("en-GB", { timeZone: "UTC", hour12: false }) + " UTC"
-    );
+    const tick = () => {
+      const wat = new Date().toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour12: false });
+      setNow(wat + " WAT");
+    };
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);

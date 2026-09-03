@@ -4,6 +4,7 @@ import {
   ShieldX, ShieldAlert, ShieldCheck, XCircle, AlertTriangle, CheckCircle2,
   MinusCircle, Clock, Activity, Radio,
 } from "lucide-react";
+import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -87,15 +88,7 @@ function formatSessionCountdown(totalSeconds: number): string {
   return `${s}s`;
 }
 
-function getEasternTime(): { hours: number; minutes: number; seconds: number; totalSeconds: number } {
-  const now = new Date();
-  const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
-  const etDate = new Date(etStr);
-  const hours = etDate.getHours();
-  const minutes = etDate.getMinutes();
-  const seconds = etDate.getSeconds();
-  return { hours, minutes, seconds, totalSeconds: hours * 3600 + minutes * 60 + seconds };
-}
+// getEasternTime imported from @/lib/timezone
 
 function computeSessions(): SessionOverlap[] {
   const { totalSeconds: etSec } = getEasternTime();
@@ -205,8 +198,9 @@ function CalendarPage() {
   const sessions = useMemo(() => computeSessions(), [tick]);
 
   const liveClock = useMemo(() => {
+    const wat = getWATTime();
     const et = getEasternTime();
-    return `${String(et.hours).padStart(2, "0")}:${String(et.minutes).padStart(2, "0")}:${String(et.seconds).padStart(2, "0")} ET`;
+    return `${formatTime(wat)} WAT · ${formatTime(et)} ET`;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick]);
 
@@ -349,13 +343,18 @@ function CalendarPage() {
         }}
       >
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-foreground">Market Sessions (ET)</h3>
+          <h3 className="text-sm font-semibold text-foreground">Market Sessions</h3>
           <span className="font-mono text-[11px] tabular-nums" style={{ color: "oklch(0.680 0.230 295)" }}>
             {liveClock}
           </span>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {sessions.map((s) => (
+          {sessions.map((s) => {
+            const [sh, sm] = s.start.split(":").map(Number);
+            const [eh, em] = s.end.split(":").map(Number);
+            const watStart = etToWAT(sh!, sm!);
+            const watEnd = etToWAT(eh!, em!);
+            return (
             <div
               key={s.label}
               className="rounded-lg p-3 text-center transition-all duration-300"
@@ -368,7 +367,10 @@ function CalendarPage() {
                 {s.label}
               </div>
               <div className="text-[10px] text-muted-foreground mt-1">
-                {s.start} – {s.end}
+                {watStart} – {watEnd} WAT
+              </div>
+              <div className="text-[9px] text-muted-foreground" style={{ opacity: 0.6 }}>
+                {s.start} – {s.end} ET
               </div>
               {s.active ? (
                 <div className="mt-1 flex items-center justify-center gap-1">
@@ -392,7 +394,7 @@ function CalendarPage() {
                 </div>
               )}
             </div>
-          ))}
+          )})}
         </div>
       </div>
 
@@ -439,7 +441,7 @@ function CalendarPage() {
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className="bg-white/5">
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">Time (ET)</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">Time (WAT)</th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Event</th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Imp</th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Actual</th>
@@ -466,12 +468,12 @@ function CalendarPage() {
                           opacity: isPast ? 0.5 : 1,
                         }}
                       >
-                        {/* Time in ET */}
+                        {/* Time in WAT (Nigeria) */}
                         <td className="px-3 py-2 font-mono tabular-nums text-foreground whitespace-nowrap">
-                          {new Date(ev.time).toLocaleTimeString("en-US", {
+                          {new Date(ev.time).toLocaleTimeString("en-GB", {
                             hour: "2-digit",
                             minute: "2-digit",
-                            timeZone: "America/New_York",
+                            timeZone: "Africa/Lagos",
                           })}
                         </td>
                         <td className="px-3 py-2 text-foreground">{ev.event}</td>
@@ -576,7 +578,7 @@ function CalendarPage() {
           <li>• <strong className="text-foreground">Avoid new entries</strong> ±2-3 hours before HIGH impact events</li>
           <li>• <strong className="text-foreground">Vary entry times:</strong> 08:13, 10:42, 14:05</li>
           <li>• <strong className="text-foreground">Vary SL pips:</strong> 28, 35, 22</li>
-          <li>• <strong className="text-foreground">Best liquidity:</strong> London/NY overlap (13:00-16:00 ET)</li>
+          <li>• <strong className="text-foreground">Best liquidity:</strong> London/NY overlap (18:00–21:00 WAT / 13:00–16:00 ET)</li>
         </ul>
       </div>
     </div>
