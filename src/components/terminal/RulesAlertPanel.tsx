@@ -37,45 +37,45 @@ const RULES: Rule[] = [
     id: "dpc",
     category: "compliance",
     text: "Daily Profit Cap: $100/day max",
-    detail: "Engine auto-reduces risk if reward exceeds cap. Never override manually.",
+    detail: "Engine auto-reduces risk if reward exceeds cap.",
     critical: true,
   },
   {
     id: "session",
     category: "execution",
-    text: "Trade London/NY overlap (13:00–16:00 ET)",
-    detail: "Best liquidity window. Avoid low-volume sessions for execution.",
+    text: "Best window: London/NY overlap (13:00–16:00 ET)",
+    detail: "Peak liquidity. Acceptable: London (08:00–12:00) or NY (13:00–17:00).",
   },
   {
     id: "news",
     category: "execution",
     text: "NO pending orders ±30min HIGH impact news",
-    detail: "Calendar data checked in real-time. Red = news within danger window.",
+    detail: "Calendar checked live. Red = danger zone.",
     critical: true,
   },
   {
     id: "news-gap",
     category: "execution",
     text: "Avoid new entries 2-3hr before HIGH news",
-    detail: "Spreads widen as major events approach. Wait for the window to clear.",
+    detail: "Spreads widen early. Wait for the window to clear.",
   },
   {
     id: "entry-time",
     category: "execution",
-    text: "Vary entry times: 08:13, 10:42, 14:05",
-    detail: "Avoids prop firm AI bot detection. Never trade at round times.",
+    text: "Vary entry times (avoid round numbers)",
+    detail: "Suggested: 08:13, 10:42, 14:05. Never trade on the hour.",
   },
   {
     id: "sl-pips",
     category: "execution",
     text: "Vary SL pips: 28, 35, 22",
-    detail: "Avoids prop firm AI bot detection. Rotate between these values.",
+    detail: "Rotate to avoid prop AI detection.",
   },
   {
     id: "order-exec",
     category: "execution",
     text: "Exness FIRST → Prop SECOND",
-    detail: "Place Exness trade, wait for green confirmation, THEN place Prop manually.",
+    detail: "Place Exness, wait green confirm, THEN Prop.",
     critical: true,
   },
   {
@@ -183,12 +183,53 @@ export function RulesAlertPanel() {
   const liveRules: LiveRuleState[] = useMemo(() => {
     const etSec = et.totalSeconds;
 
-    // Session overlap: 13:00–16:00 ET
+    // Session windows (ET)
+    // Best: London/NY overlap 13:00-16:00
+    // Good: London 08:00-12:00 or NY 13:00-17:00
+    // Acceptable: Pre-London 07:00-08:00
+    // Bad: Asian/off-hours
     const overlapStart = 13 * 3600;
     const overlapEnd = 16 * 3600;
+    const londonStart = 8 * 3600;
+    const londonEnd = 12 * 3600;
+    const nyStart = 13 * 3600;
+    const nyEnd = 17 * 3600;
+    const preLondon = 7 * 3600;
+
     const inOverlap = etSec >= overlapStart && etSec < overlapEnd;
+    const inLondon = etSec >= londonStart && etSec < londonEnd;
+    const inNY = etSec >= nyStart && etSec < nyEnd;
+    const inPreLondon = etSec >= preLondon && etSec < londonStart;
+    const inGoodWindow = inOverlap || inLondon || inNY;
+
     const secsToOverlap = inOverlap ? 0 : etSec < overlapStart ? overlapStart - etSec : 86400 - etSec + overlapStart;
     const secsInOverlap = inOverlap ? overlapEnd - etSec : 0;
+    const secsToLondon = inLondon ? 0 : etSec < londonStart ? londonStart - etSec : 86400 - etSec + londonStart;
+    const secsToNY = inNY ? 0 : etSec < nyStart ? nyStart - etSec : 86400 - etSec + nyStart;
+
+    // Next good window
+    const nextGoodStart = etSec < londonStart ? londonStart - etSec
+      : etSec < nyEnd ? 0 // currently in a good window
+      : 86400 - etSec + londonStart; // after NY close, wait for next London
+
+    // Suggested entry time (next odd-minute time from the list)
+    const suggestedTimes = [
+      { h: 8, m: 13 }, { h: 9, m: 37 }, { h: 10, m: 42 },
+      { h: 11, m: 8 }, { h: 13, m: 17 }, { h: 14, m: 5 },
+      { h: 14, m: 51 }, { h: 15, m: 23 },
+    ];
+    const currentETMinutes = et.hours * 60 + et.minutes;
+    const nextSuggested = suggestedTimes.find(t => t.h * 60 + t.m > currentETMinutes);
+    const suggestedStr = nextSuggested
+      ? `${String(nextSuggested.h).padStart(2, "0")}:${String(nextSuggested.m).padStart(2, "0")} ET`
+      : `${String(suggestedTimes[0]!.h).padStart(2, "0")}:${String(suggestedTimes[0]!.m).padStart(2, "0")} ET (tomorrow)`;
+
+    // SL rotation suggestion
+    const slOptions = [28, 35, 22];
+    const currentSlIndex = slOptions.indexOf(r.propSlPips);
+    const suggestedSl = currentSlIndex >= 0
+      ? slOptions[(currentSlIndex + 1) % slOptions.length]
+      : slOptions[Math.floor(Math.random() * slOptions.length)];
 
     // News analysis
     const highEvents = newsEvents.filter((e) => e.impact === "high");
@@ -224,14 +265,27 @@ export function RulesAlertPanel() {
           : `Reward $${r.propWinPerTrade.toFixed(2)} — under $100 cap`,
       },
 
-      // 2. Session overlap
+      // 2. Session — expanded windows with green/yellow/red
       {
         rule: RULES[1]!,
-        status: inOverlap ? "ok" : "info",
+        status: inOverlap ? "ok" as const
+          : inLondon || inNY ? "ok" as const
+          : inPreLondon ? "info" as const
+          : "warning" as const,
         message: inOverlap
-          ? `IN OVERLAP — ${formatCountdown(secsInOverlap)} remaining`
-          : `Overlap starts in ${formatCountdown(secsToOverlap)}`,
-        countdown: inOverlap ? formatCountdown(secsInOverlap) : formatCountdown(secsToOverlap),
+          ? `🟢 PRIME TIME — London/NY overlap, ${formatCountdown(secsInOverlap)} left`
+          : inLondon
+          ? `🟢 London session active — overlap in ${formatCountdown(secsToOverlap)}`
+          : inNY
+          ? `🟢 NY session active — closes in ${formatCountdown(nyEnd - etSec)}`
+          : inPreLondon
+          ? `🔵 Pre-London — London opens in ${formatCountdown(secsToLondon)}`
+          : nextGoodStart > 0
+          ? `🟡 OFF-HOURS — next window (London) in ${formatCountdown(nextGoodStart)}`
+          : `🟡 OFF-HOURS — wait for London open`,
+        countdown: inOverlap ? formatCountdown(secsInOverlap)
+          : inGoodWindow ? formatCountdown(inLondon ? secsToOverlap : nyEnd - etSec)
+          : formatCountdown(nextGoodStart),
       },
 
       // 3. News ±30min rule (CRITICAL)
@@ -266,18 +320,25 @@ export function RulesAlertPanel() {
           : undefined,
       },
 
-      // 5. Entry times
+      // 5. Entry times — dynamic suggestion
       {
         rule: RULES[4]!,
-        status: "info",
-        message: `Current ET: ${String(et.hours).padStart(2, "0")}:${String(et.minutes).padStart(2, "0")}:${String(et.seconds).padStart(2, "0")}`,
+        status: inGoodWindow ? "ok" as const : "info" as const,
+        message: inGoodWindow
+          ? `Next suggested entry: ${suggestedStr}`
+          : `Outside trade window — next entry: ${suggestedStr}`,
+        countdown: nextSuggested
+          ? formatCountdown((nextSuggested.h * 3600 + nextSuggested.m * 60) - etSec)
+          : undefined,
       },
 
-      // 6. SL pips
+      // 6. SL pips — rotation suggestion
       {
         rule: RULES[5]!,
-        status: "info",
-        message: `Current SL: ${r.propSlPips} pips — rotate between 28, 35, 22`,
+        status: slOptions.includes(r.propSlPips) ? "ok" as const : "warning" as const,
+        message: slOptions.includes(r.propSlPips)
+          ? `Current: ${r.propSlPips} pips ✓ — next rotation: ${suggestedSl} pips`
+          : `⚠️ SL ${r.propSlPips} not in rotation! Use ${slOptions.join(", ")}`,
       },
 
       // 7. Exness FIRST
@@ -329,6 +390,28 @@ export function RulesAlertPanel() {
   const criticalCount = liveRules.filter((r) => r.status === "critical").length + (bufferAlert ? 1 : 0);
   const warningCount = liveRules.filter((r) => r.status === "warning").length;
   const okCount = liveRules.filter((r) => r.status === "ok").length;
+
+  // ── Master verdict ──
+  const sessionRule = liveRules.find((r) => r.rule.id === "session");
+  const newsRule = liveRules.find((r) => r.rule.id === "news");
+  const newsGapRule = liveRules.find((r) => r.rule.id === "news-gap");
+  const inTradingWindow = sessionRule?.status === "ok";
+  const newsBlocked = newsRule?.status === "critical";
+  const newsWarning = newsGapRule?.status === "warning";
+
+  type Verdict = "GO" | "WAIT_NEWS" | "WAIT_SESSION" | "CAUTION";
+  const verdict: Verdict = newsBlocked ? "WAIT_NEWS"
+    : !inTradingWindow ? "WAIT_SESSION"
+    : newsWarning ? "CAUTION"
+    : "GO";
+
+  const verdictConfig = {
+    GO: { label: "✅ CLEAR TO TRADE", bg: "oklch(0.55 0.2 155 / 0.12)", border: "oklch(0.55 0.2 155 / 0.3)", color: "oklch(0.65 0.2 155)", sub: "All conditions met. Follow your entry rules." },
+    CAUTION: { label: "⚡ TRADE WITH CAUTION", bg: "oklch(0.75 0.18 80 / 0.1)", border: "oklch(0.75 0.18 80 / 0.25)", color: "oklch(0.80 0.16 80)", sub: "News approaching. Enter only if setup is strong." },
+    WAIT_NEWS: { label: "🚫 DO NOT TRADE — NEWS", bg: "oklch(0.55 0.25 29 / 0.12)", border: "oklch(0.55 0.25 29 / 0.3)", color: "oklch(0.70 0.22 29)", sub: "High-impact news within 30 minutes. Wait." },
+    WAIT_SESSION: { label: "⏳ WAIT FOR SESSION", bg: "oklch(0.75 0.18 80 / 0.08)", border: "oklch(0.75 0.18 80 / 0.2)", color: "oklch(0.80 0.16 80)", sub: "Outside trading window. Wait for London or NY." },
+  };
+  const v = verdictConfig[verdict];
 
   const statusIcon = (status: LiveRuleState["status"]) => {
     switch (status) {
@@ -410,6 +493,27 @@ export function RulesAlertPanel() {
 
       {expanded && (
         <div className="p-3 space-y-1.5">
+          {/* ── MASTER TRADE VERDICT ── */}
+          <div className="rounded-lg p-3 text-center" style={{
+            background: v.bg,
+            border: `2px solid ${v.border}`,
+            borderLeftWidth: "5px",
+          }}>
+            <div className="text-[16px] font-black" style={{ color: v.color }}>
+              {v.label}
+            </div>
+            <div className="text-[12px] mt-1" style={{ color: v.color, opacity: 0.8 }}>
+              {v.sub}
+            </div>
+            <div className="flex justify-center gap-4 mt-2 text-[10px] font-mono tabular-nums" style={{ color: v.color, opacity: 0.6 }}>
+              <span>{String(et.hours).padStart(2, "0")}:{String(et.minutes).padStart(2, "0")}:{String(et.seconds).padStart(2, "0")} ET</span>
+              <span>·</span>
+              <span>{okCount} rules OK</span>
+              {warningCount > 0 && <><span>·</span><span>{warningCount} warnings</span></>}
+              {criticalCount > 0 && <><span>·</span><span>{criticalCount} critical</span></>}
+            </div>
+          </div>
+
           {/* Buffer depleted alert (injected) */}
           {bufferAlert && (
             <div className="rounded-lg p-2.5 flex items-start gap-2.5" style={statusBg("critical")}>
