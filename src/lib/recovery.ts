@@ -269,7 +269,10 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
   }
 
   // ── PART 5: Apply martingale bump to the active base target ─────────────
-  const baseExnessWinTarget = Math.max(0, r.exnessWinTarget);
+  // Use the PHASE chain's base target — r.exnessWinTarget may already be
+  // overridden by a prior recovery pass, which would double-count the debt.
+  const activeChain = r.phase === 1 ? r.phase1 : r.phase2;
+  const baseExnessWinTarget = Math.max(0, activeChain.exnessWinTarget);
   const newExnessWinTarget  = baseExnessWinTarget + slippageDebt;
   const newExnessLossTarget = newExnessWinTarget * r.rr;
   const adjustmentNeeded    = slippageDebt > 0.005; // half-pip dust threshold
