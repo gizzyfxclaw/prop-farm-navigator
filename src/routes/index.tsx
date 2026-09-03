@@ -47,7 +47,7 @@ function EnginePage() {
   useEffect(() => {
     if (r.riskCapped && !lastRiskCapped.current) {
       addNotification({
-        title: "⚠️ Daily Profit Cap Active",
+        title: "Daily Profit Cap Active",
         body: `Prop Risk reduced from $${engine.propRiskUsd.toFixed(2)} to $${r.cappedPropRisk.toFixed(2)} (reward capped at $${(r.cappedPropRisk * r.rr).toFixed(2)})`,
         type: "warning",
       });
@@ -56,7 +56,7 @@ function EnginePage() {
 
     if (recovery.bufferDepleted && !lastBufferDepleted.current) {
       addNotification({
-        title: "🚨 Exness Buffer Depleted",
+        title: "Exness Buffer Depleted",
         body: `Deposit $${recovery.depositNeeded.toFixed(2)} to maintain the zero-loss loop.`,
         type: "error",
       });
@@ -400,7 +400,7 @@ function EnginePage() {
             <Row label="Prop reward (TP hit)" value={money(r.cappedPropRisk * r.rr, true)} tone="pos" />
             {r.riskCapped && (
               <div className="mt-2 rounded border border-amber-500/50 bg-amber-500/10 p-2 text-[10px] text-amber-400">
-                ⚠️ Daily profit cap active — Prop Risk reduced from ${engine.propRiskUsd.toFixed(2)} to ${r.cappedPropRisk.toFixed(2)} so the ${money(r.cappedPropRisk * r.rr)} reward stays under the ${money(selectedAccount.dailyProfitCap ?? 0)} daily cap.
+                Daily profit cap active — Prop Risk reduced from ${engine.propRiskUsd.toFixed(2)} to ${r.cappedPropRisk.toFixed(2)} so the ${money(r.cappedPropRisk * r.rr)} reward stays under the ${money(selectedAccount.dailyProfitCap ?? 0)} daily cap.
               </div>
             )}
             <Row
@@ -412,13 +412,13 @@ function EnginePage() {
               <Row label="Slippage debt (martingale bump)" value={money(recovery.slippageDebt, true)} tone="accent" />
             )}
             <Row
-              label={recovery.adjustmentNeeded ? "Next Exness target ⚡" : "Exness reward (prop loses)"}
+              label={recovery.adjustmentNeeded ? "Next Exness target" : "Exness reward (prop loses)"}
               value={money(recovery.newExnessWinTarget, true)}
               tone={recovery.adjustmentNeeded ? "accent" : "pos"}
               strong
             />
             <Row
-              label={recovery.adjustmentNeeded ? "Next Exness risk (prop wins) ⚡" : "Exness risk (prop wins)"}
+              label={recovery.adjustmentNeeded ? "Next Exness risk (prop wins)" : "Exness risk (prop wins)"}
               value={money(-recovery.newExnessLossTarget)}
               tone={recovery.adjustmentNeeded ? "accent" : "neg"}
             />
@@ -451,7 +451,7 @@ function EnginePage() {
         </div>
         {recovery.adjustmentNeeded && (
           <p className="mt-2 text-[10px] text-amber-400">
-            ⚡ Martingale bump active — Exness fuel increased from {money(r.phase === 1 ? r.phase1.bufferedExnessCapital : r.phase2.bufferedExnessCapital)} to <strong>{money(recovery.dynamicExnessCapital)}</strong> to cover the slippage debt of {money(recovery.slippageDebt)} + the {r.bufferPct}% buffer.
+            Martingale bump active — Exness fuel increased from {money(r.phase === 1 ? r.phase1.bufferedExnessCapital : r.phase2.bufferedExnessCapital)} to <strong>{money(recovery.dynamicExnessCapital)}</strong> to cover the slippage debt of {money(recovery.slippageDebt)} + the {r.bufferPct}% buffer.
           </p>
         )}
         <div className="mt-3 rounded border border-border bg-muted/30 p-3">
@@ -480,19 +480,19 @@ function EnginePage() {
         </Alert>
 
         {recovery.challengePassed && (
-          <Alert level="green" title="🎉 Challenge Passed! Request your payout.">
+          <Alert level="green" title="Challenge Passed — Request your payout">
             Prop target reached ({money(recovery.totalPropProfitLogged, true)} logged). Total money lost over the run: <strong>{money(recovery.totalMoneyLost)}</strong> — Exness fuel exhausted {money(recovery.exnessFuelExhausted)} plus the {money(recovery.propFee)} prop fee. Net result after payout: <strong>{money(recovery.netResultAfterPayout, true)}</strong>. Exness balance: {money(recovery.actualExnessBalance)} (returnable). Switch to Phase 2 (Mega Shield) for the Funded Stage.
           </Alert>
         )}
 
         {recovery.bufferDepleted && !recovery.challengePassed && (
-          <Alert level="red" title="⚠️ CRITICAL: Exness Buffer Depleted">
+          <Alert level="red" title="CRITICAL: Exness Buffer Depleted">
             Current Exness balance ({money(recovery.actualExnessBalance)}) is below what's needed to finish the remaining {recovery.remainingWins} prop win(s). Deposit <strong>{money(recovery.depositNeeded)}</strong> to maintain the zero-loss loop.
           </Alert>
         )}
 
         {recovery.adjustmentNeeded && !recovery.challengePassed && (
-          <Alert level="amber" title="⚡ Martingale bump active">
+          <Alert level="amber" title="Martingale bump active">
             Slippage debt <strong>{money(recovery.slippageDebt)}</strong> is added to the next Exness win target ({money(recovery.baseExnessWinTarget)} → {money(recovery.newExnessWinTarget, true)}). Lot size and Exness fuel are already adjusted. The very next Exness win (prop loss) will wipe the debt and revert the target to {money(recovery.baseExnessWinTarget)}.
           </Alert>
         )}

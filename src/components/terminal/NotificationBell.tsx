@@ -82,7 +82,7 @@ export function NotificationBell() {
           {/* Permission hint */}
           {permission !== "granted" && (
             <div className="border-b border-border/20 bg-amber-500/10 px-4 py-2 text-[11px] text-amber-400">
-              🔔 Click "Enable Push" to get alerts on your phone
+              Click "Enable Push" to get alerts on your phone
             </div>
           )}
 
@@ -126,7 +126,7 @@ export function NotificationBell() {
                 onClick={() => sendPushNotification("GizzyFx Test", "Notifications are working!")}
                 className="w-full rounded-md bg-secondary/50 px-3 py-2 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
               >
-                🔔 Send test notification
+                Send test notification
               </button>
             </div>
           )}

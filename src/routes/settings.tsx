@@ -194,7 +194,7 @@ function SettingsPage() {
       >
         {/* Demo-only notice */}
         <div className="mb-4 rounded-lg border border-warning/25 bg-warning/8 px-3 py-2 text-[12px] text-warning">
-          ⚠ Only <strong>demo</strong> accounts are accepted. Real/live accounts are hard-blocked
+          Only <strong>demo</strong> accounts are accepted. Real/live accounts are hard-blocked
           regardless of what you enter.
         </div>
 

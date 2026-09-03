@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import {
+  ShieldX, ShieldAlert, ShieldCheck, XCircle, AlertTriangle, CheckCircle2,
+  MinusCircle, Clock, Activity, Radio,
+} from "lucide-react";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -273,8 +277,8 @@ function CalendarPage() {
             animation: "pulse 2s ease-in-out infinite",
           }}
         >
-          <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>
-            🚫 DO NOT TRADE NOW
+          <div className="text-2xl font-black flex items-center justify-center gap-2" style={{ color: "oklch(0.680 0.230 295)" }}>
+            <ShieldX size={24} /> DO NOT TRADE NOW
           </div>
           <p className="mt-2 text-[14px] text-muted-foreground">
             High-impact news within 2 hours or medium-impact within 30 min. Spreads will spike.
@@ -282,12 +286,12 @@ function CalendarPage() {
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {critical.map((e) => (
               <span key={e.id} className="rounded-full px-3 py-1 text-[11px] font-bold font-mono tabular-nums" style={{ background: "oklch(0.680 0.230 295 / 0.2)", color: "oklch(0.680 0.230 295)" }}>
-                🔴 {e.event.slice(0, 35)} — {formatCountdown(e.secondsUntil)}
+                {e.event.slice(0, 35)} — {formatCountdown(e.secondsUntil)}
               </span>
             ))}
             {warning.map((e) => (
               <span key={e.id} className="rounded-full px-3 py-1 text-[11px] font-bold font-mono tabular-nums" style={{ background: "oklch(0.680 0.230 295 / 0.1)", color: "oklch(0.680 0.230 295)" }}>
-                🟡 {e.event.slice(0, 35)} — {formatCountdown(e.secondsUntil)}
+                {e.event.slice(0, 35)} — {formatCountdown(e.secondsUntil)}
               </span>
             ))}
           </div>
@@ -301,7 +305,7 @@ function CalendarPage() {
           }}
         >
           <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>
-            ⚡ CAUTION — NEWS APPROACHING
+            <ShieldAlert size={24} className="inline" /> CAUTION — NEWS APPROACHING
           </div>
           <p className="mt-2 text-[14px] text-muted-foreground">
             High-impact events within 2-3 hours. Avoid new entries.
@@ -309,7 +313,7 @@ function CalendarPage() {
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {caution.map((e) => (
               <span key={e.id} className="rounded-full px-3 py-1 text-[11px] font-bold font-mono tabular-nums" style={{ background: "oklch(0.680 0.230 295 / 0.1)", color: "oklch(0.680 0.230 295)" }}>
-                🟠 {e.event.slice(0, 35)} — {formatCountdown(e.secondsUntil)}
+                {e.event.slice(0, 35)} — {formatCountdown(e.secondsUntil)}
               </span>
             ))}
           </div>
@@ -323,7 +327,7 @@ function CalendarPage() {
           }}
         >
           <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>
-            ✅ SAFE TO TRADE
+            <ShieldCheck size={24} className="inline" /> SAFE TO TRADE
           </div>
           <p className="mt-2 text-[14px] text-muted-foreground">
             No high-impact news in the next 3 hours.{" "}
@@ -538,14 +542,14 @@ function CalendarPage() {
                             }}
                           >
                             {ev.hazardLevel === "critical"
-                              ? "🔴 CRITICAL"
+                              ? "CRITICAL"
                               : ev.hazardLevel === "warning"
-                              ? "🟡 WARNING"
+                              ? "WARNING"
                               : ev.hazardLevel === "caution"
-                              ? "🟠 CAUTION"
+                              ? "CAUTION"
                               : isPast
-                              ? "⬜ PASSED"
-                              : "🟢 SAFE"}
+                              ? "PASSED"
+                              : "SAFE"}
                           </span>
                         </td>
                       </tr>

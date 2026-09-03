@@ -244,7 +244,7 @@ function JournalPage() {
         carryPhase1Leftover: Math.round(recovery.actualExnessBalance * 100) / 100,
       });
       setShowTransition(true);
-      toast.success(`🎉 CHALLENGE PASSED! Phase 2 Mega Shield activated. P1 spent: ${money(p1Spent)}`);
+      toast.success(`CHALLENGE PASSED! Phase 2 Mega Shield activated. P1 spent: ${money(p1Spent)}`);
     }
   }
 
@@ -360,7 +360,7 @@ function JournalPage() {
           </div>
           <p className="mt-3 text-[11px] text-muted-foreground">
             {recovery.adjustmentNeeded ? (
-              <>⚡ Slippage debt of <strong>{money(recovery.slippageDebt)}</strong> — the next Exness win wipes it. Target bumped from {money(recovery.baseExnessWinTarget)} to <strong>{money(recovery.newExnessWinTarget)}</strong>; lot size already adjusted.</>
+              <>Slippage debt of <strong>{money(recovery.slippageDebt)}</strong> — the next Exness win wipes it. Target bumped from {money(recovery.baseExnessWinTarget)} to <strong>{money(recovery.newExnessWinTarget)}</strong>; lot size already adjusted.</>
             ) : (
               <>No debt open. Next Exness win target stays at the base pace of {money(recovery.baseExnessWinTarget)}. Any slippage on a future trade will accrue into a one-leg martingale bump that wipes on the next Exness win.</>
             )}
@@ -421,7 +421,7 @@ function JournalPage() {
             </Button>
             {lastSync && <span className="text-[11px] text-muted-foreground">Last sync: {lastSync}</span>}
             {!meta.token || !meta.exnessAccountId ? (
-              <span className="text-[11px] text-amber-400">⚠️ Add MetaApi credentials in Settings</span>
+              <span className="text-[11px] text-amber-400">Add MetaApi credentials in Settings</span>
             ) : (
               <span className="text-[11px] text-muted-foreground">Fetches last 7 days of closed deals from MetaApi</span>
             )}
@@ -462,7 +462,7 @@ function JournalPage() {
           <Stat label="Losses remaining" value={recovery.remainingLosses} />
           <Stat label="Exness balance" value={money(recovery.actualExnessBalance)} tone={recovery.actualExnessBalance >= 0 ? "text-success" : "text-destructive"} />
           <Stat
-            label={recovery.adjustmentNeeded ? "Next target (martingale) ⚡" : "Win target"}
+            label={recovery.adjustmentNeeded ? "Next target (martingale)" : "Win target"}
             value={money(recovery.newExnessWinTarget)}
             tone={recovery.adjustmentNeeded ? "text-amber-400" : undefined}
           />
@@ -477,14 +477,14 @@ function JournalPage() {
         {recovery.challengePassed && (
           <div className="mt-3 space-y-2">
             <p className="rounded border border-success/30 bg-success/10 px-3 py-2 text-[11px] text-success font-semibold">
-              🎉 Challenge Passed! Request your payout. Switch to Phase 2 (Mega Shield) for the Funded Stage.
+              Challenge Passed! Request your payout. Switch to Phase 2 (Mega Shield) for the Funded Stage.
             </p>
             {r.phase === 1 && (
               <Button variant="success" onClick={triggerPhaseTransition}>🚀 Activate Phase 2 Mega Shield</Button>
             )}
             {showTransition && r.phase === 2 && (
               <p className="rounded border border-success/30 bg-success/10 px-3 py-2 text-[11px] text-success">
-                ✅ Phase 2 activated! P1 spent: <strong>{money(r.phase1TotalSpent)}</strong>, Exness balance: <strong>{money(recovery.actualExnessBalance)}</strong>. Deposit the Phase 2 refill to start the Funded Stage.
+                Phase 2 activated! P1 spent: <strong>{money(r.phase1TotalSpent)}</strong>, Exness balance: <strong>{money(recovery.actualExnessBalance)}</strong>. Deposit the Phase 2 refill to start the Funded Stage.
               </p>
             )}
           </div>
@@ -492,13 +492,13 @@ function JournalPage() {
 
         {recovery.bufferDepleted && !recovery.challengePassed && (
           <p className="mt-3 rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive font-semibold">
-            ⚠️ CRITICAL: Exness Buffer Depleted — deposit <strong>{money(recovery.depositNeeded)}</strong> to maintain the zero-loss loop.
+            CRITICAL: Exness Buffer Depleted — deposit <strong>{money(recovery.depositNeeded)}</strong> to maintain the zero-loss loop.
           </p>
         )}
 
         {recovery.adjustmentNeeded && !recovery.challengePassed && (
           <p className="mt-3 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
-            ⚡ Martingale active: debt <strong>{money(recovery.slippageDebt)}</strong> added to the next Exness target ({money(recovery.baseExnessWinTarget)} → {money(recovery.newExnessWinTarget, true)}). The next Exness win wipes it.
+            Martingale active: debt <strong>{money(recovery.slippageDebt)}</strong> added to the next Exness target ({money(recovery.baseExnessWinTarget)} → {money(recovery.newExnessWinTarget, true)}). The next Exness win wipes it.
           </p>
         )}
 
