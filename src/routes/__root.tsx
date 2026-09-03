@@ -323,6 +323,9 @@ function RootComponent() {
                 WebkitBackdropFilter: "blur(24px) saturate(1.6)",
                 borderBottom: "1px solid oklch(var(--gz-p) / 0.12)",
                 boxShadow: "0 1px 0 oklch(var(--gz-p) / 0.06), 0 4px 32px oklch(0 0 0 / 0.50)",
+                width: "100%",
+                left: 0,
+                right: 0,
               }}
             >
               {/* Top accent line */}
@@ -450,7 +453,7 @@ function RootComponent() {
             </header>
 
           {/* ── Page content ─────────────────────────────────── */}
-          <main key={pathname} className="stagger w-full flex-1 px-4 pt-5 pb-8 sm:px-6 lg:px-10 xl:px-16">
+          <main key={pathname} className="stagger w-full flex-1 px-4 pt-5 pb-8 sm:px-6 lg:px-10 xl:px-16" style={{ minWidth: 0 }}>
             <Outlet />
           </main>
 

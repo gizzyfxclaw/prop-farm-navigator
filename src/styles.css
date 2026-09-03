@@ -124,21 +124,22 @@
    BASE — Mobile-first, large & visible
    ══════════════════════════════════════════════════════════════════ */
 @layer base {
-  /* Kill any gap between browser chrome and our header */
   html, body, #app, #root {
     margin: 0;
     padding: 0;
+    width: 100%;
   }
   * { border-color: var(--color-border); }
 
   html {
     scroll-behavior: smooth;
-    /* Match header bg so any sub-pixel gap is invisible */
-    background-color: oklch(var(--gz-s3));
+    /* Same bg as body so NO visible gap anywhere */
+    background-color: oklch(var(--gz-bg));
+    overflow-x: hidden;
   }
 
   body {
-    background-color: var(--color-background);
+    background-color: oklch(var(--gz-bg));
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-size: 16px;
@@ -147,9 +148,8 @@
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "tnum" 1, "cv11" 1;
     overflow-x: hidden;
-    margin: 0;
-    padding: 0;
     min-height: 100vh;
+    width: 100%;
   }
 
   #app, .relative.min-h-screen {
@@ -531,6 +531,7 @@ table tr:hover td {
   flex-direction: column;
   gap: 1rem;
   width: 100%;
+  min-width: 0;
   align-items: stretch;
 }
 
