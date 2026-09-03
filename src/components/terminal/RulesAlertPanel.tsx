@@ -4,6 +4,11 @@ import { useEngine } from "@/lib/useEngine";
 import { useStore } from "@/lib/store";
 import { computeRecovery } from "@/lib/recovery";
 import { marketStatus } from "@/lib/market-hours";
+import {
+  CheckCircle2, AlertTriangle, XCircle, Info, Clock, Shield, ShieldAlert,
+  ShieldCheck, ShieldX, Activity, TrendingUp, Zap, Radio, CircleDot,
+  ArrowRightLeft, Monitor, FileWarning, Trash2, RefreshCw,
+} from "lucide-react";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -273,16 +278,16 @@ export function RulesAlertPanel() {
           : inPreLondon ? "info" as const
           : "warning" as const,
         message: inOverlap
-          ? `🟢 PRIME TIME — London/NY overlap, ${formatCountdown(secsInOverlap)} left`
+          ? `PRIME TIME — London/NY overlap, ${formatCountdown(secsInOverlap)} left`
           : inLondon
-          ? `🟢 London session active — overlap in ${formatCountdown(secsToOverlap)}`
+          ? `London session active — overlap in ${formatCountdown(secsToOverlap)}`
           : inNY
-          ? `🟢 NY session active — closes in ${formatCountdown(nyEnd - etSec)}`
+          ? `NY session active — closes in ${formatCountdown(nyEnd - etSec)}`
           : inPreLondon
-          ? `🔵 Pre-London — London opens in ${formatCountdown(secsToLondon)}`
+          ? `Pre-London — London opens in ${formatCountdown(secsToLondon)}`
           : nextGoodStart > 0
-          ? `🟡 OFF-HOURS — next window (London) in ${formatCountdown(nextGoodStart)}`
-          : `🟡 OFF-HOURS — wait for London open`,
+          ? `OFF-HOURS — next window (London) in ${formatCountdown(nextGoodStart)}`
+          : `OFF-HOURS — wait for London open`,
         countdown: inOverlap ? formatCountdown(secsInOverlap)
           : inGoodWindow ? formatCountdown(inLondon ? secsToOverlap : nyEnd - etSec)
           : formatCountdown(nextGoodStart),
@@ -293,7 +298,7 @@ export function RulesAlertPanel() {
         rule: RULES[2]!,
         status: highWithin30min.length > 0 ? "critical" : "ok",
         message: highWithin30min.length > 0
-          ? `🚫 ${highWithin30min[0]!.event.slice(0, 30)} — ${formatCountdown(highWithin30min[0]!.secsUntil)}`
+          ? `BLOCKED: ${highWithin30min[0]!.event.slice(0, 30)} — ${formatCountdown(highWithin30min[0]!.secsUntil)}`
           : nearestHigh && nearestHigh.secsUntil > 0
           ? `Next HIGH: ${nearestHigh.event.slice(0, 25)} in ${formatCountdown(nearestHigh.secsUntil)}`
           : `No HIGH news in danger window`,
@@ -309,7 +314,7 @@ export function RulesAlertPanel() {
         rule: RULES[3]!,
         status: highWithin2h.length > 0 ? "warning" : highWithin3h.length > 0 ? "info" : "ok",
         message: highWithin2h.length > 0
-          ? `⚠️ ${highWithin2h[0]!.event.slice(0, 30)} — ${formatCountdown(highWithin2h[0]!.secsUntil)}`
+          ? `WARNING: ${highWithin2h[0]!.event.slice(0, 30)} — ${formatCountdown(highWithin2h[0]!.secsUntil)}`
           : highWithin3h.length > 0
           ? `CAUTION: ${highWithin3h[0]!.event.slice(0, 25)} in ${formatCountdown(highWithin3h[0]!.secsUntil)}`
           : `No HIGH news in next 3 hours`,
@@ -338,7 +343,7 @@ export function RulesAlertPanel() {
         status: slOptions.includes(r.propSlPips) ? "ok" as const : "warning" as const,
         message: slOptions.includes(r.propSlPips)
           ? `Current: ${r.propSlPips} pips ✓ — next rotation: ${suggestedSl} pips`
-          : `⚠️ SL ${r.propSlPips} not in rotation! Use ${slOptions.join(", ")}`,
+          : `WARNING: SL ${r.propSlPips} not in rotation! Use ${slOptions.join(", ")}`,
       },
 
       // 7. Exness FIRST
@@ -406,19 +411,20 @@ export function RulesAlertPanel() {
     : "GO";
 
   const verdictConfig = {
-    GO: { label: "✅ CLEAR TO TRADE", bg: "oklch(0.55 0.2 155 / 0.12)", border: "oklch(0.55 0.2 155 / 0.3)", color: "oklch(0.65 0.2 155)", sub: "All conditions met. Follow your entry rules." },
-    CAUTION: { label: "⚡ TRADE WITH CAUTION", bg: "oklch(0.75 0.18 80 / 0.1)", border: "oklch(0.75 0.18 80 / 0.25)", color: "oklch(0.80 0.16 80)", sub: "News approaching. Enter only if setup is strong." },
-    WAIT_NEWS: { label: "🚫 DO NOT TRADE — NEWS", bg: "oklch(0.55 0.25 29 / 0.12)", border: "oklch(0.55 0.25 29 / 0.3)", color: "oklch(0.70 0.22 29)", sub: "High-impact news within 30 minutes. Wait." },
-    WAIT_SESSION: { label: "⏳ WAIT FOR SESSION", bg: "oklch(0.75 0.18 80 / 0.08)", border: "oklch(0.75 0.18 80 / 0.2)", color: "oklch(0.80 0.16 80)", sub: "Outside trading window. Wait for London or NY." },
+    GO: { icon: <ShieldCheck size={20} />, label: "CLEAR TO TRADE", bg: "oklch(0.55 0.2 155 / 0.12)", border: "oklch(0.55 0.2 155 / 0.3)", color: "oklch(0.65 0.2 155)", sub: "All conditions met. Follow your entry rules." },
+    CAUTION: { icon: <ShieldAlert size={20} />, label: "TRADE WITH CAUTION", bg: "oklch(0.75 0.18 80 / 0.1)", border: "oklch(0.75 0.18 80 / 0.25)", color: "oklch(0.80 0.16 80)", sub: "News approaching. Enter only if setup is strong." },
+    WAIT_NEWS: { icon: <ShieldX size={20} />, label: "DO NOT TRADE — NEWS", bg: "oklch(0.55 0.25 29 / 0.12)", border: "oklch(0.55 0.25 29 / 0.3)", color: "oklch(0.70 0.22 29)", sub: "High-impact news within 30 minutes. Wait." },
+    WAIT_SESSION: { icon: <Clock size={20} />, label: "WAIT FOR SESSION", bg: "oklch(0.75 0.18 80 / 0.08)", border: "oklch(0.75 0.18 80 / 0.2)", color: "oklch(0.80 0.16 80)", sub: "Outside trading window. Wait for London or NY." },
   };
   const v = verdictConfig[verdict];
 
   const statusIcon = (status: LiveRuleState["status"]) => {
+    const size = 14;
     switch (status) {
-      case "critical": return "🔴";
-      case "warning": return "🟡";
-      case "ok": return "🟢";
-      case "info": return "🔵";
+      case "critical": return <XCircle size={size} style={{ color: "oklch(0.70 0.22 29)" }} />;
+      case "warning": return <AlertTriangle size={size} style={{ color: "oklch(0.80 0.16 80)" }} />;
+      case "ok": return <CheckCircle2 size={size} style={{ color: "oklch(0.65 0.2 155)" }} />;
+      case "info": return <Info size={size} style={{ color: "oklch(0.680 0.230 295)" }} />;
     }
   };
 
@@ -499,7 +505,8 @@ export function RulesAlertPanel() {
             border: `2px solid ${v.border}`,
             borderLeftWidth: "5px",
           }}>
-            <div className="text-[16px] font-black" style={{ color: v.color }}>
+            <div className="text-[16px] font-black flex items-center justify-center gap-2" style={{ color: v.color }}>
+              <span style={{ color: v.color }}>{v.icon}</span>
               {v.label}
             </div>
             <div className="text-[12px] mt-1" style={{ color: v.color, opacity: 0.8 }}>
