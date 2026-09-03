@@ -339,7 +339,7 @@ function RootComponent() {
                   background: "oklch(var(--gz-s1) / 0.40)",
                 }}
               >
-                <div className="mx-auto w-full px-2 sm:px-4 lg:px-8" style={{ maxWidth: "1280px" }}>
+                <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
                 <div className="flex items-center justify-between py-1">
                   <div className="flex items-center gap-4">
                     <MarketStatus />
@@ -356,7 +356,7 @@ function RootComponent() {
               </div>
 
               {/* ── Main Command Bar ──────────────────────────── */}
-              <div className="mx-auto w-full px-2 sm:px-4 lg:px-8" style={{ maxWidth: "1280px" }}>
+              <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
                 <div className="flex items-center justify-between py-2.5 sm:py-3">
                   {/* Logo + Nav */}
                   <div className="flex items-center gap-6">
@@ -450,14 +450,14 @@ function RootComponent() {
             </header>
 
           {/* ── Page content ─────────────────────────────────── */}
-          <main key={pathname} className="stagger w-full px-4 pt-5 pb-8 sm:px-6 lg:px-8 mx-auto" style={{ maxWidth: "1280px" }}>
+          <main key={pathname} className="stagger w-full flex-1 px-4 pt-5 pb-8 sm:px-6 lg:px-10 xl:px-16">
             <Outlet />
           </main>
 
           {/* ── Footer ──────────────────────────────────────── */}
           <footer
-            className="w-full px-4 py-4 sm:px-6 sm:py-8 lg:px-8 mx-auto"
-            style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.09)", maxWidth: "1280px" }}
+            className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:px-10 xl:px-16"
+            style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.09)" }}
           >
             <div className="flex flex-wrap items-center justify-between gap-4">
               <p className="text-[12px] sm:text-[13px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>
