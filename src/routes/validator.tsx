@@ -72,6 +72,18 @@ function ValidatorPage() {
         <Stat label="Wins to pass / losses to blow" value={`${r.winsToPass} / ${r.lossesToBlow}`} />
       </div>
 
+      {/* Validator warnings */}
+      {r.lossesToBlow < 3 && (
+        <Alert level="red" title="Dangerous: too few losses allowed">
+          Only {r.lossesToBlow} loss{r.lossesToBlow === 1 ? "" : "es"} before account blow. The mirror strategy needs at least 3 losses to absorb slippage. Reduce Prop Risk or pick a bigger account.
+        </Alert>
+      )}
+      {r.winsToPass > 15 && (
+        <Alert level="amber" title="Warning: many wins needed">
+          {r.winsToPass} wins needed to pass. This extends your exposure time and slippage risk. Consider a higher R:R or smaller account.
+        </Alert>
+      )}
+
       <Card title="Selected account breakdown" badge={<Badge tone="neutral">Phase {r.phase}</Badge>}>
         {r.capitalBreakdown.map((b) => (
           <Row key={b.label} label={b.label} value={money(b.value)} strong={b.label.startsWith("Total")} />

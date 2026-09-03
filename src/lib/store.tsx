@@ -125,25 +125,21 @@ interface Preset {
 }
 
 const PRESET_LADDER: Preset[] = [
-  { size: 50, fee: 4.99, targetPct: 10, ddPct: 5, dailyProfitCap: 5 },
-  { size: 100, fee: 9.99, targetPct: 10, ddPct: 5, dailyProfitCap: 10 },
-  { size: 200, fee: 19.99, targetPct: 10, ddPct: 5, dailyProfitCap: 20 },
-  { size: 500, fee: 34.99, targetPct: 10, ddPct: 5, dailyProfitCap: 50 },
-  { size: 1000, fee: 59, targetPct: 10, ddPct: 5, dailyProfitCap: 100 },
-  { size: 2500, fee: 135, targetPct: 10, ddPct: 5, dailyProfitCap: 250 },
-  { size: 5000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 100 },
-  { size: 10000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 100 },
-  { size: 25000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 250 },
-  { size: 50000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 500 },
-  { size: 100000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 1000 },
-  { size: 200000, fee: 28.6, targetPct: 6, ddPct: 6, dailyProfitCap: 2000 },
+  // E8 One — Forex (current 2026 prices with E8 discount)
+  // All: 9% profit target, 6% dynamic drawdown, 80% payout
+  { size: 5000, fee: 44, targetPct: 9, ddPct: 6, dailyProfitCap: 100 },
+  { size: 10000, fee: 80, targetPct: 9, ddPct: 6, dailyProfitCap: 200 },
+  { size: 25000, fee: 170, targetPct: 9, ddPct: 6, dailyProfitCap: 500 },
+  { size: 50000, fee: 260, targetPct: 9, ddPct: 6, dailyProfitCap: 1000 },
+  { size: 100000, fee: 440, targetPct: 9, ddPct: 6, dailyProfitCap: 2000 },
+  { size: 200000, fee: 719, targetPct: 9, ddPct: 6, dailyProfitCap: 4000 },
 ];
 
 export const defaultAccounts = (): PropAccount[] =>
   PRESET_LADDER.map((p) => {
     const acc: PropAccount = {
       id: `preset-${p.size}`,
-      firm: `Prop $${p.size.toLocaleString()}`,
+      firm: `E8 One $${(p.size / 1000).toFixed(0)}k`,
       size: p.size,
       fee: p.fee,
       targetPct: p.targetPct,
