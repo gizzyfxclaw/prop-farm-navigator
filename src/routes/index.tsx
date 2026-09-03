@@ -451,7 +451,7 @@ function EnginePage() {
         </div>
         {recovery.adjustmentNeeded && (
           <p className="mt-2 text-[10px] text-amber-400">
-            ⚡ Martingale bump active — Exness fuel increased from {money(r.requiredExnessCapital)} to <strong>{money(recovery.dynamicExnessCapital)}</strong> to cover the slippage debt of {money(recovery.slippageDebt)} + the {r.bufferPct}% buffer.
+            ⚡ Martingale bump active — Exness fuel increased from {money(r.phase === 1 ? r.phase1.bufferedExnessCapital : r.phase2.bufferedExnessCapital)} to <strong>{money(recovery.dynamicExnessCapital)}</strong> to cover the slippage debt of {money(recovery.slippageDebt)} + the {r.bufferPct}% buffer.
           </p>
         )}
         <div className="mt-3 rounded border border-border bg-muted/30 p-3">
