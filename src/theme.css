@@ -320,3 +320,11 @@ img[src$=".svg"] { image-rendering: auto; }
 [data-mode="light"] * {
   scrollbar-color: oklch(var(--gz-txt) / 0.22) transparent;
 }
+
+/* Watermark filter — desaturate in light mode so the coloured logo doesn't overpower white */
+:root {
+  --gz-watermark-filter: none;
+}
+[data-mode="light"] {
+  --gz-watermark-filter: grayscale(0.7) brightness(0.35);
+}

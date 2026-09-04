@@ -31,25 +31,43 @@ function ValidatorPage() {
   const { accounts, engine, setEngine } = useStore();
   const r = useEngine();
 
+  /** Select an account and auto-scale risk proportionally ($50 per $5k). */
+  function selectAccount(id: string) {
+    const acct = accounts.find((a) => a.id === id);
+    const patch: Parameters<typeof setEngine>[0] = { selectedAccountId: id };
+    if (acct) {
+      const scaled = Math.round((50 * acct.size / 5000) * 100) / 100;
+      const currentRatio = engine.propRiskUsd / ((accounts.find((a) => a.id === engine.selectedAccountId)?.size) ?? 5000);
+      const isDefaultRatio = Math.abs(currentRatio - (50 / 5000)) < 0.0001;
+      if (isDefaultRatio) patch.propRiskUsd = scaled;
+    }
+    setEngine(patch);
+  }
+
   const ranked = accounts
-    .map((account) => ({
-      account,
-      result: calculate({
+    .map((account) => {
+      // Each account is evaluated with its OWN proportional risk so the
+      // wins/losses shown are what you'd actually get for that account size.
+      const scaledRisk = Math.round((50 * account.size / 5000) * 100) / 100;
+      return {
         account,
-        phase: engine.phase,
-        propRiskUsd: engine.propRiskUsd,
-        rr: engine.rr,
-        slPips: engine.slPips,
-        desiredProfit: engine.desiredProfit,
-        bufferPct: engine.bufferPct,
-        pair: engine.pair,
-        direction: engine.direction,
-        entryPrice: engine.entryPrice,
-        exnessAccountType: engine.exnessAccountType,
-        carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
-        carryPhase1Leftover: engine.carryPhase1Leftover,
-      }),
-    }))
+        result: calculate({
+          account,
+          phase: engine.phase,
+          propRiskUsd: scaledRisk,
+          rr: engine.rr,
+          slPips: engine.slPips,
+          desiredProfit: engine.desiredProfit,
+          bufferPct: engine.bufferPct,
+          pair: engine.pair,
+          direction: engine.direction,
+          entryPrice: engine.entryPrice,
+          exnessAccountType: engine.exnessAccountType,
+          carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
+          carryPhase1Leftover: engine.carryPhase1Leftover,
+        }),
+      };
+    })
     .sort((a, b) => b.result.netProfitIfPassed - a.result.netProfitIfPassed);
 
   const tradable = ranked.filter((x) => x.result.verdict.level === "green").length;
@@ -181,7 +199,7 @@ function ValidatorPage() {
             return (
               <button
                 key={account.id}
-                onClick={() => setEngine({ selectedAccountId: account.id })}
+                onClick={() => selectAccount(account.id)}
                 className="w-full text-left fx-press"
                 style={{
                   display: "block",
@@ -221,6 +239,7 @@ function ValidatorPage() {
             head={[
               { label: "Account" },
               { label: "Size", align: "right" },
+              { label: "Risk", align: "right" },
               { label: "Target", align: "right" },
               { label: "Max DD", align: "right" },
               { label: "Wins / Losses", align: "right" },
@@ -232,23 +251,25 @@ function ValidatorPage() {
             ]}
           >
             {ranked.map(({ account, result }) => {
-              const selected = engine.selectedAccountId === account.id;
-              const good = result.verdict.level === "green";
-              return (
-                <tr key={account.id} className={selected ? "is-selected" : undefined}>
-                  <td style={{ color: "oklch(var(--gz-txt))", fontWeight: 600 }}>{account.firm}</td>
-                  <td className="num">${account.size.toLocaleString()}</td>
-                  <td className="num c-pos">{money(result.targetUsd)}</td>
-                  <td className="num c-neg">{money(result.maxDdUsd)}</td>
-                  <td className="num" style={{ fontWeight: 700, color: "oklch(var(--gz-p))" }}>
-                    {result.winsToPass}W / {result.lossesToBlow}L
-                  </td>
-                  <td className="num">{money(account.fee)}</td>
-                  <td className="num">{money(result.totalRequiredCapital)}</td>
-                  <td className="num" style={{ color: result.netProfitIfPassed >= 20 ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))", fontWeight: 700 }}>
-                    {money(result.netProfitIfPassed, true)}
-                  </td>
-                  <td>
+            const selected = engine.selectedAccountId === account.id;
+            const good = result.verdict.level === "green";
+            const scaledRisk = Math.round((50 * account.size / 5000) * 100) / 100;
+            return (
+              <tr key={account.id} className={selected ? "is-selected" : undefined}>
+                <td style={{ color: "oklch(var(--gz-txt))", fontWeight: 600 }}>{account.firm}</td>
+                <td className="num">${account.size.toLocaleString()}</td>
+                <td className="num" style={{ color: "oklch(var(--gz-mut))" }}>{money(scaledRisk)}</td>
+                <td className="num c-pos">{money(result.targetUsd)}</td>
+                <td className="num c-neg">{money(result.maxDdUsd)}</td>
+                <td className="num" style={{ fontWeight: 800, color: "oklch(var(--gz-p))" }}>
+                  {result.winsToPass}W / {result.lossesToBlow}L
+                </td>
+                <td className="num">{money(account.fee)}</td>
+                <td className="num">{money(result.totalRequiredCapital)}</td>
+                <td className="num" style={{ color: result.netProfitIfPassed >= 20 ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))", fontWeight: 700 }}>
+                  {money(result.netProfitIfPassed, true)}
+                </td>
+                <td>
                     <Badge tone={good ? "green" : "red"}>
                       {good ? <ShieldCheck size={11} /> : <ShieldX size={11} />}
                       {good ? "Trade" : "Skip"}
@@ -257,7 +278,7 @@ function ValidatorPage() {
                   <td style={{ textAlign: "right" }}>
                     <Button
                       variant={selected ? "success" : "ghost"}
-                      onClick={() => setEngine({ selectedAccountId: account.id })}
+                      onClick={() => selectAccount(account.id)}
                     >
                       {selected ? "Selected" : "Select"}
                     </Button>

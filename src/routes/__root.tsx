@@ -21,7 +21,7 @@ import { ConnectionIndicator } from "../components/terminal/ConnectionIndicator"
 import { AccountBalance } from "../components/terminal/AccountBalance";
 import { LivePrice } from "../components/terminal/LivePrice";
 import { MarketTape } from "../components/terminal/MarketTape";
-import { LogoMark, LogoWordmark } from "../components/brand/logo";
+import { LogoMark, LogoWordmark, LogoWatermark } from "../components/brand/logo";
 
 const NAV = [
   { to: "/", label: "Engine",         short: "Engine"  },
@@ -290,9 +290,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "icon", href: "/favicon-32.png", type: "image/png", sizes: "32x32" },
       { rel: "icon", href: "/favicon-180.png", type: "image/png", sizes: "180x180" },
-      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-      { rel: "alternate icon", href: "/favicon.ico", type: "image/x-icon" },
-      { rel: "apple-touch-icon", href: "/favicon-180.png" },
+      { rel: "icon", href: "/favicon-32.png", type: "image/png" },
+      { rel: "icon", href: "/favicon-16.png", type: "image/png", sizes: "16x16" },
+      { rel: "icon", href: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { rel: "icon", href: "/favicon-192.png", type: "image/png", sizes: "192x192" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
     scripts: [
       {
@@ -396,6 +398,7 @@ function RootComponent() {
       <NotificationProvider>
         <StoreProvider>
           <Backdrop />
+          <LogoWatermark />
 
           <div className="relative min-h-screen w-full" style={{ zIndex: 1 }}>
             {/* ── Command bar ──────────────────────────────────────── */}
@@ -425,7 +428,9 @@ function RootComponent() {
                       className="flex items-center gap-2 select-none flex-shrink-0"
                       aria-label="GizzyFx home"
                     >
-                      <LogoMark size={28} />
+                      {/* Show mark icon + "GizzyFX" text wordmark */}
+                      <LogoMark size={32} />
+                      <LogoWordmark height={28} />
                     </Link>
 
                     <nav
