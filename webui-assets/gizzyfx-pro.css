@@ -1,328 +1,1088 @@
 /**
- * GizzyFx Pro — Trading Terminal Skin for Hermes WebUI
- * Mobile-first, responsive, uses standard hex colors for compatibility.
+ * GizzyFx Professional Trading Co-Pilot — Complete Hermes WebUI Redesign
+ * 
+ * A sharp, matte, institutional aesthetic for the Hermes WebUI chat interface.
+ * Transforms the chat into a professional trading co-pilot command center.
+ * 
+ * Features:
+ * - Bloomberg-style dark institutional palette
+ * - Sharp corners, matte surfaces, no glassmorphism
+ * - Professional typography (Inter + JetBrains Mono)
+ * - Trading status bar with market/connection indicators
+ * - Dense information layout
+ * - Status indicators for market hours, data feed, P&L
+ * 
+ * Select via Settings → Appearance → Skin → "gizzyfx-pro"
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-/* ══════════════════════════════════════════════════════════════════
-   PALETTE
-   ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   CORE PALETTE — Professional Trading Co-Pilot
+   ══════════════════════════════════════════════════════════════════════ */
 
 :root[data-skin="gizzyfx-pro"] {
-  --gz-p:   #00c8e8;
-  --gz-h:   #00e5c8;
-  --gz-bg:  #061520;
-  --gz-s1:  #0a1e2e;
-  --gz-s2:  #0f2438;
-  --gz-s3:  #081929;
-  --gz-inp: #0a1e2e;
-  --gz-txt: #e8f4f8;
-  --gz-mut: #5a8a9f;
-
+  /* ── Background surfaces ── */
+  --gz-bg:          #0a0a0a;
+  --gz-surface:     #111111;
+  --gz-surface-2:   #161616;
+  --gz-surface-3:   #1c1c1c;
+  --gz-surface-4:   #222222;
+  --gz-border:      #2a2a2a;
+  --gz-border-2:    #333333;
+  --gz-border-3:    #444444;
+  
+  /* ── Text ── */
+  --gz-text:        #e0e0e0;
+  --gz-text-strong: #ffffff;
+  --gz-muted:        #777777;
+  --gz-muted-2:       #555555;
+  
+  /* ── Accent / Brand ── */
+  --gz-accent:      #3b82f6;
+  --gz-accent-2:    #60a5fa;
+  --gz-accent-3:    #93bbfd;
+  --gz-accent-dim:  #1d4ed8;
+  
+  /* ── Semantic colors ── */
+  --gz-success:     #22c55e;
+  --gz-success-dim: #16a34a;
+  --gz-danger:      #ef4444;
+  --gz-danger-dim:  #dc2626;
+  --gz-warning:     #f59e0b;
+  --gz-warning-dim: #d97706;
+  --gz-info:        #06b6d4;
+  --gz-info-dim:    #0891b2;
+  
+  /* ── Chart colors ── */
+  --gz-bull:        #22c55e;
+  --gz-bear:        #ef4444;
+  --gz-neutral:     #6b7280;
+  
+  /* ── Override Hermes CSS variables ── */
   --bg:              var(--gz-bg);
-  --sidebar:         var(--gz-s1);
-  --border:          rgba(0, 200, 232, 0.10);
-  --border2:         rgba(0, 200, 232, 0.18);
-  --text:            var(--gz-txt);
-  --muted:           var(--gz-mut);
-  --accent:          var(--gz-p);
-  --blue:            var(--gz-h);
-  --gold:            #f59e0b;
-  --code-bg:         var(--gz-s2);
-  --surface:         var(--gz-s2);
-  --topbar-bg:       rgba(8, 25, 41, 0.92);
+  --sidebar:         var(--gz-surface);
+  --border:          var(--gz-border);
+  --border2:         var(--gz-border-2);
+  --text:            var(--gz-text);
+  --muted:           var(--gz-muted);
+  --accent:          var(--gz-accent);
+  --blue:            var(--gz-accent-2);
+  --gold:            var(--gz-warning);
+  --code-bg:         var(--gz-surface-2);
+  --surface:         var(--gz-surface);
+  --topbar-bg:       var(--gz-surface);
   --main-bg:         var(--gz-bg);
-  --focus-ring:      rgba(0, 200, 232, 0.40);
-  --focus-glow:      rgba(0, 200, 232, 0.10);
-  --input-bg:        var(--gz-inp);
-  --hover-bg:        var(--gz-s3);
-  --strong:          #ffffff;
-  --em:              var(--gz-mut);
-  --code-text:       var(--gz-txt);
-  --code-inline-bg:  var(--gz-s2);
-  --pre-text:        var(--gz-txt);
-  --accent-hover:    var(--gz-h);
-  --accent-bg:       rgba(0, 200, 232, 0.08);
-  --accent-bg-strong: rgba(0, 200, 232, 0.15);
-  --accent-text:     var(--gz-h);
-  --error:           #ef4444;
-  --success:         #22c55e;
-  --warning:         #f59e0b;
-  --info:            #06b6d4;
-
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-card: 4px;
-  --radius-lg: 6px;
-  --radius-pill: 999px;
-  --surface-subtle:       var(--gz-s2);
-  --surface-subtle-hover: var(--gz-s3);
-  --border-subtle:        rgba(0, 200, 232, 0.10);
-  --border-muted:         rgba(0, 200, 232, 0.18);
+  --focus-ring:      rgba(59, 130, 246, 0.35);
+  --focus-glow:      rgba(59, 130, 246, 0.1);
+  --input-bg:        var(--gz-surface-2);
+  --hover-bg:        var(--gz-surface-3);
+  --strong:          var(--gz-text-strong);
+  --em:              var(--gz-muted);
+  --code-text:       var(--gz-text);
+  --code-inline-bg:  var(--gz-surface-2);
+  --pre-text:        var(--gz-text);
+  --accent-hover:    var(--gz-accent-2);
+  --accent-bg:       rgba(59, 130, 246, 0.08);
+  --accent-bg-strong: rgba(59, 130, 246, 0.15);
+  --accent-text:     var(--gz-accent-2);
+  --error:           var(--gz-danger);
+  --success:         var(--gz-success);
+  --warning:         var(--gz-warning);
+  --info:            var(--gz-info);
+  
+  /* ── Radius — sharp institutional ── */
+  --radius-sm:       2px;
+  --radius-md:       4px;
+  --radius-card:     4px;
+  --radius-lg:       6px;
+  --radius-pill:     999px;
+  
+  /* ── Surfaces ── */
+  --surface-subtle:       var(--gz-surface-2);
+  --surface-subtle-hover: var(--gz-surface-3);
+  --border-subtle:        var(--gz-border);
+  --border-muted:         var(--gz-border-2);
+  
+  /* ── Typography ── */
   --font-ui:           "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   --font-conversation:  "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   --font-mono:          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* Blue variant */
-:root[data-skin="gizzyfx-pro"][data-theme="blue"] {
-  --gz-p:   #3b82f6;
-  --gz-h:   #60a5fa;
-  --gz-bg:  #0a1628;
-  --gz-s1:  #0f1e38;
-  --gz-s2:  #142848;
-  --gz-s3:  #0c1a30;
-  --gz-inp: #0f1e38;
-  --gz-txt: #e4eaf8;
-  --gz-mut: #5a7a9f;
-}
-
-/* Purple variant */
-:root[data-skin="gizzyfx-pro"][data-theme="purple"] {
-  --gz-p:   #a78bfa;
-  --gz-h:   #c4b5fd;
-  --gz-bg:  #1a0a2e;
-  --gz-s1:  #241445;
-  --gz-s2:  #2e1c58;
-  --gz-s3:  #201038;
-  --gz-inp: #241445;
-  --gz-txt: #ebe7f5;
-  --gz-mut: #7d719a;
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   BODY
-   ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   BODY & AMBIENT
+   ══════════════════════════════════════════════════════════════════════ */
 
 :root[data-skin="gizzyfx-pro"] body {
   background: var(--gz-bg) !important;
+  background-image: none !important;
   font-family: var(--font-ui) !important;
-  font-size: 14px !important;
-  line-height: 1.4 !important;
-  color: var(--gz-txt) !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  color: var(--gz-text) !important;
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
-  zoom: 1.15;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   SCROLLBAR
-   ══════════════════════════════════════════════════════════════════ */
+:root[data-skin="gizzyfx-pro"] body::before,
+:root[data-skin="gizzyfx-pro"] body::after {
+  display: none !important;
+}
 
-:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar { width: 6px; height: 6px; }
-:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-track { background: var(--gz-s3); }
-:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-thumb { background: rgba(0, 200, 232, 0.20); border-radius: 3px; }
-:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-thumb:hover { background: rgba(0, 200, 232, 0.35); }
+/* ══════════════════════════════════════════════════════════════════════
+   SCROLLBAR — Institutional thin
+   ══════════════════════════════════════════════════════════════════════ */
 
-/* ══════════════════════════════════════════════════════════════════
+:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-track {
+  background: var(--gz-surface-2);
+}
+
+:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-thumb {
+  background: var(--gz-border-2);
+  border-radius: 3px;
+}
+
+:root[data-skin="gizzyfx-pro"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--gz-muted);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    APP LAYOUT
-   ══════════════════════════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════════════════ */
 
 :root[data-skin="gizzyfx-pro"] #app,
-:root[data-skin="gizzyfx-pro"] main { position: relative; z-index: 1; }
-
-/* ── Title bar ── */
-:root[data-skin="gizzyfx-pro"] .app-titlebar {
-  position: sticky !important;
-  top: 0;
-  z-index: 30;
-  background: rgba(8, 25, 41, 0.92) !important;
-  backdrop-filter: blur(24px) saturate(1.6) !important;
-  border-bottom: 1px solid rgba(0, 200, 232, 0.12) !important;
-  box-shadow: 0 1px 0 rgba(0, 200, 232, 0.06), 0 4px 32px rgba(0, 0, 0, 0.50) !important;
+:root[data-skin="gizzyfx-pro"] main {
+  position: relative;
+  z-index: 1;
 }
-
-:root[data-skin="gizzyfx-pro"] .app-titlebar-title { font-weight: 600; color: var(--gz-txt); }
 
 /* ── Sidebar ── */
 :root[data-skin="gizzyfx-pro"] [class*="sidebar"] {
-  background: var(--gz-s1) !important;
-  border-right: 1px solid rgba(0, 200, 232, 0.10) !important;
+  background: var(--gz-surface) !important;
+  border-right: 1px solid var(--gz-border) !important;
+  backdrop-filter: none !important;
 }
 
-/* ── Main ── */
+/* ── Top bar / Title bar ── */
+:root[data-skin="gizzyfx-pro"] [class*="titlebar"],
+:root[data-skin="gizzyfx-pro"] [class*="topbar"],
+:root[data-skin="gizzyfx-pro"] [class*="header"] {
+  background: var(--gz-surface) !important;
+  border-bottom: 1px solid var(--gz-border) !important;
+  backdrop-filter: none !important;
+  font-family: var(--font-ui) !important;
+}
+
+/* ── Main content area ── */
 :root[data-skin="gizzyfx-pro"] [class*="main"],
-:root[data-skin="gizzyfx-pro"] [class*="chat"] { background: var(--gz-bg) !important; }
+:root[data-skin="gizzyfx-pro"] [class*="chat"] {
+  background: var(--gz-bg) !important;
+}
 
-/* ── Panel ── */
+/* ── Right panel ── */
+:root[data-skin="gizzyfx-pro"] [class*="rightpanel"],
 :root[data-skin="gizzyfx-pro"] [class*="panel-view"] {
-  background: var(--gz-s1) !important;
-  border-color: rgba(0, 200, 232, 0.10) !important;
+  background: var(--gz-surface) !important;
+  border-color: var(--gz-border) !important;
+  backdrop-filter: none !important;
 }
 
-/* ── Rail ── */
-:root[data-skin="gizzyfx-pro"] .rail {
-  background: var(--gz-s1) !important;
-  border-right: 1px solid rgba(0, 200, 232, 0.10) !important;
+/* ══════════════════════════════════════════════════════════════════════
+   CARDS / PANELS
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="gizzyfx-pro"] [class*="card"],
+:root[data-skin="gizzyfx-pro"] [class*="panel"] {
+  background: var(--gz-surface) !important;
+  border: 1px solid var(--gz-border) !important;
+  border-radius: 4px !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
 }
 
-:root[data-skin="gizzyfx-pro"] .rail-btn { color: var(--gz-mut) !important; border-radius: 4px !important; }
-:root[data-skin="gizzyfx-pro"] .rail-btn:hover { background: var(--gz-s2) !important; color: var(--gz-txt) !important; }
-:root[data-skin="gizzyfx-pro"] .rail-btn.active { background: rgba(0, 200, 232, 0.12) !important; color: var(--gz-h) !important; }
+/* ══════════════════════════════════════════════════════════════════════
+   MESSAGE BUBBLES
+   ══════════════════════════════════════════════════════════════════════ */
 
-/* ══════════════════════════════════════════════════════════════════
-   MESSAGES
-   ══════════════════════════════════════════════════════════════════ */
+:root[data-skin="gizzyfx-pro"] [class*="message"] {
+  border-radius: 4px !important;
+  font-family: var(--font-conversation) !important;
+}
 
-:root[data-skin="gizzyfx-pro"] [class*="message"] { border-radius: 4px !important; font-family: var(--font-conversation) !important; }
-:root[data-skin="gizzyfx-pro"] [class*="msg-body"] { font-family: var(--font-conversation) !important; font-size: 13px !important; line-height: 1.6 !important; }
+:root[data-skin="gizzyfx-pro"] [class*="msg-body"] {
+  font-family: var(--font-conversation) !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+}
+
 :root[data-skin="gizzyfx-pro"] [class*="msg-body"] h1,
 :root[data-skin="gizzyfx-pro"] [class*="msg-body"] h2,
-:root[data-skin="gizzyfx-pro"] [class*="msg-body"] h3 { font-family: var(--font-ui) !important; font-weight: 600 !important; color: var(--gz-txt) !important; }
+:root[data-skin="gizzyfx-pro"] [class*="msg-body"] h3,
+:root[data-skin="gizzyfx-pro"] [class*="msg-body"] h4 {
+  font-family: var(--font-ui) !important;
+  font-weight: 600 !important;
+  color: var(--gz-text-strong) !important;
+}
 
-:root[data-skin="gizzyfx-pro"] [class*="user-bubble"] { background: var(--gz-s2) !important; border: 1px solid rgba(0, 200, 232, 0.10) !important; }
-:root[data-skin="gizzyfx-pro"] [class*="assistant-bubble"] { background: var(--gz-s1) !important; border: 1px solid rgba(0, 200, 232, 0.10) !important; }
+:root[data-skin="gizzyfx-pro"] [class*="msg-role"] {
+  font-family: var(--font-ui) !important;
+  font-size: 11px !important;
+}
 
-/* ══════════════════════════════════════════════════════════════════
-   CODE
-   ══════════════════════════════════════════════════════════════════ */
+/* ── User bubble ── */
+:root[data-skin="gizzyfx-pro"] [class*="user-bubble"] {
+  background: var(--gz-surface-2) !important;
+  border: 1px solid var(--gz-border) !important;
+}
 
-:root[data-skin="gizzyfx-pro"] pre { background: var(--gz-s2) !important; border: 1px solid rgba(0, 200, 232, 0.10) !important; border-radius: 4px !important; font-family: var(--font-mono) !important; }
-:root[data-skin="gizzyfx-pro"] pre code { font-family: var(--font-mono) !important; font-size: 12px !important; color: var(--gz-txt) !important; }
-:root[data-skin="gizzyfx-pro"] code { font-family: var(--font-mono) !important; font-size: 12px !important; background: var(--gz-s2) !important; border-radius: 2px !important; }
-:root[data-skin="gizzyfx-pro"] :not(pre) > code { color: var(--gz-h) !important; background: rgba(0, 200, 232, 0.08) !important; }
+/* ── Assistant bubble ── */
+:root[data-skin="gizzyfx-pro"] [class*="assistant-bubble"] {
+  background: var(--gz-surface) !important;
+  border: 1px solid var(--gz-border) !important;
+}
 
-/* ══════════════════════════════════════════════════════════════════
-   COMPOSER
-   ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   CODE BLOCKS & INLINE CODE
+   ══════════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] [class*="composer"] { background: var(--gz-s1) !important; border-top: 1px solid rgba(0, 200, 232, 0.10) !important; }
+:root[data-skin="gizzyfx-pro"] pre {
+  background: var(--gz-surface-2) !important;
+  border: 1px solid var(--gz-border) !important;
+  border-radius: 4px !important;
+  font-family: var(--font-mono) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] pre code {
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  color: var(--gz-text) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] code {
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  background: var(--gz-surface-2) !important;
+  border-radius: 2px !important;
+  padding: 1px 4px !important;
+}
+
+:root[data-skin="gizzyfx-pro"] :not(pre) > code {
+  color: var(--gz-accent-2) !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   COMPOSER (INPUT AREA)
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="gizzyfx-pro"] [class*="composer"] {
+  background: var(--gz-surface) !important;
+  border-top: 1px solid var(--gz-border) !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="composer-wrap"] {
+  background: var(--gz-surface) !important;
+  border-color: var(--gz-border) !important;
+}
+
 :root[data-skin="gizzyfx-pro"] textarea,
-:root[data-skin="gizzyfx-pro"] input[type="text"] { background: var(--gz-inp) !important; border: 1px solid rgba(0, 200, 232, 0.10) !important; border-radius: 4px !important; color: var(--gz-txt) !important; font-family: var(--font-ui) !important; font-size: 13px !important; }
+:root[data-skin="gizzyfx-pro"] input[type="text"] {
+  background: var(--gz-surface-2) !important;
+  border: 1px solid var(--gz-border) !important;
+  border-radius: 4px !important;
+  color: var(--gz-text) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 13px !important;
+}
+
 :root[data-skin="gizzyfx-pro"] textarea:focus,
-:root[data-skin="gizzyfx-pro"] input[type="text"]:focus { border-color: rgba(0, 200, 232, 0.50) !important; box-shadow: 0 0 0 1px rgba(0, 200, 232, 0.20) !important; outline: none !important; }
+:root[data-skin="gizzyfx-pro"] input[type="text"]:focus {
+  border-color: var(--gz-accent) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important;
+  outline: none !important;
+}
 
-/* ══════════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════════════
    BUTTONS
-   ══════════════════════════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] button { border-radius: 4px !important; font-family: var(--font-ui) !important; font-weight: 500 !important; font-size: 12px !important; }
-:root[data-skin="gizzyfx-pro"] [class*="btn-primary"] { background: var(--gz-p) !important; border: none !important; color: var(--gz-bg) !important; }
-:root[data-skin="gizzyfx-pro"] [class*="btn-primary"]:hover { background: var(--gz-h) !important; }
+:root[data-skin="gizzyfx-pro"] button {
+  border-radius: 4px !important;
+  font-family: var(--font-ui) !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+}
 
-/* ══════════════════════════════════════════════════════════════════
-   SESSION LIST
-   ══════════════════════════════════════════════════════════════════ */
+:root[data-skin="gizzyfx-pro"] [class*="btn-primary"],
+:root[data-skin="gizzyfx-pro"] [class*="btn-accent"] {
+  background: var(--gz-accent) !important;
+  border: none !important;
+  color: white !important;
+}
 
-:root[data-skin="gizzyfx-pro"] [class*="session-item"] { border-radius: 4px !important; margin: 2px 6px !important; font-family: var(--font-ui) !important; }
-:root[data-skin="gizzyfx-pro"] [class*="session-item"]:hover { background: var(--gz-s2) !important; }
-:root[data-skin="gizzyfx-pro"] [class*="session-item"][class*="active"] { background: rgba(0, 200, 232, 0.12) !important; border-left: 2px solid var(--gz-p) !important; font-weight: 500 !important; }
+:root[data-skin="gizzyfx-pro"] [class*="btn-primary"]:hover {
+  background: var(--gz-accent-2) !important;
+}
 
-/* ══════════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════════════
+   SELECTS & DROPDOWNS
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="gizzyfx-pro"] select {
+  background: var(--gz-surface-2) !important;
+  border: 1px solid var(--gz-border) !important;
+  border-radius: 4px !important;
+  color: var(--gz-text) !important;
+  font-family: var(--font-ui) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="dropdown"] {
+  background: var(--gz-surface-2) !important;
+  border: 1px solid var(--gz-border) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SESSION LIST (SIDEBAR)
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="gizzyfx-pro"] [class*="session-item"] {
+  border-radius: 4px !important;
+  margin: 2px 6px !important;
+  font-family: var(--font-ui) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="session-item"]:hover {
+  background: var(--gz-surface-2) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="session-item"][class*="active"] {
+  background: var(--gz-surface-3) !important;
+  border-left: 2px solid var(--gz-accent) !important;
+  font-weight: 500 !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="session-meta"] {
+  font-size: 10px !important;
+  color: var(--gz-muted) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="session-title"] {
+  font-size: 12px !important;
+  color: var(--gz-text) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    TABLES
-   ══════════════════════════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] table { border-collapse: collapse; font-size: 12px; font-family: var(--font-mono) !important; }
-:root[data-skin="gizzyfx-pro"] th { background: var(--gz-s2); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gz-mut); padding: 6px 10px; border-bottom: 1px solid rgba(0, 200, 232, 0.10); font-family: var(--font-ui) !important; text-align: left; }
-:root[data-skin="gizzyfx-pro"] td { padding: 6px 10px; border-bottom: 1px solid rgba(0, 200, 232, 0.06); color: var(--gz-txt); }
-:root[data-skin="gizzyfx-pro"] tr:hover td { background: var(--gz-s2); }
+:root[data-skin="gizzyfx-pro"] table {
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: var(--font-mono) !important;
+}
 
-/* ══════════════════════════════════════════════════════════════════
-   GIZZYFX NAV
-   ══════════════════════════════════════════════════════════════════ */
+:root[data-skin="gizzyfx-pro"] th {
+  background: var(--gz-surface-2);
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gz-muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gz-border);
+  font-family: var(--font-ui) !important;
+  text-align: left;
+}
 
-#gizzyfx-nav {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  z-index: 9999;
+:root[data-skin="gizzyfx-pro"] td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gz-border);
+  color: var(--gz-text);
+}
+
+:root[data-skin="gizzyfx-pro"] tr:hover td {
+  background: var(--gz-surface-2);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TOOLTIPS
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="gizzyfx-pro"] [class*="tooltip"] {
+  background: var(--gz-surface-4) !important;
+  border: 1px solid var(--gz-border-2) !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   MODALS & DIALOGS
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="gizzyfx-pro"] [class*="modal"] {
+  background: var(--gz-surface) !important;
+  border: 1px solid var(--gz-border) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="modal-backdrop"] {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   BADGES & STATUS INDICATORS
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="gizzyfx-pro"] [class*="badge"] {
+  border-radius: 2px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  padding: 2px 6px !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="status"] {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+
+/* ── Status tones ── */
+:root[data-skin="gizzyfx-pro"] [class*="status-online"],
+:root[data-skin="gizzyfx-pro"] [class*="status-live"] {
+  color: var(--gz-success) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="status-offline"],
+:root[data-skin="gizzyfx-pro"] [class*="status-error"] {
+  color: var(--gz-danger) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="status-warning"] {
+  color: var(--gz-warning) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   NAVIGATION
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="gizzyfx-pro"] [class*="nav"] {
+  background: var(--gz-surface) !important;
+  border-color: var(--gz-border) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="nav-link"] {
+  font-family: var(--font-ui) !important;
+  font-size: 12px !important;
+  color: var(--gz-muted) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="nav-link"]:hover,
+:root[data-skin="gizzyfx-pro"] [class*="nav-link"][class*="active"] {
+  color: var(--gz-text) !important;
+  background: var(--gz-surface-2) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SETTINGS
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="gizzyfx-pro"] [class*="settings"] {
+  font-family: var(--font-ui) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="settings-section-title"] {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  color: var(--gz-muted) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="settings-label"] {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: var(--gz-text) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PULSE DOT ANIMATION
+   ══════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-skin="gizzyfx-pro"] [class*="pulse"] {
+    animation: gz-pro-pulse 2s ease-in-out infinite;
+  }
+
+  :root[data-skin="gizzyfx-pro"] .animate-in {
+    animation: gz-pro-rise 0.2s ease-out both;
+  }
+}
+
+@keyframes gz-pro-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes gz-pro-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   REDUCED MOTION
+   ══════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-skin="gizzyfx-pro"] *,
+  :root[data-skin="gizzyfx-pro"] *::before,
+  :root[data-skin="gizzyfx-pro"] *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TRADING CO-PILOT STATUS BAR
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Status bar at top of chat area ── */
+.gz-copilot-statusbar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--gz-s1);
-  border-top: 1px solid rgba(0, 200, 232, 0.10);
-  font-family: var(--font-ui);
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--gz-surface);
+  border-bottom: 1px solid var(--gz-border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: var(--gz-muted);
+  text-transform: uppercase;
 }
 
-#gizzyfx-nav .gizzyfx-nav-link {
-  display: inline-flex;
+.gz-copilot-statusbar-left,
+.gz-copilot-statusbar-right {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 4px;
-  font-size: 12px;
+  gap: 12px;
+}
+
+.gz-copilot-status-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.gz-copilot-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.gz-copilot-status-dot.green {
+  background: var(--gz-success);
+  box-shadow: 0 0 4px var(--gz-success);
+}
+
+.gz-copilot-status-dot.red {
+  background: var(--gz-danger);
+}
+
+.gz-copilot-status-dot.amber {
+  background: var(--gz-warning);
+}
+
+.gz-copilot-status-label {
+  color: var(--gz-muted);
+}
+
+.gz-copilot-status-value {
+  color: var(--gz-text);
   font-weight: 500;
-  color: var(--gz-mut);
-  text-decoration: none;
-  transition: all 0.15s;
-  border: 1px solid transparent;
 }
 
-#gizzyfx-nav .gizzyfx-nav-link:hover {
-  color: var(--gz-txt);
-  background: var(--gz-s2);
-  border-color: rgba(0, 200, 232, 0.18);
+.gz-copilot-status-value.positive {
+  color: var(--gz-success);
 }
 
-#gizzyfx-nav .gizzyfx-nav-primary {
-  color: var(--gz-h) !important;
-  border-color: rgba(0, 200, 232, 0.20) !important;
-  background: rgba(0, 200, 232, 0.10) !important;
+.gz-copilot-status-value.negative {
+  color: var(--gz-danger);
 }
 
-#gizzyfx-nav .gizzyfx-nav-primary:hover { background: rgba(0, 200, 232, 0.18) !important; }
-#gizzyfx-nav .gizzyfx-nav-link svg { width: 14px; height: 14px; flex-shrink: 0; }
+/* ══════════════════════════════════════════════════════════════════════
+   FILE TREE
+   ══════════════════════════════════════════════════════════════════════ */
 
-:root[data-skin="gizzyfx-pro"] #app { padding-bottom: 48px; }
-
-/* ══════════════════════════════════════════════════════════════════
-   RESPONSIVE — Mobile-first
-   ══════════════════════════════════════════════════════════════════ */
-
-/* Small phones */
-@media (max-width: 480px) {
-  :root[data-skin="gizzyfx-pro"] body { font-size: 12px !important; }
-  :root[data-skin="gizzyfx-pro"] [class*="msg-body"] { font-size: 12px !important; }
-  :root[data-skin="gizzyfx-pro"] textarea,
-  :root[data-skin="gizzyfx-pro"] input[type="text"] { font-size: 14px !important; min-height: 40px; }
-  :root[data-skin="gizzyfx-pro"] button { font-size: 12px !important; min-height: 36px; }
-  :root[data-skin="gizzyfx-pro"] .app-titlebar-title { font-size: 13px !important; }
-  
-  /* Stack nav items */
-  :root[data-skin="gizzyfx-pro"] .app-titlebar { flex-wrap: wrap; padding: 6px 8px; }
-  :root[data-skin="gizzyfx-pro"] .app-titlebar-left,
-  :root[data-skin="gizzyfx-pro"] .app-titlebar-right { flex-wrap: wrap; gap: 4px; }
-  
-  /* Full-width composer */
-  :root[data-skin="gizzyfx-pro"] .composer { padding: 8px; }
-  :root[data-skin="gizzyfx-pro"] .composer textarea { font-size: 14px !important; }
-  
-  /* Stack messages */
-  :root[data-skin="gizzyfx-pro"] .message { padding: 8px; }
-  
-  /* Hide non-essential elements */
-  :root[data-skin="gizzyfx-pro"] .hide-mobile { display: none !important; }
+:root[data-skin="gizzyfx-pro"] [class*="file-tree"] {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
 }
 
-@media (max-width: 768px) {
-  #gizzyfx-nav { padding: 6px 8px; gap: 4px; flex-wrap: wrap; }
-  #gizzyfx-nav .gizzyfx-nav-link { padding: 4px 8px; font-size: 10px; }
-  #gizzyfx-nav .gizzyfx-nav-link span { display: none; }
-  #gizzyfx-nav .gizzyfx-nav-link svg { width: 16px; height: 16px; }
-  
-  /* App layout */
-  :root[data-skin="gizzyfx-pro"] .app { flex-direction: column; }
-  :root[data-skin="gizzyfx-pro"] .app-sidebar { width: 100% !important; max-width: 100% !important; }
-  :root[data-skin="gizzyfx-pro"] .app-main { padding: 8px; }
-  
-  /* Cards and panels */
-  :root[data-skin="gizzyfx-pro"] .card, 
-  :root[data-skin="gizzyfx-pro"] [class*="panel"] { padding: 8px !important; }
-  
-  /* Tables */
-  :root[data-skin="gizzyfx-pro"] table { font-size: 11px; }
-  :root[data-skin="gizzyfx-pro"] th, 
-  :root[data-skin="gizzyfx-pro"] td { padding: 4px 6px; }
-  
-  /* Improve touch targets */
-  :root[data-skin="gizzyfx-pro"] a, 
-  :root[data-skin="gizzyfx-pro"] button { min-height: 32px; min-width: 32px; }
+:root[data-skin="gizzyfx-pro"] [class*="file-tree"] [class*="item"]:hover {
+  background: var(--gz-surface-2) !important;
 }
 
-/* Tablet and large phone */
-@media (min-width: 481px) and (max-width: 768px) {
-  :root[data-skin="gizzyfx-pro"] body { font-size: 13px !important; }
-  :root[data-skin="gizzyfx-pro"] .app-main { padding: 12px; }
+/* ══════════════════════════════════════════════════════════════════════
+   MISC ELEMENTS
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="gizzyfx-pro"] [class*="divider"] {
+  background: var(--gz-border) !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="skeleton"],
+:root[data-skin="gizzyfx-pro"] [class*="shimmer"] {
+  background: linear-gradient(
+    90deg,
+    var(--gz-surface-2) 25%,
+    var(--gz-surface-3) 50%,
+    var(--gz-surface-2) 75%
+  ) !important;
+  background-size: 200% 100% !important;
+}
+
+/* ── Picker grid (skin selector) ── */
+:root[data-skin="gizzyfx-pro"] [class*="skin-picker"] {
+  gap: 6px !important;
+}
+
+:root[data-skin="gizzyfx-pro"] [class*="skin-picker"] [class*="item"] {
+  border-radius: 4px !important;
+}
+
+/* ── Empty states ── */
+:root[data-skin="gizzyfx-pro"] [class*="empty-state"] {
+  color: var(--gz-muted) !important;
+  font-size: 12px !important;
+}
+
+/* ── Loading spinner ── */
+:root[data-skin="gizzyfx-pro"] [class*="spinner"] {
+  border-color: var(--gz-border) !important;
+  border-top-color: var(--gz-accent) !important;
+}
+/* ══════════════════════════════════════════════════════════════════════════
+   GIZZYFX PRO — HD / 4K + TRADING ANIMATION ADDENDUM
+   ──────────────────────────────────────────────────────────────────────────
+   Appended after the base gizzyfx-pro skin. Brings the co-pilot console in
+   line with the trading engine's v2 design system:
+     · native-resolution text rendering (tabular figures, slashed zero)
+     · retina hairlines instead of fat 1px slabs
+     · the same institutional backdrop (chart grid + grain, no orbs)
+     · the fx-* animation vocabulary
+   Scoped entirely to :root[data-skin="gizzyfx-pro"] so no other skin moves.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── 1. HD TEXT + VECTOR RENDERING ────────────────────────────────────── */
+
+:root[data-skin="gizzyfx-pro"] {
+  --gz-hair: 1px;
+}
+@media (min-resolution: 2dppx) {
+  :root[data-skin="gizzyfx-pro"] { --gz-hair: 0.5px; }
+}
+@media (min-resolution: 3dppx) {
+  :root[data-skin="gizzyfx-pro"] { --gz-hair: 0.33px; }
+}
+
+:root[data-skin="gizzyfx-pro"] body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  font-feature-settings: "tnum" 1, "cv11" 1, "ss01" 1, "zero" 1;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-optical-sizing: auto;
+}
+
+/* Any monospaced / numeric run aligns on one digit width. */
+:root[data-skin="gizzyfx-pro"] code,
+:root[data-skin="gizzyfx-pro"] pre,
+:root[data-skin="gizzyfx-pro"] kbd,
+:root[data-skin="gizzyfx-pro"] table td,
+:root[data-skin="gizzyfx-pro"] table th,
+:root[data-skin="gizzyfx-pro"] [class*="mono"] {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+:root[data-skin="gizzyfx-pro"] svg { shape-rendering: geometricPrecision; }
+:root[data-skin="gizzyfx-pro"] img { image-rendering: -webkit-optimize-contrast; }
+:root[data-skin="gizzyfx-pro"] img[src$=".svg"] { image-rendering: auto; }
+
+/* ─── 2. INSTITUTIONAL BACKDROP ────────────────────────────────────────── */
+
+:root[data-skin="gizzyfx-pro"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.030) var(--gz-hair), transparent var(--gz-hair)),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.030) var(--gz-hair), transparent var(--gz-hair)),
+    linear-gradient(rgba(59, 130, 246, 0.045) var(--gz-hair), transparent var(--gz-hair)),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.045) var(--gz-hair), transparent var(--gz-hair));
+  background-size: 56px 56px, 56px 56px, 280px 280px, 280px 280px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 45%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 45%, transparent 100%);
+}
+
+/* Film grain — kills banding on big flat dark gradients, the thing that
+   makes a dark UI look low-resolution on a 4K panel. */
+:root[data-skin="gizzyfx-pro"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.028;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+}
+
+/* Chat content must sit above both backdrop layers. */
+:root[data-skin="gizzyfx-pro"] #app,
+:root[data-skin="gizzyfx-pro"] .app-titlebar,
+:root[data-skin="gizzyfx-pro"] .composer,
+:root[data-skin="gizzyfx-pro"] .msg,
+:root[data-skin="gizzyfx-pro"] [class*="sidebar"] {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── 3. RETINA HAIRLINES ──────────────────────────────────────────────── */
+
+:root[data-skin="gizzyfx-pro"] .app-titlebar,
+:root[data-skin="gizzyfx-pro"] .composer,
+:root[data-skin="gizzyfx-pro"] pre,
+:root[data-skin="gizzyfx-pro"] table td,
+:root[data-skin="gizzyfx-pro"] table th {
+  border-width: var(--gz-hair);
+}
+
+/* ─── 4. TRADING ANIMATIONS ────────────────────────────────────────────── */
+
+@keyframes gzp-pulse-ring {
+  0%   { transform: scale(0.6); opacity: 0.85; }
+  70%  { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes gzp-rise {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); filter: blur(2px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes gzp-loadbar {
+  0%   { transform: translateX(-100%) scaleX(0.35); }
+  50%  { transform: translateX(35%)   scaleX(0.55); }
+  100% { transform: translateX(210%)  scaleX(0.35); }
+}
+@keyframes gzp-scan {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+@keyframes gzp-skeleton {
+  from { background-position: -220% 0; }
+  to   { background-position:  220% 0; }
+}
+
+/* Live status dot with an expanding ring. */
+:root[data-skin="gizzyfx-pro"] .gz-live-dot {
+  position: relative;
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--gz-success);
+  box-shadow: 0 0 8px var(--gz-success);
+  flex-shrink: 0;
+}
+:root[data-skin="gizzyfx-pro"] .gz-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--gz-success);
+  animation: gzp-pulse-ring 1.9s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+}
+
+/* Assistant messages arrive rather than appear. */
+:root[data-skin="gizzyfx-pro"] .msg {
+  animation: gzp-rise 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Streaming indicator on the composer edge while the agent is generating. */
+:root[data-skin="gizzyfx-pro"] .composer.is-streaming,
+:root[data-skin="gizzyfx-pro"] [data-streaming="true"] .composer {
+  position: relative;
+  overflow: hidden;
+}
+:root[data-skin="gizzyfx-pro"] .composer.is-streaming::before,
+:root[data-skin="gizzyfx-pro"] [data-streaming="true"] .composer::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, transparent, var(--gz-accent), var(--gz-info), transparent);
+  animation: gzp-loadbar 1.35s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Code blocks get a single slow scan light — reads as a live data surface. */
+:root[data-skin="gizzyfx-pro"] pre {
+  position: relative;
+  overflow: hidden;
+}
+:root[data-skin="gizzyfx-pro"] pre::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 45%;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    transparent, rgba(59, 130, 246, 0.05) 50%, transparent);
+  animation: gzp-scan 6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* Tool-call / thinking placeholders shimmer instead of sitting dead. */
+:root[data-skin="gizzyfx-pro"] .gz-skeleton {
+  display: inline-block;
+  border-radius: 2px;
+  background-image: linear-gradient(90deg,
+    var(--gz-surface-2) 0%, rgba(59,130,246,0.10) 45%, var(--gz-surface-2) 90%);
+  background-size: 220% 100%;
+  animation: gzp-skeleton 1.5s linear infinite;
+  color: transparent;
+}
+
+/* Button press physics. */
+:root[data-skin="gizzyfx-pro"] button {
+  transition: background 0.14s ease, border-color 0.14s ease,
+              color 0.14s ease, transform 0.07s ease;
+}
+:root[data-skin="gizzyfx-pro"] button:active:not(:disabled) { transform: scale(0.985); }
+
+/* ─── 5. SEMANTIC P&L COLOURING IN CHAT ────────────────────────────────── */
+
+/* When the agent writes a signed money figure, colour it like a blotter.
+   Hooked by class so it only applies where markup opts in. */
+:root[data-skin="gizzyfx-pro"] .gz-pos { color: var(--gz-success); font-variant-numeric: tabular-nums; }
+:root[data-skin="gizzyfx-pro"] .gz-neg { color: var(--gz-danger);  font-variant-numeric: tabular-nums; }
+:root[data-skin="gizzyfx-pro"] .gz-warn { color: var(--gz-warning); }
+
+/* ─── 6. 4K SCALE-UP ───────────────────────────────────────────────────── */
+
+@media (min-width: 2000px) {
+  :root[data-skin="gizzyfx-pro"] body { font-size: 19px; }
+  :root[data-skin="gizzyfx-pro"] [class*="msg-body"] { font-size: 19px !important; line-height: 1.62; }
+  :root[data-skin="gizzyfx-pro"] .app-titlebar-title { font-size: 19px !important; }
+  :root[data-skin="gizzyfx-pro"] .composer textarea { font-size: 19px !important; }
+  :root[data-skin="gizzyfx-pro"] code,
+  :root[data-skin="gizzyfx-pro"] pre { font-size: 17px; }
+  :root[data-skin="gizzyfx-pro"] button { font-size: 16px; min-height: 44px; }
+}
+
+/* ─── 7. REDUCED MOTION ────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-skin="gizzyfx-pro"] pre::after,
+  :root[data-skin="gizzyfx-pro"] .gz-live-dot::after,
+  :root[data-skin="gizzyfx-pro"] .gz-skeleton,
+  :root[data-skin="gizzyfx-pro"] .composer.is-streaming::before,
+  :root[data-skin="gizzyfx-pro"] [data-streaming="true"] .composer::before {
+    animation: none !important;
+  }
+  :root[data-skin="gizzyfx-pro"] .msg { animation-duration: 0.01ms !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GIZZYFX PRO — LIGHT MODE
+   ──────────────────────────────────────────────────────────────────────────
+   Applied when Hermes WebUI is in light mode (no .dark class on <html>).
+   Synced from GizzyFx Terminal's Sun/Moon toggle via localStorage.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Light mode: override the dark palette with professional off-white surfaces */
+:root[data-skin="gizzyfx-pro"]:not(.dark) {
+  /* ── Background surfaces — steel off-white ── */
+  --gz-bg:          #f4f5f6;
+  --gz-surface:     #ebebed;
+  --gz-surface-2:   #e2e3e6;
+  --gz-surface-3:   #f8f8f9;
+  --gz-surface-4:   #d8d9dd;
+  --gz-border:      #c8cacf;
+  --gz-border-2:    #b8babe;
+  --gz-border-3:    #a8aaaf;
+
+  /* ── Text — deep steel ── */
+  --gz-text:        #1a1c22;
+  --gz-text-strong: #0a0c10;
+  --gz-muted:       #5a5d6a;
+  --gz-muted-2:     #7a7d8a;
+
+  /* ── Accent stays identical — same brand ── */
+  --gz-accent:      #2563eb;
+  --gz-accent-2:    #3b82f6;
+  --gz-accent-3:    #60a5fa;
+  --gz-accent-dim:  #1d4ed8;
+
+  /* ── Semantic — darkened for white bg readability ── */
+  --gz-success:     #16a34a;
+  --gz-success-dim: #15803d;
+  --gz-danger:      #dc2626;
+  --gz-danger-dim:  #b91c1c;
+  --gz-warning:     #d97706;
+  --gz-warning-dim: #b45309;
+  --gz-info:        #0284c7;
+  --gz-info-dim:    #0369a1;
+
+  /* ── Override Hermes CSS variables ── */
+  --bg:              var(--gz-bg);
+  --sidebar:         var(--gz-surface);
+  --border:          var(--gz-border);
+  --border2:         var(--gz-border-2);
+  --text:            var(--gz-text);
+  --muted:           var(--gz-muted);
+  --accent:          var(--gz-accent);
+  --blue:            var(--gz-accent-2);
+  --gold:            var(--gz-warning);
+  --code-bg:         var(--gz-surface-2);
+  --surface:         var(--gz-surface);
+  --topbar-bg:       var(--gz-surface);
+  --main-bg:         var(--gz-bg);
+  --focus-ring:      rgba(37, 99, 235, 0.35);
+  --focus-glow:      rgba(37, 99, 235, 0.10);
+  --input-bg:        var(--gz-surface-3);
+  --hover-bg:        var(--gz-surface-2);
+  --strong:          var(--gz-text-strong);
+  --em:              var(--gz-muted);
+  --code-text:       var(--gz-text);
+  --code-inline-bg:  var(--gz-surface-2);
+  --pre-text:        var(--gz-text);
+  --accent-hover:    var(--gz-accent-2);
+  --accent-bg:       rgba(37, 99, 235, 0.08);
+  --accent-bg-strong: rgba(37, 99, 235, 0.15);
+  --accent-text:     var(--gz-accent);
+  --error:           var(--gz-danger);
+  --success:         var(--gz-success);
+  --warning:         var(--gz-warning);
+  --info:            var(--gz-info);
+  --surface-subtle:  var(--gz-surface-2);
+  --surface-subtle-hover: var(--gz-surface-4);
+  --border-subtle:   var(--gz-border);
+  --border-muted:    var(--gz-border-2);
+
+  /* Bubble colours — assistant is light blue, user is white */
+  --user-bubble:      #dbeafe;
+  --assistant-bubble: var(--gz-surface-3);
+}
+
+/* Light mode body: white background, ink text, no dark grain */
+:root[data-skin="gizzyfx-pro"]:not(.dark) body {
+  background: var(--gz-bg);
+  color: var(--gz-text);
+}
+
+/* Remove dark grid backdrop in light mode — use subtle ink grid instead */
+:root[data-skin="gizzyfx-pro"]:not(.dark) body::before {
+  background-image:
+    linear-gradient(rgba(26, 28, 34, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 28, 34, 0.055) 1px, transparent 1px),
+    linear-gradient(rgba(26, 28, 34, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 28, 34, 0.03) 1px, transparent 1px);
+  background-size: 56px 56px, 56px 56px, 280px 280px, 280px 280px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.25) 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.25) 50%, transparent 100%);
+}
+
+/* Grain is barely visible on light bg */
+:root[data-skin="gizzyfx-pro"]:not(.dark) body::after {
+  opacity: 0.010;
+}
+
+/* Title bar / top bar */
+:root[data-skin="gizzyfx-pro"]:not(.dark) .app-titlebar {
+  background: rgba(235, 235, 237, 0.88);
+  border-bottom-color: var(--gz-border);
+}
+
+/* Sidebar */
+:root[data-skin="gizzyfx-pro"]:not(.dark) [class*="sidebar"],
+:root[data-skin="gizzyfx-pro"]:not(.dark) [class*="rail"] {
+  background: var(--gz-surface);
+  border-right-color: var(--gz-border);
+}
+
+/* Message bubbles */
+:root[data-skin="gizzyfx-pro"]:not(.dark) [class*="msg-user"] [class*="bubble"],
+:root[data-skin="gizzyfx-pro"]:not(.dark) [class*="user-bubble"] {
+  background: #dbeafe;
+  color: #1e3a5f;
+}
+
+:root[data-skin="gizzyfx-pro"]:not(.dark) [class*="msg-assistant"] [class*="bubble"],
+:root[data-skin="gizzyfx-pro"]:not(.dark) [class*="assistant-bubble"] {
+  background: var(--gz-surface-3);
+  color: var(--gz-text);
+}
+
+/* Code blocks — light mode */
+:root[data-skin="gizzyfx-pro"]:not(.dark) pre,
+:root[data-skin="gizzyfx-pro"]:not(.dark) code {
+  background: var(--gz-surface-2);
+  color: var(--gz-text);
+  border-color: var(--gz-border);
+}
+
+/* Input / composer */
+:root[data-skin="gizzyfx-pro"]:not(.dark) .composer {
+  background: rgba(235, 235, 237, 0.88);
+  border-top-color: var(--gz-border);
+}
+
+:root[data-skin="gizzyfx-pro"]:not(.dark) .composer textarea {
+  background: var(--gz-surface-3);
+  color: var(--gz-text);
+}
+
+/* Scrollbar in light mode — subtle ink thumb */
+:root[data-skin="gizzyfx-pro"]:not(.dark) ::-webkit-scrollbar-thumb {
+  background: rgba(26, 28, 34, 0.25);
+}
+:root[data-skin="gizzyfx-pro"]:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(26, 28, 34, 0.40);
+}
+
+/* Streaming loadbar — accent on light bg */
+:root[data-skin="gizzyfx-pro"]:not(.dark) .composer.is-streaming::before,
+:root[data-skin="gizzyfx-pro"]:not(.dark) [data-streaming="true"] .composer::before {
+  background: linear-gradient(90deg, transparent, var(--gz-accent), var(--gz-info), transparent);
+}
+
+/* Buttons on light bg */
+:root[data-skin="gizzyfx-pro"]:not(.dark) button {
+  color: var(--gz-text);
+}
+
+:root[data-skin="gizzyfx-pro"]:not(.dark) button:hover {
+  background: var(--gz-surface-2);
 }

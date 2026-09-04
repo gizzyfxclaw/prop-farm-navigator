@@ -69,6 +69,10 @@ function applyMode(mode: Mode) {
   } else {
     delete document.documentElement.dataset["mode"];
   }
+  // Sync to Hermes WebUI localStorage key so the skin matches when navigating there
+  try {
+    localStorage.setItem("hermes-theme", mode === "light" ? "light" : "dark");
+  } catch {}
 }
 
 function ModeToggle() {
