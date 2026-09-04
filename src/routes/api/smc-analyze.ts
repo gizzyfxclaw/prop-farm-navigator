@@ -53,10 +53,12 @@ function calcATR(bars: Bar[], period = 14): number {
   if (bars.length < period + 1) return 0.001;
   let sum = 0;
   for (let i = 1; i <= period; i++) {
+    const cur  = bars[bars.length - i]!;
+    const prev = bars[bars.length - i - 1]!;
     const tr = Math.max(
-      bars[bars.length - i].high - bars[bars.length - i].low,
-      Math.abs(bars[bars.length - i].high - bars[bars.length - i - 1].close),
-      Math.abs(bars[bars.length - i].low - bars[bars.length - i - 1].close),
+      cur.high - cur.low,
+      Math.abs(cur.high - prev.close),
+      Math.abs(cur.low  - prev.close),
     );
     sum += tr;
   }
@@ -70,8 +72,8 @@ function findSwings(bars: Bar[], lookback: number) {
     let isH = true, isL = true;
     for (let j = i - lookback; j <= i + lookback; j++) {
       if (j === i) continue;
-      if (bars[j].high >= bars[i].high) isH = false;
-      if (bars[j].low <= bars[i].low) isL = false;
+      if (bars[j]!.high >= bars[i]!.high) isH = false;
+      if (bars[j]!.low  <= bars[i]!.low)  isL = false;
       if (!isH && !isL) break;
     }
     if (isH) highs.push(i);
@@ -88,20 +90,20 @@ function detectStructure(bars: Bar[]) {
     const prevH = highs[highs.length - 2];
     const lastL = lows[lows.length - 1];
     const prevL = lows[lows.length - 2];
-    if (bars[lastH].high > bars[prevH].high && bars[lastL].low > bars[prevL].low) {
+    if (bars[lastH!]!.high > bars[prevH!]!.high && bars[lastL!]!.low > bars[prevL!]!.low) {
       bias = "bullish";
-    } else if (bars[lastH].high < bars[prevH].high && bars[lastL].low < bars[prevL].low) {
+    } else if (bars[lastH!]!.high < bars[prevH!]!.high && bars[lastL!]!.low < bars[prevL!]!.low) {
       bias = "bearish";
     }
   }
-  const lastSwingHigh = highs.length > 0 ? bars[highs[highs.length - 1]].high : 0;
-  const lastSwingLow = lows.length > 0 ? bars[lows[lows.length - 1]].low : 0;
+  const lastSwingHigh = highs.length > 0 ? bars[highs[highs.length - 1]!]!.high : 0;
+  const lastSwingLow  = lows.length  > 0 ? bars[lows[lows.length   - 1]!]!.low  : 0;
   const bos = bias === "bullish" ? "bullish" : bias === "bearish" ? "bearish" : null;
 
   const orderBlocks: Array<{ low: number; high: number; kind: string; impulseMag: number }> = [];
   const atr = calcATR(bars, 14);
   for (let i = 5; i < bars.length - 3; i++) {
-    const c = bars[i];
+    const c = bars[i]!;
     if (c.close < c.open) {
       const futureMax = Math.max(...bars.slice(i + 1, i + 4).map(b => b.close));
       if (futureMax - c.close > atr * 1.5) {
@@ -118,62 +120,119 @@ function detectStructure(bars: Bar[]) {
   return { bias, bos, orderBlocks: orderBlocks.slice(-5), lastSwingHigh, lastSwingLow, highs: highs.length, lows: lows.length };
 }
 
-function generateDebate(structure: ReturnType<typeof detectStructure>) {
+function generateDebate(structure: ReturnType<typeof detectStructure>, bars: Bar[], atr: number) {
   const bullPoints: Array<{ claim: string; evidence: string }> = [];
   const bearPoints: Array<{ claim: string; evidence: string }> = [];
+  let bullScore = 0;
+  let bearScore = 0;
 
+  const lastBar = bars[bars.length - 1]!;
+  const prev20 = bars.slice(-20);
+  const prev5  = bars.slice(-5);
+
+  // ── 1. Market structure bias (30 pts max) ───────────────────────────────
   if (structure.bias === "bullish") {
-    bullPoints.push({ claim: "Bullish structure: higher highs + higher lows", evidence: `${structure.highs} swing highs, ${structure.lows} swing lows detected` });
-  }
-  if (structure.bias === "bearish") {
-    bearPoints.push({ claim: "Bearish structure: lower highs + lower lows", evidence: `${structure.highs} swing highs, ${structure.lows} swing lows detected` });
-  }
-  if (structure.bos === "bullish") {
-    bullPoints.push({ claim: "Bullish BOS — price broke prior swing high", evidence: `BOS at ${structure.lastSwingHigh.toFixed(5)}` });
-  }
-  if (structure.bos === "bearish") {
-    bearPoints.push({ claim: "Bearish BOS — price broke prior swing low", evidence: `BOS at ${structure.lastSwingLow.toFixed(5)}` });
+    bullScore += 30;
+    bullPoints.push({ claim: "Higher Highs + Higher Lows confirmed", evidence: `HH/HL structure across ${structure.highs} swing highs` });
+  } else if (structure.bias === "bearish") {
+    bearScore += 30;
+    bearPoints.push({ claim: "Lower Highs + Lower Lows confirmed", evidence: `LH/LL structure across ${structure.lows} swing lows` });
   }
 
+  // ── 2. BOS (20 pts) ─────────────────────────────────────────────────────
+  if (structure.bos === "bullish") {
+    bullScore += 20;
+    bullPoints.push({ claim: "Bullish BOS — broke prior swing high", evidence: `Break at ${structure.lastSwingHigh.toFixed(5)}` });
+  } else if (structure.bos === "bearish") {
+    bearScore += 20;
+    bearPoints.push({ claim: "Bearish BOS — broke prior swing low", evidence: `Break at ${structure.lastSwingLow.toFixed(5)}` });
+  }
+
+  // ── 3. Order blocks (10 pts per OB side, max 20) ────────────────────────
   const bullOBs = structure.orderBlocks.filter(o => o.kind === "bullish");
   const bearOBs = structure.orderBlocks.filter(o => o.kind === "bearish");
   if (bullOBs.length > 0) {
-    const ob = bullOBs[bullOBs.length - 1];
-    bullPoints.push({ claim: `${bullOBs.length} bullish OB(s) detected`, evidence: `Nearest: ${ob.low.toFixed(5)}-${ob.high.toFixed(5)} (${ob.impulseMag.toFixed(1)}× ATR)` });
+    const score = Math.min(bullOBs.length * 10, 20);
+    bullScore += score;
+    const ob = bullOBs[bullOBs.length - 1]!;
+    bullPoints.push({ claim: `${bullOBs.length} bullish OB(s) — demand zones`, evidence: `Nearest: ${ob.low.toFixed(5)}-${ob.high.toFixed(5)} (${ob.impulseMag.toFixed(1)}× ATR)` });
   }
   if (bearOBs.length > 0) {
-    const ob = bearOBs[bearOBs.length - 1];
-    bearPoints.push({ claim: `${bearOBs.length} bearish OB(s) detected`, evidence: `Nearest: ${ob.low.toFixed(5)}-${ob.high.toFixed(5)} (${ob.impulseMag.toFixed(1)}× ATR)` });
+    const score = Math.min(bearOBs.length * 10, 20);
+    bearScore += score;
+    const ob = bearOBs[bearOBs.length - 1]!;
+    bearPoints.push({ claim: `${bearOBs.length} bearish OB(s) — supply zones`, evidence: `Nearest: ${ob.low.toFixed(5)}-${ob.high.toFixed(5)} (${ob.impulseMag.toFixed(1)}× ATR)` });
   }
 
-  if (structure.bias === "bullish") {
-    bearPoints.push({ claim: "Structure may be weakening — watch for CHoCH", evidence: "Single BOS not confirmed by higher timeframe" });
-  }
-  if (structure.bias === "bearish") {
-    bullPoints.push({ claim: "Potential reversal — oversold conditions possible", evidence: "Price may reject and form CHoCH" });
+  // ── 4. Momentum — last 5 candles (15 pts) ───────────────────────────────
+  const bullCandles = prev5.filter(b => b.close > b.open).length;
+  const bearCandles = prev5.filter(b => b.close < b.open).length;
+  if (bullCandles >= 3) {
+    bullScore += 10 + (bullCandles - 3) * 5;
+    bullPoints.push({ claim: `Bullish momentum — ${bullCandles}/5 recent candles green`, evidence: `Close > Open pattern` });
+  } else if (bearCandles >= 3) {
+    bearScore += 10 + (bearCandles - 3) * 5;
+    bearPoints.push({ claim: `Bearish momentum — ${bearCandles}/5 recent candles red`, evidence: `Close < Open pattern` });
   }
 
-  const bullConfidence = bullPoints.length * 0.2 + (structure.bias === "bullish" ? 0.3 : 0);
-  const bearConfidence = bearPoints.length * 0.2 + (structure.bias === "bearish" ? 0.3 : 0);
+  // ── 5. Price vs 20-bar midpoint (10 pts) ────────────────────────────────
+  const high20 = Math.max(...prev20.map(b => b.high));
+  const low20  = Math.min(...prev20.map(b => b.low));
+  const mid20  = (high20 + low20) / 2;
+  if (lastBar.close > mid20 + atr * 0.3) {
+    bullScore += 10;
+    bullPoints.push({ claim: "Price above 20-bar midpoint", evidence: `${lastBar.close.toFixed(5)} vs mid ${mid20.toFixed(5)}` });
+  } else if (lastBar.close < mid20 - atr * 0.3) {
+    bearScore += 10;
+    bearPoints.push({ claim: "Price below 20-bar midpoint", evidence: `${lastBar.close.toFixed(5)} vs mid ${mid20.toFixed(5)}` });
+  }
+
+  // ── 6. Range position (5 pts) ─────────────────────────────────────────
+  const rangePos = (lastBar.close - low20) / (high20 - low20 || 1);
+  if (rangePos > 0.65) {
+    bullScore += 5;
+    bullPoints.push({ claim: `Price in upper ${((rangePos)*100).toFixed(0)}% of 20-bar range`, evidence: `Range: ${low20.toFixed(5)}-${high20.toFixed(5)}` });
+  } else if (rangePos < 0.35) {
+    bearScore += 5;
+    bearPoints.push({ claim: `Price in lower ${((1-rangePos)*100).toFixed(0)}% of 20-bar range`, evidence: `Range: ${low20.toFixed(5)}-${high20.toFixed(5)}` });
+  }
+
+  // Add counter-arguments for balance
+  if (structure.bias === "bullish" && bearPoints.length === 0) {
+    bearPoints.push({ claim: "Single-timeframe view — no higher-TF confirmation", evidence: "1H BOS not confirmed by 4H/1D structure" });
+  }
+  if (structure.bias === "bearish" && bullPoints.length === 0) {
+    bullPoints.push({ claim: "Potential mean-reversion zone", evidence: "Extended move may attract buyers" });
+  }
+  if (bullPoints.length === 0) {
+    bullPoints.push({ claim: "No clear bullish confluence detected", evidence: "Awaiting BOS or OB confirmation" });
+  }
+  if (bearPoints.length === 0) {
+    bearPoints.push({ claim: "No clear bearish confluence detected", evidence: "Awaiting BOS or OB confirmation" });
+  }
+
+  // Normalize to 0-1
+  const bullConf = Math.min(bullScore / 100, 1);
+  const bearConf = Math.min(bearScore / 100, 1);
 
   let finalVerdict: string;
-  if (bullConfidence > bearConfidence + 0.2) finalVerdict = "STRONG_LONG";
-  else if (bullConfidence > bearConfidence) finalVerdict = "LEAN_LONG";
-  else if (bearConfidence > bullConfidence + 0.2) finalVerdict = "STRONG_SHORT";
-  else if (bearConfidence > bullConfidence) finalVerdict = "LEAN_SHORT";
-  else finalVerdict = "NEUTRAL";
+  if (bullScore > bearScore + 30)      finalVerdict = "STRONG_LONG";
+  else if (bullScore > bearScore + 10) finalVerdict = "LEAN_LONG";
+  else if (bearScore > bullScore + 30) finalVerdict = "STRONG_SHORT";
+  else if (bearScore > bullScore + 10) finalVerdict = "LEAN_SHORT";
+  else                                  finalVerdict = "NEUTRAL";
 
   return {
-    bullCase: { direction: "bullish", points: bullPoints, overallConfidence: Math.min(bullConfidence, 1) },
-    bearCase: { direction: "bearish", points: bearPoints, overallConfidence: Math.min(bearConfidence, 1) },
+    bullCase: { direction: "bullish", points: bullPoints, overallConfidence: bullConf },
+    bearCase: { direction: "bearish", points: bearPoints, overallConfidence: bearConf },
     debateRounds: [
-      `Bull: "${bullPoints[0]?.claim ?? "No strong case"}" (${(bullConfidence * 100).toFixed(0)}%)`,
-      `Bear: "${bearPoints[0]?.claim ?? "No strong case"}" (${(bearConfidence * 100).toFixed(0)}%)`,
-      `Synthesis: ${finalVerdict.replace("_", " ")} — ${bullConfidence > bearConfidence ? "bulls" : bearConfidence > bullConfidence ? "bears" : "balance"} in control`,
+      `Bull: "${bullPoints[0]?.claim ?? "No case"}" (${(bullConf * 100).toFixed(0)}%)`,
+      `Bear: "${bearPoints[0]?.claim ?? "No case"}" (${(bearConf * 100).toFixed(0)}%)`,
+      `Synthesis: ${finalVerdict.replace("_", " ")} — ${bullScore > bearScore ? "bulls" : bearScore > bullScore ? "bears" : "balanced"} in control`,
     ],
     finalVerdict,
-    confidence: Math.max(bullConfidence, bearConfidence),
-    finalRationale: `Net confidence: ${((bullConfidence - bearConfidence) * 100).toFixed(0)}%`,
+    confidence: Math.max(bullConf, bearConf),
+    finalRationale: `Bull: ${bullScore}pts vs Bear: ${bearScore}pts`,
     entryZone: "See levels below",
     invalidationLevel: structure.bias === "bullish" ? structure.lastSwingLow.toFixed(5) : structure.lastSwingHigh.toFixed(5),
     riskReward: "See levels below",
@@ -220,8 +279,8 @@ export const Route = createFileRoute("/api/smc-analyze")({
 
         const atr = calcATR(bars, 14);
         const structure = detectStructure(bars);
-        const debate = generateDebate(structure);
-        const levels = buildLevels(structure, bars[bars.length - 1].close, atr);
+        const debate = generateDebate(structure, bars, atr);
+        const levels = buildLevels(structure, bars[bars.length - 1]!.close, atr);
 
         return Response.json({
           structure,
@@ -230,7 +289,7 @@ export const Route = createFileRoute("/api/smc-analyze")({
           pair,
           interval,
           barCount: bars.length,
-          lastPrice: bars[bars.length - 1].close,
+          lastPrice: bars[bars.length - 1]!.close,
         }, { headers: { "Cache-Control": "public, max-age=60" } });
       },
     },

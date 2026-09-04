@@ -150,8 +150,9 @@ function HermesAnalyzingCard({ submittedAt }: { submittedAt: number }) {
     return () => clearInterval(t);
   }, [submittedAt]);
 
-  const progress = Math.min((elapsed / TOTAL_SECONDS) * 100, 97);
-  const remaining = Math.max(TOTAL_SECONDS - elapsed, 3);
+  const progress = Math.min((elapsed / TOTAL_SECONDS) * 100, 99);
+  const isOverdue = elapsed > TOTAL_SECONDS;
+  const remaining = isOverdue ? 0 : TOTAL_SECONDS - elapsed;
   const currentPhase = ANALYSIS_PHASES[phaseIdx] ?? ANALYSIS_PHASES[ANALYSIS_PHASES.length - 1]!;
 
   return (
@@ -202,8 +203,8 @@ function HermesAnalyzingCard({ submittedAt }: { submittedAt: number }) {
 
         {/* Timer */}
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "monospace", color: "oklch(0.70 0.16 280)" }}>
-            ~{remaining}s left
+          <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "monospace", color: isOverdue ? "oklch(0.65 0.15 145)" : "oklch(0.70 0.16 280)" }}>
+            {isOverdue ? "Finalizing..." : `~${remaining}s left`}
           </div>
           <div style={{ fontSize: 11, color: "oklch(0.50 0.08 280)" }}>
             {elapsed}s elapsed
