@@ -145,6 +145,7 @@ export default {
         url.pathname.startsWith("/assets/") ||
         url.pathname === "/favicon.svg" ||
         url.pathname === "/favicon.ico" ||
+        url.pathname.startsWith("/favicon-") ||
         // Machine endpoints authenticate themselves (x-hermes-key shared
         // secret, or fully public by design) — the human session cookie
         // gate must not shadow them, or the Hermes agent gets redirected

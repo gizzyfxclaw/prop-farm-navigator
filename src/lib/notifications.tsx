@@ -5,6 +5,11 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
  *
  * Provides on-site notification display and browser push notifications
  * that reach the user's phone/desktop via the Notification API.
+ *
+ * Uses ServiceWorkerRegistration.showNotification() when a service worker
+ * is registered (required for Firefox / mobile Chrome / installed PWAs),
+ * falling back to the Notification constructor in a try-catch for browsers
+ * that still allow it.
  */
 
 export interface NotificationItem {
@@ -35,6 +40,29 @@ export function useNotifications(): NotificationState {
   const ctx = useContext(NotificationContext);
   if (!ctx) throw new Error("useNotifications must be inside NotificationProvider");
   return ctx;
+}
+
+/** Show a browser notification — SW path if available, else fallback. */
+async function showBrowserNotification(title: string, options: NotificationOptions) {
+  // Prefer the service-worker path (Firefox, mobile Chrome, PWAs).
+  if ("serviceWorker" in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        await reg.showNotification(title, options);
+        return;
+      }
+    } catch {
+      // fall through to constructor
+    }
+  }
+  // Fallback: the Notification constructor. Wrap in try-catch because
+  // some browsers (Firefox, mobile Chrome) forbid it entirely.
+  try {
+    new Notification(title, options);
+  } catch {
+    // Notifications unavailable — silent no-op.
+  }
 }
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
@@ -75,9 +103,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const result = await Notification.requestPermission();
     setPermission(result);
     if (result === "granted") {
-      new Notification("GizzyFx Notifications Enabled", {
+      await showBrowserNotification("GizzyFx Notifications Enabled", {
         body: "You will now receive trade alerts and reminders.",
-        icon: "/favicon.ico",
+        icon: "/favicon-32.png",
       });
     }
   }, []);
@@ -86,9 +114,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     (title: string, body: string) => {
       if (!("Notification" in window)) return;
       if (Notification.permission === "granted") {
-        new Notification(title, {
+        showBrowserNotification(title, {
           body,
-          icon: "/favicon.ico",
+          icon: "/favicon-32.png",
           tag: "gizzyfx-alert",
           requireInteraction: true,
         });

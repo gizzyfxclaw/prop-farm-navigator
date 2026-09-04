@@ -118,8 +118,7 @@ function LoginPage() {
       <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 400 }}>
         {/* Brand */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 26 }}>
-          <LogoMark size={38} />
-          <LogoWordmark height={22} />
+          <LogoMark size={56} />
         </div>
 
         {/* Auth panel */}

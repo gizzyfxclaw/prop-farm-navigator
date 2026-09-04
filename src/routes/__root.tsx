@@ -7,7 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { Palette, Check, LogOut, ExternalLink, Sun, Moon } from "lucide-react";
 
@@ -288,9 +288,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap",
       },
+      { rel: "icon", href: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { rel: "icon", href: "/favicon-180.png", type: "image/png", sizes: "180x180" },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "alternate icon", href: "/favicon.ico", type: "image/x-icon" },
-      { rel: "apple-touch-icon", href: "/favicon.svg" },
+      { rel: "apple-touch-icon", href: "/favicon-180.png" },
     ],
     scripts: [
       {
@@ -349,6 +351,22 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
   const pathname = router.state.location.pathname;
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerH, setHeaderH] = useState(0);
+
+  // Measure the fixed header and keep padding-top pixel-perfect.
+  // ResizeObserver fires whenever the bar height changes (font scale,
+  // tape loading, market-status toggling) so the content is never hidden.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      setHeaderH(el.getBoundingClientRect().height);
+    });
+    ro.observe(el);
+    setHeaderH(el.getBoundingClientRect().height);
+    return () => ro.disconnect();
+  }, []);
 
   if (pathname === "/login") {
     return (
@@ -381,7 +399,7 @@ function RootComponent() {
 
           <div className="relative min-h-screen w-full" style={{ zIndex: 1 }}>
             {/* ── Command bar ──────────────────────────────────────── */}
-            <header className="cmdbar">
+            <header ref={headerRef} className="cmdbar">
               {/* Row 1 — instrument status strip */}
               <div className="cmdbar-status hidden sm:block">
                 <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
@@ -407,8 +425,7 @@ function RootComponent() {
                       className="flex items-center gap-2 select-none flex-shrink-0"
                       aria-label="GizzyFx home"
                     >
-                      <LogoMark size={26} />
-                      <LogoWordmark height={16} />
+                      <LogoMark size={28} />
                     </Link>
 
                     <nav
@@ -465,8 +482,11 @@ function RootComponent() {
             {/* ── Page content ─────────────────────────────────── */}
             <main
               key={pathname}
-              className="fx-stagger w-full flex-1 px-4 pt-4 pb-8 sm:px-6 lg:px-10 xl:px-16"
-              style={{ minWidth: 0 }}
+              className="fx-stagger w-full flex-1 px-4 pb-8 sm:px-6 lg:px-10 xl:px-16"
+              style={{
+                minWidth: 0,
+                paddingTop: headerH > 0 ? `${headerH}px` : "var(--cmdbar-h)",
+              }}
             >
               <Outlet />
             </main>
