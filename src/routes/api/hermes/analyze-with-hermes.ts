@@ -33,8 +33,6 @@ const feedbackInput = z.object({
   take_profit_2: z.number().nullish(),
   direction: z.enum(["long", "short"]).nullish(),
   accuracy_grade: z.enum(["HIGH", "STANDARD", "NONE"]).nullish(),
-  chart_screenshots: z.array(z.string()).nullish(),  // base64 PNG data URLs
-  analysis_steps: z.array(z.record(z.any())).nullish(),  // step objects
 });
 
 export const Route = createFileRoute("/api/hermes/analyze-with-hermes")({
@@ -133,8 +131,6 @@ export const Route = createFileRoute("/api/hermes/analyze-with-hermes")({
              take_profit_2 = ?,
              direction = ?,
              accuracy_grade = ?,
-             chart_screenshots = ?,
-             analysis_steps = ?,
              fulfilled_at = strftime('%Y-%m-%dT%H:%M:%SZ','now')
            WHERE id = ?`
         )
@@ -148,8 +144,6 @@ export const Route = createFileRoute("/api/hermes/analyze-with-hermes")({
             body.take_profit_2 ?? null,
             body.direction ?? null,
             body.accuracy_grade ?? null,
-            body.chart_screenshots ? JSON.stringify(body.chart_screenshots) : null,
-            body.analysis_steps ? JSON.stringify(body.analysis_steps) : null,
             body.request_id,
           )
           .run();

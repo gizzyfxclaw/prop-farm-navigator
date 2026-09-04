@@ -3,7 +3,9 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   TrendingUp, TrendingDown, Target, AlertTriangle, BarChart3, Bot,
   Upload, Camera, Sparkles, CheckCircle2, XCircle, MessageSquare,
-  RefreshCw, Clock, Activity, ChevronDown, ChevronUp, Zap, Trash2,
+  RefreshCw, Clock, Activity, ChevronDown, ChevronUp, Trash2,
+  Globe, Monitor, TrendingUp as IndicatorIcon, Image, Search, Scale, FileCheck,
+  Loader, CheckCheck, Cpu,
 } from "lucide-react";
 import { Badge, Button, Card } from "@/components/terminal/ui";
 import { generatePineScript } from "@/lib/pine-script-generator";
@@ -110,14 +112,18 @@ const TIMEFRAMES = ["15m", "1h", "4h", "1d"] as const;
 type TF = (typeof TIMEFRAMES)[number];
 
 /* ── Hermes Analysis Progress Animation ─────────────────────────── */
-const ANALYSIS_PHASES = [
-  { label: "Opening TradingView",     icon: "🌐", duration: 12 },
-  { label: "Loading Chart",           icon: "📊", duration: 10 },
-  { label: "Applying Indicators",     icon: "📈", duration: 8  },
-  { label: "Capturing Screenshots",   icon: "📸", duration: 6  },
-  { label: "Reading Market Structure",icon: "🔍", duration: 10 },
-  { label: "Applying Strategy Rules", icon: "⚖️",  duration: 12 },
-  { label: "Compiling Verdict",       icon: "✅", duration: 6  },
+const ANALYSIS_PHASES: Array<{ label: string; detail: string; icon: React.ElementType; duration: number }> = [
+  { label: "Browser Launch",         detail: "Starting headless Chromium",             icon: Cpu,           duration: 4  },
+  { label: "Loading TradingView",    detail: "Opening live chart on TradingView.com",  icon: Globe,         duration: 12 },
+  { label: "Clearing Popups",        detail: "Dismissing cookie banners & dialogs",    icon: Monitor,       duration: 6  },
+  { label: "Capturing Clean Chart",  detail: "Screenshot — baseline price structure",  icon: Camera,        duration: 12 },
+  { label: "Reading Price Data",     detail: "Extracting current price from chart DOM",icon: Search,        duration: 4  },
+  { label: "Applying Indicators",    detail: "Loading EMA 20/50/200 + Volume overlay", icon: IndicatorIcon, duration: 10 },
+  { label: "Indicator Screenshot",   detail: "Screenshot — chart with EMA layers",     icon: Image,         duration: 4  },
+  { label: "Reading Indicators",     detail: "Extracting EMA values from legend",      icon: Activity,      duration: 4  },
+  { label: "Final Screenshot",       detail: "Screenshot — complete analysis view",    icon: Camera,        duration: 4  },
+  { label: "Applying Strategy",      detail: "Checking GizzyFx Channel Breakout rules",icon: Scale,         duration: 10 },
+  { label: "Compiling Verdict",      detail: "Writing feedback, levels & grade",       icon: FileCheck,     duration: 8  },
 ];
 const TOTAL_SECONDS = ANALYSIS_PHASES.reduce((s, p) => s + p.duration, 0);
 
@@ -134,7 +140,7 @@ function HermesAnalyzingCard({ submittedAt }: { submittedAt: number }) {
       // Phase from elapsed time
       let acc = 0;
       for (let i = 0; i < ANALYSIS_PHASES.length; i++) {
-        acc += ANALYSIS_PHASES[i].duration;
+        acc += ANALYSIS_PHASES[i]!.duration;
         if (e < acc) { setPhaseIdx(i); break; }
         if (i === ANALYSIS_PHASES.length - 1) setPhaseIdx(i);
       }
@@ -146,14 +152,14 @@ function HermesAnalyzingCard({ submittedAt }: { submittedAt: number }) {
 
   const progress = Math.min((elapsed / TOTAL_SECONDS) * 100, 97);
   const remaining = Math.max(TOTAL_SECONDS - elapsed, 3);
-  const phase = ANALYSIS_PHASES[phaseIdx] ?? ANALYSIS_PHASES[ANALYSIS_PHASES.length - 1]!;
+  const currentPhase = ANALYSIS_PHASES[phaseIdx] ?? ANALYSIS_PHASES[ANALYSIS_PHASES.length - 1]!;
 
   return (
     <div style={{
       border: "1px solid oklch(0.55 0.18 280 / 0.4)",
       borderRadius: 12,
-      background: "oklch(0.12 0.04 280 / 0.6)",
-      backdropFilter: "blur(12px)",
+      background: "oklch(0.10 0.04 280 / 0.7)",
+      backdropFilter: "blur(16px)",
       padding: "1.25rem",
       position: "relative",
       overflow: "hidden",
@@ -162,98 +168,136 @@ function HermesAnalyzingCard({ submittedAt }: { submittedAt: number }) {
       <div style={{
         position: "absolute", top: 0, left: "-100%", right: 0, height: 2,
         background: "linear-gradient(90deg, transparent, oklch(0.65 0.2 280), transparent)",
-        animation: "scan 2s linear infinite",
+        animation: "hz-scan 2.4s linear infinite",
       }} />
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <div style={{ position: "relative", width: 36, height: 36 }}>
-          {/* Outer ring pulse */}
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+        {/* Pulsing AI badge */}
+        <div style={{ position: "relative", width: 40, height: 40, flexShrink: 0 }}>
           <div style={{
             position: "absolute", inset: 0, borderRadius: "50%",
             border: "2px solid oklch(0.65 0.2 280)",
-            animation: "ping 1.5s cubic-bezier(0,0,0.2,1) infinite",
-            opacity: 0.4,
+            animation: "hz-ring 1.6s cubic-bezier(0,0,0.2,1) infinite",
+            opacity: 0.5,
           }} />
-          {/* Inner filled circle */}
           <div style={{
-            position: "absolute", inset: 4, borderRadius: "50%",
-            background: "oklch(0.55 0.18 280)",
+            position: "absolute", inset: 5, borderRadius: "50%",
+            background: "linear-gradient(135deg, oklch(0.45 0.2 280), oklch(0.35 0.15 260))",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 12, fontWeight: "bold", color: "#fff",
           }}>
-            AI
+            <Bot size={16} color="#fff" />
           </div>
         </div>
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "oklch(0.92 0.05 280)" }}>
-            Hermes is Analyzing{dots}
+
+        {/* Title + current action */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "oklch(0.92 0.04 280)", marginBottom: 2 }}>
+            Hermes Analyzing{dots}
           </div>
-          <div style={{ fontSize: 11, color: "oklch(0.65 0.1 280)" }}>
-            TradingView • Real browser • Live data
+          <div style={{ fontSize: 11, color: "oklch(0.60 0.10 280)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {currentPhase.detail}
           </div>
         </div>
-        <div style={{ marginLeft: "auto", textAlign: "right" }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.15 280)", fontFamily: "monospace" }}>
-            ~{remaining}s remaining
+
+        {/* Timer */}
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "monospace", color: "oklch(0.70 0.16 280)" }}>
+            ~{remaining}s left
           </div>
-          <div style={{ fontSize: 11, color: "oklch(0.55 0.08 280)" }}>
+          <div style={{ fontSize: 11, color: "oklch(0.50 0.08 280)" }}>
             {elapsed}s elapsed
           </div>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div style={{ background: "oklch(0.2 0.05 280)", borderRadius: 4, height: 6, marginBottom: 16, overflow: "hidden" }}>
+      <div style={{ background: "oklch(0.18 0.04 280)", borderRadius: 4, height: 5, marginBottom: 14, overflow: "hidden" }}>
         <div style={{
           height: "100%", borderRadius: 4,
-          background: "linear-gradient(90deg, oklch(0.45 0.2 280), oklch(0.65 0.25 200))",
+          background: "linear-gradient(90deg, oklch(0.42 0.20 280), oklch(0.62 0.22 200))",
           width: `${progress}%`,
           transition: "width 1s linear",
-          boxShadow: "0 0 8px oklch(0.65 0.2 280 / 0.6)",
+          boxShadow: "0 0 10px oklch(0.62 0.20 280 / 0.7)",
         }} />
       </div>
 
-      {/* Phase list */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {/* Phase list — show all, active highlighted */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         {ANALYSIS_PHASES.map((p, i) => {
-          const isDone    = i < phaseIdx;
-          const isActive  = i === phaseIdx;
+          const isDone   = i < phaseIdx;
+          const isActive = i === phaseIdx;
+          const PhaseIcon = p.icon;
           return (
             <div key={i} style={{
-              display: "flex", alignItems: "center", gap: 10,
-              opacity: i > phaseIdx ? 0.35 : 1,
-              transition: "opacity 0.4s",
+              display: "flex", alignItems: "center", gap: 9,
+              opacity: i > phaseIdx ? 0.28 : 1,
+              padding: isActive ? "5px 8px" : "2px 8px",
+              borderRadius: 6,
+              background: isActive ? "oklch(0.20 0.06 280 / 0.7)" : "transparent",
+              border: isActive ? "1px solid oklch(0.40 0.12 280 / 0.5)" : "1px solid transparent",
+              transition: "all 0.4s",
             }}>
+              {/* Status indicator */}
               <div style={{
-                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
-                border: `2px solid ${isDone ? "oklch(0.55 0.18 150)" : isActive ? "oklch(0.55 0.18 280)" : "oklch(0.3 0.04 280)"}`,
-                background: isDone ? "oklch(0.4 0.15 150)" : isActive ? "oklch(0.35 0.12 280)" : "transparent",
+                width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                background: isDone
+                  ? "oklch(0.42 0.16 145)"
+                  : isActive
+                    ? "oklch(0.38 0.14 280)"
+                    : "oklch(0.18 0.04 280)",
+                border: `1.5px solid ${isDone ? "oklch(0.56 0.18 145)" : isActive ? "oklch(0.55 0.18 280)" : "oklch(0.30 0.06 280)"}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 10,
-                animation: isActive ? "pulse 1s ease-in-out infinite" : "none",
               }}>
-                {isDone ? "✓" : isActive ? "▶" : "○"}
+                {isDone
+                  ? <CheckCheck size={10} color="oklch(0.75 0.18 145)" />
+                  : isActive
+                    ? <Loader size={10} color="oklch(0.75 0.18 280)" style={{ animation: "hz-spin 1s linear infinite" }} />
+                    : <div style={{ width: 5, height: 5, borderRadius: "50%", background: "oklch(0.35 0.06 280)" }} />
+                }
               </div>
-              <span style={{
-                fontSize: 12,
-                color: isDone ? "oklch(0.65 0.12 150)" : isActive ? "oklch(0.85 0.08 280)" : "oklch(0.5 0.05 280)",
-                fontWeight: isActive ? 600 : 400,
-              }}>
-                {p.icon} {p.label}
-                {isActive && <span style={{ marginLeft: 6, color: "oklch(0.55 0.15 280)", animation: "blink 1s step-end infinite" }}>●</span>}
-              </span>
+
+              {/* Phase icon */}
+              <PhaseIcon size={12} color={isDone ? "oklch(0.60 0.15 145)" : isActive ? "oklch(0.72 0.14 280)" : "oklch(0.38 0.06 280)"} />
+
+              {/* Label + detail */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: isActive ? 600 : 400,
+                  color: isDone ? "oklch(0.62 0.12 145)" : isActive ? "oklch(0.88 0.06 280)" : "oklch(0.45 0.05 280)",
+                }}>
+                  {p.label}
+                </span>
+                {isActive && (
+                  <span style={{ fontSize: 10, color: "oklch(0.52 0.10 280)", marginLeft: 6 }}>
+                    {p.detail}
+                  </span>
+                )}
+              </div>
+
+              {/* Time chip */}
+              {isDone && (
+                <span style={{ fontSize: 10, color: "oklch(0.50 0.10 145)", fontFamily: "monospace" }}>
+                  done
+                </span>
+              )}
+              {isActive && (
+                <span style={{ fontSize: 10, color: "oklch(0.55 0.14 280)", fontFamily: "monospace", animation: "hz-blink 1s step-end infinite" }}>
+                  ●
+                </span>
+              )}
             </div>
           );
         })}
       </div>
 
-      {/* Scan animation keyframes via style tag */}
+      {/* Keyframe styles */}
       <style>{`
-        @keyframes scan { from { left: -100% } to { left: 100% } }
-        @keyframes ping { 75%, 100% { transform: scale(1.8); opacity: 0; } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes hz-scan  { from { left: -100% } to { left: 100% } }
+        @keyframes hz-ring  { 75%, 100% { transform: scale(1.9); opacity: 0; } }
+        @keyframes hz-spin  { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes hz-blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
       `}</style>
     </div>
   );
@@ -568,7 +612,7 @@ function SMCPage() {
           <div className="space-y-4">
             <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
               <p className="text-[12px] text-primary font-bold mb-1 flex items-center gap-1">
-                <Zap size={11} /> How it works
+                <Activity size={11} /> How it works
               </p>
               <p className="text-[12px] text-muted-foreground">
                 Hermes reads the live SMC data, your notes, and your chart image.
