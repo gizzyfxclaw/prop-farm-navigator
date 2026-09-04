@@ -19,7 +19,7 @@ interface Bar {
 const TVREMIX_URL = "https://tvremix.xyz/api/mcp/v1";
 
 function tvSymbol(pair: string): string {
-  return `FX:${pair}`;
+  return `OANDA:${pair}`;
 }
 
 const TV_INTERVAL: Record<string, string> = {

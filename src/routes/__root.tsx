@@ -32,6 +32,7 @@ const NAV = [
   { to: "/live",      label: "Live MT5",    short: "MT5"     },
   { to: "/hermes",    label: "Trading Agent", short: "Agent" },
   { to: "/backtest",  label: "Backtest",      short: "BT"     },
+  { to: "/smc",       label: "SMC Analysis",  short: "SMC"    },
   { to: "/console",   label: "Console",       short: "Console" },
   { to: "/settings",  label: "Settings",    short: "Config"  },
 ] as const;

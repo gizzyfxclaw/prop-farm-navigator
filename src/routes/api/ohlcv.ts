@@ -26,7 +26,7 @@ const TVREMIX_URL = "https://tvremix.xyz/api/mcp/v1";
 // tvremix only knows FX pairs by this prefix; extend here if more symbols
 // (XAUUSD, crypto, etc.) are ever added to src/lib/engine/pairs.ts.
 function tvSymbol(pair: string): string {
-  return `FX:${pair}`;
+  return `OANDA:${pair}`;
 }
 
 // Site intervals are lowercase; tvremix's day/week/month intervals are not.
