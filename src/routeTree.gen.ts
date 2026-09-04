@@ -18,13 +18,16 @@ import { Route as HermesRouteImport } from './routes/hermes'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PnlRouteImport } from './routes/pnl'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SmcRouteImport } from './routes/smc'
 import { Route as ValidatorRouteImport } from './routes/validator'
+import { Route as ApiDebateRouteImport } from './routes/api/debate'
 import { Route as ApiEconomicEventsRouteImport } from './routes/api/economic-events'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFinnhub_webhookRouteImport } from './routes/api/finnhub_webhook'
 import { Route as ApiOhlcvRouteImport } from './routes/api/ohlcv'
+import { Route as ApiPatternRouteImport } from './routes/api/pattern'
 import { Route as ApiSmcRouteImport } from './routes/api/smc'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
@@ -83,6 +86,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PnlRoute = PnlRouteImport.update({
+  id: '/pnl',
+  path: '/pnl',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -96,6 +104,11 @@ const SmcRoute = SmcRouteImport.update({
 const ValidatorRoute = ValidatorRouteImport.update({
   id: '/validator',
   path: '/validator',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDebateRoute = ApiDebateRouteImport.update({
+  id: '/api/debate',
+  path: '/api/debate',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiEconomicEventsRoute = ApiEconomicEventsRouteImport.update({
@@ -116,6 +129,11 @@ const ApiFinnhub_webhookRoute = ApiFinnhub_webhookRouteImport.update({
 const ApiOhlcvRoute = ApiOhlcvRouteImport.update({
   id: '/api/ohlcv',
   path: '/api/ohlcv',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPatternRoute = ApiPatternRouteImport.update({
+  id: '/api/pattern',
+  path: '/api/pattern',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSmcRoute = ApiSmcRouteImport.update({
@@ -189,13 +207,16 @@ export interface FileRoutesByFullPath {
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
   '/login': typeof LoginRoute
+  '/pnl': typeof PnlRoute
   '/settings': typeof SettingsRoute
   '/smc': typeof SmcRoute
   '/validator': typeof ValidatorRoute
+  '/api/debate': typeof ApiDebateRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
+  '/api/pattern': typeof ApiPatternRoute
   '/api/smc': typeof ApiSmcRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
@@ -219,13 +240,16 @@ export interface FileRoutesByTo {
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
   '/login': typeof LoginRoute
+  '/pnl': typeof PnlRoute
   '/settings': typeof SettingsRoute
   '/smc': typeof SmcRoute
   '/validator': typeof ValidatorRoute
+  '/api/debate': typeof ApiDebateRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
+  '/api/pattern': typeof ApiPatternRoute
   '/api/smc': typeof ApiSmcRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
@@ -250,13 +274,16 @@ export interface FileRoutesById {
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
   '/login': typeof LoginRoute
+  '/pnl': typeof PnlRoute
   '/settings': typeof SettingsRoute
   '/smc': typeof SmcRoute
   '/validator': typeof ValidatorRoute
+  '/api/debate': typeof ApiDebateRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
+  '/api/pattern': typeof ApiPatternRoute
   '/api/smc': typeof ApiSmcRoute
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
@@ -282,13 +309,16 @@ export interface FileRouteTypes {
     | '/journal'
     | '/live'
     | '/login'
+    | '/pnl'
     | '/settings'
     | '/smc'
     | '/validator'
+    | '/api/debate'
     | '/api/economic-events'
     | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
+    | '/api/pattern'
     | '/api/smc'
     | '/api/hermes'
     | '/api/hermes/accounts'
@@ -312,13 +342,16 @@ export interface FileRouteTypes {
     | '/journal'
     | '/live'
     | '/login'
+    | '/pnl'
     | '/settings'
     | '/smc'
     | '/validator'
+    | '/api/debate'
     | '/api/economic-events'
     | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
+    | '/api/pattern'
     | '/api/smc'
     | '/api/hermes'
     | '/api/hermes/accounts'
@@ -342,13 +375,16 @@ export interface FileRouteTypes {
     | '/journal'
     | '/live'
     | '/login'
+    | '/pnl'
     | '/settings'
     | '/smc'
     | '/validator'
+    | '/api/debate'
     | '/api/economic-events'
     | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
+    | '/api/pattern'
     | '/api/smc'
     | '/api/hermes/_debug'
     | '/api/hermes/accounts'
@@ -373,13 +409,16 @@ export interface RootRouteChildren {
   JournalRoute: typeof JournalRoute
   LiveRoute: typeof LiveRoute
   LoginRoute: typeof LoginRoute
+  PnlRoute: typeof PnlRoute
   SettingsRoute: typeof SettingsRoute
   SmcRoute: typeof SmcRoute
   ValidatorRoute: typeof ValidatorRoute
+  ApiDebateRoute: typeof ApiDebateRoute
   ApiEconomicEventsRoute: typeof ApiEconomicEventsRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiFinnhub_webhookRoute: typeof ApiFinnhub_webhookRoute
   ApiOhlcvRoute: typeof ApiOhlcvRoute
+  ApiPatternRoute: typeof ApiPatternRoute
   ApiSmcRoute: typeof ApiSmcRoute
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
@@ -459,6 +498,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pnl': {
+      id: '/pnl'
+      path: '/pnl'
+      fullPath: '/pnl'
+      preLoaderRoute: typeof PnlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -478,6 +524,13 @@ declare module '@tanstack/react-router' {
       path: '/validator'
       fullPath: '/validator'
       preLoaderRoute: typeof ValidatorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/debate': {
+      id: '/api/debate'
+      path: '/api/debate'
+      fullPath: '/api/debate'
+      preLoaderRoute: typeof ApiDebateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/economic-events': {
@@ -506,6 +559,13 @@ declare module '@tanstack/react-router' {
       path: '/api/ohlcv'
       fullPath: '/api/ohlcv'
       preLoaderRoute: typeof ApiOhlcvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pattern': {
+      id: '/api/pattern'
+      path: '/api/pattern'
+      fullPath: '/api/pattern'
+      preLoaderRoute: typeof ApiPatternRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/smc': {
@@ -605,13 +665,16 @@ const rootRouteChildren: RootRouteChildren = {
   JournalRoute: JournalRoute,
   LiveRoute: LiveRoute,
   LoginRoute: LoginRoute,
+  PnlRoute: PnlRoute,
   SettingsRoute: SettingsRoute,
   SmcRoute: SmcRoute,
   ValidatorRoute: ValidatorRoute,
+  ApiDebateRoute: ApiDebateRoute,
   ApiEconomicEventsRoute: ApiEconomicEventsRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiFinnhub_webhookRoute: ApiFinnhub_webhookRoute,
   ApiOhlcvRoute: ApiOhlcvRoute,
+  ApiPatternRoute: ApiPatternRoute,
   ApiSmcRoute: ApiSmcRoute,
   ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,

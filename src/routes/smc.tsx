@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   TrendingUp,
   TrendingDown,
@@ -8,8 +8,9 @@ import {
   AlertTriangle,
   Target,
   Crosshair,
+  MessageSquare,
 } from "lucide-react";
-import { Badge, Button, Card, Field, TextInput } from "@/components/terminal/ui";
+import { Badge, Button, Card, Field } from "@/components/terminal/ui";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/smc")({
@@ -63,6 +64,32 @@ interface SMCSummary {
   pair: string;
   interval: string;
   barCount: number;
+}
+
+interface DebatePoint {
+  claim: string;
+  evidence: string;
+  confidence: number;
+}
+
+interface DebateCase {
+  direction: "bullish" | "bearish";
+  points: DebatePoint[];
+  overallConfidence: number;
+  keyLevel: string;
+  invalidation: string;
+}
+
+interface DebateSynthesis {
+  bullCase: DebateCase;
+  bearCase: DebateCase;
+  debateRounds: string[];
+  finalVerdict: "STRONG_LONG" | "LEAN_LONG" | "NEUTRAL" | "LEAN_SHORT" | "STRONG_SHORT";
+  confidence: number;
+  finalRationale: string;
+  entryZone: string;
+  invalidationLevel: string;
+  riskReward: string;
 }
 
 const PAIRS = ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "XAUUSD"];
@@ -307,16 +334,6 @@ function SMCPage() {
                       </td>
                     </tr>
                   ))}
-                {data.fvgs.filter((f) => !f.filled).length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="px-2 py-3 text-center text-muted-foreground"
-                    >
-                      All FVGs have been filled
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -371,7 +388,211 @@ function SMCPage() {
 
       {/* ── Confluence Score ─────────────────────────────────────────── */}
       {data && <ConfluenceCard data={data} />}
+
+      {/* ── Debate ──────────────────────────────────────────────────── */}
+      {data && <DebateCard pair={data.pair} interval={data.interval} />}
+
+      {/* ── Pine Script ─────────────────────────────────────────────── */}
+      {data && <PineScriptCard pair={data.pair} smc={data} />}
     </div>
+  );
+}
+
+/* ── Pine Script Card ───────────────────────────────────────────────────── */
+
+function PineScriptCard({ pair, smc }: { pair: string; smc: SMCSummary }) {
+  const [script, setScript] = useState<string>("");
+  const [showScript, setShowScript] = useState(false);
+
+  const generate = useCallback(() => {
+    const { generatePineScript } = require("@/lib/pine-script-generator");
+    const smcResult: any = {
+      ok: true,
+      structure: smc.structure,
+      orderBlocks: smc.orderBlocks,
+      fvgs: smc.fvgs,
+      sweeps: smc.sweeps,
+      zone: smc.zone,
+    };
+    const code = generatePineScript(smcResult, pair);
+    setScript(code);
+    setShowScript(true);
+  }, [pair, smc]);
+
+  const copyToClipboard = useCallback(() => {
+    navigator.clipboard.writeText(script);
+  }, [script]);
+
+  return (
+    <Card title="Pine Script Output">
+      <div className="mb-3 flex items-center gap-2">
+        <Button variant="ghost" onClick={generate}>
+          <Activity size={12} />
+          Generate Pine Script
+        </Button>
+        {showScript && (
+          <Button variant="ghost" onClick={copyToClipboard}>
+            <Crosshair size={12} />
+            Copy to Clipboard
+          </Button>
+        )}
+      </div>
+      <p className="text-[12px] text-muted-foreground mb-3">
+        Generates Pine Script v5 code that plots SMC signals (order blocks, FVGs, swings, sweeps) on TradingView.
+      </p>
+      {showScript && (
+        <div className="rounded-md border border-white/10 bg-black/30 p-3">
+          <pre className="text-[11px] font-mono text-emerald-400 whitespace-pre-wrap overflow-x-auto">
+            {script}
+          </pre>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ── Debate Card ────────────────────────────────────────────────────────── */
+
+function DebateCard({ pair, interval }: { pair: string; interval: string }) {
+  const [debate, setDebate] = useState<DebateSynthesis | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const loaded = useRef(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/debate?pair=${pair}&interval=${interval}&limit=500`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      setDebate(json);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load debate");
+    } finally {
+      setLoading(false);
+    }
+  }, [pair, interval]);
+
+  useEffect(() => {
+    if (!loaded.current) {
+      loaded.current = true;
+      load();
+    }
+  }, [load]);
+
+  const verdictColor =
+    debate?.finalVerdict.includes("LONG")
+      ? "green"
+      : debate?.finalVerdict.includes("SHORT")
+        ? "red"
+        : "amber";
+
+  return (
+    <Card title="Bull vs Bear Debate">
+      <div className="mb-3 flex items-center gap-2">
+        <Button variant="ghost" onClick={load} disabled={loading}>
+          <MessageSquare size={12} />
+          {loading ? "Debating…" : "Refresh"}
+        </Button>
+      </div>
+
+      {error && (
+        <div className="alert alert-red mb-4">
+          <p className="alert-title"><AlertTriangle size={13} /> Error</p>
+          <p className="alert-body">{error}</p>
+        </div>
+      )}
+
+      {debate && (
+        <div className="space-y-4">
+          {/* Verdict */}
+          <div className="flex items-center gap-4">
+            <Badge tone={verdictColor}>
+              <Target size={12} />
+              {debate.finalVerdict.replace("_", " ")}
+            </Badge>
+            <span className="text-[13px] text-muted-foreground">
+              Confidence: {(debate.confidence * 100).toFixed(0)}% · R:R {debate.riskReward}
+            </span>
+          </div>
+
+          {/* Bull Case */}
+          <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3">
+            <p className="text-[12px] font-bold text-emerald-400 mb-2">
+              <TrendingUp size={11} className="inline mr-1" />
+              BULL CASE ({(debate.bullCase.overallConfidence * 100).toFixed(0)}% confidence)
+            </p>
+            <ul className="space-y-1 text-[12px]">
+              {debate.bullCase.points.slice(0, 3).map((p, i) => (
+                <li key={i} className="text-muted-foreground">
+                  <span className="text-foreground font-medium">{p.claim}</span>
+                  <span className="text-[11px] text-muted-foreground/70"> — {p.evidence}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[11px] text-red-400">
+              Invalidates: {debate.bullCase.invalidation} @ {debate.bullCase.keyLevel}
+            </p>
+          </div>
+
+          {/* Bear Case */}
+          <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3">
+            <p className="text-[12px] font-bold text-red-400 mb-2">
+              <TrendingDown size={11} className="inline mr-1" />
+              BEAR CASE ({(debate.bearCase.overallConfidence * 100).toFixed(0)}% confidence)
+            </p>
+            <ul className="space-y-1 text-[12px]">
+              {debate.bearCase.points.slice(0, 3).map((p, i) => (
+                <li key={i} className="text-muted-foreground">
+                  <span className="text-foreground font-medium">{p.claim}</span>
+                  <span className="text-[11px] text-muted-foreground/70"> — {p.evidence}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[11px] text-emerald-400">
+              Invalidates: {debate.bearCase.invalidation} @ {debate.bearCase.keyLevel}
+            </p>
+          </div>
+
+          {/* Debate Rounds */}
+          <div className="rounded-md border border-white/10 bg-white/[0.02] p-3">
+            <p className="text-[12px] font-bold text-blue-400 mb-2">
+              <MessageSquare size={11} className="inline mr-1" />
+              Debate Rounds
+            </p>
+            <div className="space-y-1 text-[12px] text-muted-foreground font-mono">
+              {debate.debateRounds.map((round, i) => (
+                <p key={i} className={round.includes("Synthesis") ? "text-foreground font-bold" : ""}>
+                  {round}
+                </p>
+              ))}
+            </div>
+          </div>
+
+          {/* Final Rationale */}
+          <div className="text-[12px] text-muted-foreground">
+            <span className="font-bold text-foreground">Final: </span>
+            {debate.finalRationale}
+          </div>
+
+          {/* Levels */}
+          <div className="flex gap-4 text-[12px]">
+            <div>
+              <span className="text-muted-foreground">Entry Zone: </span>
+              <span className="font-mono text-emerald-400">{debate.entryZone}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Invalidation: </span>
+              <span className="font-mono text-red-400">{debate.invalidationLevel}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 

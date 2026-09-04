@@ -33,6 +33,7 @@ const NAV = [
   { to: "/hermes",    label: "Trading Agent", short: "Agent" },
   { to: "/backtest",  label: "Backtest",      short: "BT"     },
   { to: "/smc",       label: "SMC Analysis",  short: "SMC"    },
+  { to: "/pnl",       label: "P&L Dashboard", short: "P&L"     },
   { to: "/console",   label: "Console",       short: "Console" },
   { to: "/settings",  label: "Settings",    short: "Config"  },
 ] as const;
@@ -426,12 +427,21 @@ function RootComponent() {
                   <div className="flex items-center gap-5 min-w-0">
                     <Link
                       to="/"
-                      className="flex items-center gap-2 select-none flex-shrink-0"
+                      className="flex items-center select-none flex-shrink-0"
                       aria-label="GizzyFx home"
                     >
-                      {/* Show mark icon + "GizzyFX" text wordmark */}
-                      <LogoMark size={32} />
-                      <LogoWordmark height={28} />
+                      {/* Full clean GizzyFX brand logo — single image, no duplication */}
+                      <img
+                        src="/gizzyfx-nav2.png"
+                        alt="GizzyFX"
+                        style={{
+                          height: 44,
+                          width: "auto",
+                          objectFit: "contain",
+                          display: "block",
+                          filter: "drop-shadow(0 0 8px rgba(0,200,100,0.35))",
+                        }}
+                      />
                     </Link>
 
                     <nav
@@ -491,7 +501,7 @@ function RootComponent() {
               className="fx-stagger w-full flex-1 px-4 pb-8 sm:px-6 lg:px-10 xl:px-16"
               style={{
                 minWidth: 0,
-                paddingTop: headerH > 0 ? `${headerH}px` : "var(--cmdbar-h)",
+                paddingTop: headerH > 0 ? `calc(${headerH}px + 12px)` : "calc(var(--cmdbar-h) + 12px)",
               }}
             >
               <Outlet />

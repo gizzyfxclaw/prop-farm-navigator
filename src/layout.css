@@ -91,13 +91,13 @@
   right: 0;
   z-index: 40;
   width: 100%;
-  background: oklch(var(--gz-s3) / 0.92);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border-bottom: var(--gz-hair) solid oklch(var(--gz-p) / 0.15);
-  box-shadow: 0 1px 0 oklch(var(--gz-p) / 0.05),
-              0 8px 30px -12px oklch(0 0 0 / 0.85);
-  /* Guarantee the bar is always above page content and dropdowns */
+  /* More transparent — professional glass terminal look */
+  background: oklch(var(--gz-bg) / 0.72);
+  backdrop-filter: blur(28px) saturate(1.8) brightness(1.05);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8) brightness(1.05);
+  border-bottom: var(--gz-hair) solid oklch(var(--gz-p) / 0.18);
+  box-shadow: 0 1px 0 oklch(var(--gz-p) / 0.08),
+              0 12px 40px -8px oklch(0 0 0 / 0.75);
   contain: layout style;
 }
 
@@ -315,11 +315,11 @@
    ─────────────────────────────────────────────────────────────────────── */
 
 :root {
-  --cmdbar-h: 78px;
+  --cmdbar-h: 90px;   /* mobile: status hidden, nav + tape */
 }
-@media (min-width: 640px)  { :root { --cmdbar-h: 106px; } }
-@media (min-width: 1024px) { :root { --cmdbar-h: 130px; } }
-@media (min-width: 1440px) { :root { --cmdbar-h: 144px; } }
+@media (min-width: 640px)  { :root { --cmdbar-h: 118px; } }  /* + status strip */
+@media (min-width: 1024px) { :root { --cmdbar-h: 145px; } }  /* desktop enlarged fonts */
+@media (min-width: 1440px) { :root { --cmdbar-h: 158px; } }
 
 /* The main content wrapper gets the offset */
 .cmdbar-offset {

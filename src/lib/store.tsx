@@ -92,7 +92,7 @@ const KEYS = {
 } as const;
 
 /** Current preset schema version — increment when PRESET_LADDER changes. */
-const PRESETS_VERSION = "2";  // v1=9%/fee44, v2=6%/fee28.60
+const PRESETS_VERSION = "3";  // v1=9%/fee44, v2=6%/fee28.60, v3=force risk rescale
 
 interface StorageAdapter {
   read<T>(key: string, fallback: T): T;
@@ -234,11 +234,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const baseSize = 5000;
         const baseRisk = 50;
         const scaledRisk = Math.round((baseRisk * selectedAcct.size / baseSize) * 100) / 100;
-        // Only reset risk if it's the old default ($50 flat for every account)
-        if (!storedEngine.propRiskUsd || storedEngine.propRiskUsd === 50) {
-          storedEngine.propRiskUsd = scaledRisk;
-          storage.write(KEYS.engine, { ...defaultEngine(selectedId), ...storedEngine });
-        }
+        // ALWAYS rescale risk during migration — stale $50 risk on a $50k
+        // account is the core bug. The user can adjust after migration.
+        storedEngine.propRiskUsd = scaledRisk;
+        storage.write(KEYS.engine, { ...defaultEngine(selectedId), ...storedEngine });
       }
     } else {
       localAccounts = storedAccounts.length ? storedAccounts : defaultAccounts();

@@ -85,13 +85,12 @@ export function LogoWatermark() {
         src="/gizzyfx-watermark.png"
         alt=""
         style={{
-          width: "min(65vw, 500px)",
+          width: "min(75vw, 560px)",
           height: "auto",
-          opacity: 0.042,
+          opacity: 0.085,
           userSelect: "none",
           display: "block",
           objectFit: "contain",
-          /* Desaturate in light mode so it doesn't compete */
           filter: "var(--gz-watermark-filter, none)",
         }}
       />
