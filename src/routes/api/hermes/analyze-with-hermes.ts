@@ -93,6 +93,25 @@ export const Route = createFileRoute("/api/hermes/analyze-with-hermes")({
         return Response.json({ reviews: results });
       },
 
+      // Delete one review (?id=xxx) or all (?all=true)
+      DELETE: async ({ request }) => {
+        const env = getCFEnv();
+        if (!env) return new Response("Service unavailable", { status: 503 });
+
+        const url = new URL(request.url);
+        const id  = url.searchParams.get("id");
+        const all = url.searchParams.get("all");
+
+        if (all === "true") {
+          await env.DB.prepare("DELETE FROM hermes_smc_reviews").bind().run();
+          return Response.json({ ok: true, deleted: "all" });
+        }
+
+        if (!id) return Response.json({ error: "id required" }, { status: 400 });
+        await env.DB.prepare("DELETE FROM hermes_smc_reviews WHERE id = ?").bind(id).run();
+        return Response.json({ ok: true, deleted: id });
+      },
+
       // Hermes posts feedback
       PATCH: async ({ request }) => {
         const env = getCFEnv();

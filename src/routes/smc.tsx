@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   TrendingUp, TrendingDown, Target, AlertTriangle, BarChart3, Bot,
   Upload, Camera, Sparkles, CheckCircle2, XCircle, MessageSquare,
-  RefreshCw, Clock, Activity, ChevronDown, ChevronUp, Zap,
+  RefreshCw, Clock, Activity, ChevronDown, ChevronUp, Zap, Trash2,
 } from "lucide-react";
 import { Badge, Button, Card } from "@/components/terminal/ui";
 import { generatePineScript } from "@/lib/pine-script-generator";
@@ -269,6 +269,27 @@ function SMCPage() {
     }
   };
 
+  /* ── Delete review(s) ───────────────────────────────────────────── */
+  const deleteReview = async (id: string) => {
+    try {
+      await fetch(`/api/hermes/analyze-with-hermes?id=${id}`, { method: "DELETE" });
+      const updated = reviews.filter(r => r.id !== id);
+      setReviews(updated);
+      if (expandedReview?.id === id) { setExpandedReview(null); setSelectedReviewId(null); }
+    } catch { alert("Delete failed. Try again."); }
+  };
+
+  const deleteAll = async () => {
+    if (!confirm("Delete all Hermes analysis history? This cannot be undone.")) return;
+    try {
+      await fetch("/api/hermes/analyze-with-hermes?all=true", { method: "DELETE" });
+      setReviews([]);
+      setExpandedReview(null);
+      setSelectedReviewId(null);
+      writeLS({ reviews: [], selectedReviewId: null });
+    } catch { alert("Delete failed. Try again."); }
+  };
+
   /* ── Helpers ─────────────────────────────────────────────────────── */
   const bias = data?.structure?.bias ?? "neutral";
   const verdictColor = data?.debate?.finalVerdict?.includes("LONG") ? "green"
@@ -476,10 +497,19 @@ function SMCPage() {
         <Card title={`Hermes Analysis History (${fulfilledReviews.length})`}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-[12px] text-muted-foreground">Click a row to expand feedback</span>
-            <Button variant="ghost" onClick={() => loadReviews()} disabled={loadingReviews}>
-              <RefreshCw size={11} className={loadingReviews ? "animate-spin" : ""} />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => loadReviews()} disabled={loadingReviews}>
+                <RefreshCw size={11} className={loadingReviews ? "animate-spin" : ""} />
+                Refresh
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={deleteAll}
+                style={{ color: "var(--gz-neg, #ef4444)" }}
+              >
+                <Trash2 size={11} /> Clear All
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             {fulfilledReviews.slice(0, 10).map((r) => {
@@ -488,30 +518,39 @@ function SMCPage() {
                 <div key={r.id} className="rounded-md border border-white/10 overflow-hidden">
                   {/* Row header */}
                   <div
-                    className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/[0.03] transition-colors"
-                    onClick={() => { openReview(r); if (isOpen) { setExpandedReview(null); setSelectedReviewId(null); } }}
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/[0.03] transition-colors"
+                  onClick={() => { openReview(r); if (isOpen) { setExpandedReview(null); setSelectedReviewId(null); } }}
                   >
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <Badge tone={verdictTone(r.verdict)}>
-                        {r.verdict?.toUpperCase() ?? "PENDING"}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Badge tone={verdictTone(r.verdict)}>
+                      {r.verdict?.toUpperCase() ?? "PENDING"}
+                    </Badge>
+                    {r.accuracy_grade && (
+                      <Badge tone={r.accuracy_grade === "HIGH" ? "green" : "amber"}>
+                        {r.accuracy_grade}
                       </Badge>
-                      {r.accuracy_grade && (
-                        <Badge tone={r.accuracy_grade === "HIGH" ? "green" : "amber"}>
-                          {r.accuracy_grade}
-                        </Badge>
-                      )}
-                      {r.direction && (
-                        <Badge tone={r.direction === "long" ? "green" : "red"}>
-                          {r.direction.toUpperCase()}
-                        </Badge>
-                      )}
-                      <span className="text-[13px] font-bold">{r.pair}</span>
-                      <span className="text-[12px] text-muted-foreground">{r.timeframe}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-muted-foreground">{formatAge(r.created_at)}</span>
-                      {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </div>
+                    )}
+                    {r.direction && (
+                      <Badge tone={r.direction === "long" ? "green" : "red"}>
+                        {r.direction.toUpperCase()}
+                      </Badge>
+                    )}
+                    <span className="text-[13px] font-bold">{r.pair}</span>
+                    <span className="text-[12px] text-muted-foreground">{r.timeframe}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-muted-foreground">{formatAge(r.created_at)}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteReview(r.id); }}
+                      style={{ color: "var(--gz-neg, #ef4444)", opacity: 0.6, padding: "2px 4px", borderRadius: 4 }}
+                      title="Delete this review"
+                      onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = "0.6")}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                    {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </div>
                   </div>
 
                   {/* Expanded detail */}
