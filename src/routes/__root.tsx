@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
-import { Palette, Check, LogOut, ExternalLink } from "lucide-react";
+import { Palette, Check, LogOut, ExternalLink, Sun, Moon } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -56,6 +56,66 @@ function applyTheme(id: ThemeId) {
     document.documentElement.dataset["theme"] = id;
   }
 }
+
+/* ── Light / Dark mode toggle ──────────────────────────────────── */
+
+type Mode = "dark" | "light";
+
+function applyMode(mode: Mode) {
+  if (mode === "light") {
+    document.documentElement.dataset["mode"] = "light";
+  } else {
+    delete document.documentElement.dataset["mode"];
+  }
+}
+
+function ModeToggle() {
+  const [mode, setMode] = useState<Mode>("dark");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("gz-mode") as Mode | null;
+      if (saved === "light") {
+        setMode("light");
+        applyMode("light");
+      }
+    } catch {}
+  }, []);
+
+  function toggle() {
+    const next: Mode = mode === "dark" ? "light" : "dark";
+    setMode(next);
+    try { localStorage.setItem("gz-mode", next); } catch {}
+    applyMode(next);
+  }
+
+  const isLight = mode === "light";
+
+  return (
+    <button
+      onClick={toggle}
+      title={isLight ? "Switch to dark mode" : "Switch to light mode"}
+      aria-label={isLight ? "Switch to dark mode" : "Switch to light mode"}
+      className="fx-press"
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: 28, height: 26,
+        background: isLight ? "oklch(var(--gz-p) / 0.12)" : "oklch(var(--gz-s2) / 0.7)",
+        border: `1px solid ${isLight ? "oklch(var(--gz-p) / 0.35)" : "oklch(var(--gz-p) / 0.16)"}`,
+        borderRadius: 2, cursor: "pointer", minHeight: 26,
+        transition: "all 0.18s ease",
+      }}
+    >
+      {isLight ? (
+        <Moon size={13} style={{ color: "oklch(var(--gz-p))" }} />
+      ) : (
+        <Sun size={13} style={{ color: "oklch(var(--gz-mut))" }} />
+      )}
+    </button>
+  );
+}
+
+/* ── Colour palette / theme switcher ─────────────────────────────── */
 
 function ThemeSwitcher() {
   const [theme, setTheme] = useState<ThemeId>("cyan");
@@ -236,7 +296,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         /* Apply saved theme before first paint to prevent a flash of the
            default palette. Whitelist matches THEMES above. */
-        children: `try{var t=localStorage.getItem("gz-theme");if(t&&["graphite","blue","amber","emerald","purple"].indexOf(t)>=0)document.documentElement.dataset.theme=t;}catch(e){}`,
+        children: `try{var t=localStorage.getItem("gz-theme");if(t&&["graphite","blue","amber","emerald","purple"].indexOf(t)>=0)document.documentElement.dataset.theme=t;var m=localStorage.getItem("gz-mode");if(m==="light")document.documentElement.dataset.mode="light";}catch(e){}`,
       },
     ],
   }),
@@ -296,7 +356,7 @@ function RootComponent() {
         <StoreProvider>
           <Outlet />
           <Toaster
-            theme="dark"
+            theme="system"
             position="top-center"
             toastOptions={{
               style: {
@@ -384,6 +444,7 @@ function RootComponent() {
                     <Clock />
                     <span className="vdivider hidden sm:block" style={{ height: 16 }} />
                     <NotificationBell />
+                    <ModeToggle />
                     <ThemeSwitcher />
                     <button
                       onClick={handleLogout}
@@ -425,7 +486,7 @@ function RootComponent() {
           </div>
 
           <Toaster
-            theme="dark"
+            theme="system"
             position="top-center"
             toastOptions={{
               style: {

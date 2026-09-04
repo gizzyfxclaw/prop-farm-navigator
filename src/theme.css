@@ -190,3 +190,133 @@ img[src$=".svg"] { image-rendering: auto; }
   background: oklch(var(--gz-neg) / 0.12);
   box-shadow: inset 0 0 0 var(--gz-hair) oklch(var(--gz-neg) / 0.26);
 }
+
+/* ─── LIGHT MODE OVERRIDES ──────────────────────────────────────────────
+   When data-mode="light" is on <html>, ALL six palettes flip to a
+   professional off-white canvas with appropriate surface steps.
+   Accent hue is preserved so branding stays consistent across modes.
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* Light · Cyan (default) */
+[data-mode="light"] {
+  --gz-bg:   0.968 0.004 215;
+  --gz-s1:   0.950 0.006 215;
+  --gz-s2:   0.938 0.007 215;
+  --gz-s3:   0.975 0.003 215;
+  --gz-inp:  0.958 0.005 215;
+  --gz-txt:  0.120 0.012 220;
+  --gz-mut:  0.480 0.022 215;
+  /* keep --gz-p and --gz-h as dark-mode (accent hue unchanged) */
+}
+
+[data-mode="light"] [data-theme="graphite"] {
+  --gz-bg:   0.970 0.002 250;
+  --gz-s1:   0.952 0.003 250;
+  --gz-s2:   0.940 0.004 250;
+  --gz-s3:   0.978 0.002 250;
+  --gz-inp:  0.960 0.003 250;
+  --gz-txt:  0.115 0.006 250;
+  --gz-mut:  0.475 0.012 250;
+}
+[data-mode="light"][data-theme="graphite"] {
+  --gz-bg:   0.970 0.002 250;
+  --gz-s1:   0.952 0.003 250;
+  --gz-s2:   0.940 0.004 250;
+  --gz-s3:   0.978 0.002 250;
+  --gz-inp:  0.960 0.003 250;
+  --gz-txt:  0.115 0.006 250;
+  --gz-mut:  0.475 0.012 250;
+}
+
+[data-mode="light"][data-theme="blue"] {
+  --gz-bg:   0.968 0.005 258;
+  --gz-s1:   0.950 0.008 258;
+  --gz-s2:   0.938 0.009 258;
+  --gz-s3:   0.976 0.004 258;
+  --gz-inp:  0.958 0.006 258;
+  --gz-txt:  0.118 0.015 262;
+  --gz-mut:  0.476 0.028 258;
+}
+
+[data-mode="light"][data-theme="amber"] {
+  --gz-bg:   0.970 0.005  60;
+  --gz-s1:   0.952 0.008  60;
+  --gz-s2:   0.940 0.010  60;
+  --gz-s3:   0.978 0.004  60;
+  --gz-inp:  0.960 0.006  60;
+  --gz-txt:  0.115 0.018  60;
+  --gz-mut:  0.476 0.030  70;
+}
+
+[data-mode="light"][data-theme="emerald"] {
+  --gz-bg:   0.968 0.005 165;
+  --gz-s1:   0.950 0.007 165;
+  --gz-s2:   0.938 0.009 165;
+  --gz-s3:   0.976 0.004 165;
+  --gz-inp:  0.958 0.006 165;
+  --gz-txt:  0.118 0.018 165;
+  --gz-mut:  0.476 0.028 162;
+}
+
+[data-mode="light"][data-theme="purple"] {
+  --gz-bg:   0.968 0.005 294;
+  --gz-s1:   0.950 0.007 294;
+  --gz-s2:   0.938 0.009 294;
+  --gz-s3:   0.976 0.004 294;
+  --gz-inp:  0.958 0.006 294;
+  --gz-txt:  0.118 0.018 294;
+  --gz-mut:  0.476 0.028 296;
+}
+
+/* Light mode structural fixes */
+[data-mode="light"] {
+  --gz-pos:  0.500 0.185 148;   /* darker green on white bg */
+  --gz-neg:  0.520 0.222  25;   /* darker red on white bg */
+  --gz-warn: 0.560 0.155  78;
+}
+
+/* Shadows flip: light mode uses down-shadow, not inner dark */
+[data-mode="light"] {
+  --gz-e0: 0 0 0 var(--gz-hair) oklch(var(--gz-txt) / 0.08);
+  --gz-e1: 0 1px 3px oklch(var(--gz-txt) / 0.08),
+           0 0 0 var(--gz-hair) oklch(var(--gz-txt) / 0.07);
+  --gz-e2: 0 4px 14px -6px oklch(var(--gz-txt) / 0.14),
+           0 0 0 var(--gz-hair) oklch(var(--gz-txt) / 0.08);
+  --gz-e3: 0 14px 40px -14px oklch(var(--gz-txt) / 0.20),
+           0 0 0 var(--gz-hair) oklch(var(--gz-txt) / 0.09);
+}
+
+/* Light: grid lines use ink, not glow */
+[data-mode="light"] .backdrop-grid,
+[data-mode="light"] .backdrop-grid-major {
+  background-image:
+    linear-gradient(oklch(var(--gz-txt) / 0.06) var(--gz-hair), transparent var(--gz-hair)),
+    linear-gradient(90deg, oklch(var(--gz-txt) / 0.06) var(--gz-hair), transparent var(--gz-hair));
+}
+
+/* Grain is subtler on light bg */
+[data-mode="light"] .backdrop-grain { opacity: 0.012; }
+
+/* Mesh reversal */
+[data-mode="light"] .backdrop-mesh {
+  background:
+    radial-gradient(48% 42% at 18% 8%,  oklch(var(--gz-p) / 0.035), transparent 68%),
+    radial-gradient(44% 38% at 86% 22%, oklch(var(--gz-h) / 0.025), transparent 66%),
+    radial-gradient(60% 50% at 50% 108%, oklch(var(--gz-p) / 0.030), transparent 70%);
+}
+
+/* Vignette is very light on white */
+[data-mode="light"] .backdrop-vignette {
+  background: radial-gradient(120% 105% at 50% 42%,
+    transparent 55%,
+    oklch(var(--gz-txt) / 0.04) 88%,
+    oklch(var(--gz-txt) / 0.10) 100%);
+}
+
+/* Tape + scrollbar on light */
+[data-mode="light"] .fx-tape {
+  background: oklch(var(--gz-s1));
+}
+[data-mode="light"] * {
+  scrollbar-color: oklch(var(--gz-txt) / 0.22) transparent;
+}

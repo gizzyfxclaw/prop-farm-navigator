@@ -38,6 +38,12 @@ function LoginPage() {
       } else {
         delete document.documentElement.dataset["theme"];
       }
+      const m = localStorage.getItem("gz-mode");
+      if (m === "light") {
+        document.documentElement.dataset["mode"] = "light";
+      } else {
+        delete document.documentElement.dataset["mode"];
+      }
     } catch {}
   }, []);
 
