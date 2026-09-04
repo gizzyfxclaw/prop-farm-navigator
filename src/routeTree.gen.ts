@@ -19,11 +19,13 @@ import { Route as JournalRouteImport } from './routes/journal'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SmcRouteImport } from './routes/smc'
 import { Route as ValidatorRouteImport } from './routes/validator'
 import { Route as ApiEconomicEventsRouteImport } from './routes/api/economic-events'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFinnhub_webhookRouteImport } from './routes/api/finnhub_webhook'
 import { Route as ApiOhlcvRouteImport } from './routes/api/ohlcv'
+import { Route as ApiSmcRouteImport } from './routes/api/smc'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
 import { Route as ApiHermesAnalysisRouteImport } from './routes/api/hermes/analysis'
@@ -86,6 +88,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SmcRoute = SmcRouteImport.update({
+  id: '/smc',
+  path: '/smc',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ValidatorRoute = ValidatorRouteImport.update({
   id: '/validator',
   path: '/validator',
@@ -109,6 +116,11 @@ const ApiFinnhub_webhookRoute = ApiFinnhub_webhookRouteImport.update({
 const ApiOhlcvRoute = ApiOhlcvRouteImport.update({
   id: '/api/ohlcv',
   path: '/api/ohlcv',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSmcRoute = ApiSmcRouteImport.update({
+  id: '/api/smc',
+  path: '/api/smc',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHermesDebugRoute = ApiHermesDebugRouteImport.update({
@@ -178,11 +190,13 @@ export interface FileRoutesByFullPath {
   '/live': typeof LiveRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/smc': typeof SmcRoute
   '/validator': typeof ValidatorRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
+  '/api/smc': typeof ApiSmcRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -206,11 +220,13 @@ export interface FileRoutesByTo {
   '/live': typeof LiveRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/smc': typeof SmcRoute
   '/validator': typeof ValidatorRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
+  '/api/smc': typeof ApiSmcRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -235,11 +251,13 @@ export interface FileRoutesById {
   '/live': typeof LiveRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/smc': typeof SmcRoute
   '/validator': typeof ValidatorRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
+  '/api/smc': typeof ApiSmcRoute
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -265,11 +283,13 @@ export interface FileRouteTypes {
     | '/live'
     | '/login'
     | '/settings'
+    | '/smc'
     | '/validator'
     | '/api/economic-events'
     | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
+    | '/api/smc'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -293,11 +313,13 @@ export interface FileRouteTypes {
     | '/live'
     | '/login'
     | '/settings'
+    | '/smc'
     | '/validator'
     | '/api/economic-events'
     | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
+    | '/api/smc'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -321,11 +343,13 @@ export interface FileRouteTypes {
     | '/live'
     | '/login'
     | '/settings'
+    | '/smc'
     | '/validator'
     | '/api/economic-events'
     | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
+    | '/api/smc'
     | '/api/hermes/_debug'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -350,11 +374,13 @@ export interface RootRouteChildren {
   LiveRoute: typeof LiveRoute
   LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
+  SmcRoute: typeof SmcRoute
   ValidatorRoute: typeof ValidatorRoute
   ApiEconomicEventsRoute: typeof ApiEconomicEventsRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiFinnhub_webhookRoute: typeof ApiFinnhub_webhookRoute
   ApiOhlcvRoute: typeof ApiOhlcvRoute
+  ApiSmcRoute: typeof ApiSmcRoute
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
   ApiHermesAnalysisRoute: typeof ApiHermesAnalysisRoute
@@ -440,6 +466,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/smc': {
+      id: '/smc'
+      path: '/smc'
+      fullPath: '/smc'
+      preLoaderRoute: typeof SmcRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/validator': {
       id: '/validator'
       path: '/validator'
@@ -473,6 +506,13 @@ declare module '@tanstack/react-router' {
       path: '/api/ohlcv'
       fullPath: '/api/ohlcv'
       preLoaderRoute: typeof ApiOhlcvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/smc': {
+      id: '/api/smc'
+      path: '/api/smc'
+      fullPath: '/api/smc'
+      preLoaderRoute: typeof ApiSmcRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/hermes/_debug': {
@@ -566,11 +606,13 @@ const rootRouteChildren: RootRouteChildren = {
   LiveRoute: LiveRoute,
   LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
+  SmcRoute: SmcRoute,
   ValidatorRoute: ValidatorRoute,
   ApiEconomicEventsRoute: ApiEconomicEventsRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiFinnhub_webhookRoute: ApiFinnhub_webhookRoute,
   ApiOhlcvRoute: ApiOhlcvRoute,
+  ApiSmcRoute: ApiSmcRoute,
   ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
   ApiHermesAnalysisRoute: ApiHermesAnalysisRoute,
