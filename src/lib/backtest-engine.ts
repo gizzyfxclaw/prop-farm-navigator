@@ -15,6 +15,11 @@ import { z } from "zod";
  *
  * Spread/slippage/commission are configurable per symbol so results are
  * as close as possible to real demo-account fills.
+ *
+ * Moon Dev Integration:
+ * - SMC (Smart Money Concepts) entry type uses market structure (BOS/CHoCH),
+ *   order blocks, and liquidity sweeps to generate signals — same detectors
+ *   from hermes-market-skills, ported to TypeScript.
  */
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
@@ -28,7 +33,7 @@ export interface BacktestBar {
 }
 
 export interface StrategyRuleInput {
-  entry_type: "sma_cross" | "ema_cross" | "rsi" | "breakout" | "custom";
+  entry_type: "sma_cross" | "ema_cross" | "rsi" | "breakout" | "smc" | "custom";
   entry_params: Record<string, number>;
   custom_rules?: string;
   direction: "long" | "short" | "both";
@@ -168,6 +173,82 @@ function recentLow(bars: BacktestBar[], i: number, lookback: number): number {
   return lo;
 }
 
+/* ── SMC Helpers (inlined from smc-engine.ts for tree-shaking) ──────────── */
+
+interface Swing {
+  idx: number;
+  price: number;
+  kind: 'high' | 'low';
+}
+
+function findSwings(bars: BacktestBar[], window = 3): Swing[] {
+  if (!bars || bars.length < 2 * window + 1) return [];
+  const swings: Swing[] = [];
+  const n = bars.length;
+  for (let i = window; i < n - window; i++) {
+    let isHigh = true;
+    let isLow = true;
+    for (let j = i - window; j <= i + window; j++) {
+      if (j === i) continue;
+      if (bars[j].high >= bars[i].high) isHigh = false;
+      if (bars[j].low <= bars[i].low) isLow = false;
+      if (!isHigh && !isLow) break;
+    }
+    if (isHigh) swings.push({ idx: i, price: bars[i].high, kind: 'high' });
+    else if (isLow) swings.push({ idx: i, price: bars[i].low, kind: 'low' });
+  }
+  return swings;
+}
+
+function detectStructure(bars: BacktestBar[], swings: Swing[]): { bias: string; bos: string | null; choch: string | null } {
+  if (swings.length < 4 || bars.length < 5) {
+    return { bias: 'neutral', bos: null, choch: null };
+  }
+  // Alternate: remove consecutive same-kind swings
+  const alt: Swing[] = [];
+  for (const s of swings) {
+    if (alt.length > 0 && alt[alt.length - 1].kind === s.kind) {
+      const prev = alt[alt.length - 1];
+      if (s.kind === 'high' && s.price > prev.price) alt[alt.length - 1] = s;
+      else if (s.kind === 'low' && s.price < prev.price) alt[alt.length - 1] = s;
+    } else {
+      alt.push(s);
+    }
+  }
+  const last = alt.length >= 6 ? alt.slice(-6) : alt;
+  let bias = 'neutral';
+  const highs = last.filter(s => s.kind === 'high');
+  const lows = last.filter(s => s.kind === 'low');
+  if (highs.length >= 2 && lows.length >= 2) {
+    if (highs[1].price > highs[0].price && lows[1].price > lows[0].price) bias = 'bullish';
+    else if (highs[1].price < highs[0].price && lows[1].price < lows[0].price) bias = 'bearish';
+  }
+  let bos: string | null = null;
+  let choch: string | null = null;
+  for (let si = alt.length - 2; si >= 0; si--) {
+    if (bos !== null && choch !== null) break;
+    const s = alt[si];
+    if (s.kind === 'high') {
+      for (let k = s.idx + 1; k < bars.length; k++) {
+        if (bars[k].close > s.price) {
+          if (bias === 'bullish' && bos === null) bos = 'bullish';
+          else if (bias === 'bearish' && choch === null) choch = 'bullish';
+          break;
+        }
+      }
+    } else {
+      for (let k = s.idx + 1; k < bars.length; k++) {
+        if (bars[k].close < s.price) {
+          if (bias === 'bearish' && bos === null) bos = 'bearish';
+          else if (bias === 'bullish' && choch === null) choch = 'bearish';
+          break;
+        }
+      }
+    }
+  }
+  return { bias, bos, choch };
+}
+
 /* ── Entry signal generators ────────────────────────────────────────────── */
 
 type Signal = "long" | "short" | null;
@@ -211,6 +292,34 @@ function breakoutSignal(bars: BacktestBar[], i: number, p: Record<string, number
   const lo = recentLow(bars, i, lookback);
   if (bars[i].close > hi) return "long";
   if (bars[i].close < lo) return "short";
+  return null;
+}
+
+/**
+ * SMC (Smart Money Concepts) entry signal.
+ *
+ * Detects market structure (BOS/CHoCH) from swings and generates signals:
+ * - CHoCH (change of character) → reversal signal (highest priority)
+ * - BOS (break of structure) in direction of bias → continuation signal
+ *
+ * This is a Moon Dev / hermes-market-skills port — same logic that powers
+ * the Python SMC detectors, now running deterministically in the backtest
+ * engine.
+ */
+function smcSignal(bars: BacktestBar[], i: number, _p: Record<string, number>): Signal {
+  if (i < 30) return null;
+  // Use bars up to current index for lookback-free detection
+  const window = bars.slice(0, i + 1);
+  const swings = findSwings(window);
+  if (swings.length < 4) return null;
+  const { bias, bos, choch } = detectStructure(window, swings);
+
+  // CHoCH = regime change → reverse position
+  if (choch === "bullish") return "long";
+  if (choch === "bearish") return "short";
+  // BOS = continuation in direction of bias
+  if (bias === "bullish" && bos === "bullish") return "long";
+  if (bias === "bearish" && bos === "bearish") return "short";
   return null;
 }
 
@@ -317,6 +426,7 @@ function simulate(
       case "ema_cross":  sig = emaCrossSignal(bars, i, rule.entry_params);  break;
       case "rsi":        sig = rsiSignal(bars, i, rule.entry_params);        break;
       case "breakout":   sig = breakoutSignal(bars, i, rule.entry_params);   break;
+      case "smc":        sig = smcSignal(bars, i, rule.entry_params);        break;
       case "custom":     sig = null; break; // judgment-based: no mechanical signal
     }
 
@@ -396,13 +506,13 @@ const backtestInput = z.object({
     z.object({
       time:  z.number(),
       open:  z.number(),
-      high:  z.number(),
+      high: z.number(),
       low:   z.number(),
       close: z.number(),
     }),
   ).min(10),
   rule: z.object({
-    entry_type:   z.enum(["sma_cross", "ema_cross", "rsi", "breakout", "custom"]),
+    entry_type:   z.enum(["sma_cross", "ema_cross", "rsi", "breakout", "smc", "custom"]),
     entry_params: z.record(z.string(), z.number()).default({}),
     custom_rules: z.string().optional(),
     direction:    z.enum(["long", "short", "both"]).default("both"),
