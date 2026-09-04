@@ -310,13 +310,86 @@ function EnginePage() {
           </div>
 
           <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
-            <Field label="Prop account" hint={`${r.targetUsd ? money(r.targetUsd) : "$0.00"} target · ${money(r.maxDdUsd)} max DD`}>
-              <Select value={engine.selectedAccountId} onChange={(e) => setEngine({ selectedAccountId: e.target.value })}>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>{a.firm} · ${a.size.toLocaleString()} · {a.ddType}</option>
-                ))}
+            <Field
+              label="Prop account"
+              hint={
+                `Target ${money(r.targetUsd)} · DD ${money(r.maxDdUsd)} · ` +
+                `${r.winsToPass} wins to pass · ${r.lossesToBlow} losses to blow`
+              }
+            >
+              <Select
+                value={engine.selectedAccountId}
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  const newAcct = accounts.find((a) => a.id === newId);
+                  const patch: Parameters<typeof setEngine>[0] = { selectedAccountId: newId };
+                  // Auto-scale propRiskUsd proportionally so wins/losses ratio stays sane
+                  // Base: $5k account = $50 risk. Scale linearly with account size.
+                  if (newAcct) {
+                    const baseSize = 5000;
+                    const baseRisk = 50;
+                    const suggested = Math.round((baseRisk * newAcct.size / baseSize) * 100) / 100;
+                    // Only suggest — don't override if user already has a scaled value set
+                    const currentRatio = engine.propRiskUsd / (selectedAccount?.size ?? baseSize);
+                    const baseRatio = baseRisk / baseSize;
+                    const isDefaultRatio = Math.abs(currentRatio - baseRatio) < 0.0001;
+                    if (isDefaultRatio) patch.propRiskUsd = suggested;
+                  }
+                  setEngine(patch);
+                }}
+              >
+                {accounts.map((a) => {
+                  const targetUsd = (a.size * (a.targetPct ?? 6)) / 100;
+                  const ddUsd = (a.size * (a.ddPct ?? 6)) / 100;
+                  return (
+                    <option key={a.id} value={a.id}>
+                      {a.firm} — Target ${targetUsd.toLocaleString()} · DD ${ddUsd.toLocaleString()} · {a.ddType}
+                    </option>
+                  );
+                })}
               </Select>
             </Field>
+
+            {/* ── Account math summary — shows instantly when account changes ── */}
+            <div
+              className="lg:col-span-2 panel-sunken fx-unfold"
+              style={{ padding: "0.6rem 0.8rem" }}
+            >
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+                <div className="kv" style={{ gap: "0.35rem" }}>
+                  <span className="kv-label">Target</span>
+                  <span className="kv-value c-pos">{money(r.targetUsd)}</span>
+                </div>
+                <div className="kv" style={{ gap: "0.35rem" }}>
+                  <span className="kv-label">Max DD</span>
+                  <span className="kv-value c-neg">{money(r.maxDdUsd)}</span>
+                </div>
+                <div className="kv" style={{ gap: "0.35rem" }}>
+                  <span className="kv-label">Wins to pass</span>
+                  <span className="kv-value c-acc" style={{ fontWeight: 800, fontSize: "1.05em" }}>
+                    {r.winsToPass}
+                  </span>
+                </div>
+                <div className="kv" style={{ gap: "0.35rem" }}>
+                  <span className="kv-label">Losses to blow</span>
+                  <span className="kv-value c-neg" style={{ fontWeight: 800, fontSize: "1.05em" }}>
+                    {r.lossesToBlow}
+                  </span>
+                </div>
+                <div className="kv" style={{ gap: "0.35rem" }}>
+                  <span className="kv-label">Win per trade</span>
+                  <span className="kv-value">{money(r.cappedPropRisk * r.rr, true)}</span>
+                </div>
+                <div className="kv" style={{ gap: "0.35rem" }}>
+                  <span className="kv-label">Prop fee</span>
+                  <span className="kv-value">{money(selectedAccount.fee)}</span>
+                </div>
+                {r.riskCapped && (
+                  <Badge tone="amber">Daily cap active — risk reduced to {money(r.cappedPropRisk)}</Badge>
+                )}
+              </div>
+            </div>
+
             <Field label="Prop risk per trade ($)">
               <TextInput type="number" step="0.01" value={engine.propRiskUsd} onChange={(e) => setEngine({ propRiskUsd: Number(e.target.value) })} />
             </Field>

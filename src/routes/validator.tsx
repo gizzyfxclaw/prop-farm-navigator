@@ -63,6 +63,9 @@ function ValidatorPage() {
     ? Math.max(0, Math.min(1, r.winsToPass / 20))
     : 0;
 
+  // Human-readable account stats for the header
+  const acctLabel = `${money(r.targetUsd)} target · ${money(r.maxDdUsd)} DD · ${r.winsToPass}W / ${r.lossesToBlow}L`;
+
   return (
     <div className="engine-cockpit">
       <CockpitHeader
@@ -78,7 +81,7 @@ function ValidatorPage() {
         }
         right={
           <span className="cockpit-pair">
-            Scored with live engine inputs
+            {acctLabel}
           </span>
         }
       />
@@ -218,8 +221,10 @@ function ValidatorPage() {
             head={[
               { label: "Account" },
               { label: "Size", align: "right" },
+              { label: "Target", align: "right" },
+              { label: "Max DD", align: "right" },
+              { label: "Wins / Losses", align: "right" },
               { label: "Fee", align: "right" },
-              { label: "DD type" },
               { label: "Capital needed", align: "right" },
               { label: "Net if passed", align: "right" },
               { label: "Verdict" },
@@ -233,13 +238,12 @@ function ValidatorPage() {
                 <tr key={account.id} className={selected ? "is-selected" : undefined}>
                   <td style={{ color: "oklch(var(--gz-txt))", fontWeight: 600 }}>{account.firm}</td>
                   <td className="num">${account.size.toLocaleString()}</td>
-                  <td className="num">{money(account.fee)}</td>
-                  <td>
-                    <span style={{ color: account.ddType.toLowerCase().includes("trail") ? "oklch(var(--gz-warn))" : "oklch(var(--gz-mut))" }}>
-                      {account.ddType.toLowerCase().includes("trail") && <AlertTriangle size={10} style={{ display: "inline", marginRight: 3, verticalAlign: "-1px" }} />}
-                      {account.ddType}
-                    </span>
+                  <td className="num c-pos">{money(result.targetUsd)}</td>
+                  <td className="num c-neg">{money(result.maxDdUsd)}</td>
+                  <td className="num" style={{ fontWeight: 700, color: "oklch(var(--gz-p))" }}>
+                    {result.winsToPass}W / {result.lossesToBlow}L
                   </td>
+                  <td className="num">{money(account.fee)}</td>
                   <td className="num">{money(result.totalRequiredCapital)}</td>
                   <td className="num" style={{ color: result.netProfitIfPassed >= 20 ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))", fontWeight: 700 }}>
                     {money(result.netProfitIfPassed, true)}

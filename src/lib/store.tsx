@@ -125,14 +125,15 @@ interface Preset {
 }
 
 const PRESET_LADDER: Preset[] = [
-  // E8 One — Forex (current 2026 prices with E8 discount)
-  // All: 9% profit target, 6% dynamic drawdown, 80% payout
-  { size: 5000, fee: 44, targetPct: 9, ddPct: 6, dailyProfitCap: 100 },
-  { size: 10000, fee: 80, targetPct: 9, ddPct: 6, dailyProfitCap: 200 },
-  { size: 25000, fee: 170, targetPct: 9, ddPct: 6, dailyProfitCap: 500 },
-  { size: 50000, fee: 260, targetPct: 9, ddPct: 6, dailyProfitCap: 1000 },
-  { size: 100000, fee: 440, targetPct: 9, ddPct: 6, dailyProfitCap: 2000 },
-  { size: 200000, fee: 719, targetPct: 9, ddPct: 6, dailyProfitCap: 4000 },
+  // E8 Markets One — Forex (2026 specs, 6% target / 6% DD / 80% payout)
+  // User's verified setup: $5k = $300 target, $300 max DD, $28.60 fee
+  // Daily profit cap enforces the E8 $100/day rule on the $5k account
+  { size: 5000,   fee: 28.60, targetPct: 6, ddPct: 6, dailyProfitCap: 100 },
+  { size: 10000,  fee: 55.00, targetPct: 6, ddPct: 6, dailyProfitCap: 200 },
+  { size: 25000,  fee: 130.00, targetPct: 6, ddPct: 6, dailyProfitCap: 500 },
+  { size: 50000,  fee: 245.00, targetPct: 6, ddPct: 6, dailyProfitCap: 1000 },
+  { size: 100000, fee: 450.00, targetPct: 6, ddPct: 6, dailyProfitCap: 2000 },
+  { size: 200000, fee: 720.00, targetPct: 6, ddPct: 6, dailyProfitCap: 4000 },
 ];
 
 export const defaultAccounts = (): PropAccount[] =>
