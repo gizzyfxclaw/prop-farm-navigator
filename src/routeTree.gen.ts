@@ -22,16 +22,16 @@ import { Route as PnlRouteImport } from './routes/pnl'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SmcRouteImport } from './routes/smc'
 import { Route as ValidatorRouteImport } from './routes/validator'
-import { Route as ApiDebateRouteImport } from './routes/api/debate'
 import { Route as ApiEconomicEventsRouteImport } from './routes/api/economic-events'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFinnhub_webhookRouteImport } from './routes/api/finnhub_webhook'
 import { Route as ApiOhlcvRouteImport } from './routes/api/ohlcv'
-import { Route as ApiPatternRouteImport } from './routes/api/pattern'
 import { Route as ApiSmcRouteImport } from './routes/api/smc'
+import { Route as ApiSmcAnalyzeRouteImport } from './routes/api/smc-analyze'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
 import { Route as ApiHermesAnalysisRouteImport } from './routes/api/hermes/analysis'
+import { Route as ApiHermesAnalyzeWithHermesRouteImport } from './routes/api/hermes/analyze-with-hermes'
 import { Route as ApiHermesBacktestsRouteImport } from './routes/api/hermes/backtests'
 import { Route as ApiHermesJournalRouteImport } from './routes/api/hermes/journal'
 import { Route as ApiHermesKnowledgeRouteImport } from './routes/api/hermes/knowledge'
@@ -106,11 +106,6 @@ const ValidatorRoute = ValidatorRouteImport.update({
   path: '/validator',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiDebateRoute = ApiDebateRouteImport.update({
-  id: '/api/debate',
-  path: '/api/debate',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiEconomicEventsRoute = ApiEconomicEventsRouteImport.update({
   id: '/api/economic-events',
   path: '/api/economic-events',
@@ -131,14 +126,14 @@ const ApiOhlcvRoute = ApiOhlcvRouteImport.update({
   path: '/api/ohlcv',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPatternRoute = ApiPatternRouteImport.update({
-  id: '/api/pattern',
-  path: '/api/pattern',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiSmcRoute = ApiSmcRouteImport.update({
   id: '/api/smc',
   path: '/api/smc',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSmcAnalyzeRoute = ApiSmcAnalyzeRouteImport.update({
+  id: '/api/smc-analyze',
+  path: '/api/smc-analyze',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHermesDebugRoute = ApiHermesDebugRouteImport.update({
@@ -156,6 +151,12 @@ const ApiHermesAnalysisRoute = ApiHermesAnalysisRouteImport.update({
   path: '/api/hermes/analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesAnalyzeWithHermesRoute =
+  ApiHermesAnalyzeWithHermesRouteImport.update({
+    id: '/api/hermes/analyze-with-hermes',
+    path: '/api/hermes/analyze-with-hermes',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiHermesBacktestsRoute = ApiHermesBacktestsRouteImport.update({
   id: '/api/hermes/backtests',
   path: '/api/hermes/backtests',
@@ -211,16 +212,16 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/smc': typeof SmcRoute
   '/validator': typeof ValidatorRoute
-  '/api/debate': typeof ApiDebateRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
-  '/api/pattern': typeof ApiPatternRoute
   '/api/smc': typeof ApiSmcRoute
+  '/api/smc-analyze': typeof ApiSmcAnalyzeRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
+  '/api/hermes/analyze-with-hermes': typeof ApiHermesAnalyzeWithHermesRoute
   '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
@@ -244,16 +245,16 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/smc': typeof SmcRoute
   '/validator': typeof ValidatorRoute
-  '/api/debate': typeof ApiDebateRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
-  '/api/pattern': typeof ApiPatternRoute
   '/api/smc': typeof ApiSmcRoute
+  '/api/smc-analyze': typeof ApiSmcAnalyzeRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
+  '/api/hermes/analyze-with-hermes': typeof ApiHermesAnalyzeWithHermesRoute
   '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
@@ -278,16 +279,16 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/smc': typeof SmcRoute
   '/validator': typeof ValidatorRoute
-  '/api/debate': typeof ApiDebateRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/finnhub_webhook': typeof ApiFinnhub_webhookRoute
   '/api/ohlcv': typeof ApiOhlcvRoute
-  '/api/pattern': typeof ApiPatternRoute
   '/api/smc': typeof ApiSmcRoute
+  '/api/smc-analyze': typeof ApiSmcAnalyzeRoute
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
+  '/api/hermes/analyze-with-hermes': typeof ApiHermesAnalyzeWithHermesRoute
   '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
@@ -313,16 +314,16 @@ export interface FileRouteTypes {
     | '/settings'
     | '/smc'
     | '/validator'
-    | '/api/debate'
     | '/api/economic-events'
     | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
-    | '/api/pattern'
     | '/api/smc'
+    | '/api/smc-analyze'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
+    | '/api/hermes/analyze-with-hermes'
     | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
@@ -346,16 +347,16 @@ export interface FileRouteTypes {
     | '/settings'
     | '/smc'
     | '/validator'
-    | '/api/debate'
     | '/api/economic-events'
     | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
-    | '/api/pattern'
     | '/api/smc'
+    | '/api/smc-analyze'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
+    | '/api/hermes/analyze-with-hermes'
     | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
@@ -379,16 +380,16 @@ export interface FileRouteTypes {
     | '/settings'
     | '/smc'
     | '/validator'
-    | '/api/debate'
     | '/api/economic-events'
     | '/api/events'
     | '/api/finnhub_webhook'
     | '/api/ohlcv'
-    | '/api/pattern'
     | '/api/smc'
+    | '/api/smc-analyze'
     | '/api/hermes/_debug'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
+    | '/api/hermes/analyze-with-hermes'
     | '/api/hermes/backtests'
     | '/api/hermes/journal'
     | '/api/hermes/knowledge'
@@ -413,16 +414,16 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SmcRoute: typeof SmcRoute
   ValidatorRoute: typeof ValidatorRoute
-  ApiDebateRoute: typeof ApiDebateRoute
   ApiEconomicEventsRoute: typeof ApiEconomicEventsRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiFinnhub_webhookRoute: typeof ApiFinnhub_webhookRoute
   ApiOhlcvRoute: typeof ApiOhlcvRoute
-  ApiPatternRoute: typeof ApiPatternRoute
   ApiSmcRoute: typeof ApiSmcRoute
+  ApiSmcAnalyzeRoute: typeof ApiSmcAnalyzeRoute
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
   ApiHermesAnalysisRoute: typeof ApiHermesAnalysisRoute
+  ApiHermesAnalyzeWithHermesRoute: typeof ApiHermesAnalyzeWithHermesRoute
   ApiHermesBacktestsRoute: typeof ApiHermesBacktestsRoute
   ApiHermesJournalRoute: typeof ApiHermesJournalRoute
   ApiHermesKnowledgeRoute: typeof ApiHermesKnowledgeRoute
@@ -526,13 +527,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ValidatorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/debate': {
-      id: '/api/debate'
-      path: '/api/debate'
-      fullPath: '/api/debate'
-      preLoaderRoute: typeof ApiDebateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/economic-events': {
       id: '/api/economic-events'
       path: '/api/economic-events'
@@ -561,18 +555,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOhlcvRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/pattern': {
-      id: '/api/pattern'
-      path: '/api/pattern'
-      fullPath: '/api/pattern'
-      preLoaderRoute: typeof ApiPatternRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/smc': {
       id: '/api/smc'
       path: '/api/smc'
       fullPath: '/api/smc'
       preLoaderRoute: typeof ApiSmcRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/smc-analyze': {
+      id: '/api/smc-analyze'
+      path: '/api/smc-analyze'
+      fullPath: '/api/smc-analyze'
+      preLoaderRoute: typeof ApiSmcAnalyzeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/hermes/_debug': {
@@ -594,6 +588,13 @@ declare module '@tanstack/react-router' {
       path: '/api/hermes/analysis'
       fullPath: '/api/hermes/analysis'
       preLoaderRoute: typeof ApiHermesAnalysisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/analyze-with-hermes': {
+      id: '/api/hermes/analyze-with-hermes'
+      path: '/api/hermes/analyze-with-hermes'
+      fullPath: '/api/hermes/analyze-with-hermes'
+      preLoaderRoute: typeof ApiHermesAnalyzeWithHermesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/hermes/backtests': {
@@ -669,16 +670,16 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SmcRoute: SmcRoute,
   ValidatorRoute: ValidatorRoute,
-  ApiDebateRoute: ApiDebateRoute,
   ApiEconomicEventsRoute: ApiEconomicEventsRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiFinnhub_webhookRoute: ApiFinnhub_webhookRoute,
   ApiOhlcvRoute: ApiOhlcvRoute,
-  ApiPatternRoute: ApiPatternRoute,
   ApiSmcRoute: ApiSmcRoute,
+  ApiSmcAnalyzeRoute: ApiSmcAnalyzeRoute,
   ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
   ApiHermesAnalysisRoute: ApiHermesAnalysisRoute,
+  ApiHermesAnalyzeWithHermesRoute: ApiHermesAnalyzeWithHermesRoute,
   ApiHermesBacktestsRoute: ApiHermesBacktestsRoute,
   ApiHermesJournalRoute: ApiHermesJournalRoute,
   ApiHermesKnowledgeRoute: ApiHermesKnowledgeRoute,

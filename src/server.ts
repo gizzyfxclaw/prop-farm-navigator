@@ -157,7 +157,9 @@ export default {
         url.pathname === "/api/events" ||
         url.pathname === "/api/news" ||
         url.pathname === "/calendar" ||
-        url.pathname === "/news";
+        url.pathname === "/news" ||
+        // SMC analysis endpoint (public for the SMC page)
+        url.pathname.startsWith("/api/smc");
 
       if (!isPublic) {
         const token = parseSessionToken(request.headers.get("cookie"));
