@@ -14,6 +14,14 @@ export const Route = createFileRoute("/smc")({
 });
 
 /* ── Types ─────────────────────────────────────────────────────── */
+interface AnalysisStep {
+  step: number;
+  step_label: string;
+  summary: string;
+  screenshot?: string;  // base64 PNG
+  ts?: string;
+}
+
 interface AnalysisData {
   structure: {
     bias: string;
@@ -64,6 +72,8 @@ interface HermesReview {
   accuracy_grade: "HIGH" | "STANDARD" | "NONE" | null;
   created_at: string;
   fulfilled_at: string | null;
+  chart_screenshots: string | null;  // JSON array of base64 PNGs
+  analysis_steps: string | null;     // JSON array of step objects
 }
 
 /* ── Storage helpers ────────────────────────────────────────────── */
@@ -98,6 +108,156 @@ function writeLS(v: Partial<Persisted>) {
 const PAIRS = ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "XAUUSD"];
 const TIMEFRAMES = ["15m", "1h", "4h", "1d"] as const;
 type TF = (typeof TIMEFRAMES)[number];
+
+/* ── Hermes Analysis Progress Animation ─────────────────────────── */
+const ANALYSIS_PHASES = [
+  { label: "Opening TradingView",     icon: "🌐", duration: 12 },
+  { label: "Loading Chart",           icon: "📊", duration: 10 },
+  { label: "Applying Indicators",     icon: "📈", duration: 8  },
+  { label: "Capturing Screenshots",   icon: "📸", duration: 6  },
+  { label: "Reading Market Structure",icon: "🔍", duration: 10 },
+  { label: "Applying Strategy Rules", icon: "⚖️",  duration: 12 },
+  { label: "Compiling Verdict",       icon: "✅", duration: 6  },
+];
+const TOTAL_SECONDS = ANALYSIS_PHASES.reduce((s, p) => s + p.duration, 0);
+
+function HermesAnalyzingCard({ submittedAt }: { submittedAt: number }) {
+  const [elapsed, setElapsed] = React.useState(0);
+  const [phaseIdx, setPhaseIdx] = React.useState(0);
+  const [dots, setDots] = React.useState(".");
+
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      const e = Math.floor((Date.now() - submittedAt) / 1000);
+      setElapsed(e);
+
+      // Phase from elapsed time
+      let acc = 0;
+      for (let i = 0; i < ANALYSIS_PHASES.length; i++) {
+        acc += ANALYSIS_PHASES[i].duration;
+        if (e < acc) { setPhaseIdx(i); break; }
+        if (i === ANALYSIS_PHASES.length - 1) setPhaseIdx(i);
+      }
+
+      setDots(prev => prev.length >= 3 ? "." : prev + ".");
+    }, 1000);
+    return () => clearInterval(t);
+  }, [submittedAt]);
+
+  const progress = Math.min((elapsed / TOTAL_SECONDS) * 100, 97);
+  const remaining = Math.max(TOTAL_SECONDS - elapsed, 3);
+  const phase = ANALYSIS_PHASES[phaseIdx] ?? ANALYSIS_PHASES[ANALYSIS_PHASES.length - 1]!;
+
+  return (
+    <div style={{
+      border: "1px solid oklch(0.55 0.18 280 / 0.4)",
+      borderRadius: 12,
+      background: "oklch(0.12 0.04 280 / 0.6)",
+      backdropFilter: "blur(12px)",
+      padding: "1.25rem",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* Animated scan line */}
+      <div style={{
+        position: "absolute", top: 0, left: "-100%", right: 0, height: 2,
+        background: "linear-gradient(90deg, transparent, oklch(0.65 0.2 280), transparent)",
+        animation: "scan 2s linear infinite",
+      }} />
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <div style={{ position: "relative", width: 36, height: 36 }}>
+          {/* Outer ring pulse */}
+          <div style={{
+            position: "absolute", inset: 0, borderRadius: "50%",
+            border: "2px solid oklch(0.65 0.2 280)",
+            animation: "ping 1.5s cubic-bezier(0,0,0.2,1) infinite",
+            opacity: 0.4,
+          }} />
+          {/* Inner filled circle */}
+          <div style={{
+            position: "absolute", inset: 4, borderRadius: "50%",
+            background: "oklch(0.55 0.18 280)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 12, fontWeight: "bold", color: "#fff",
+          }}>
+            AI
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "oklch(0.92 0.05 280)" }}>
+            Hermes is Analyzing{dots}
+          </div>
+          <div style={{ fontSize: 11, color: "oklch(0.65 0.1 280)" }}>
+            TradingView • Real browser • Live data
+          </div>
+        </div>
+        <div style={{ marginLeft: "auto", textAlign: "right" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.15 280)", fontFamily: "monospace" }}>
+            ~{remaining}s remaining
+          </div>
+          <div style={{ fontSize: 11, color: "oklch(0.55 0.08 280)" }}>
+            {elapsed}s elapsed
+          </div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ background: "oklch(0.2 0.05 280)", borderRadius: 4, height: 6, marginBottom: 16, overflow: "hidden" }}>
+        <div style={{
+          height: "100%", borderRadius: 4,
+          background: "linear-gradient(90deg, oklch(0.45 0.2 280), oklch(0.65 0.25 200))",
+          width: `${progress}%`,
+          transition: "width 1s linear",
+          boxShadow: "0 0 8px oklch(0.65 0.2 280 / 0.6)",
+        }} />
+      </div>
+
+      {/* Phase list */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {ANALYSIS_PHASES.map((p, i) => {
+          const isDone    = i < phaseIdx;
+          const isActive  = i === phaseIdx;
+          return (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              opacity: i > phaseIdx ? 0.35 : 1,
+              transition: "opacity 0.4s",
+            }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                border: `2px solid ${isDone ? "oklch(0.55 0.18 150)" : isActive ? "oklch(0.55 0.18 280)" : "oklch(0.3 0.04 280)"}`,
+                background: isDone ? "oklch(0.4 0.15 150)" : isActive ? "oklch(0.35 0.12 280)" : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 10,
+                animation: isActive ? "pulse 1s ease-in-out infinite" : "none",
+              }}>
+                {isDone ? "✓" : isActive ? "▶" : "○"}
+              </div>
+              <span style={{
+                fontSize: 12,
+                color: isDone ? "oklch(0.65 0.12 150)" : isActive ? "oklch(0.85 0.08 280)" : "oklch(0.5 0.05 280)",
+                fontWeight: isActive ? 600 : 400,
+              }}>
+                {p.icon} {p.label}
+                {isActive && <span style={{ marginLeft: 6, color: "oklch(0.55 0.15 280)", animation: "blink 1s step-end infinite" }}>●</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Scan animation keyframes via style tag */}
+      <style>{`
+        @keyframes scan { from { left: -100% } to { left: 100% } }
+        @keyframes ping { 75%, 100% { transform: scale(1.8); opacity: 0; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+      `}</style>
+    </div>
+  );
+}
 
 /* ── Main component ─────────────────────────────────────────────── */
 function SMCPage() {
@@ -290,6 +450,12 @@ function SMCPage() {
     } catch { alert("Delete failed. Try again."); }
   };
 
+  /* ── Parse helper ────────────────────────────────────────────────── */
+  function parseJsonField<T>(raw: string | null, fallback: T): T {
+    if (!raw) return fallback;
+    try { return JSON.parse(raw) as T; } catch { return fallback; }
+  }
+
   /* ── Helpers ─────────────────────────────────────────────────────── */
   const bias = data?.structure?.bias ?? "neutral";
   const verdictColor = data?.debate?.finalVerdict?.includes("LONG") ? "green"
@@ -311,7 +477,10 @@ function SMCPage() {
   }
 
   function formatAge(iso: string) {
-    const diff = Date.now() - new Date(iso).getTime();
+    // Ensure we parse as UTC (append Z if missing)
+    const utcStr = iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z";
+    const diff = Date.now() - new Date(utcStr).getTime();
+    if (diff < 0) return "just now";
     const m = Math.floor(diff / 60000);
     if (m < 1)  return "just now";
     if (m < 60) return `${m}m ago`;
@@ -470,26 +639,16 @@ function SMCPage() {
         </Card>
       )}
 
-      {/* ── Pending Reviews ─────────────────────────────────────────── */}
+      {/* ── Pending Reviews — show Hermes analyzing animation ─────── */}
       {pendingReviews.length > 0 && (
-        <Card title={`Hermes Inbox — ${pendingReviews.length} pending`}>
-          <div className="space-y-2">
-            {pendingReviews.map((r) => (
-              <div key={r.id} className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.02] p-3">
-                <div className="flex items-center gap-3">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-                  </span>
-                  <span className="text-[13px] font-bold">{r.pair}</span>
-                  <span className="text-[12px] text-muted-foreground">{r.timeframe}</span>
-                  <Badge tone="amber">Awaiting Hermes</Badge>
-                </div>
-                <span className="text-[11px] text-muted-foreground">{formatAge(r.created_at)}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
+        <div className="space-y-3">
+          {pendingReviews.map((r) => (
+            <HermesAnalyzingCard
+              key={r.id}
+              submittedAt={new Date(r.created_at).getTime()}
+            />
+          ))}
+        </div>
       )}
 
       {/* ── Fulfilled Reviews Feed ───────────────────────────────────── */}
@@ -556,6 +715,30 @@ function SMCPage() {
                   {/* Expanded detail */}
                   {isOpen && (
                     <div className="border-t border-white/10 p-4 space-y-4 bg-white/[0.015]">
+                      {/* TradingView Screenshots */}
+                      {r.chart_screenshots && (() => {
+                        const shots = parseJsonField<string[]>(r.chart_screenshots, []);
+                        if (shots.length === 0) return null;
+                        return (
+                          <div>
+                            <p className="text-[12px] text-muted-foreground mb-2 flex items-center gap-1">
+                              <Camera size={11} /> TradingView Screenshots ({shots.length})
+                            </p>
+                            <div className="grid gap-2" style={{ gridTemplateColumns: shots.length > 1 ? "1fr 1fr" : "1fr" }}>
+                              {shots.map((src, i) => (
+                                <img
+                                  key={i}
+                                  src={src}
+                                  alt={`Chart ${i + 1}`}
+                                  className="w-full rounded-md border border-white/10 shadow"
+                                  style={{ maxHeight: 320, objectFit: "contain", background: "#000" }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Feedback */}
                       {r.feedback && (
                         <div>
