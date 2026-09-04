@@ -1,74 +1,105 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { LoadBar } from "./anim";
 
-/* ── Surfaces ──────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   GIZZYFX TERMINAL UI KIT
+   ──────────────────────────────────────────────────────────────────────────
+   Every surface reads from the --gz-* palette so all six themes work, and
+   every control is sized from the design system's CSS classes so the
+   Android-desktop-mode type scale in responsive.css applies automatically.
+   The exported API is backward-compatible with the v1 kit.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Card / panel ────────────────────────────────────────────────────── */
 
 export function Card({
   title,
   badge,
   className,
   children,
+  accent,
+  loading,
+  scan,
+  flush,
 }: {
   title?: string;
   badge?: ReactNode;
   className?: string;
   children: ReactNode;
+  /** Coloured top rail — states the panel's role at a glance. */
+  accent?: "primary" | "highlight" | "pos" | "neg" | "warn" | undefined;
+  /** Shows an indeterminate load bar across the panel's top edge. */
+  loading?: boolean;
+  /** Sweeping scan light — use while a panel is actively recomputing. */
+  scan?: boolean;
+  /** Removes body padding (for tables that should bleed to the edge). */
+  flush?: boolean;
 }) {
+  const accentClass =
+    accent === "primary" ? "panel-accent"
+    : accent === "highlight" ? "panel-highlight"
+    : accent === "pos" ? "panel-pos"
+    : accent === "neg" ? "panel-neg"
+    : accent === "warn" ? "panel-warn"
+    : "";
+
   return (
     <section
-      className={cn(
-        "bg-[#0a0a0a] border border-[#1a1a1a]",
-        className,
-      )}
+      className={cn("panel fx-hover", accentClass, scan && "fx-scan", className)}
     >
+      <LoadBar active={Boolean(loading)} />
       {(title || badge) && (
-        <header className="flex items-center justify-between gap-3 px-3 py-2 border-b border-[#1a1a1a] bg-[#0f0f0f]">
-          {title && (
-            <h2
-              className="font-mono text-[10px] font-bold uppercase text-[#8a8a8a]"
-              style={{ letterSpacing: "0.08em" }}
-            >
-              {title}
-            </h2>
-          )}
+        <header className="panel-head">
+          {title && <h2 className="panel-head-title">{title}</h2>}
           {badge}
         </header>
       )}
-      <div className="p-3">{children}</div>
+      <div className={flush ? "panel-body-flush" : "panel-body"}>{children}</div>
     </section>
   );
 }
+
+/* ─── Badge ───────────────────────────────────────────────────────────── */
 
 export function Badge({
   tone = "blue",
   className,
   children,
+  live,
 }: {
   tone?: "blue" | "green" | "red" | "amber" | "neutral" | undefined;
   className?: string;
   children: ReactNode;
+  /** Adds a pulsing dot — for LIVE / STREAMING states. */
+  live?: boolean;
 }) {
   const tones = {
-    blue:    "bg-[#1a2a3a] text-[#6ab4ff] border border-[#2a3a4a]",
-    green:   "bg-[#0a2a1a] text-[#4ade80] border border-[#1a3a2a]",
-    red:     "bg-[#2a0a0a] text-[#f87171] border border-[#3a1a1a]",
-    amber:   "bg-[#2a1a0a] text-[#fbbf24] border border-[#3a2a1a]",
-    neutral: "bg-[#1a1a1a] text-[#8a8a8a] border border-[#2a2a2a]",
+    blue: "badge-info",
+    green: "badge-success",
+    red: "badge-danger",
+    amber: "badge-warning",
+    neutral: "badge-neutral",
   } as const;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase",
-        tones[tone],
-        className,
+    <span className={cn("badge", tones[tone], className)}>
+      {live && (
+        <span
+          className="pulse-dot"
+          style={{
+            width: 5, height: 5, borderRadius: "50%",
+            background: "currentColor", boxShadow: "0 0 5px currentColor",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        />
       )}
-    >
       {children}
     </span>
   );
 }
 
-/* ── Form controls ─────────────────────────────────────────────── */
+/* ─── Form controls ──────────────────────────────────────────────────── */
 
 export function Field({
   label,
@@ -80,30 +111,21 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[9px] font-bold uppercase text-[#6a6a6a] tracking-wide font-mono">
-        {label}
-      </span>
+    <label className="flex flex-col gap-1 min-w-0">
+      <span className="ctl-label">{label}</span>
       {children}
-      {hint && <span className="text-[9px] text-[#5a5a5a] font-mono">{hint}</span>}
+      {hint && <span className="ctl-hint">{hint}</span>}
     </label>
   );
 }
 
-const controlClass =
-  "h-8 w-full px-2 font-mono text-[11px] text-[#e0e0e0] outline-none " +
-  "bg-[#0a0a0a] border border-[#2a2a2a] " +
-  "focus:border-[#4a4a4a] " +
-  "placeholder:text-[#4a4a4a] " +
-  "disabled:opacity-50 disabled:cursor-not-allowed";
-
 export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={cn(controlClass, props.className)} />;
+  return <input {...props} className={cn("ctl", props.className)} />;
 }
 
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select {...props} className={cn(controlClass, "appearance-none pr-6", props.className)}>
+    <select {...props} className={cn("ctl appearance-none pr-7", props.className)}>
       {props.children}
     </select>
   );
@@ -117,37 +139,60 @@ export function Button({
   variant?: "primary" | "ghost" | "danger" | "success";
 }) {
   const variants = {
-    primary:
-      "bg-[#1a1a1a] border border-[#3a3a3a] text-[#e0e0e0] " +
-      "hover:bg-[#2a2a2a] hover:border-[#4a4a4a] " +
-      "active:bg-[#0a0a0a]",
-    ghost:
-      "bg-transparent border border-[#2a2a2a] text-[#8a8a8a] " +
-      "hover:bg-[#1a1a1a] hover:text-[#e0e0e0] hover:border-[#3a3a3a]",
-    danger:
-      "bg-[#2a0a0a] border border-[#4a1a1a] text-[#f87171] " +
-      "hover:bg-[#3a1a1a] hover:border-[#5a2a2a]",
-    success:
-      "bg-[#0a2a1a] border border-[#1a4a2a] text-[#4ade80] " +
-      "hover:bg-[#1a3a2a] hover:border-[#2a5a3a]",
+    primary: "btn-institutional",
+    ghost: "btn-ghost",
+    danger: "btn-danger",
+    success: "btn-success",
   } as const;
+  return <button {...props} className={cn("btn btn-sweep", variants[variant], className)} />;
+}
 
+/** Filled accent button — the single primary action on a page. */
+export function ActionButton({
+  className,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button {...props} className={cn("btn btn-primary btn-sweep", className)} />;
+}
+
+/** Segmented control — phase toggles, timeframe pickers. */
+export function Segmented<T extends string | number>({
+  options,
+  value,
+  onChange,
+  className,
+}: {
+  options: ReadonlyArray<{ value: T; label: string }>;
+  value: T;
+  onChange: (v: T) => void;
+  className?: string;
+}) {
   return (
-    <button
-      {...props}
-      className={cn(
-        "inline-flex h-8 items-center justify-center gap-1.5 px-3 text-[11px] font-bold uppercase font-mono",
-        "transition-colors duration-75",
-        "focus-visible:outline-none focus-visible:border-[#6ab4ff]",
-        "disabled:cursor-not-allowed disabled:opacity-40",
-        variants[variant],
-        className,
-      )}
-    />
+    <div className={cn("seg", className)} role="tablist">
+      {options.map((o) => (
+        <button
+          key={String(o.value)}
+          role="tab"
+          aria-selected={o.value === value}
+          className="seg-item"
+          onClick={() => onChange(o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
-/* ── Data display ──────────────────────────────────────────────── */
+/* ─── Data display ───────────────────────────────────────────────────── */
+
+const TONE_COLOR = {
+  default: "oklch(var(--gz-txt))",
+  pos: "oklch(var(--gz-pos))",
+  neg: "oklch(var(--gz-neg))",
+  accent: "oklch(var(--gz-p))",
+  warn: "oklch(var(--gz-warn))",
+} as const;
 
 export function Row({
   label,
@@ -160,22 +205,10 @@ export function Row({
   tone?: "default" | "pos" | "neg" | "accent" | "warn";
   strong?: boolean;
 }) {
-  const tones = {
-    default: "text-[#e0e0e0]",
-    pos: "#4ade80",
-    neg: "#f87171",
-    accent: "#6ab4ff",
-    warn: "#fbbf24",
-  } as const;
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between gap-3 py-0.5 text-[11px] font-mono",
-        strong && "mt-1 border-t border-[#1a1a1a] pt-1.5 font-bold",
-      )}
-    >
-      <span className="text-[#6a6a6a] uppercase tracking-wide">{label}</span>
-      <span className="tabular-nums" style={{ color: tones[tone] }}>{value}</span>
+    <div className={cn("kv", strong && "kv-strong")}>
+      <span className="kv-label">{label}</span>
+      <span className="kv-value" style={{ color: TONE_COLOR[tone] }}>{value}</span>
     </div>
   );
 }
@@ -184,22 +217,24 @@ export function Alert({
   level,
   title,
   children,
+  breathe,
 }: {
-  level: "green" | "red" | "amber";
+  level: "green" | "red" | "amber" | "blue";
   title: string;
   children?: ReactNode;
+  /** Slow glow pulse — for states the user must not miss. */
+  breathe?: boolean;
 }) {
   const tones = {
-    green: "border-l-[#4ade80] bg-[#0a1a0a] text-[#4ade80]",
-    red: "border-l-[#f87171] bg-[#1a0a0a] text-[#f87171]",
-    amber: "border-l-[#fbbf24] bg-[#1a1a0a] text-[#fbbf24]",
+    green: "alert-green",
+    red: "alert-red",
+    amber: "alert-amber",
+    blue: "alert-blue",
   } as const;
   return (
-    <div className={cn("border-l-2 px-3 py-2", tones[level])}>
-      <p className="font-mono text-[10px] font-bold uppercase tracking-wide">{title}</p>
-      {children && (
-        <p className="mt-1 text-[10px] leading-snug text-[#8a8a8a]">{children}</p>
-      )}
+    <div className={cn("alert", tones[level], breathe && "fx-alert-breathe")}>
+      <p className="alert-title">{title}</p>
+      {children && <p className="alert-body">{children}</p>}
     </div>
   );
 }
@@ -208,17 +243,86 @@ export function Stat({
   label,
   value,
   tone,
+  sub,
+  accessory,
 }: {
   label: string;
   value: ReactNode;
   tone?: string | undefined;
+  /** Secondary line under the number — context, not decoration. */
+  sub?: ReactNode;
+  /** Right-aligned slot: sparkline, gauge, badge. */
+  accessory?: ReactNode;
 }) {
   return (
-    <div className="bg-[#0a0a0a] border border-[#1a1a1a] p-2.5">
-      <p className="text-[9px] font-bold uppercase text-[#6a6a6a] tracking-wide font-mono">
-        {label}
-      </p>
-      <p className={cn("mt-1 font-mono text-lg font-bold tabular-nums", tone)}>{value}</p>
+    <div className="stat fx-hover">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="stat-label">{label}</p>
+          <p className={cn("stat-value", tone)}>{value}</p>
+          {sub && <p className="stat-sub">{sub}</p>}
+        </div>
+        {accessory && <div className="flex-shrink-0">{accessory}</div>}
+      </div>
     </div>
   );
+}
+
+/* ─── Layout helpers ─────────────────────────────────────────────────── */
+
+/** The instrument identity strip at the top of a workspace. */
+export function CockpitHeader({
+  title,
+  badges,
+  right,
+}: {
+  title: string;
+  badges?: ReactNode;
+  right?: ReactNode;
+}) {
+  return (
+    <div className="cockpit-header">
+      <div className="cockpit-header-left">
+        <span className="cockpit-title">{title}</span>
+        {badges}
+      </div>
+      {right && <div className="cockpit-header-right">{right}</div>}
+    </div>
+  );
+}
+
+/** Dense institutional table wrapper. */
+export function DataGrid({
+  head,
+  children,
+  ruled = true,
+  className,
+}: {
+  head: ReadonlyArray<{ label: string; align?: "left" | "right" }>;
+  children: ReactNode;
+  ruled?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className="w-full overflow-x-auto scrollbar-institutional">
+      <table className={cn("dgrid", ruled && "dgrid-ruled", className)}>
+        <thead>
+          <tr>
+            {head.map((h) => (
+              <th key={h.label} style={h.align === "right" ? { textAlign: "right" } : undefined}>
+                {h.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
+/** LONG / SHORT chip. */
+export function DirectionChip({ dir }: { dir: string }) {
+  const long = dir.toUpperCase().startsWith("L") || dir.toUpperCase() === "BUY";
+  return <span className={long ? "dir-long" : "dir-short"}>{dir}</span>;
 }

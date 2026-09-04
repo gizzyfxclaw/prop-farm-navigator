@@ -1,0 +1,538 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   GIZZYFX — ADVANCED TRADING ANIMATION LIBRARY
+   ──────────────────────────────────────────────────────────────────────────
+   Every animation here is GPU-composited (transform / opacity / filter only,
+   never layout-triggering properties) so a 4K panel full of live numbers
+   still holds 60fps on a phone in desktop mode.
+
+   Naming: gz-<name> for keyframes, .fx-<name> for the utility class.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────────────
+   1. PRICE TICK FLASH — Bloomberg / Reuters terminal behaviour.
+      Applied for ~700ms when a live number changes, then removed.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-tick-up {
+  0%   { background-color: oklch(0.720 0.190 148 / 0.32);
+         color: oklch(0.860 0.200 148);
+         text-shadow: 0 0 12px oklch(0.720 0.190 148 / 0.75); }
+  35%  { background-color: oklch(0.720 0.190 148 / 0.18); }
+  100% { background-color: transparent;
+         text-shadow: none; }
+}
+
+@keyframes gz-tick-down {
+  0%   { background-color: oklch(0.620 0.220 25 / 0.32);
+         color: oklch(0.800 0.220 25);
+         text-shadow: 0 0 12px oklch(0.620 0.220 25 / 0.75); }
+  35%  { background-color: oklch(0.620 0.220 25 / 0.18); }
+  100% { background-color: transparent;
+         text-shadow: none; }
+}
+
+.fx-tick-up,
+.fx-tick-down {
+  border-radius: 2px;
+  padding-inline: 3px;
+  margin-inline: -3px;
+  will-change: background-color, color;
+}
+.fx-tick-up   { animation: gz-tick-up   0.75s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fx-tick-down { animation: gz-tick-down 0.75s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Directional arrow that slides in with the tick */
+@keyframes gz-arrow-up {
+  0%   { opacity: 0; transform: translateY(4px) scale(0.7); }
+  30%  { opacity: 1; transform: translateY(0)   scale(1); }
+  100% { opacity: 0; transform: translateY(-4px) scale(0.9); }
+}
+@keyframes gz-arrow-down {
+  0%   { opacity: 0; transform: translateY(-4px) scale(0.7); }
+  30%  { opacity: 1; transform: translateY(0)    scale(1); }
+  100% { opacity: 0; transform: translateY(4px)  scale(0.9); }
+}
+.fx-arrow-up   { animation: gz-arrow-up   0.75s ease-out both; }
+.fx-arrow-down { animation: gz-arrow-down 0.75s ease-out both; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   2. LIVE PULSE — connection / heartbeat indicators
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-pulse-ring {
+  0%   { transform: scale(0.6); opacity: 0.85; }
+  70%  { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* A dot that emits an expanding ring — the classic "live feed" marker. */
+.fx-live-dot {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  flex-shrink: 0;
+}
+.fx-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  animation: gz-pulse-ring 1.9s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+  will-change: transform, opacity;
+}
+.fx-live-dot.is-stale::after { animation-duration: 4s; }
+.fx-live-dot.is-dead {
+  box-shadow: none;
+  opacity: 0.45;
+}
+.fx-live-dot.is-dead::after { display: none; }
+
+/* ECG-style heartbeat trace for latency / connection health */
+@keyframes gz-ecg {
+  0%   { stroke-dashoffset: 340; }
+  100% { stroke-dashoffset: 0; }
+}
+.fx-ecg path {
+  stroke-dasharray: 170 170;
+  animation: gz-ecg 2.4s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   3. DATA SCAN — a light bar sweeping a panel while it computes / refreshes
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-scan-x {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+.fx-scan {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.fx-scan::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(var(--gz-p) / 0.05) 40%,
+    oklch(var(--gz-p) / 0.13) 50%,
+    oklch(var(--gz-p) / 0.05) 60%,
+    transparent 100%
+  );
+  animation: gz-scan-x 2.1s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform;
+}
+.fx-scan.is-idle::after { animation-play-state: paused; opacity: 0; }
+
+/* A single crisp scanline for "analysing" states */
+@keyframes gz-scanline {
+  0%   { transform: translateY(0);      opacity: 0; }
+  8%   { opacity: 0.9; }
+  92%  { opacity: 0.9; }
+  100% { transform: translateY(var(--fx-scan-h, 200px)); opacity: 0; }
+}
+.fx-scanline::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent, oklch(var(--gz-h) / 0.9), transparent);
+  box-shadow: 0 0 10px oklch(var(--gz-h) / 0.55);
+  animation: gz-scanline 2.8s linear infinite;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   4. RADAR SWEEP — for scanner / market-scan panels
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-radar {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.fx-radar {
+  position: absolute;
+  inset: -35%;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    oklch(var(--gz-p) / 0.11) 22deg,
+    transparent 55deg,
+    transparent 360deg
+  );
+  animation: gz-radar 4.5s linear infinite;
+  will-change: transform;
+  border-radius: 50%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   5. TICKER TAPE — seamless horizontal marquee, duplicated content
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-tape {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+.fx-tape-track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: gz-tape var(--fx-tape-dur, 46s) linear infinite;
+  will-change: transform;
+}
+.fx-tape:hover .fx-tape-track { animation-play-state: paused; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   6. ORDER-BOOK DEPTH BARS — grow from the price axis outward
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-depth-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.fx-depth-bar {
+  transform-origin: right center;
+  animation: gz-depth-grow 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform;
+}
+.fx-depth-bar.is-bid { transform-origin: left center; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   7. CANDLE GROW — candles rising from the baseline as a chart mounts
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-candle-grow {
+  from { transform: scaleY(0);   opacity: 0; }
+  to   { transform: scaleY(1);   opacity: 1; }
+}
+.fx-candle {
+  transform-origin: center bottom;
+  animation: gz-candle-grow 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+/* SVG stroke draw-on — used by sparklines and trendlines */
+@keyframes gz-draw {
+  from { stroke-dashoffset: var(--fx-len, 1000); }
+  to   { stroke-dashoffset: 0; }
+}
+.fx-draw {
+  stroke-dasharray: var(--fx-len, 1000);
+  animation: gz-draw 1.05s cubic-bezier(0.33, 1, 0.68, 1) both;
+  will-change: stroke-dashoffset;
+}
+
+/* Area fill fading up under a drawn line */
+@keyframes gz-area-in {
+  from { opacity: 0; transform: scaleY(0.75); }
+  to   { opacity: 1; transform: scaleY(1); }
+}
+.fx-area {
+  transform-origin: center bottom;
+  animation: gz-area-in 0.9s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   8. GAUGE / RING SWEEP — risk meters, drawdown dials
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-gauge {
+  from { stroke-dashoffset: var(--fx-circ, 100); }
+  to   { stroke-dashoffset: var(--fx-target, 50); }
+}
+.fx-gauge {
+  animation: gz-gauge 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: stroke-dashoffset 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+              stroke 0.35s ease;
+  will-change: stroke-dashoffset;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   9. LED METER — segmented bar, segments lighting left→right
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-led-on {
+  from { opacity: 0.12; transform: scaleY(0.55); }
+  to   { opacity: 1;    transform: scaleY(1); }
+}
+.fx-led {
+  animation: gz-led-on 0.28s ease-out both;
+  transform-origin: center bottom;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   10. INDETERMINATE LOAD BAR — sits on a panel edge while fetching
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-loadbar {
+  0%   { transform: translateX(-100%) scaleX(0.35); }
+  50%  { transform: translateX(35%)   scaleX(0.55); }
+  100% { transform: translateX(210%)  scaleX(0.35); }
+}
+.fx-loadbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 4;
+}
+.fx-loadbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: linear-gradient(90deg,
+    transparent,
+    oklch(var(--gz-p) / 0.95),
+    oklch(var(--gz-h)),
+    transparent);
+  animation: gz-loadbar 1.35s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   11. SKELETON SHIMMER — loading placeholders that read as "streaming"
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-skeleton {
+  from { background-position: -220% 0; }
+  to   { background-position:  220% 0; }
+}
+.fx-skeleton {
+  border-radius: 2px;
+  background-image: linear-gradient(
+    90deg,
+    oklch(var(--gz-s2) / 0.55) 0%,
+    oklch(var(--gz-p)  / 0.10) 45%,
+    oklch(var(--gz-s2) / 0.55) 90%
+  );
+  background-size: 220% 100%;
+  animation: gz-skeleton 1.5s linear infinite;
+  color: transparent !important;
+  user-select: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   12. TRAVELLING BORDER — a light running along a panel's accent edge
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-edge-travel {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(310%); }
+}
+.fx-edge {
+  position: relative;
+  overflow: hidden;
+}
+.fx-edge::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  height: 1px;
+  width: 32%;
+  background: linear-gradient(90deg,
+    transparent,
+    oklch(var(--gz-h) / 0.95),
+    transparent);
+  animation: gz-edge-travel 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  pointer-events: none;
+  z-index: 3;
+  will-change: transform;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   13. ENTRY CHOREOGRAPHY — panels arriving without feeling like a webpage
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-rise-blur {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.995);
+         filter: blur(3px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes gz-slide-left {
+  from { opacity: 0; transform: translate3d(-14px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes gz-slide-right {
+  from { opacity: 0; transform: translate3d(14px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes gz-zoom-in {
+  from { opacity: 0; transform: scale(0.965); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes gz-unfold {
+  from { opacity: 0; transform: scaleY(0.82); transform-origin: top center; }
+  to   { opacity: 1; transform: none; }
+}
+
+.fx-rise    { animation: gz-rise-blur   0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.fx-left    { animation: gz-slide-left  0.38s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.fx-right   { animation: gz-slide-right 0.38s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.fx-zoom    { animation: gz-zoom-in     0.34s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.fx-unfold  { animation: gz-unfold      0.36s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   14. STATE PULSES — alerts that need to be seen without being loud
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-alert-breathe {
+  0%, 100% { box-shadow: inset 3px 0 0 0 var(--fx-alert, oklch(var(--gz-p))),
+                         0 0 0 0 transparent; }
+  50%      { box-shadow: inset 3px 0 0 0 var(--fx-alert, oklch(var(--gz-p))),
+                         0 0 22px -6px var(--fx-alert, oklch(var(--gz-p))); }
+}
+.fx-alert-breathe {
+  animation: gz-alert-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes gz-critical {
+  0%, 100% { background-color: oklch(0.620 0.220 25 / 0.07); }
+  50%      { background-color: oklch(0.620 0.220 25 / 0.16); }
+}
+.fx-critical { animation: gz-critical 1.5s ease-in-out infinite; }
+
+/* Attention shake for blocked actions */
+@keyframes gz-nudge {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-3px); }
+  40%      { transform: translateX(3px); }
+  60%      { transform: translateX(-2px); }
+  80%      { transform: translateX(2px); }
+}
+.fx-nudge { animation: gz-nudge 0.42s ease-in-out; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   15. NUMBER ROLL — odometer feel for the count-up component
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-roll-in {
+  from { opacity: 0; transform: translateY(45%); }
+  to   { opacity: 1; transform: none; }
+}
+.fx-roll { animation: gz-roll-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   16. BACKDROP — institutional depth layer (no orbs, no particles)
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes gz-mesh-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(-1.5%, -1%, 0) scale(1.03); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+.fx-mesh {
+  animation: gz-mesh-drift 34s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes gz-h-sweep {
+  0%   { transform: translateY(-30vh); opacity: 0; }
+  10%  { opacity: 0.55; }
+  90%  { opacity: 0.55; }
+  100% { transform: translateY(130vh); opacity: 0; }
+}
+.fx-h-sweep { animation: gz-h-sweep 13s linear infinite; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   17. STAGGER — index-driven delay for grids of panels
+   ───────────────────────────────────────────────────────────────────────── */
+
+.fx-stagger > * { animation: gz-rise-blur 0.42s cubic-bezier(0.16,1,0.3,1) both; }
+.fx-stagger > *:nth-child(1)  { animation-delay: 0.02s; }
+.fx-stagger > *:nth-child(2)  { animation-delay: 0.05s; }
+.fx-stagger > *:nth-child(3)  { animation-delay: 0.08s; }
+.fx-stagger > *:nth-child(4)  { animation-delay: 0.11s; }
+.fx-stagger > *:nth-child(5)  { animation-delay: 0.14s; }
+.fx-stagger > *:nth-child(6)  { animation-delay: 0.17s; }
+.fx-stagger > *:nth-child(7)  { animation-delay: 0.20s; }
+.fx-stagger > *:nth-child(8)  { animation-delay: 0.23s; }
+.fx-stagger > *:nth-child(9)  { animation-delay: 0.26s; }
+.fx-stagger > *:nth-child(n+10) { animation-delay: 0.29s; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   18. HOVER PHYSICS — restrained, matte-surface appropriate
+   ───────────────────────────────────────────────────────────────────────── */
+
+.fx-hover {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.18s ease,
+              box-shadow 0.18s ease,
+              background-color 0.18s ease;
+}
+.fx-hover:hover {
+  transform: translateY(-1px);
+  border-color: oklch(var(--gz-p) / 0.28);
+  box-shadow: 0 6px 24px -10px oklch(0 0 0 / 0.75),
+              0 0 0 1px oklch(var(--gz-p) / 0.10);
+}
+
+.fx-press { transition: transform 0.07s ease; }
+.fx-press:active { transform: scale(0.985); }
+
+/* Cursor-tracked sheen on premium panels (JS sets --mx / --my) */
+.fx-sheen { position: relative; }
+.fx-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  background: radial-gradient(
+    420px circle at var(--mx, 50%) var(--my, 0%),
+    oklch(var(--gz-p) / 0.07),
+    transparent 62%
+  );
+}
+.fx-sheen:hover::before { opacity: 1; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   19. REDUCED MOTION — kill everything decorative, keep state legible
+   ───────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-scan::after,
+  .fx-scanline::before,
+  .fx-radar,
+  .fx-tape-track,
+  .fx-edge::before,
+  .fx-mesh,
+  .fx-h-sweep,
+  .fx-loadbar::before,
+  .fx-skeleton,
+  .fx-live-dot::after,
+  .fx-ecg path,
+  .fx-alert-breathe,
+  .fx-critical {
+    animation: none !important;
+  }
+  .fx-rise, .fx-left, .fx-right, .fx-zoom, .fx-unfold,
+  .fx-stagger > *, .fx-candle, .fx-draw, .fx-area,
+  .fx-depth-bar, .fx-led, .fx-roll {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+  .fx-tick-up, .fx-tick-down { animation-duration: 0.3s !important; }
+}

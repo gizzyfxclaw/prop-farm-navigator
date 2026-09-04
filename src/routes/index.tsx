@@ -4,7 +4,11 @@ import { toast } from "sonner";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { ActualExnessBalance } from "@/components/terminal/ActualExnessBalance";
 import { RulesAlertPanel } from "@/components/terminal/RulesAlertPanel";
-import { Alert, Badge, Button, Card, Field, Row, Select, TextInput } from "@/components/terminal/ui";
+import {
+  ActionButton, Alert, Badge, Button, Card, CockpitHeader, DataGrid, DirectionChip,
+  Field, Row, Segmented, Select, Stat, TextInput,
+} from "@/components/terminal/ui";
+import { CountUp, Gauge, LedMeter, LoadBar, TickValue } from "@/components/terminal/anim";
 import { money, pendingOrderType, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
 import { useNotifications } from "@/lib/notifications";
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
@@ -191,17 +195,68 @@ function EnginePage() {
   return (
     <div className="engine-cockpit">
       {/* ── COCKPIT HEADER ──────────────────────────────────────── */}
-      <div className="cockpit-header">
-        <div className="cockpit-header-left">
-          <span className="cockpit-title">Execution Engine</span>
-          <Badge tone={engine.phase === 1 ? "blue" : "amber"}>Phase {engine.phase}</Badge>
-          <Badge tone={market.open ? "green" : "amber"}>{market.open ? "LIVE" : "CLOSED"}</Badge>
-          {r.riskCapped && <Badge tone="amber">CAP</Badge>}
-        </div>
-        <div className="cockpit-header-right">
-          <span className="cockpit-pair">{symbol}</span>
-          {live && <span className="cockpit-price">{formatPrice(live.price, dec)}</span>}
-        </div>
+      <CockpitHeader
+        title="Execution Engine"
+        badges={
+          <>
+            <Badge tone={engine.phase === 1 ? "blue" : "amber"}>Phase {engine.phase}</Badge>
+            <Badge tone={market.open ? "green" : "amber"} live={market.open}>
+              {market.open ? "LIVE" : "CLOSED"}
+            </Badge>
+            {r.riskCapped && <Badge tone="amber">CAP</Badge>}
+          </>
+        }
+        right={
+          <div className="flex items-center gap-3">
+            <span className="cockpit-pair">{symbol}</span>
+            {live && (
+              <TickValue
+                value={live.price}
+                format={(v) => formatPrice(v, dec)}
+                className="cockpit-price"
+              />
+            )}
+          </div>
+        }
+      />
+
+      {/* ── RISK TELEMETRY ───────────────────────────────────────── */}
+      <div className="wgrid-4">
+        <Stat
+          label="Prop risk (SL hit)"
+          value={<CountUp value={-r.cappedPropRisk} format={(v) => money(v)} />}
+          tone="c-neg"
+          sub={r.riskCapped ? "Cap applied" : `${engine.slPips} pip SL`}
+          accessory={r.riskCapped
+            ? <Badge tone="amber">CAPPED</Badge>
+            : undefined}
+        />
+        <Stat
+          label="Prop reward (TP hit)"
+          value={<CountUp value={r.cappedPropRisk * r.rr} format={(v) => money(v, true)} />}
+          tone="c-pos"
+          sub={`R:R 1:${r.rr}`}
+        />
+        <Stat
+          label="Next Exness target"
+          value={<CountUp value={recovery.newExnessWinTarget} format={(v) => money(v, true)} />}
+          tone={recovery.adjustmentNeeded ? "c-warn" : "c-pos"}
+          sub={recovery.adjustmentNeeded ? "Martingale bump active" : "Base target"}
+        />
+        <Stat
+          label="Drawdown budget left"
+          value={<CountUp value={recovery.remainingDrawdown} format={(v) => money(v)} />}
+          tone={recovery.remainingDrawdown < r.maxDdUsd * 0.25 ? "c-neg" : "c-acc"}
+          sub={`${money(r.maxDdUsd)} max`}
+          accessory={
+            <Gauge
+              pct={Math.max(0, Math.min(1, recovery.remainingDrawdown / r.maxDdUsd))}
+              size={40}
+              thickness={4}
+              tone={recovery.remainingDrawdown < r.maxDdUsd * 0.25 ? "neg" : "accent"}
+            />
+          }
+        />
       </div>
 
       {/* ── RULES & ALERTS ─────────────────────────────────────── */}
@@ -237,21 +292,21 @@ function EnginePage() {
 
       {/* ── INPUTS + MIRROR TICKET ──────────────────────────────── */}
       <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
-        <Card title="Inputs" badge={<Badge tone={engine.phase === 1 ? "blue" : "amber"}>Phase {engine.phase}</Badge>}>
-          <div className="mb-4 grid grid-cols-2 gap-2">
-            {[1, 2].map((p) => (
-              <button
-                key={p}
-                onClick={() => setEngine({ phase: p as 1 | 2 })}
-                className={`h-9 rounded text-[12px] font-semibold transition-colors truncate ${
-                  engine.phase === p
-                    ? "bg-primary text-primary-foreground"
-                    : "border border-border bg-secondary text-muted-foreground"
-                }`}
-              >
-                {p === 1 ? "Phase 1" : "Phase 2"}
-              </button>
-            ))}
+        <Card
+          title="Inputs"
+          accent="primary"
+          badge={<Badge tone={engine.phase === 1 ? "blue" : "amber"}>Phase {engine.phase}</Badge>}
+          loading={livePrice.loading}
+        >
+          <div className="mb-4">
+            <Segmented
+              options={[
+                { value: 1 as const, label: "Phase 1 — Challenge" },
+                { value: 2 as const, label: "Phase 2 — Mega Shield" },
+              ]}
+              value={engine.phase}
+              onChange={(p) => setEngine({ phase: p as 1 | 2 })}
+            />
           </div>
 
           <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
@@ -334,62 +389,76 @@ function EnginePage() {
 
         {/* ── MIRROR TICKET ──────────────────────────────────────── */}
         <div className="space-y-5 w-full">
-          <Card title="Mirror ticket">
-            {/* Mobile: Card layout */}
-            <div className="sm:hidden space-y-2">
+          <Card title="Mirror ticket" accent="highlight" flush>
+            {/* Mobile: kv layout */}
+            <div className="sm:hidden" style={{ padding: "0.7rem" }}>
               {[
-                ["Direction", r.propDirection, r.exnessDirection],
-                ["Lot size (MT5)", r.propLots.toFixed(2), r.exnessLots.toFixed(2)],
-                ["SL / TP pips", `${r.propSlPips} / ${r.propTpPips}`, `${r.exnessSlPips} / ${r.exnessTpPips}`],
-                ["Entry", formatPrice(r.entryPrice, dec), formatPrice(r.entryPrice, dec)],
-                ["Stop loss", formatPrice(r.propSl, dec), formatPrice(r.exnessSl, dec)],
-                ["Take profit", formatPrice(r.propTp, dec), formatPrice(r.exnessTp, dec)],
-              ].map(([label, a, b]) => (
-                <div key={label} className="flex items-center justify-between border-t border-[#1a1a1a] py-1.5">
-                  <span className="font-sans text-[10px] text-[#888]">{label}</span>
+                { label: "Direction", prop: r.propDirection, ex: r.exnessDirection, isDir: true },
+                { label: "Lot size (MT5)", prop: r.propLots.toFixed(2), ex: r.exnessLots.toFixed(2), isDir: false },
+                { label: "SL / TP pips", prop: `${r.propSlPips} / ${r.propTpPips}`, ex: `${r.exnessSlPips} / ${r.exnessTpPips}`, isDir: false },
+                { label: "Entry", prop: formatPrice(r.entryPrice, dec), ex: formatPrice(r.entryPrice, dec), isDir: false },
+                { label: "Stop loss", prop: formatPrice(r.propSl, dec), ex: formatPrice(r.exnessSl, dec), isDir: false },
+                { label: "Take profit", prop: formatPrice(r.propTp, dec), ex: formatPrice(r.exnessTp, dec), isDir: false },
+              ].map(({ label, prop, ex, isDir }) => (
+                <div key={label} className="kv" style={{ borderBottom: "1px solid oklch(var(--gz-p) / 0.07)", padding: "5px 0" }}>
+                  <span className="kv-label">{label}</span>
                   <div className="flex gap-4 font-mono text-[11px]">
-                    <span className="text-primary">{a}</span>
-                    <span className="text-emerald-400">{b}</span>
+                    {isDir ? <DirectionChip dir={prop} /> : <span className="c-acc">{prop}</span>}
+                    {isDir ? <DirectionChip dir={ex} /> : <span className="c-pos">{ex}</span>}
                   </div>
                 </div>
               ))}
             </div>
-            {/* Desktop: Table layout */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                    <th className="pb-2 font-medium">Field</th>
-                    <th className="pb-2 font-medium">Prop firm</th>
-                    <th className="pb-2 font-medium">Exness {engine.exnessAccountType.toLowerCase()}</th>
-                  </tr>
-                </thead>
-                <tbody className="font-mono">
-                  {[
-                    ["Direction", r.propDirection, r.exnessDirection],
-                    ["Lot size (MT5)", r.propLots.toFixed(2), r.exnessLots.toFixed(2)],
-                    ["SL / TP pips", `${r.propSlPips} / ${r.propTpPips}`, `${r.exnessSlPips} / ${r.exnessTpPips}`],
-                    ["Entry", formatPrice(r.entryPrice, dec), formatPrice(r.entryPrice, dec)],
-                    ["Stop loss", formatPrice(r.propSl, dec), formatPrice(r.exnessSl, dec)],
-                    ["Take profit", formatPrice(r.propTp, dec), formatPrice(r.exnessTp, dec)],
-                  ].map(([label, a, b]) => (
-                    <tr key={label} className="border-t border-border">
-                      <td className="py-1.5 font-sans text-muted-foreground">{label}</td>
-                      <td className="py-1.5 text-primary">{a}</td>
-                      <td className="py-1.5 text-success">{b}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Desktop: DataGrid */}
+            <div className="hidden sm:block">
+              <DataGrid
+                head={[
+                  { label: "Field" },
+                  { label: "Prop firm", align: "right" },
+                  { label: `Exness ${engine.exnessAccountType.toLowerCase()}`, align: "right" },
+                ]}
+              >
+                <tr>
+                  <td className="lead">Direction</td>
+                  <td className="num"><DirectionChip dir={r.propDirection} /></td>
+                  <td className="num"><DirectionChip dir={r.exnessDirection} /></td>
+                </tr>
+                <tr>
+                  <td className="lead">Lot size (MT5)</td>
+                  <td className="num c-acc">{r.propLots.toFixed(2)}</td>
+                  <td className="num c-pos">{r.exnessLots.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="lead">SL / TP pips</td>
+                  <td className="num">{r.propSlPips} / {r.propTpPips}</td>
+                  <td className="num">{r.exnessSlPips} / {r.exnessTpPips}</td>
+                </tr>
+                <tr>
+                  <td className="lead">Entry</td>
+                  <td className="num">{formatPrice(r.entryPrice, dec)}</td>
+                  <td className="num">{formatPrice(r.entryPrice, dec)}</td>
+                </tr>
+                <tr>
+                  <td className="lead">Stop loss</td>
+                  <td className="num c-neg">{formatPrice(r.propSl, dec)}</td>
+                  <td className="num c-neg">{formatPrice(r.exnessSl, dec)}</td>
+                </tr>
+                <tr>
+                  <td className="lead">Take profit</td>
+                  <td className="num c-pos">{formatPrice(r.propTp, dec)}</td>
+                  <td className="num c-pos">{formatPrice(r.exnessTp, dec)}</td>
+                </tr>
+              </DataGrid>
             </div>
             {Number(r.exnessLots.toFixed(2)) < 0.01 && (
-              <p className="mt-2 text-[10px] text-destructive">
-                Exness lot rounds to 0.00 — below the 0.01 broker minimum. Raise the desired profit on blow, lower the prop risk, or use a Cent account so the fuel size becomes tradable.
-              </p>
+              <div className="alert alert-red" style={{ margin: "0.5rem 0.7rem" }}>
+                <p className="alert-title">Lot size too small</p>
+                <p className="alert-body">Exness lot rounds to 0.00 — below the 0.01 broker minimum. Raise the desired profit on blow, lower prop risk, or use a Cent account.</p>
+              </div>
             )}
             {engine.exnessAccountType === "Cent" && (
-              <p className="mt-2 text-[10px] text-primary">
-                Exness lots are cent lots (1 cent lot = 1/100 standard lot); pip value used is ${r.exnessPipValue.toFixed(2)}.
+              <p className="mono-cap" style={{ padding: "0 0.7rem 0.7rem", color: "oklch(var(--gz-p))" }}>
+                Cent lots (1/100 standard); pip value ${r.exnessPipValue.toFixed(2)}
               </p>
             )}
           </Card>

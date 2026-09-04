@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { RotateCw } from "lucide-react";
 import { useLiveAccounts } from "@/lib/useLiveAccounts";
 import { useStore } from "@/lib/store";
-import { Badge } from "@/components/terminal/ui";
+import { LiveDot } from "./anim";
 
 /**
  * Actual Exness Balance input with MetaApi auto-sync.
- * 
+ *
  * - When MetaApi is connected: auto-fetches live balance every 20s, shows green LIVE badge
  * - When MetaApi is offline: user types manually, shows amber MANUAL badge
  * - Updates engine.actualExnessBalance which drives Phase 2 deficit calculation
@@ -31,15 +32,24 @@ export function ActualExnessBalance() {
   }, [hasLiveData, liveBalance, setEngine]);
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+    <div className="flex flex-col gap-1 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <span className="ctl-label">
           Actual Exness Balance ($)
-          <span className="ml-1 text-[9px] text-muted-foreground">(auto-converted from cents)</span>
+          <span className="ctl-hint" style={{ marginLeft: 4, textTransform: "none", letterSpacing: 0 }}>
+            auto-converted from cents
+          </span>
         </span>
-        <Badge tone={isManual ? "amber" : "green"}>
-          {isManual ? "MANUAL" : "LIVE"}
-        </Badge>
+        {isManual ? (
+          <span className="badge badge-warning" title="MetaApi unavailable — value entered manually">
+            MANUAL
+          </span>
+        ) : (
+          <span className="badge badge-success" title="Auto-synced from MetaApi">
+            <LiveDot state="live" />
+            LIVE
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <input
@@ -50,7 +60,7 @@ export function ActualExnessBalance() {
             setEngine({ actualExnessBalance: Number(e.target.value) });
             setIsManual(true);
           }}
-          className="h-8 w-full rounded border border-border bg-secondary px-2 text-[12px] font-mono text-foreground"
+          className="ctl"
           placeholder="0.00"
         />
         {configured && (
@@ -62,16 +72,18 @@ export function ActualExnessBalance() {
                 setIsManual(false);
               }
             }}
-            className="h-8 rounded border border-border bg-secondary px-2 text-[10px] text-muted-foreground hover:bg-primary/10 hover:text-primary"
+            className="btn btn-ghost fx-press flex-shrink-0"
+            style={{ padding: "0 8px" }}
             title="Refresh from MetaApi"
+            aria-label="Refresh from MetaApi"
           >
-            ↻
+            <RotateCw size={12} />
           </button>
         )}
       </div>
       {hasLiveData && !isManual && (
-        <span className="text-[10px] text-muted-foreground">
-          Auto-synced: ${liveBalance.toFixed(2)} from MetaApi
+        <span className="ctl-hint font-mono" style={{ fontVariantNumeric: "tabular-nums slashed-zero" }}>
+          Synced ${liveBalance.toFixed(2)} from MetaApi
         </span>
       )}
     </div>

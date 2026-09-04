@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Alert, Badge, Card, Row, Stat } from "@/components/terminal/ui";
+import { ShieldCheck, ShieldX, AlertTriangle } from "lucide-react";
+import {
+  Alert, Badge, Card, CockpitHeader, DataGrid, Row, Stat, Button,
+} from "@/components/terminal/ui";
+import { CountUp, Gauge, LedMeter } from "@/components/terminal/anim";
 import { calculate, money } from "@/lib/engine/calc";
 import { useStore } from "@/lib/store";
 import { useEngine } from "@/lib/useEngine";
@@ -48,135 +52,216 @@ function ValidatorPage() {
     }))
     .sort((a, b) => b.result.netProfitIfPassed - a.result.netProfitIfPassed);
 
-  return (
-    <div className="space-y-6 w-full max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Validator</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">
-          Every account scored with the current engine inputs and the selected R:R shield math.
-        </p>
-      </div>
+  const tradable = ranked.filter((x) => x.result.verdict.level === "green").length;
 
-      <Alert level={r.verdict.level} title={r.verdict.title}>
+  /* Loss-budget headroom: how much of the allowed loss count the strategy
+     actually needs. Both figures come straight from the engine. */
+  const lossHeadroom = r.lossesToBlow > 0
+    ? Math.max(0, Math.min(1, r.lossesToBlow / 6))
+    : 0;
+  const winLoad = r.winsToPass > 0
+    ? Math.max(0, Math.min(1, r.winsToPass / 20))
+    : 0;
+
+  return (
+    <div className="engine-cockpit">
+      <CockpitHeader
+        title="Prop Firm Validator"
+        badges={
+          <>
+            <Badge tone="neutral">Phase {r.phase}</Badge>
+            <Badge tone="blue">R:R 1:{r.rr}</Badge>
+            <Badge tone={tradable > 0 ? "green" : "red"}>
+              {tradable} of {ranked.length} tradable
+            </Badge>
+          </>
+        }
+        right={
+          <span className="cockpit-pair">
+            Scored with live engine inputs
+          </span>
+        }
+      />
+
+      <Alert
+        level={r.verdict.level}
+        title={r.verdict.title}
+        breathe={r.verdict.level === "red"}
+      >
         {r.verdict.detail}
       </Alert>
 
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Total capital needed" value={money(r.totalRequiredCapital)} tone="text-primary" />
-        <Stat label="Prop payout at target" value={money(r.propPayout)} tone="text-success" />
+      {/* ── Headline metrics ─────────────────────────────────────── */}
+      <div className="wgrid-4">
+        <Stat
+          label="Total capital needed"
+          value={<CountUp value={r.totalRequiredCapital} format={(v) => money(v)} />}
+          tone="c-acc"
+          sub="Prop fee + buffered Exness fuel"
+        />
+        <Stat
+          label="Prop payout at target"
+          value={<CountUp value={r.propPayout} format={(v) => money(v)} />}
+          tone="c-pos"
+          sub={`${money(r.targetUsd)} target`}
+        />
         <Stat
           label="Net profit if passed"
-          value={money(r.netProfitIfPassed, true)}
-          tone={r.netProfitIfPassed >= 20 ? "text-success" : "text-destructive"}
+          value={<CountUp value={r.netProfitIfPassed} format={(v) => money(v, true)} />}
+          tone={r.netProfitIfPassed >= 20 ? "c-pos" : "c-neg"}
+          sub={r.netProfitIfPassed >= 20 ? "Viable" : "Below the $20 floor"}
+          accessory={
+            <Gauge
+              pct={r.propPayout > 0 ? Math.max(0, Math.min(1, r.netProfitIfPassed / r.propPayout)) : 0}
+              size={44}
+              thickness={4}
+              tone={r.netProfitIfPassed >= 20 ? "pos" : "neg"}
+            />
+          }
         />
-        <Stat label="Wins to pass / losses to blow" value={`${r.winsToPass} / ${r.lossesToBlow}`} />
+        <Stat
+          label="Wins to pass / losses to blow"
+          value={`${r.winsToPass} / ${r.lossesToBlow}`}
+          sub="Loss budget headroom"
+          accessory={
+            <div style={{ width: 68 }}>
+              <LedMeter pct={lossHeadroom} segments={8} height={7} tone={r.lossesToBlow < 3 ? "neg" : "pos"} />
+              <div style={{ height: 3 }} />
+              <LedMeter pct={winLoad} segments={8} height={7} tone={r.winsToPass > 15 ? "warn" : "accent"} />
+            </div>
+          }
+        />
       </div>
 
-      {/* Validator warnings */}
+      {/* ── Structural warnings ──────────────────────────────────── */}
       {r.lossesToBlow < 3 && (
-        <Alert level="red" title="Dangerous: too few losses allowed">
-          Only {r.lossesToBlow} loss{r.lossesToBlow === 1 ? "" : "es"} before account blow. The mirror strategy needs at least 3 losses to absorb slippage. Reduce Prop Risk or pick a bigger account.
+        <Alert level="red" title="Dangerous — too few losses allowed" breathe>
+          Only {r.lossesToBlow} loss{r.lossesToBlow === 1 ? "" : "es"} before account blow. The mirror
+          strategy needs at least 3 losses to absorb slippage. Reduce prop risk or pick a bigger account.
         </Alert>
       )}
       {r.winsToPass > 15 && (
-        <Alert level="amber" title="Warning: many wins needed">
-          {r.winsToPass} wins needed to pass. This extends your exposure time and slippage risk. Consider a higher R:R or smaller account.
+        <Alert level="amber" title="Many wins needed">
+          {r.winsToPass} wins to pass. That extends exposure time and slippage risk. Consider a higher
+          R:R or a smaller account.
         </Alert>
       )}
 
-      <Card title="Selected account breakdown" badge={<Badge tone="neutral">Phase {r.phase}</Badge>}>
+      {/* ── Selected account breakdown ───────────────────────────── */}
+      <Card
+        title="Selected account breakdown"
+        accent="primary"
+        badge={<Badge tone="neutral">Phase {r.phase}</Badge>}
+      >
         {r.capitalBreakdown.map((b) => (
           <Row key={b.label} label={b.label} value={money(b.value)} strong={b.label.startsWith("Total")} />
         ))}
+        <div className="divider my-2" />
         <Row label="Phase 1 total spent" value={money(r.phase1TotalSpent)} />
         <Row label="Phase 1 leftover" value={money(r.phase1Leftover)} />
         <Row label="Phase 2 refill required" value={money(r.phase2RefillRequired)} />
-        <Row label="Leftover Exness balance if passed" value={money(r.leftoverExnessBalance)} tone="accent" />
+        <Row label="Leftover Exness balance if passed" value={money(r.leftoverExnessBalance)} tone="accent" strong />
       </Card>
 
-      <Card title="All accounts ranked">
-        {/* Mobile: Card layout */}
-        <div className="sm:hidden space-y-2">
-          {ranked.map(({ account, result }) => (
-            <div
-              key={account.id}
-              className={`rounded border p-2 ${
-                engine.selectedAccountId === account.id
-                  ? "border-emerald-600 bg-emerald-950/20"
-                  : "border-[#1a1a1a] bg-[#0a0a0a]"
-              }`}
-              onClick={() => setEngine({ selectedAccountId: account.id })}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-mono text-[11px] font-bold text-foreground">{account.firm}</span>
-                <Badge tone={result.verdict.level === "green" ? "green" : "red"}>
-                  {result.verdict.level === "green" ? "Trade" : "Skip"}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
-                <div className="text-[#888]">Fee: <span className="text-foreground">{money(account.fee)}</span></div>
-                <div className="text-[#888]">DD: <span className="text-foreground">{account.ddType}</span></div>
-                <div className="text-[#888]">Capital: <span className="text-foreground">{money(result.totalRequiredCapital)}</span></div>
-                <div className="text-[#888]">Net: <span className={result.netProfitIfPassed >= 20 ? "text-emerald-400" : "text-red-400"}>{money(result.netProfitIfPassed, true)}</span></div>
-              </div>
+      {/* ── All accounts ranked ──────────────────────────────────── */}
+      <Card
+        title="All accounts ranked"
+        accent="highlight"
+        badge={<Badge tone="blue">By net profit</Badge>}
+        flush
+      >
+        {/* Mobile: dense cards */}
+        <div className="sm:hidden">
+          {ranked.map(({ account, result }) => {
+            const selected = engine.selectedAccountId === account.id;
+            const good = result.verdict.level === "green";
+            return (
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEngine({ selectedAccountId: account.id });
+                key={account.id}
+                onClick={() => setEngine({ selectedAccountId: account.id })}
+                className="w-full text-left fx-press"
+                style={{
+                  display: "block",
+                  padding: "0.6rem 0.7rem",
+                  borderBottom: "1px solid oklch(var(--gz-p) / 0.08)",
+                  background: selected ? "oklch(var(--gz-p) / 0.10)" : "transparent",
+                  boxShadow: selected ? "inset 2px 0 0 0 oklch(var(--gz-p))" : "none",
+                  minHeight: 0,
                 }}
-                className="mt-2 w-full rounded border border-[#333] py-1 text-[10px] font-semibold text-[#888] hover:text-white"
               >
-                {engine.selectedAccountId === account.id ? "Selected" : "Select"}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="mono-cap" style={{ color: "oklch(var(--gz-txt))" }}>{account.firm}</span>
+                  <Badge tone={good ? "green" : "red"}>
+                    {good ? <ShieldCheck size={11} /> : <ShieldX size={11} />}
+                    {good ? "Trade" : "Skip"}
+                  </Badge>
+                </div>
+                <div className="mt-1.5 grid grid-cols-2 gap-x-3">
+                  <span className="kv"><span className="kv-label">Fee</span><span className="kv-value">{money(account.fee)}</span></span>
+                  <span className="kv"><span className="kv-label">DD</span><span className="kv-value">{account.ddType}</span></span>
+                  <span className="kv"><span className="kv-label">Capital</span><span className="kv-value">{money(result.totalRequiredCapital)}</span></span>
+                  <span className="kv">
+                    <span className="kv-label">Net</span>
+                    <span className="kv-value" style={{ color: result.netProfitIfPassed >= 20 ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
+                      {money(result.netProfitIfPassed, true)}
+                    </span>
+                  </span>
+                </div>
               </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Desktop: Table layout */}
-        <div className="hidden sm:block overflow-x-auto">
-          <table className="w-full text-[12.5px]">
-            <thead>
-              <tr className="text-left text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">
-                <th className="py-2 pr-3">Account</th>
-                <th className="py-2 pr-3">Fee</th>
-                <th className="py-2 pr-3">DD type</th>
-                <th className="py-2 pr-3">Capital needed</th>
-                <th className="py-2 pr-3">Net if passed</th>
-                <th className="py-2 pr-3">Verdict</th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody className="font-mono">
-              {ranked.map(({ account, result }) => (
-                <tr key={account.id} className="border-t border-border">
-                  <td className="py-2 pr-3 text-foreground">{account.firm}</td>
-                  <td className="py-2 pr-3">{money(account.fee)}</td>
-                  <td className="py-2 pr-3">{account.ddType}</td>
-                  <td className="py-2 pr-3">{money(result.totalRequiredCapital)}</td>
-                  <td
-                    className={
-                      result.netProfitIfPassed >= 20 ? "py-2 pr-3 text-success" : "py-2 pr-3 text-destructive"
-                    }
-                  >
+        {/* Desktop: blotter grid */}
+        <div className="hidden sm:block">
+          <DataGrid
+            head={[
+              { label: "Account" },
+              { label: "Size", align: "right" },
+              { label: "Fee", align: "right" },
+              { label: "DD type" },
+              { label: "Capital needed", align: "right" },
+              { label: "Net if passed", align: "right" },
+              { label: "Verdict" },
+              { label: "" },
+            ]}
+          >
+            {ranked.map(({ account, result }) => {
+              const selected = engine.selectedAccountId === account.id;
+              const good = result.verdict.level === "green";
+              return (
+                <tr key={account.id} className={selected ? "is-selected" : undefined}>
+                  <td style={{ color: "oklch(var(--gz-txt))", fontWeight: 600 }}>{account.firm}</td>
+                  <td className="num">${account.size.toLocaleString()}</td>
+                  <td className="num">{money(account.fee)}</td>
+                  <td>
+                    <span style={{ color: account.ddType.toLowerCase().includes("trail") ? "oklch(var(--gz-warn))" : "oklch(var(--gz-mut))" }}>
+                      {account.ddType.toLowerCase().includes("trail") && <AlertTriangle size={10} style={{ display: "inline", marginRight: 3, verticalAlign: "-1px" }} />}
+                      {account.ddType}
+                    </span>
+                  </td>
+                  <td className="num">{money(result.totalRequiredCapital)}</td>
+                  <td className="num" style={{ color: result.netProfitIfPassed >= 20 ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))", fontWeight: 700 }}>
                     {money(result.netProfitIfPassed, true)}
                   </td>
-                  <td className="py-2 pr-3">
-                    <Badge tone={result.verdict.level === "green" ? "green" : "red"}>
-                      {result.verdict.level === "green" ? "Trade" : "Skip"}
+                  <td>
+                    <Badge tone={good ? "green" : "red"}>
+                      {good ? <ShieldCheck size={11} /> : <ShieldX size={11} />}
+                      {good ? "Trade" : "Skip"}
                     </Badge>
                   </td>
-                  <td className="py-2 text-right">
-                    <button
+                  <td style={{ textAlign: "right" }}>
+                    <Button
+                      variant={selected ? "success" : "ghost"}
                       onClick={() => setEngine({ selectedAccountId: account.id })}
-                      className="rounded-lg border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
                     >
-                      {engine.selectedAccountId === account.id ? "Selected" : "Select"}
-                    </button>
+                      {selected ? "Selected" : "Select"}
+                    </Button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              );
+            })}
+          </DataGrid>
         </div>
       </Card>
     </div>

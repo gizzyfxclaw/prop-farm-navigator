@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Badge, Button, Card, Field, Select, TextInput } from "@/components/terminal/ui";
+import { AlertTriangle, Check, Pencil, RotateCcw, Save, Trash2 } from "lucide-react";
+import {
+  ActionButton, Badge, Button, Card, CockpitHeader, DataGrid, Field, Select, TextInput,
+} from "@/components/terminal/ui";
 import { money, type DrawdownType, type PropAccount } from "@/lib/engine/calc";
 import { defaultAccounts, useStore } from "@/lib/store";
 
@@ -38,6 +41,7 @@ const blank = (): PropAccount => ({
 function AccountsPage() {
   const { accounts, saveAccount, deleteAccount, engine, setEngine } = useStore();
   const [draft, setDraft] = useState<PropAccount>(blank);
+  const activeAccount = accounts.find((a) => a.id === engine.selectedAccountId);
 
   const patch = (p: Partial<PropAccount>) => setDraft((d) => ({ ...d, ...p }));
 
@@ -58,23 +62,31 @@ function AccountsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Prop accounts</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">
-          The engine and validator calculate against the account selected here.
-        </p>
-      </div>
+    <div className="engine-cockpit">
+      <CockpitHeader
+        title="Prop Accounts"
+        badges={
+          <>
+            <Badge tone="neutral">{accounts.length} configured</Badge>
+            {activeAccount && <Badge tone="blue" live>Active · {activeAccount.firm}</Badge>}
+          </>
+        }
+        right={<span className="cockpit-pair">Engine & validator calculate against the selected account</span>}
+      />
 
-      <Card title={draft.id ? "Edit account" : "Add account"}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Card
+        title={draft.id ? "Edit account" : "Add account"}
+        accent={draft.id ? "highlight" : "primary"}
+        badge={draft.id ? <Badge tone="amber">Editing</Badge> : <Badge tone="neutral">New</Badge>}
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Firm / label">
             <TextInput value={draft.firm} onChange={(e) => patch({ firm: e.target.value })} placeholder="FundedNext $5k" />
           </Field>
           <Field label="Account size ($)">
             <TextInput type="number" value={draft.size} onChange={(e) => patch({ size: Number(e.target.value) })} />
           </Field>
-          <Field label="Challenge fee ($)">
+          <Field label="Challenge fee ($)" hint="Real cash paid upfront">
             <TextInput type="number" step="0.01" value={draft.fee} onChange={(e) => patch({ fee: Number(e.target.value) })} />
           </Field>
           <Field label="Profit target (%)">
@@ -93,85 +105,106 @@ function AccountsPage() {
             <TextInput type="number" value={draft.splitPct} onChange={(e) => patch({ splitPct: Number(e.target.value) })} />
           </Field>
           <div className="flex items-end gap-2">
-            <Button onClick={submit}>{draft.id ? "Save changes" : "Add account"}</Button>
+            <ActionButton onClick={submit}>
+              <Save size={12} />
+              {draft.id ? "Save changes" : "Add account"}
+            </ActionButton>
             {draft.id && (
-              <Button variant="ghost" onClick={() => setDraft(blank())}>
-                Cancel
-              </Button>
+              <Button variant="ghost" onClick={() => setDraft(blank())}>Cancel</Button>
             )}
           </div>
         </div>
+
+        {draft.ddType === "Trailing" && (
+          <div className="mt-3">
+            <div className="alert alert-amber">
+              <p className="alert-title">
+                <AlertTriangle size={13} />
+                Trailing drawdown
+              </p>
+              <p className="alert-body">
+                A trailing max-drawdown ratchets up with equity, so the mirror hedge can breach it on a
+                normal losing leg even while the Exness side is healthy. The validator will flag this account.
+              </p>
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card
         title={`Accounts (${accounts.length})`}
+        accent="primary"
+        flush
         badge={
           <Button
             variant="ghost"
-            className="h-8 px-3 text-[11px]"
             onClick={() => {
               defaultAccounts().forEach(saveAccount);
               toast.success("Presets restored.");
             }}
           >
+            <RotateCcw size={12} />
             Restore presets
           </Button>
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12.5px]">
-            <thead>
-              <tr className="text-left text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">
-                <th className="py-2 pr-3">Firm</th>
-                <th className="py-2 pr-3">Size</th>
-                <th className="py-2 pr-3">Fee</th>
-                <th className="py-2 pr-3">Target</th>
-                <th className="py-2 pr-3">Max DD</th>
-                <th className="py-2 pr-3">Type</th>
-                <th className="py-2 pr-3">Split</th>
-                <th className="py-2" />
+        <DataGrid
+          head={[
+            { label: "Firm" },
+            { label: "Size", align: "right" },
+            { label: "Fee", align: "right" },
+            { label: "Target", align: "right" },
+            { label: "Max DD", align: "right" },
+            { label: "DD type" },
+            { label: "Split", align: "right" },
+            { label: "" },
+          ]}
+        >
+          {accounts.map((a) => {
+            const active = engine.selectedAccountId === a.id;
+            const trailing = a.ddType === "Trailing";
+            return (
+              <tr key={a.id} className={active ? "is-selected" : undefined}>
+                <td style={{ color: "oklch(var(--gz-txt))", fontWeight: 600 }}>
+                  <span className="inline-flex items-center gap-2">
+                    {a.firm}
+                    {active && <Badge tone="blue">Active</Badge>}
+                  </span>
+                </td>
+                <td className="num">{money(a.size)}</td>
+                <td className="num">{money(a.fee)}</td>
+                <td className="num">{a.targetPct}%</td>
+                <td className="num">{a.ddPct}%</td>
+                <td>
+                  <span style={{ color: trailing ? "oklch(var(--gz-warn))" : "oklch(var(--gz-mut))" }}>
+                    {trailing && <AlertTriangle size={10} style={{ display: "inline", marginRight: 3, verticalAlign: "-1px" }} />}
+                    {a.ddType}
+                  </span>
+                </td>
+                <td className="num">{a.splitPct}%</td>
+                <td>
+                  <div className="flex justify-end gap-1.5">
+                    <Button
+                      variant={active ? "success" : "ghost"}
+                      onClick={() => setEngine({ selectedAccountId: a.id })}
+                    >
+                      {active ? <Check size={11} /> : null}
+                      {active ? "Selected" : "Select"}
+                    </Button>
+                    <Button variant="ghost" onClick={() => setDraft(a)}>
+                      <Pencil size={11} />
+                      Edit
+                    </Button>
+                    <Button variant="danger" onClick={() => deleteAccount(a.id)}>
+                      <Trash2 size={11} />
+                      Delete
+                    </Button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="font-mono">
-              {accounts.map((a) => (
-                <tr key={a.id} className="border-t border-border">
-                  <td className="py-2 pr-3 text-foreground">
-                    {a.firm}{" "}
-                    {engine.selectedAccountId === a.id && <Badge tone="blue">Active</Badge>}
-                  </td>
-                  <td className="py-2 pr-3">{money(a.size)}</td>
-                  <td className="py-2 pr-3">{money(a.fee)}</td>
-                  <td className="py-2 pr-3">{a.targetPct}%</td>
-                  <td className="py-2 pr-3">{a.ddPct}%</td>
-                  <td className="py-2 pr-3">{a.ddType}</td>
-                  <td className="py-2 pr-3">{a.splitPct}%</td>
-                  <td className="py-2">
-                    <div className="flex justify-end gap-1.5">
-                      <button
-                        onClick={() => setEngine({ selectedAccountId: a.id })}
-                        className="rounded-lg border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                      >
-                        Select
-                      </button>
-                      <button
-                        onClick={() => setDraft(a)}
-                        className="rounded-lg border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteAccount(a.id)}
-                        className="rounded-lg border border-destructive/40 px-2.5 py-1 text-[11px] font-semibold text-destructive"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            );
+          })}
+        </DataGrid>
       </Card>
     </div>
   );

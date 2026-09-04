@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLiveAccounts } from "@/lib/useLiveAccounts";
 import { useStore } from "@/lib/store";
 import { fetchAccountInformation } from "@/lib/metaapi.functions";
+import { LiveDot } from "./anim";
 
 type ConnectionState = "connected" | "connecting" | "disconnected" | "error";
 
@@ -12,31 +13,23 @@ type ConnectionTarget = {
   latency: number | undefined;
 };
 
-const STATE_STYLES: Record<
+const STATE_META: Record<
   ConnectionState,
-  { color: string; glow: string; label: string }
+  { label: string; color: string; dot: "live" | "stale" | "dead" }
 > = {
-  connected: {
-    color: "oklch(0.720 0.190 148)",
-    glow: "0 0 6px oklch(0.720 0.190 148)",
-    label: "ONLINE",
-  },
-  connecting: {
-    color: "oklch(0.769 0.153 70.1)",
-    glow: "0 0 6px oklch(0.769 0.153 70.1)",
-    label: "LINKING",
-  },
-  disconnected: {
-    color: "oklch(0.500 0.100 250)",
-    glow: "none",
-    label: "OFFLINE",
-  },
-  error: {
-    color: "oklch(0.637 0.208 25.3)",
-    glow: "0 0 6px oklch(0.637 0.208 25.3)",
-    label: "ERROR",
-  },
+  connected: { label: "ONLINE", color: "oklch(var(--gz-pos))", dot: "live" },
+  connecting: { label: "LINKING", color: "oklch(var(--gz-warn))", dot: "stale" },
+  disconnected: { label: "OFFLINE", color: "oklch(var(--gz-mut) / 0.7)", dot: "dead" },
+  error: { label: "ERROR", color: "oklch(var(--gz-neg))", dot: "dead" },
 };
+
+/** Latency colour band — green <300ms, amber <800ms, red above. */
+function latencyColor(ms: number | null): string {
+  if (ms === null) return "oklch(var(--gz-mut))";
+  if (ms < 300) return "oklch(var(--gz-pos))";
+  if (ms < 800) return "oklch(var(--gz-warn))";
+  return "oklch(var(--gz-neg))";
+}
 
 export function ConnectionIndicator() {
   const { meta } = useStore();
@@ -93,58 +86,59 @@ export function ConnectionIndicator() {
   ];
 
   const allConnected = targets.every((t) => t.state === "connected");
-  const avgLatency = latency ?? 0;
 
   return (
-    <div className="flex items-center gap-3" title="Connection status">
+    <div className="flex items-center gap-2.5" title="Connection status">
       {targets.map((target) => {
-        const style = STATE_STYLES[target.state];
+        const style = STATE_META[target.state];
         return (
           <div
             key={target.short}
             className="flex items-center gap-1.5"
-            title={`${target.name}: ${style.label}${target.latency ? ` (${target.latency}ms)` : ""}`}
+            title={`${target.name}: ${style.label}${target.latency !== undefined ? ` · ${target.latency}ms` : ""}`}
           >
-            <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
-              style={{
-                background: style.color,
-                boxShadow: style.glow,
-                animation:
-                  target.state === "connected"
-                    ? "gz-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite"
-                    : "none",
-              }}
-            />
-            <span
-              className="font-mono text-[10px] font-medium tracking-wider"
-              style={{ color: style.color }}
-            >
+            {/* The error state needs a red dot, which LiveDot has no variant for;
+                it still renders the design system's .fx-live-dot. */}
+            {target.state === "error" ? (
+              <span
+                className="fx-live-dot"
+                style={{ color: "oklch(var(--gz-neg))" }}
+                aria-hidden
+              />
+            ) : (
+              <LiveDot state={style.dot} />
+            )}
+            <span className="mono-cap" style={{ color: style.color }}>
               {target.short}
             </span>
           </div>
         );
       })}
-      <div className="flex items-center gap-1">
-        <span
-          className="font-mono text-[9px]"
-          style={{ color: "oklch(var(--gz-mut))" }}
-        >
-          {avgLatency > 0 ? `${avgLatency}ms` : "—"}
-        </span>
-        <span
-          className="inline-block h-3 w-3 rounded-sm"
-          style={{
-            background: allConnected
-              ? "oklch(0.720 0.190 148)"
-              : "oklch(0.637 0.208 25.3)",
-            boxShadow: allConnected
-              ? "0 0 8px oklch(0.720 0.190 148)"
-              : "0 0 8px oklch(0.637 0.208 25.3)",
-          }}
-          title={allConnected ? "All systems operational" : "Connection issues detected"}
-        />
-      </div>
+
+      {/* Real measured round-trip latency — never synthesised. */}
+      <span
+        className="font-mono"
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          color: latencyColor(latency),
+          fontVariantNumeric: "tabular-nums slashed-zero",
+        }}
+        title={
+          latency === null
+            ? "No latency sample yet"
+            : `Measured MetaApi round-trip: ${latency}ms`
+        }
+      >
+        {latency === null ? "—" : `${latency}ms`}
+      </span>
+
+      <span
+        className={allConnected ? "badge badge-success" : "badge badge-danger"}
+        title={allConnected ? "All systems operational" : "Connection issues detected"}
+      >
+        {allConnected ? "LINK" : "DEGRADED"}
+      </span>
     </div>
   );
 }

@@ -1,0 +1,192 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   GIZZYFX — INSTITUTIONAL DESIGN SYSTEM v2
+   Part 1/4 · HD / 4K RENDERING FOUNDATION + PALETTE TOKENS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── 1. HD / RETINA / 4K TEXT + VECTOR RENDERING ──────────────────────── */
+
+html {
+  /* Crisp glyph edges at every DPR; geometricPrecision keeps mono digits
+     from drifting off the tabular grid when the browser scales the page. */
+  text-rendering: geometricPrecision;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* tnum = tabular numerals, ss01/cv11 = straight-sided digits in Inter,
+     zero = slashed zero. Non-negotiable for a price grid. */
+  font-feature-settings: "tnum" 1, "cv11" 1, "ss01" 1, "zero" 1;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-optical-sizing: auto;
+}
+
+/* Every number in the app aligns on the same digit width. */
+.data-cell, .num, table td, table th,
+.font-mono, [class*="font-mono"],
+.cockpit-price, .cockpit-pair, input[type="number"] {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* Vector assets stay sharp; raster assets scale without mush. */
+svg { shape-rendering: geometricPrecision; }
+svg .crisp { shape-rendering: crispEdges; }
+img, canvas { image-rendering: -webkit-optimize-contrast; }
+img[src$=".svg"] { image-rendering: auto; }
+
+/* Retina hairlines: a 1px border on a 3x phone screen is a fat 3px slab.
+   Below, real hairlines at each DPR tier. */
+@media (min-resolution: 2dppx) {
+  :root { --gz-hair: 0.5px; }
+}
+@media (min-resolution: 3dppx) {
+  :root { --gz-hair: 0.33px; }
+}
+
+/* GPU layer promotion for the surfaces that animate live numbers. */
+.panel, .cockpit-header, .fx-tape, .status-bar {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ─── 2. PALETTE — deep neutral bases, single saturated accent ──────────
+   Institutional terminals are almost achromatic: near-black graphite
+   surfaces, one accent hue, and colour reserved for P&L semantics.
+   Backgrounds carry very low chroma (0.004–0.010) so green/red actually
+   reads as signal instead of competing with a tinted canvas.
+   ─────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── shared semantic colour (identical across every theme) ── */
+  --gz-pos:  0.735 0.185 148;   /* profit / bid / long   */
+  --gz-neg:  0.640 0.222  25;   /* loss / ask / short    */
+  --gz-warn: 0.780 0.155  78;   /* caution               */
+  --gz-info: 0.700 0.140 235;   /* neutral information   */
+
+  /* ── structural ── */
+  --gz-hair: 1px;               /* overridden per-DPR above */
+  --gz-grid: 0.300 0.010 240;   /* chart gridlines          */
+
+  /* Elevation ramp — matte, no glow. */
+  --gz-e0: 0 0 0 var(--gz-hair) oklch(var(--gz-p) / 0.09);
+  --gz-e1: 0 1px 2px oklch(0 0 0 / 0.42),
+           0 0 0 var(--gz-hair) oklch(var(--gz-p) / 0.09);
+  --gz-e2: 0 4px 14px -6px oklch(0 0 0 / 0.68),
+           0 0 0 var(--gz-hair) oklch(var(--gz-p) / 0.11);
+  --gz-e3: 0 14px 40px -14px oklch(0 0 0 / 0.82),
+           0 0 0 var(--gz-hair) oklch(var(--gz-p) / 0.13);
+}
+
+/* ── Cyan · default "Terminal" ──────────────────────────────────────── */
+:root {
+  --gz-p:   0.800 0.135 196;
+  --gz-h:   0.868 0.140 182;
+  --gz-bg:  0.038 0.006 220;
+  --gz-s1:  0.062 0.008 222;
+  --gz-s2:  0.080 0.009 222;
+  --gz-s3:  0.050 0.007 222;
+  --gz-inp: 0.055 0.006 222;
+  --gz-txt: 0.945 0.006 210;
+  --gz-mut: 0.560 0.018 215;
+}
+
+/* ── Graphite · pure institutional, zero hue bias ───────────────────── */
+[data-theme="graphite"] {
+  --gz-p:   0.860 0.010 250;
+  --gz-h:   0.940 0.008 250;
+  --gz-bg:  0.036 0.002 250;
+  --gz-s1:  0.062 0.003 250;
+  --gz-s2:  0.082 0.004 250;
+  --gz-s3:  0.049 0.003 250;
+  --gz-inp: 0.055 0.003 250;
+  --gz-txt: 0.955 0.002 250;
+  --gz-mut: 0.575 0.006 250;
+}
+
+/* ── Blue · desk standard ───────────────────────────────────────────── */
+[data-theme="blue"] {
+  --gz-p:   0.678 0.185 256;
+  --gz-h:   0.775 0.145 252;
+  --gz-bg:  0.036 0.006 262;
+  --gz-s1:  0.060 0.009 262;
+  --gz-s2:  0.078 0.011 262;
+  --gz-s3:  0.047 0.008 262;
+  --gz-inp: 0.052 0.007 262;
+  --gz-txt: 0.945 0.006 250;
+  --gz-mut: 0.555 0.022 258;
+}
+
+/* ── Amber · Bloomberg-adjacent ─────────────────────────────────────── */
+[data-theme="amber"] {
+  --gz-p:   0.815 0.150  75;
+  --gz-h:   0.885 0.135  88;
+  --gz-bg:  0.037 0.005  60;
+  --gz-s1:  0.062 0.008  62;
+  --gz-s2:  0.080 0.010  62;
+  --gz-s3:  0.049 0.007  62;
+  --gz-inp: 0.054 0.006  62;
+  --gz-txt: 0.950 0.010  85;
+  --gz-mut: 0.575 0.024  70;
+}
+
+/* ── Emerald · P&L-forward ──────────────────────────────────────────── */
+[data-theme="emerald"] {
+  --gz-p:   0.775 0.155 158;
+  --gz-h:   0.860 0.150 162;
+  --gz-bg:  0.036 0.006 168;
+  --gz-s1:  0.060 0.008 168;
+  --gz-s2:  0.078 0.010 168;
+  --gz-s3:  0.047 0.007 168;
+  --gz-inp: 0.052 0.006 168;
+  --gz-txt: 0.945 0.008 160;
+  --gz-mut: 0.560 0.022 162;
+}
+
+/* ── Purple · retained from v1 ──────────────────────────────────────── */
+[data-theme="purple"] {
+  --gz-p:   0.735 0.170 296;
+  --gz-h:   0.815 0.150 296;
+  --gz-bg:  0.037 0.006 294;
+  --gz-s1:  0.061 0.009 294;
+  --gz-s2:  0.079 0.011 294;
+  --gz-s3:  0.048 0.008 294;
+  --gz-inp: 0.053 0.007 294;
+  --gz-txt: 0.945 0.006 292;
+  --gz-mut: 0.560 0.022 296;
+}
+
+/* ─── 3. SEMANTIC UTILITY COLOURS ──────────────────────────────────────── */
+
+.c-pos  { color: oklch(var(--gz-pos)); }
+.c-neg  { color: oklch(var(--gz-neg)); }
+.c-warn { color: oklch(var(--gz-warn)); }
+.c-info { color: oklch(var(--gz-info)); }
+.c-mut  { color: oklch(var(--gz-mut)); }
+.c-acc  { color: oklch(var(--gz-p)); }
+.c-hi   { color: oklch(var(--gz-h)); }
+
+/* Long / short direction chips */
+.dir-long,
+.dir-short {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.85em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+.dir-long {
+  color: oklch(var(--gz-pos));
+  background: oklch(var(--gz-pos) / 0.12);
+  box-shadow: inset 0 0 0 var(--gz-hair) oklch(var(--gz-pos) / 0.26);
+}
+.dir-short {
+  color: oklch(var(--gz-neg));
+  background: oklch(var(--gz-neg) / 0.12);
+  box-shadow: inset 0 0 0 var(--gz-hair) oklch(var(--gz-neg) / 0.26);
+}

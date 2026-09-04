@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Alert, Badge, Button, Card, Field, Row, TextInput } from "@/components/terminal/ui";
+import { Link2, Loader2, Plug, Plus, ShieldAlert } from "lucide-react";
+import {
+  ActionButton, Alert, Badge, Button, Card, CockpitHeader, Field, Row, Segmented, TextInput,
+} from "@/components/terminal/ui";
 import {
   fetchAccountInformation,
   fetchAccountStatus,
@@ -166,14 +169,28 @@ function SettingsPage() {
 
   /* ── render ───────────────────────────────────────────────── */
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Settings</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">
-          Credentials stay in this browser and are forwarded per request — never stored on the
-          server.
-        </p>
-      </div>
+    <div className="engine-cockpit">
+      <CockpitHeader
+        title="Terminal Settings"
+        badges={
+          <>
+            <Badge tone={meta.token ? "green" : "neutral"}>
+              {meta.token ? "Token set" : "No token"}
+            </Badge>
+            <Badge tone={meta.exnessAccountId ? "green" : "neutral"}>
+              {meta.exnessAccountId ? "Exness linked" : "Exness unlinked"}
+            </Badge>
+            <Badge tone={meta.propAccountId ? "blue" : "neutral"}>
+              {meta.propAccountId ? "Prop linked" : "Prop unlinked"}
+            </Badge>
+          </>
+        }
+        right={
+          <span className="cockpit-pair">
+            Credentials stay in this browser — never stored server-side
+          </span>
+        }
+      />
 
       {status && (
         <Alert level={status.level} title={status.title}>
@@ -184,22 +201,29 @@ function SettingsPage() {
       {/* ── BROKER ACCOUNT ───────────────────────────────────── */}
       <Card
         title="Broker Account"
+        accent="primary"
+        loading={provisionBusy}
         badge={
           accountStatus
             ? statusBadge(accountStatus.state, accountStatus.isDemo)
             : statusBadgeData === "DEPLOYING"
-            ? <Badge tone="amber">Deploying…</Badge>
+            ? <Badge tone="amber" live>Deploying…</Badge>
             : undefined
         }
       >
         {/* Demo-only notice */}
-        <div className="mb-4 rounded-lg border border-warning/25 bg-warning/8 px-3 py-2 text-[12px] text-warning">
-          Only <strong>demo</strong> accounts are accepted. Real/live accounts are hard-blocked
-          regardless of what you enter.
+        <div className="alert alert-amber mb-4">
+          <p className="alert-title">
+            <ShieldAlert size={12} />
+            Demo accounts only
+          </p>
+          <p className="alert-body">
+            Real/live accounts are hard-blocked server-side regardless of what you enter here.
+          </p>
         </div>
 
         {/* Token */}
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           <Field label="MetaApi token" hint="Create it at app.metaapi.cloud → API access tokens.">
             <TextInput
               type="password"
@@ -212,55 +236,28 @@ function SettingsPage() {
 
           {/* Platform */}
           <Field label="Platform" hint="MT4 or MT5 — must match your broker account type.">
-            <div className="flex gap-2">
-              {(["mt4", "mt5"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPlatform(p)}
-                  className={[
-                    "rounded-md border px-4 py-1.5 text-[13px] font-semibold uppercase transition",
-                    platform === p
-                      ? "border-primary bg-primary/15 text-primary"
-                      : "border-white/10 text-muted-foreground hover:border-primary/40",
-                  ].join(" ")}
-                >
-                  {p.toUpperCase()}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              options={[{ value: "mt4", label: "MT4" }, { value: "mt5", label: "MT5" }] as const}
+              value={platform}
+              onChange={(v) => setPlatform(v)}
+            />
           </Field>
 
           {/* Provisioning mode */}
           <Field label="Account provisioning mode">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setProvisionMode("connect")}
-                className={[
-                  "rounded-md border px-3 py-1.5 text-[12px] transition",
-                  provisionMode === "connect"
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-white/10 text-muted-foreground hover:border-primary/40",
-                ].join(" ")}
-              >
-                Connect existing demo account
-              </button>
-              <button
-                onClick={() => setProvisionMode("provision")}
-                className={[
-                  "rounded-md border px-3 py-1.5 text-[12px] transition",
-                  provisionMode === "provision"
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-white/10 text-muted-foreground hover:border-primary/40",
-                ].join(" ")}
-              >
-                Provision new demo via MetaApi
-              </button>
-            </div>
+            <Segmented
+              options={[
+                { value: "connect", label: "Connect existing" },
+                { value: "provision", label: "Provision new demo" },
+              ] as const}
+              value={provisionMode}
+              onChange={(v) => setProvisionMode(v)}
+            />
           </Field>
 
           {/* Connect existing */}
           {provisionMode === "connect" && (
-            <>
+            <div className="fx-unfold grid gap-3">
               <Field
                 label="MetaApi account ID"
                 hint="The GUID from app.metaapi.cloud — not your broker login."
@@ -271,15 +268,18 @@ function SettingsPage() {
                   placeholder="0f1e2d3c-4b5a-6789-abcd-ef0123456789"
                 />
               </Field>
-              <Button disabled={provisionBusy} onClick={handleConnectExisting}>
-                {provisionBusy ? "Linking…" : "Link demo account"}
-              </Button>
-            </>
+              <div>
+                <ActionButton disabled={provisionBusy} onClick={handleConnectExisting}>
+                  {provisionBusy ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                  {provisionBusy ? "Linking…" : "Link demo account"}
+                </ActionButton>
+              </div>
+            </div>
           )}
 
           {/* Provision new */}
           {provisionMode === "provision" && (
-            <>
+            <div className="fx-unfold grid gap-3">
               <Field label="Broker name" hint='e.g. "Pepperstone", "ICMarkets", "XM"'>
                 <TextInput
                   value={brokerName}
@@ -287,7 +287,7 @@ function SettingsPage() {
                   placeholder="ICMarkets"
                 />
               </Field>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <Field label="Deposit (USD)">
                   <TextInput
                     type="number"
@@ -305,35 +305,44 @@ function SettingsPage() {
                   />
                 </Field>
               </div>
-              <Button disabled={provisionBusy} onClick={handleProvisionNew}>
-                {provisionBusy ? "Provisioning…" : "Create demo account"}
-              </Button>
-            </>
+              <div>
+                <ActionButton disabled={provisionBusy} onClick={handleProvisionNew}>
+                  {provisionBusy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                  {provisionBusy ? "Provisioning…" : "Create demo account"}
+                </ActionButton>
+              </div>
+            </div>
           )}
 
           {provisionError && (
-            <Alert level="red" title="Error">
+            <Alert level="red" title="Provisioning failed">
               {provisionError}
             </Alert>
           )}
 
           {/* Live status */}
           {accountStatus && (
-            <div className="rounded-lg border border-white/8 bg-white/4 p-3 text-[12px] space-y-1">
+            <div className="panel panel-sunken fx-unfold" style={{ padding: "0.7rem" }}>
+              <p className="section-label mb-1.5">Broker link</p>
               <Row label="Account ID" value={accountStatus.accountId} />
               <Row label="Name" value={accountStatus.name ?? "—"} />
               <Row label="Platform" value={accountStatus.platform.toUpperCase()} />
               <Row label="Type" value={accountStatus.accountType} />
-              <Row label="State" value={accountStatus.state} />
+              <Row
+                label="State"
+                value={accountStatus.state}
+                tone={accountStatus.state === "DEPLOYED" ? "pos" : accountStatus.state === "ERROR" ? "neg" : "warn"}
+                strong
+              />
             </div>
           )}
         </div>
       </Card>
 
-      {/* ── METAAPI CLOUD (existing) ──────────────────────────── */}
-      <Card title="MetaApi Cloud — Advanced">
-        <div className="grid gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+      {/* ── METAAPI CLOUD (advanced) ──────────────────────────── */}
+      <Card title="MetaApi Cloud — Advanced" accent="highlight" loading={busy}>
+        <div className="grid gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Exness MT5 account ID" hint="The hedge / fuel account that gets executed.">
               <TextInput
                 value={meta.exnessAccountId}
@@ -369,23 +378,25 @@ function SettingsPage() {
               placeholder="https://mt-client-api-v1.london.agiliumtrade.ai"
             />
           </Field>
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={busy} onClick={() => test(meta.exnessAccountId, "Exness")}>
+          <div className="action-buttons">
+            <ActionButton disabled={busy} onClick={() => test(meta.exnessAccountId, "Exness")}>
+              {busy ? <Loader2 size={12} className="animate-spin" /> : <Plug size={12} />}
               {busy ? "Testing…" : "Test Exness connection"}
-            </Button>
+            </ActionButton>
             <Button variant="ghost" disabled={busy} onClick={() => test(meta.propAccountId, "Prop")}>
+              <Plug size={12} />
               Test prop connection
             </Button>
           </div>
         </div>
       </Card>
 
-      <Card title="Current configuration">
-        <Row label="Token" value={meta.token ? `••••${meta.token.slice(-6)}` : "not set"} />
-        <Row label="Exness account" value={meta.exnessAccountId || "not set"} />
+      <Card title="Current configuration" accent="primary">
+        <Row label="Token" value={meta.token ? `••••${meta.token.slice(-6)}` : "not set"} tone={meta.token ? "pos" : "warn"} />
+        <Row label="Exness account" value={meta.exnessAccountId || "not set"} tone={meta.exnessAccountId ? "pos" : "warn"} />
         <Row label="Prop account" value={meta.propAccountId || "not set"} />
         <Row label="Symbol suffix" value={meta.exnessSymbolSuffix || "none"} />
-        <Row label="Client API URL" value={meta.clientApiUrl || "auto (region lookup)"} />
+        <Row label="Client API URL" value={meta.clientApiUrl || "auto (region lookup)"} strong />
       </Card>
     </div>
   );

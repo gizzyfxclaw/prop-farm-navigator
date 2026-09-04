@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLiveAccounts } from "@/lib/useLiveAccounts";
 import { useStore } from "@/lib/store";
+import { Skeleton, TickValue } from "./anim";
 
 function formatCurrency(value: number, currency: string): string {
   return new Intl.NumberFormat("en-US", {
@@ -9,6 +10,35 @@ function formatCurrency(value: number, currency: string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatSigned(value: number, currency: string): string {
+  return `${value >= 0 ? "+" : ""}${formatCurrency(value, currency)}`;
+}
+
+/** One dense label-over-value cell in the command bar. */
+function Cell({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col items-end leading-tight ${className ?? ""}`}>
+      <span className="mono-cap c-mut" style={{ fontSize: 9 }}>
+        {label}
+      </span>
+      <span
+        className="font-mono"
+        style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums slashed-zero" }}
+      >
+        {children}
+      </span>
+    </div>
+  );
 }
 
 export function AccountBalance() {
@@ -41,76 +71,90 @@ export function AccountBalance() {
   const hasData = live.exness.snapshot !== null;
   const hasError = live.exness.error !== null;
 
+  // Unrealised P&L on the open book — equity less closed balance.
+  const unrealised = equity - balance;
+
+  const loading = configured && !hasData && !hasError;
+  const dash = <span className="c-mut">—</span>;
+
   return (
-    <div className="flex items-center gap-4" title="Live account balance from MetaApi">
-      {/* Equity */}
-      <div className="flex flex-col items-end">
-        <span
-          className="font-mono text-[10px] uppercase tracking-wider"
-          style={{ color: "oklch(var(--gz-mut))" }}
-        >
-          Equity
-        </span>
-        <span
-          className="font-mono text-[12px] font-semibold"
-          style={{ color: "oklch(var(--gz-txt))" }}
-        >
-          {hasData ? formatCurrency(equity, currency) : configured ? "Loading…" : "—"}
-        </span>
-      </div>
+    <div className="flex items-center gap-3" title="Live account balance from MetaApi">
+      <Cell label="Equity">
+        {hasData ? (
+          <TickValue value={equity} format={(v) => formatCurrency(v, currency)} showArrow={false} />
+        ) : loading ? (
+          <Skeleton w={62} h={11} />
+        ) : (
+          dash
+        )}
+      </Cell>
 
-      <div className="h-6 w-px" style={{ background: "oklch(var(--gz-p) / 0.15)" }} />
+      <span className="vdivider" style={{ height: 20 }} />
 
-      {/* Daily P&L */}
-      <div className="flex flex-col items-end">
+      <Cell label="Balance" className="hidden md:flex">
+        {hasData ? (
+          <TickValue value={balance} format={(v) => formatCurrency(v, currency)} showArrow={false} />
+        ) : loading ? (
+          <Skeleton w={62} h={11} />
+        ) : (
+          dash
+        )}
+      </Cell>
+
+      <span className="vdivider hidden md:block" style={{ height: 20 }} />
+
+      <Cell label="U/PL">
         <span
-          className="font-mono text-[10px] uppercase tracking-wider"
-          style={{ color: "oklch(var(--gz-mut))" }}
+          style={{
+            color: hasData
+              ? unrealised >= 0
+                ? "oklch(var(--gz-pos))"
+                : "oklch(var(--gz-neg))"
+              : "oklch(var(--gz-mut))",
+          }}
         >
-          Day P&L
+          {hasData ? (
+            <TickValue value={unrealised} format={(v) => formatSigned(v, currency)} />
+          ) : loading ? (
+            <Skeleton w={54} h={11} />
+          ) : (
+            dash
+          )}
         </span>
+      </Cell>
+
+      <span className="vdivider hidden xl:block" style={{ height: 20 }} />
+
+      <Cell label="Day P&L" className="hidden xl:flex">
         <span
-          className="font-mono text-[12px] font-semibold"
           style={{
             color: hasData
               ? isProfit
-                ? "oklch(0.720 0.190 148)"
-                : "oklch(0.637 0.208 25.3)"
+                ? "oklch(var(--gz-pos))"
+                : "oklch(var(--gz-neg))"
               : "oklch(var(--gz-mut))",
           }}
         >
           {hasData ? (
             <>
-              {isProfit ? "+" : ""}
-              {formatCurrency(dailyPnl, currency)}
-              <span className="ml-1 text-[10px]">
+              <TickValue value={dailyPnl} format={(v) => formatSigned(v, currency)} showArrow={false} />
+              <span className="ml-1" style={{ fontSize: 10 }}>
                 ({isProfit ? "+" : ""}
                 {dailyPnlPercent.toFixed(2)}%)
               </span>
             </>
-          ) : configured ? (
-            "Loading…"
+          ) : loading ? (
+            <Skeleton w={54} h={11} />
           ) : (
-            "—"
+            dash
           )}
         </span>
-      </div>
+      </Cell>
 
-      {/* Error indicator */}
       {hasError && (
-        <div
-          className="flex items-center gap-1 rounded px-1.5 py-0.5"
-          style={{ background: "oklch(0.637 0.208 25.3 / 0.15)" }}
-          title={`Connection error: ${live.exness.error}`}
-        >
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ background: "oklch(0.637 0.208 25.3)" }}
-          />
-          <span className="font-mono text-[9px]" style={{ color: "oklch(0.637 0.208 25.3)" }}>
-            ERROR
-          </span>
-        </div>
+        <span className="badge badge-danger" title={`Connection error: ${live.exness.error}`}>
+          ERROR
+        </span>
       )}
     </div>
   );

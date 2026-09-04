@@ -1,0 +1,195 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   GIZZYFX — v1 COMPATIBILITY LAYER
+   ──────────────────────────────────────────────────────────────────────────
+   Existing pages reference v1 class names (.animate-in, .press, .text-accent,
+   .stagger, .btn-sweep, …). Rather than touch 25 .tsx files, those names are
+   remapped onto the v2 system here. New code should use the .fx-* / .panel /
+   .dgrid vocabulary directly.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Motion aliases ──────────────────────────────────────────────────── */
+
+.animate-in   { animation: gz-rise-blur 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade { animation: gz-zoom-in   0.34s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+.stagger > * { animation: gz-rise-blur 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger > *:nth-child(1)    { animation-delay: 0.02s; }
+.stagger > *:nth-child(2)    { animation-delay: 0.05s; }
+.stagger > *:nth-child(3)    { animation-delay: 0.08s; }
+.stagger > *:nth-child(4)    { animation-delay: 0.11s; }
+.stagger > *:nth-child(5)    { animation-delay: 0.14s; }
+.stagger > *:nth-child(6)    { animation-delay: 0.17s; }
+.stagger > *:nth-child(7)    { animation-delay: 0.20s; }
+.stagger > *:nth-child(n+8)  { animation-delay: 0.23s; }
+
+.press { transition: transform 0.07s ease; }
+.press:active { transform: scale(0.985); }
+
+.lift {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.lift:hover {
+  transform: translateY(-1px);
+  border-color: oklch(var(--gz-p) / 0.28);
+  box-shadow: var(--gz-e2);
+}
+
+.pulse-dot { animation: gz-pulse-soft 1.7s ease-in-out infinite; }
+@keyframes gz-pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.34; } }
+
+.blink { animation: gz-blink 1.05s step-end infinite; }
+@keyframes gz-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
+
+.shimmer {
+  background-image: linear-gradient(
+    90deg,
+    oklch(var(--gz-s2) / 0.55) 0%,
+    oklch(var(--gz-p)  / 0.10) 45%,
+    oklch(var(--gz-s2) / 0.55) 90%);
+  background-size: 220% 100%;
+  animation: gz-skeleton 1.5s linear infinite;
+}
+
+/* Button hover sweep — retained but toned down to a single subtle pass. */
+.btn-sweep { position: relative; overflow: hidden; }
+.btn-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 38%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent,
+    oklch(var(--gz-txt) / 0.10), transparent);
+  transform: translateX(-125%);
+}
+.btn-sweep:hover::after { animation: gz-edge-travel 0.55s ease-out; }
+
+/* v1 glow names — deliberately de-glowed (institutional, not neon). */
+.btn-glow,
+.glow-hover { transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease; }
+.glow-hover:hover { color: oklch(var(--gz-h)); }
+.text-neon {
+  color: oklch(var(--gz-p));
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Colour / type aliases ───────────────────────────────────────────── */
+
+.text-accent    { color: oklch(var(--gz-p)); }
+.text-highlight { color: oklch(var(--gz-h)); }
+.num-positive   { color: oklch(var(--gz-pos)); }
+.num-negative   { color: oklch(var(--gz-neg)); }
+.num-neutral    { color: oklch(var(--gz-mut)); }
+
+.font-display { font-family: var(--font-display); }
+
+.data-cell {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Legacy surfaces ─────────────────────────────────────────────────── */
+
+.status-bar {
+  background: oklch(var(--gz-s1));
+  border-bottom: var(--gz-hair) solid oklch(var(--gz-p) / 0.11);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.ticker-strip {
+  background: oklch(var(--gz-bg) / 0.72);
+  border-top: var(--gz-hair) solid oklch(var(--gz-p) / 0.09);
+  border-bottom: var(--gz-hair) solid oklch(var(--gz-p) / 0.09);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ticker-scroll {
+  display: inline-block;
+  animation: gz-tape 46s linear infinite;
+}
+
+.data-grid-cell {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  padding: 4px 8px;
+  border-bottom: var(--gz-hair) solid oklch(var(--gz-p) / 0.055);
+}
+
+.data-header-cell {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: oklch(var(--gz-mut));
+  padding: 5px 8px;
+  background: oklch(var(--gz-s3));
+  border-bottom: var(--gz-hair) solid oklch(var(--gz-p) / 0.16);
+}
+
+.input-institutional {
+  height: 30px;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: oklch(var(--gz-txt));
+  background: oklch(var(--gz-inp));
+  border: var(--gz-hair) solid oklch(var(--gz-p) / 0.14);
+  border-radius: 2px;
+  outline: none;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+.input-institutional:focus {
+  border-color: oklch(var(--gz-p) / 0.60);
+  box-shadow: 0 0 0 2px oklch(var(--gz-p) / 0.14);
+}
+
+.scrollbar-institutional::-webkit-scrollbar { width: 7px; height: 7px; }
+.scrollbar-institutional::-webkit-scrollbar-track { background: oklch(var(--gz-bg) / 0.5); }
+.scrollbar-institutional::-webkit-scrollbar-thumb {
+  background: oklch(var(--gz-p) / 0.22);
+  border-radius: 4px;
+}
+.scrollbar-institutional::-webkit-scrollbar-thumb:hover { background: oklch(var(--gz-p) / 0.40); }
+
+/* ─── Legacy card depth — pages that still use rounded-xl wrappers ────── */
+
+.space-y-4 > [class*="rounded-xl"],
+.space-y-2 > [class*="rounded-xl"],
+.space-y-5 > [class*="rounded-xl"] {
+  background-image: linear-gradient(
+    180deg,
+    oklch(var(--gz-s2) / 0.55) 0%,
+    oklch(var(--gz-s1) / 0.72) 100%);
+  border-color: oklch(var(--gz-p) / 0.10);
+  box-shadow: var(--gz-e1);
+}
+
+/* Generic table styling for pages not yet on .dgrid */
+table th {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  color: oklch(var(--gz-mut));
+}
+table td { border-bottom: var(--gz-hair) solid oklch(var(--gz-p) / 0.055); }
+table tbody tr:hover td { background: oklch(var(--gz-p) / 0.05); }
+
+/* Better contrast on Tailwind's muted utility */
+.text-muted-foreground { color: oklch(var(--gz-mut)) !important; }
+
+/* Layout helpers referenced by page markup */
+.hide-mobile { }
+.input-group { display: flex; gap: 0.5rem; }
+.action-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.phase-toggle { display: flex; gap: 0.4rem; }
+.mirror-ticket { width: 100%; }
+.risk-per-trade { width: 100%; }
+.brand-watermark { }

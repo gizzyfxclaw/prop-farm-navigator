@@ -2,9 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   ShieldX, ShieldAlert, ShieldCheck, XCircle, AlertTriangle, CheckCircle2,
-  MinusCircle, Clock, Activity, Radio,
+  MinusCircle, Clock, Activity, Radio, RefreshCcw,
 } from "lucide-react";
 import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
+import { Badge, Button, CockpitHeader } from "@/components/terminal/ui";
+import { LiveDot } from "@/components/terminal/anim";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -217,113 +219,83 @@ function CalendarPage() {
   const nextEvent = liveEvents.find((e) => e.secondsUntil > 0);
 
   return (
-    <div className="space-y-4">
-      {/* HEADER */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Economic Calendar</h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Strategy-aware trade timing — protects you from news-driven slippage.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* LIVE CLOCK */}
-          <div className="flex flex-col items-end">
-            <span className="font-mono text-[14px] font-bold tabular-nums" style={{ color: "oklch(0.680 0.230 295)" }}>
+    <div className="engine-cockpit">
+      <CockpitHeader
+        title="Economic Calendar"
+        badges={
+          <>
+            <Badge tone={tradingBlocked ? "red" : tradingCaution ? "amber" : "green"}>
+              {tradingBlocked
+                ? <><ShieldX size={11} /> Do Not Trade</>
+                : tradingCaution
+                ? <><ShieldAlert size={11} /> Caution</>
+                : <><ShieldCheck size={11} /> Safe to Trade</>}
+            </Badge>
+            <Badge tone="neutral">{liveEvents.length} events</Badge>
+          </>
+        }
+        right={
+          <div className="flex items-center gap-3">
+            <LiveDot state="live" title="Live — refreshes every 2 minutes" />
+            <span className="font-mono text-[12px] font-semibold tabular-nums" style={{ color: "oklch(var(--gz-txt))" }}>
               {liveClock}
             </span>
             {lastFetch && (
-              <span className="text-[9px] text-muted-foreground">API {lastFetch}</span>
+              <span className="text-[9px]" style={{ color: "oklch(var(--gz-mut))" }}>API {lastFetch}</span>
             )}
+            <Button variant="ghost" onClick={fetchEvents} disabled={loading}>
+              <RefreshCcw size={11} />
+              {loading ? "…" : "Refresh"}
+            </Button>
           </div>
-          {/* LIVE PULSE */}
-          <div className="flex items-center gap-1.5">
-            <div className="relative">
-              <div
-                className="h-2 w-2 rounded-full animate-ping absolute"
-                style={{ background: "oklch(0.680 0.230 295)", opacity: 0.4 }}
-              />
-              <div
-                className="h-2 w-2 rounded-full relative"
-                style={{ background: "oklch(0.680 0.230 295)" }}
-              />
-            </div>
-            <span className="text-[10px] font-bold" style={{ color: "oklch(0.680 0.230 295)" }}>LIVE</span>
-          </div>
-          <button
-            onClick={fetchEvents}
-            disabled={loading}
-            className="h-9 rounded-lg border border-white/10 bg-white/5 px-4 text-[13px] font-medium text-foreground transition-colors hover:bg-white/10 disabled:opacity-50"
-          >
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* TRADING SAFETY BANNER */}
       {tradingBlocked ? (
         <div
-          className="rounded-xl p-5 text-center"
-          style={{
-            background: "oklch(0.680 0.230 295 / 0.15)",
-            border: "2px solid oklch(0.680 0.230 295 / 0.4)",
-            boxShadow: "0 0 20px oklch(0.680 0.230 295 / 0.15)",
-            animation: "pulse 2s ease-in-out infinite",
-          }}
+          className="alert alert-red fx-alert-breathe"
+          style={{ textAlign: "center", padding: "1.25rem" }}
         >
-          <div className="text-2xl font-black flex items-center justify-center gap-2" style={{ color: "oklch(0.680 0.230 295)" }}>
-            <ShieldX size={24} /> DO NOT TRADE NOW
-          </div>
-          <p className="mt-2 text-[14px] text-muted-foreground">
+          <p className="alert-title" style={{ justifyContent: "center", fontSize: 16 }}>
+            <ShieldX size={18} /> DO NOT TRADE NOW
+          </p>
+          <p className="alert-body">
             High-impact news within 2 hours or medium-impact within 30 min. Spreads will spike.
           </p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {critical.map((e) => (
-              <span key={e.id} className="rounded-full px-3 py-1 text-[11px] font-bold font-mono tabular-nums" style={{ background: "oklch(0.680 0.230 295 / 0.2)", color: "oklch(0.680 0.230 295)" }}>
-                {e.event.slice(0, 35)} — {formatCountdown(e.secondsUntil)}
+              <span key={e.id} className="badge badge-danger" style={{ padding: "4px 10px", borderRadius: 4 }}>
+                {e.event.slice(0, 32)} — {formatCountdown(e.secondsUntil)}
               </span>
             ))}
             {warning.map((e) => (
-              <span key={e.id} className="rounded-full px-3 py-1 text-[11px] font-bold font-mono tabular-nums" style={{ background: "oklch(0.680 0.230 295 / 0.1)", color: "oklch(0.680 0.230 295)" }}>
-                {e.event.slice(0, 35)} — {formatCountdown(e.secondsUntil)}
+              <span key={e.id} className="badge badge-warning" style={{ padding: "4px 10px", borderRadius: 4 }}>
+                {e.event.slice(0, 32)} — {formatCountdown(e.secondsUntil)}
               </span>
             ))}
           </div>
         </div>
       ) : tradingCaution ? (
-        <div
-          className="rounded-xl p-5 text-center"
-          style={{
-            background: "oklch(0.680 0.230 295 / 0.08)",
-            border: "2px solid oklch(0.680 0.230 295 / 0.2)",
-          }}
-        >
-          <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>
-            <ShieldAlert size={24} className="inline" /> CAUTION — NEWS APPROACHING
-          </div>
-          <p className="mt-2 text-[14px] text-muted-foreground">
-            High-impact events within 2-3 hours. Avoid new entries.
+        <div className="alert alert-amber" style={{ textAlign: "center", padding: "1.25rem" }}>
+          <p className="alert-title" style={{ justifyContent: "center", fontSize: 15 }}>
+            <ShieldAlert size={16} /> CAUTION — NEWS APPROACHING
           </p>
+          <p className="alert-body">High-impact events within 2–3 hours. Avoid new entries.</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {caution.map((e) => (
-              <span key={e.id} className="rounded-full px-3 py-1 text-[11px] font-bold font-mono tabular-nums" style={{ background: "oklch(0.680 0.230 295 / 0.1)", color: "oklch(0.680 0.230 295)" }}>
-                {e.event.slice(0, 35)} — {formatCountdown(e.secondsUntil)}
+              <span key={e.id} className="badge badge-warning" style={{ padding: "4px 10px", borderRadius: 4 }}>
+                {e.event.slice(0, 32)} — {formatCountdown(e.secondsUntil)}
               </span>
             ))}
           </div>
         </div>
       ) : (
-        <div
-          className="rounded-xl p-5 text-center"
-          style={{
-            background: "oklch(0.680 0.230 295 / 0.05)",
-            border: "2px solid oklch(0.680 0.230 295 / 0.1)",
-          }}
-        >
-          <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>
-            <ShieldCheck size={24} className="inline" /> SAFE TO TRADE
-          </div>
-          <p className="mt-2 text-[14px] text-muted-foreground">
+        <div className="alert alert-green" style={{ textAlign: "center", padding: "1.25rem" }}>
+          <p className="alert-title" style={{ justifyContent: "center", fontSize: 15 }}>
+            <ShieldCheck size={16} /> SAFE TO TRADE
+          </p>
+          <p className="alert-body">
             No high-impact news in the next 3 hours.{" "}
             {nextEvent && (
               <span className="font-mono tabular-nums">
@@ -335,18 +307,10 @@ function CalendarPage() {
       )}
 
       {/* SESSION OVERLAP — real-time */}
-      <div
-        className="rounded-xl p-4"
-        style={{
-          background: "oklch(0.680 0.230 295 / 0.05)",
-          border: "1px solid oklch(0.680 0.230 295 / 0.13)",
-        }}
-      >
+      <div className="panel" style={{ padding: "0.8rem" }}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-foreground">Market Sessions</h3>
-          <span className="font-mono text-[11px] tabular-nums" style={{ color: "oklch(0.680 0.230 295)" }}>
-            {liveClock}
-          </span>
+          <p className="section-label">Market Sessions (WAT / ET)</p>
+          <span className="font-mono text-[11px] tabular-nums" style={{ color: "oklch(var(--gz-p))" }}>{liveClock}</span>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {sessions.map((s) => {
@@ -354,233 +318,160 @@ function CalendarPage() {
             const [eh, em] = s.end.split(":").map(Number);
             const watStart = etToWAT(sh!, sm!);
             const watEnd = etToWAT(eh!, em!);
+            const isOverlap = s.label.includes("Overlap");
             return (
-            <div
-              key={s.label}
-              className="rounded-lg p-3 text-center transition-all duration-300"
-              style={{
-                background: s.active ? "oklch(0.680 0.230 295 / 0.15)" : "oklch(0.680 0.230 295 / 0.05)",
-                border: s.active ? "1px solid oklch(0.680 0.230 295 / 0.3)" : "1px solid oklch(0.680 0.230 295 / 0.08)",
-              }}
-            >
-              <div className="text-[11px] font-medium" style={{ color: "oklch(0.680 0.230 295)" }}>
-                {s.label}
-              </div>
-              <div className="text-[10px] text-muted-foreground mt-1">
-                {watStart} – {watEnd} WAT
-              </div>
-              <div className="text-[9px] text-muted-foreground" style={{ opacity: 0.6 }}>
-                {s.start} – {s.end} ET
-              </div>
-              {s.active ? (
-                <div className="mt-1 flex items-center justify-center gap-1">
-                  <div className="relative">
-                    <div
-                      className="h-1.5 w-1.5 rounded-full animate-ping absolute"
-                      style={{ background: "oklch(0.680 0.230 295)", opacity: 0.4 }}
-                    />
-                    <div
-                      className="h-1.5 w-1.5 rounded-full relative"
-                      style={{ background: "oklch(0.680 0.230 295)" }}
-                    />
-                  </div>
-                  <span className="text-[10px] font-bold" style={{ color: "oklch(0.680 0.230 295)" }}>
-                    LIVE NOW
+              <div
+                key={s.label}
+                className="panel-sunken fx-hover"
+                style={{
+                  padding: "0.6rem 0.75rem",
+                  borderLeft: s.active ? `2px solid ${isOverlap ? "oklch(var(--gz-h))" : "oklch(var(--gz-pos))"}` : "2px solid oklch(var(--gz-p) / 0.10)",
+                }}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  {s.active && <LiveDot state="live" />}
+                  <span className="mono-cap" style={{ color: s.active ? (isOverlap ? "oklch(var(--gz-h))" : "oklch(var(--gz-pos))") : "oklch(var(--gz-mut))" }}>
+                    {s.label}
                   </span>
                 </div>
-              ) : (
-                <div className="mt-1 text-[10px] font-mono tabular-nums text-muted-foreground">
-                  in {formatSessionCountdown(s.secondsUntil)}
+                <div className="font-mono text-[10px]" style={{ color: "oklch(var(--gz-txt) / 0.85)" }}>
+                  {watStart}–{watEnd} WAT
                 </div>
-              )}
-            </div>
-          )})}
+                <div className="font-mono text-[9px]" style={{ color: "oklch(var(--gz-mut))" }}>
+                  {s.start}–{s.end} ET
+                </div>
+                {!s.active && (
+                  <div className="font-mono text-[9px] tabular-nums mt-0.5" style={{ color: "oklch(var(--gz-mut))" }}>
+                    in {formatSessionCountdown(s.secondsUntil)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* ALERT SUMMARY */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.13)", border: "1px solid oklch(0.680 0.230 295 / 0.2)" }}>
-          <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>{critical.length}</div>
-          <div className="text-[11px] font-medium" style={{ color: "oklch(0.680 0.230 295)" }}>CRITICAL</div>
-          <div className="text-[10px] text-muted-foreground">&lt;30min HIGH</div>
-        </div>
-        <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.08)", border: "1px solid oklch(0.680 0.230 295 / 0.15)" }}>
-          <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>{warning.length}</div>
-          <div className="text-[11px] font-medium" style={{ color: "oklch(0.680 0.230 295)" }}>WARNING</div>
-          <div className="text-[10px] text-muted-foreground">30m-2h HIGH / &lt;30m MED</div>
-        </div>
-        <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.05)", border: "1px solid oklch(0.680 0.230 295 / 0.1)" }}>
-          <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>{caution.length}</div>
-          <div className="text-[11px] font-medium" style={{ color: "oklch(0.680 0.230 295)" }}>CAUTION</div>
-          <div className="text-[10px] text-muted-foreground">2-3h HIGH / 30m-2h MED</div>
-        </div>
-        <div className="rounded-lg p-3 text-center" style={{ background: "oklch(0.680 0.230 295 / 0.03)", border: "1px solid oklch(0.680 0.230 295 / 0.08)" }}>
-          <div className="text-2xl font-black" style={{ color: "oklch(0.680 0.230 295)" }}>{safe.length}</div>
-          <div className="text-[11px] font-medium" style={{ color: "oklch(0.680 0.230 295)" }}>SAFE</div>
-          <div className="text-[10px] text-muted-foreground">&gt;3h</div>
-        </div>
+      {/* ALERT SUMMARY — semantic colours */}
+      <div className="wgrid-4">
+        {[
+          { count: critical.length, label: "Critical", sub: "<30min HIGH", tone: "badge-danger",   border: "oklch(var(--gz-neg) / 0.30)", bg: "oklch(var(--gz-neg) / 0.08)" },
+          { count: warning.length,  label: "Warning",  sub: "30m–2h HIGH / <30m MED", tone: "badge-warning", border: "oklch(var(--gz-warn) / 0.30)", bg: "oklch(var(--gz-warn) / 0.06)" },
+          { count: caution.length,  label: "Caution",  sub: "2–3h HIGH / 30m–2h MED", tone: "badge-info",    border: "oklch(var(--gz-p) / 0.22)",  bg: "oklch(var(--gz-p) / 0.06)" },
+          { count: safe.length,     label: "Safe",     sub: ">3h away",              tone: "badge-success", border: "oklch(var(--gz-pos) / 0.22)", bg: "oklch(var(--gz-pos) / 0.06)" },
+        ].map((item) => (
+          <div key={item.label} className="panel-sunken" style={{ padding: "0.75rem 1rem", border: `1px solid ${item.border}`, background: item.bg, textAlign: "center" }}>
+            <div className="font-mono text-[28px] font-bold tabular-nums leading-none" style={{ color: "oklch(var(--gz-txt))" }}>{item.count}</div>
+            <div className={`badge ${item.tone} mt-1`}>{item.label}</div>
+            <div className="mono-cap mt-1" style={{ color: "oklch(var(--gz-mut))" }}>{item.sub}</div>
+          </div>
+        ))}
       </div>
 
       {/* EVENTS TABLE — real-time countdowns */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-foreground">Upcoming Events</h3>
+      <div className="panel" style={{ padding: 0 }}>
+        <div className="panel-head">
+          <h2 className="panel-head-title">Upcoming Events</h2>
+          <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
+            {liveEvents.length} events — all times in WAT (Nigeria, UTC+1)
+          </span>
+        </div>
         {loading && rawEvents.length === 0 ? (
-          <div className="rounded-xl p-8 text-center text-[13px] text-muted-foreground">Loading events…</div>
-        ) : error ? (
-          <div className="rounded-xl p-8 text-center text-[13px]" style={{ color: "oklch(0.680 0.230 295)" }}>
-            {error}
+          <div style={{ padding: "2rem", textAlign: "center" }}>
+            <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>Loading events…</span>
           </div>
+        ) : error ? (
+          <div className="alert alert-red m-3">{error}</div>
         ) : liveEvents.length === 0 ? (
-          <div className="rounded-xl p-8 text-center text-[13px] text-muted-foreground">
-            No upcoming events.
+          <div style={{ padding: "2rem", textAlign: "center" }}>
+            <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>No upcoming events.</span>
           </div>
         ) : (
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid oklch(0.680 0.230 295 / 0.13)" }}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="bg-white/5">
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">Time (WAT)</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Event</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Imp</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Actual</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Forecast</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Previous</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Pairs</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">Countdown</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Hazard</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {liveEvents.map((ev) => {
-                    const isPast = ev.secondsUntil < 0;
-                    return (
-                      <tr
-                        key={ev.id}
-                        className="border-t border-white/5 transition-colors duration-300"
-                        style={{
-                          background: ev.hazardLevel === "critical"
-                            ? "oklch(0.680 0.230 295 / 0.1)"
-                            : ev.hazardLevel === "warning"
-                            ? "oklch(0.680 0.230 295 / 0.05)"
-                            : "transparent",
-                          opacity: isPast ? 0.5 : 1,
-                        }}
-                      >
-                        {/* Time in WAT (Nigeria) */}
-                        <td className="px-3 py-2 font-mono tabular-nums text-foreground whitespace-nowrap">
-                          {new Date(ev.time).toLocaleTimeString("en-GB", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            timeZone: "Africa/Lagos",
-                          })}
-                        </td>
-                        <td className="px-3 py-2 text-foreground">{ev.event}</td>
-                        {/* Impact badge */}
-                        <td className="px-3 py-2">
-                          <span
-                            className="rounded px-1.5 py-0.5 text-[10px] font-bold"
-                            style={{
-                              background: ev.impact === "high"
-                                ? "oklch(0.55 0.25 29 / 0.25)"
-                                : ev.impact === "medium"
-                                ? "oklch(0.75 0.18 80 / 0.2)"
-                                : "oklch(0.680 0.230 295 / 0.08)",
-                              color: ev.impact === "high"
-                                ? "oklch(0.70 0.22 29)"
-                                : ev.impact === "medium"
-                                ? "oklch(0.80 0.16 80)"
-                                : "oklch(0.680 0.230 295)",
-                            }}
-                          >
-                            {ev.impact === "high" ? "HIGH" : ev.impact === "medium" ? "MED" : "LOW"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-foreground font-mono tabular-nums">{ev.actual}</td>
-                        <td className="px-3 py-2 text-foreground font-mono tabular-nums">{ev.forecast}</td>
-                        <td className="px-3 py-2 text-foreground font-mono tabular-nums">{ev.previous}</td>
-                        <td className="px-3 py-2">
-                          <div className="flex flex-wrap gap-1">
-                            {ev.pairs.map((p) => (
-                              <span key={p} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                {p}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        {/* Live countdown */}
-                        <td className="px-3 py-2 font-mono tabular-nums text-[11px] whitespace-nowrap" style={{
-                          color: ev.hazardLevel === "critical"
-                            ? "oklch(0.70 0.22 29)"
-                            : ev.hazardLevel === "warning"
-                            ? "oklch(0.80 0.16 80)"
-                            : "oklch(0.680 0.230 295)",
-                          fontWeight: ev.hazardLevel === "critical" || ev.hazardLevel === "warning" ? 700 : 400,
-                        }}>
-                          {formatCountdown(ev.secondsUntil)}
-                        </td>
-                        {/* Hazard badge */}
-                        <td className="px-3 py-2">
-                          <span
-                            className="rounded px-1.5 py-0.5 text-[10px] font-bold whitespace-nowrap"
-                            style={{
-                              background: ev.hazardLevel === "critical"
-                                ? "oklch(0.55 0.25 29 / 0.25)"
-                                : ev.hazardLevel === "warning"
-                                ? "oklch(0.75 0.18 80 / 0.2)"
-                                : ev.hazardLevel === "caution"
-                                ? "oklch(0.70 0.17 55 / 0.15)"
-                                : "oklch(0.680 0.230 295 / 0.03)",
-                              color: ev.hazardLevel === "critical"
-                                ? "oklch(0.70 0.22 29)"
-                                : ev.hazardLevel === "warning"
-                                ? "oklch(0.80 0.16 80)"
-                                : ev.hazardLevel === "caution"
-                                ? "oklch(0.75 0.17 55)"
-                                : isPast
-                                ? "oklch(0.5 0.02 295)"
-                                : "oklch(0.680 0.230 295)",
-                            }}
-                          >
-                            {ev.hazardLevel === "critical"
-                              ? "CRITICAL"
-                              : ev.hazardLevel === "warning"
-                              ? "WARNING"
-                              : ev.hazardLevel === "caution"
-                              ? "CAUTION"
-                              : isPast
-                              ? "PASSED"
-                              : "SAFE"}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <div className="overflow-x-auto scrollbar-institutional">
+            <table className="dgrid">
+              <thead>
+                <tr>
+                  <th>Time (WAT)</th>
+                  <th>Currency</th>
+                  <th>Event</th>
+                  <th>Impact</th>
+                  <th style={{ textAlign: "right" }}>Actual</th>
+                  <th style={{ textAlign: "right" }}>Forecast</th>
+                  <th style={{ textAlign: "right" }}>Previous</th>
+                  <th>Pairs</th>
+                  <th style={{ textAlign: "right" }}>Countdown</th>
+                  <th>Hazard</th>
+                </tr>
+              </thead>
+              <tbody>
+                {liveEvents.map((ev) => {
+                  const isPast = ev.secondsUntil < 0;
+                  const rowBg =
+                    ev.hazardLevel === "critical" ? "oklch(var(--gz-neg) / 0.08)" :
+                    ev.hazardLevel === "warning"  ? "oklch(var(--gz-warn) / 0.06)" :
+                    "transparent";
+                  const cdColor =
+                    ev.hazardLevel === "critical" ? "oklch(var(--gz-neg))" :
+                    ev.hazardLevel === "warning"  ? "oklch(var(--gz-warn))" :
+                    "oklch(var(--gz-p))";
+                  return (
+                    <tr key={ev.id} style={{ background: rowBg, opacity: isPast ? 0.52 : 1 }}>
+                      <td className="font-mono tabular-nums whitespace-nowrap">
+                        {new Date(ev.time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Lagos" })}
+                      </td>
+                      <td className="mono-cap">{ev.currency}</td>
+                      <td style={{ color: "oklch(var(--gz-txt))" }}>{ev.event}</td>
+                      <td>
+                        <span className={`badge ${ev.impact === "high" ? "badge-danger" : ev.impact === "medium" ? "badge-warning" : "badge-neutral"}`}>
+                          {ev.impact === "high" ? "HIGH" : ev.impact === "medium" ? "MED" : "LOW"}
+                        </span>
+                      </td>
+                      <td className="num font-mono tabular-nums">{ev.actual || "—"}</td>
+                      <td className="num font-mono tabular-nums">{ev.forecast || "—"}</td>
+                      <td className="num font-mono tabular-nums">{ev.previous || "—"}</td>
+                      <td>
+                        <div className="flex flex-wrap gap-1">
+                          {ev.pairs.map((p) => (
+                            <span key={p} className="badge badge-neutral">{p}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="num font-mono tabular-nums whitespace-nowrap font-bold" style={{ color: cdColor }}>
+                        {formatCountdown(ev.secondsUntil)}
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          ev.hazardLevel === "critical" ? "badge-danger" :
+                          ev.hazardLevel === "warning"  ? "badge-warning" :
+                          ev.hazardLevel === "caution"  ? "badge-info" :
+                          isPast ? "badge-neutral" : "badge-success"
+                        }`}>
+                          {ev.hazardLevel === "critical" ? "CRITICAL" :
+                           ev.hazardLevel === "warning"  ? "WARNING" :
+                           ev.hazardLevel === "caution"  ? "CAUTION" :
+                           isPast ? "PASSED" : "SAFE"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
       {/* STRATEGY RULES */}
-      <div
-        className="rounded-xl p-4"
-        style={{
-          background: "oklch(0.680 0.230 295 / 0.05)",
-          border: "1px solid oklch(0.680 0.230 295 / 0.13)",
-        }}
-      >
-        <h3 className="text-sm font-semibold text-foreground mb-2">Strategy Rules</h3>
-        <ul className="space-y-1 text-[12px] text-muted-foreground">
-          <li>• <strong className="text-foreground">No pending orders</strong> ±30 min before/after HIGH impact news</li>
-          <li>• <strong className="text-foreground">Avoid new entries</strong> ±2-3 hours before HIGH impact events</li>
-          <li>• <strong className="text-foreground">Vary entry times:</strong> 08:13, 10:42, 14:05</li>
-          <li>• <strong className="text-foreground">Vary SL pips:</strong> 28, 35, 22</li>
-          <li>• <strong className="text-foreground">Best liquidity:</strong> London/NY overlap (18:00–21:00 WAT / 13:00–16:00 ET)</li>
+      <div className="panel" style={{ padding: "0.8rem 1rem" }}>
+        <p className="section-label mb-2">Strategy Rules</p>
+        <ul className="space-y-1 text-[12px]" style={{ color: "oklch(var(--gz-mut))" }}>
+          <li><strong style={{ color: "oklch(var(--gz-txt))" }}>No pending orders</strong> ±30 min before/after HIGH impact news</li>
+          <li><strong style={{ color: "oklch(var(--gz-txt))" }}>Avoid new entries</strong> ±2–3 hours before HIGH impact events</li>
+          <li><strong style={{ color: "oklch(var(--gz-txt))" }}>Vary entry times:</strong> 08:13, 10:42, 14:05</li>
+          <li><strong style={{ color: "oklch(var(--gz-txt))" }}>Vary SL pips:</strong> 28, 35, 22</li>
+          <li><strong style={{ color: "oklch(var(--gz-txt))" }}>Best liquidity:</strong> London/NY overlap (18:00–21:00 WAT / 13:00–16:00 ET)</li>
         </ul>
       </div>
     </div>
   );
 }
+

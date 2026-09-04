@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { LiveDot } from "./anim";
+import { getEasternTime } from "@/lib/timezone";
 
 type MarketSession = {
   name: string;
@@ -51,6 +53,18 @@ function getNextOpen(): { session: string; minutes: number } | null {
   return closest;
 }
 
+/** "3h12m" / "42m" — compact enough for the command bar. */
+function compactDuration(totalMinutes: number): string {
+  const m = Math.max(0, Math.round(totalMinutes));
+  const h = Math.floor(m / 60);
+  return h > 0 ? `${h}h${String(m % 60).padStart(2, "0")}m` : `${m}m`;
+}
+
+/* The London/NY overlap (13:00–16:00 ET) is the user's preferred trading
+   window, so it gets its own state in the session clock. */
+const OVERLAP_START = 13 * 3600;
+const OVERLAP_END = 16 * 3600;
+
 export function MarketStatus() {
   const [, setTick] = useState(0);
   const nextOpen = getNextOpen();
@@ -62,31 +76,27 @@ export function MarketStatus() {
 
   const openCount = SESSIONS.filter(isSessionOpen).length;
 
+  const etSec = getEasternTime().totalSeconds;
+  const inOverlap = etSec >= OVERLAP_START && etSec < OVERLAP_END;
+  const overlapMinsLeft = (OVERLAP_END - etSec) / 60;
+  const minsToOverlap =
+    (etSec < OVERLAP_START ? OVERLAP_START - etSec : 86400 - etSec + OVERLAP_START) / 60;
+
   return (
-    <div className="flex items-center gap-3" title="Market sessions (UTC)">
+    <div className="flex items-center gap-2.5" title="Market sessions (UTC)">
       {SESSIONS.map((session) => {
         const open = isSessionOpen(session);
         return (
           <div
             key={session.short}
             className="flex items-center gap-1.5"
-            title={`${session.name} ${open ? "open" : "closed"}`}
+            title={`${session.name} — ${open ? "OPEN" : "CLOSED"}`}
           >
+            <LiveDot state={open ? "live" : "dead"} />
             <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
+              className="mono-cap"
               style={{
-                background: open
-                  ? "oklch(0.720 0.190 148)"
-                  : "oklch(0.500 0.100 250)",
-                boxShadow: open ? "0 0 6px oklch(0.720 0.190 148)" : "none",
-              }}
-            />
-            <span
-              className="font-mono text-[10px] font-medium tracking-wider"
-              style={{
-                color: open
-                  ? "oklch(0.720 0.190 148)"
-                  : "oklch(var(--gz-mut))",
+                color: open ? "oklch(var(--gz-pos))" : "oklch(var(--gz-mut) / 0.7)",
               }}
             >
               {session.short}
@@ -94,13 +104,27 @@ export function MarketStatus() {
           </div>
         );
       })}
-      {openCount === 0 && nextOpen && (
+
+      {inOverlap ? (
         <span
-          className="font-mono text-[9px]"
-          style={{ color: "oklch(var(--gz-mut))" }}
+          className="badge badge-success"
+          title="London/NY overlap — peak liquidity, the preferred trading window (13:00–16:00 ET)"
         >
-          Next: {nextOpen.session} in {Math.floor(nextOpen.minutes / 60)}h{" "}
-          {nextOpen.minutes % 60}m
+          <LiveDot state="live" />
+          LDN/NY {compactDuration(overlapMinsLeft)}
+        </span>
+      ) : (
+        <span
+          className="badge badge-neutral"
+          title="Time until the London/NY overlap opens (13:00–16:00 ET)"
+        >
+          LDN/NY T-{compactDuration(minsToOverlap)}
+        </span>
+      )}
+
+      {openCount === 0 && nextOpen && (
+        <span className="mono-cap c-mut" style={{ fontSize: 9 }}>
+          NEXT {nextOpen.session} {compactDuration(nextOpen.minutes)}
         </span>
       )}
     </div>

@@ -7,8 +7,9 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useState, useRef, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
+import { Palette, Check, LogOut, ExternalLink } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -19,7 +20,8 @@ import { MarketStatus } from "../components/terminal/MarketStatus";
 import { ConnectionIndicator } from "../components/terminal/ConnectionIndicator";
 import { AccountBalance } from "../components/terminal/AccountBalance";
 import { LivePrice } from "../components/terminal/LivePrice";
-import { LogoMark, LogoWordmark, LogoWatermark } from "../components/brand/logo";
+import { MarketTape } from "../components/terminal/MarketTape";
+import { LogoMark, LogoWordmark } from "../components/brand/logo";
 
 const NAV = [
   { to: "/", label: "Engine",         short: "Engine"  },
@@ -36,29 +38,33 @@ const NAV = [
 
 /* ── Theme switcher ─────────────────────────────────────────────── */
 const THEMES = [
-  { id: "cyan",   label: "Cyan",   color: "oklch(0.775 0.148 198)" },
-  { id: "blue",   label: "Blue",   color: "oklch(0.623 0.214 259)" },
-  { id: "purple", label: "Purple", color: "oklch(0.692 0.194 295)" },
+  { id: "cyan",     label: "Terminal",  color: "oklch(0.800 0.135 196)" },
+  { id: "graphite", label: "Graphite",  color: "oklch(0.860 0.010 250)" },
+  { id: "blue",     label: "Desk Blue", color: "oklch(0.678 0.185 256)" },
+  { id: "amber",    label: "Amber",     color: "oklch(0.815 0.150 75)"  },
+  { id: "emerald",  label: "Emerald",   color: "oklch(0.775 0.155 158)" },
+  { id: "purple",   label: "Violet",    color: "oklch(0.735 0.170 296)" },
 ] as const;
 
 type ThemeId = typeof THEMES[number]["id"];
+const THEME_IDS: ThemeId[] = ["cyan", "graphite", "blue", "amber", "emerald", "purple"];
 
 function applyTheme(id: ThemeId) {
   if (id === "cyan") {
-    delete document.documentElement.dataset.theme;
+    delete document.documentElement.dataset["theme"];
   } else {
-    document.documentElement.dataset.theme = id;
+    document.documentElement.dataset["theme"] = id;
   }
 }
 
 function ThemeSwitcher() {
   const [theme, setTheme] = useState<ThemeId>("cyan");
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem("gz-theme") as ThemeId | null;
-      const valid: ThemeId[] = ["cyan", "blue", "purple"];
-      if (saved && valid.includes(saved)) {
+      if (saved && THEME_IDS.includes(saved)) {
         setTheme(saved);
         applyTheme(saved);
       }
@@ -69,112 +75,107 @@ function ThemeSwitcher() {
     setTheme(id);
     try { localStorage.setItem("gz-theme", id); } catch {}
     applyTheme(id);
+    setOpen(false);
   }
 
+  const active = THEMES.find((t) => t.id === theme) ?? THEMES[0];
+
   return (
-    <div style={{ display: "flex", gap: 5, alignItems: "center" }} title="Switch colour theme">
-      {THEMES.map((t) => (
-        <button
-          key={t.id}
-          title={`${t.label} theme`}
-          onClick={() => switchTheme(t.id)}
-          style={{
-            width: 12, height: 12, borderRadius: "50%",
-            background: t.color,
-            border: theme === t.id
-              ? "2px solid oklch(0.950 0.012 200)"
-              : "2px solid oklch(0 0 0 / 0.35)",
-            padding: 0, cursor: "pointer",
-            boxShadow: theme === t.id ? `0 0 7px ${t.color}` : "none",
-            transition: "all 0.18s ease",
-            flexShrink: 0,
-          }}
-        />
-      ))}
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title={`Theme — ${active.label}`}
+        aria-label="Switch colour theme"
+        className="fx-press"
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          height: 26, padding: "0 8px",
+          background: "oklch(var(--gz-s2) / 0.7)",
+          border: "1px solid oklch(var(--gz-p) / 0.16)",
+          borderRadius: 2, cursor: "pointer", minHeight: 26,
+        }}
+      >
+        <span style={{
+          width: 10, height: 10, borderRadius: 2,
+          background: active.color, flexShrink: 0,
+          boxShadow: `0 0 6px ${active.color}`,
+        }} />
+        <Palette size={12} style={{ color: "oklch(var(--gz-mut))" }} />
+      </button>
+
+      {open && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 60 }} onClick={() => setOpen(false)} />
+          <div
+            className="panel fx-zoom"
+            style={{
+              position: "absolute", right: 0, top: "calc(100% + 6px)",
+              zIndex: 61, minWidth: 168, padding: 4,
+              boxShadow: "var(--gz-e3)",
+            }}
+          >
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => switchTheme(t.id)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  width: "100%", padding: "6px 8px", minHeight: 30,
+                  background: theme === t.id ? "oklch(var(--gz-p) / 0.12)" : "transparent",
+                  border: "none", borderRadius: 2, cursor: "pointer",
+                  fontFamily: "var(--font-mono)", fontSize: 10.5,
+                  fontWeight: 700, letterSpacing: "0.05em",
+                  textTransform: "uppercase", textAlign: "left",
+                  color: theme === t.id ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))",
+                }}
+              >
+                <span style={{
+                  width: 10, height: 10, borderRadius: 2,
+                  background: t.color, flexShrink: 0,
+                }} />
+                {t.label}
+                {theme === t.id && <Check size={11} style={{ marginLeft: "auto" }} />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-/* ── Ambient glow orbs ─────────────────────────────────────────── */
-function GlowOrbs() {
+/* ── Institutional backdrop — grid, mesh, vignette, grain ───────── */
+function Backdrop() {
   return (
-    <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
-      <div className="orb-1" style={{
-        position: "absolute",
-        top: "-15%", left: "-8%",
-        width: "65vw", height: "65vw",
-        borderRadius: "50%",
-        background: "radial-gradient(circle, oklch(var(--gz-p) / 0.07) 0%, oklch(var(--gz-p) / 0.03) 40%, transparent 70%)",
-      }} />
-      <div className="orb-2" style={{
-        position: "absolute",
-        bottom: "-18%", right: "-12%",
-        width: "55vw", height: "55vw",
-        borderRadius: "50%",
-        background: "radial-gradient(circle, oklch(var(--gz-h) / 0.055) 0%, transparent 65%)",
-      }} />
-      <div className="orb-3" style={{
-        position: "absolute",
-        top: "40%", left: "45%",
-        width: "40vw", height: "40vw",
-        borderRadius: "50%",
-        background: "radial-gradient(circle, oklch(var(--gz-p) / 0.035) 0%, transparent 70%)",
-      }} />
+    <div className="backdrop" aria-hidden>
+      <div className="backdrop-mesh fx-mesh" />
+      <div className="backdrop-grid" />
+      <div className="backdrop-grid-major" />
+      <div className="backdrop-sweep fx-h-sweep" />
+      <div className="backdrop-vignette" />
+      <div className="backdrop-grain" />
     </div>
   );
 }
 
-/* ── Floating particles ────────────────────────────────────────── */
-type Particle = { id: number; x: number; size: number; dur: number; delay: number; opacity: number };
-
-function ParticleField() {
-  const [particles, setParticles] = useState<Particle[]>([]);
-
-  useEffect(() => {
-    const list: Particle[] = Array.from({ length: 28 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      size: Math.random() * 2 + 1,
-      dur: Math.random() * 18 + 12,
-      delay: Math.random() * -20,
-      opacity: Math.random() * 0.4 + 0.1,
-    }));
-    setParticles(list);
-  }, []);
-
-  return (
-    <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
-      {particles.map((p) => (
-        <div
-          key={p.id}
-          style={{
-            position: "absolute",
-            bottom: "-4px",
-            left: `${p.x}%`,
-            width: `${p.size}px`,
-            height: `${p.size}px`,
-            borderRadius: "50%",
-            background: `oklch(var(--gz-p) / ${p.opacity})`,
-            boxShadow: `0 0 ${p.size * 3}px oklch(var(--gz-p) / ${p.opacity * 0.8})`,
-            animation: `gz-float-up ${p.dur}s ${p.delay}s linear infinite`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
+/* ── (removed) glow orbs & particle field ────────────────────────
+   Both were startup-aesthetic decoration and cost real frames on the
+   user's phone. The institutional Backdrop above replaces them with
+   a chart grid, a low-chroma mesh, a vignette and film grain — all
+   composited, no per-particle DOM nodes.
+   ───────────────────────────────────────────────────────────────── */
 
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4" style={{ position: "relative", zIndex: 1 }}>
-      <div className="text-center animate-in">
-        <p className="font-display text-8xl font-bold text-neon">404</p>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">The page you're looking for doesn't exist.</p>
-        <div className="mt-6">
-          <Link to="/" className="btn-sweep btn-glow inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
-            Go home
-          </Link>
+      <div className="panel fx-rise" style={{ maxWidth: 420, width: "100%" }}>
+        <div className="panel-head"><h2 className="panel-head-title">Route not found</h2></div>
+        <div className="panel-body text-center">
+          <p className="font-mono font-bold" style={{ fontSize: 56, lineHeight: 1, color: "oklch(var(--gz-p))" }}>404</p>
+          <p className="mt-3 text-[12px]" style={{ color: "oklch(var(--gz-mut))" }}>
+            No workspace is mapped to this path.
+          </p>
+          <Link to="/" className="btn btn-primary btn-sweep mt-5 inline-flex">Return to Engine</Link>
         </div>
       </div>
     </div>
@@ -190,19 +191,19 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4" style={{ position: "relative", zIndex: 1 }}>
-      <div className="text-center max-w-md animate-in">
-        <h1 className="text-xl font-semibold text-foreground">This page didn't load</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Something went wrong. Try refreshing or head home.</p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => { router.invalidate(); reset(); }}
-            className="btn-sweep btn-glow inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-          >
-            Try again
-          </button>
-          <a href="/" className="inline-flex items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground">
-            Go home
-          </a>
+      <div className="panel panel-neg fx-rise" style={{ maxWidth: 480, width: "100%" }}>
+        <div className="panel-head"><h2 className="panel-head-title">Render fault</h2></div>
+        <div className="panel-body">
+          <div className="alert alert-red">
+            <p className="alert-title">This page didn't load</p>
+            <p className="alert-body">{error.message || "An unexpected error occurred while rendering."}</p>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button onClick={() => { router.invalidate(); reset(); }} className="btn btn-primary btn-sweep">
+              Retry
+            </button>
+            <a href="/" className="btn btn-ghost">Return to Engine</a>
+          </div>
         </div>
       </div>
     </div>
@@ -225,7 +226,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap",
       },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "alternate icon", href: "/favicon.ico", type: "image/x-icon" },
@@ -233,8 +234,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     scripts: [
       {
-        /* Apply saved theme before first paint to prevent flash */
-        children: `try{var t=localStorage.getItem("gz-theme");if(t&&t!=="cyan")document.documentElement.dataset.theme=t;}catch(e){}`,
+        /* Apply saved theme before first paint to prevent a flash of the
+           default palette. Whitelist matches THEMES above. */
+        children: `try{var t=localStorage.getItem("gz-theme");if(t&&["graphite","blue","amber","emerald","purple"].indexOf(t)>=0)document.documentElement.dataset.theme=t;}catch(e){}`,
       },
     ],
   }),
@@ -258,16 +260,22 @@ function Clock() {
   useEffect(() => {
     const tick = () => {
       const wat = new Date().toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour12: false });
-      setNow(wat + " WAT");
+      setNow(wat);
     };
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, []);
   return (
-    <div className="flex items-center gap-2">
-      <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full" style={{ background: "oklch(var(--gz-h))" }} />
-      <span className="font-mono text-[11px] tracking-wider" style={{ color: "oklch(var(--gz-mut))" }}>{now}</span>
+    <div className="flex items-center gap-1.5" title="Local time — West Africa Time (UTC+1)">
+      <span className="fx-live-dot" style={{ color: "oklch(var(--gz-h))", width: 5, height: 5 }} />
+      <span
+        className="font-mono text-[11px] font-semibold"
+        style={{ color: "oklch(var(--gz-txt) / 0.85)", letterSpacing: "0.04em" }}
+      >
+        {now}
+      </span>
+      <span className="font-mono text-[9px]" style={{ color: "oklch(var(--gz-mut))" }}>WAT</span>
     </div>
   );
 }
@@ -309,184 +317,130 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
         <StoreProvider>
-          {/* Ambient layers — behind everything */}
-          <GlowOrbs />
-          <ParticleField />
-          <LogoWatermark />
+          <Backdrop />
 
           <div className="relative min-h-screen w-full" style={{ zIndex: 1 }}>
-            {/* ── Bloomberg-style Trading Command Bar ─────────────── */}
-            <header
-              className="sticky top-0 z-30 w-full"
-              style={{
-                background: "oklch(var(--gz-s3) / 0.92)",
-                backdropFilter: "blur(24px) saturate(1.6)",
-                WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-                borderBottom: "1px solid oklch(var(--gz-p) / 0.12)",
-                boxShadow: "0 1px 0 oklch(var(--gz-p) / 0.06), 0 4px 32px oklch(0 0 0 / 0.50)",
-                width: "100%",
-                left: 0,
-                right: 0,
-              }}
-            >
-              {/* Top accent line */}
-              <div style={{
-                position: "absolute", top: 0, left: 0, right: 0, height: "1px",
-                background: "linear-gradient(90deg, transparent 0%, oklch(var(--gz-p) / 0.6) 20%, oklch(var(--gz-h) / 0.8) 50%, oklch(var(--gz-p) / 0.6) 80%, transparent 100%)",
-              }} />
-
-              {/* ── Top Status Bar (Bloomberg-style) ─────────── */}
-              <div
-                className="w-full hidden sm:block"
-                style={{
-                  borderBottom: "1px solid oklch(var(--gz-p) / 0.08)",
-                  background: "oklch(var(--gz-s1) / 0.40)",
-                }}
-              >
+            {/* ── Command bar ──────────────────────────────────────── */}
+            <header className="cmdbar">
+              {/* Row 1 — instrument status strip */}
+              <div className="cmdbar-status hidden sm:block">
                 <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
-                <div className="flex items-center justify-between py-1">
-                  <div className="flex items-center gap-4">
-                    <MarketStatus />
-                    <div className="h-3 w-px" style={{ background: "oklch(var(--gz-p) / 0.15)" }} />
-                    <ConnectionIndicator />
-                    <div className="h-3 w-px" style={{ background: "oklch(var(--gz-p) / 0.15)" }} />
-                    <LivePrice />
-                  </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between gap-4 py-1">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <MarketStatus />
+                      <span className="vdivider" style={{ height: 12 }} />
+                      <ConnectionIndicator />
+                      <span className="vdivider" style={{ height: 12 }} />
+                      <LivePrice />
+                    </div>
                     <AccountBalance />
                   </div>
                 </div>
               </div>
-              </div>
 
-              {/* ── Main Command Bar ──────────────────────────── */}
+              {/* Row 2 — identity, navigation, controls */}
               <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
-                <div className="flex items-center justify-between py-2.5 sm:py-3">
-                  {/* Logo + Nav */}
-                  <div className="flex items-center gap-6">
+                <div className="flex items-center justify-between gap-4 py-2">
+                  <div className="flex items-center gap-5 min-w-0">
                     <Link
                       to="/"
-                      className="glow-hover flex items-center gap-2 select-none"
+                      className="flex items-center gap-2 select-none flex-shrink-0"
                       aria-label="GizzyFx home"
                     >
-                      <LogoMark size={28} />
-                      <LogoWordmark height={18} />
+                      <LogoMark size={26} />
+                      <LogoWordmark height={16} />
                     </Link>
 
-                    {/* Navigation tabs — scrollable on mobile */}
-                    <nav className="flex items-center gap-0.5 overflow-x-auto max-w-[60vw] sm:max-w-none">
+                    <nav
+                      className="flex items-center gap-0.5 overflow-x-auto scrollbar-institutional"
+                      style={{ maxWidth: "62vw" }}
+                    >
                       {NAV.map((item) => (
                         <Link
                           key={item.to}
                           to={item.to}
                           activeOptions={{ exact: item.to === "/" }}
-                          className="press relative whitespace-nowrap rounded px-2.5 py-1.5 text-[11px] sm:text-[12px] lg:text-[13px] font-semibold tracking-wide transition-all duration-150"
-                          style={{ color: "oklch(var(--gz-mut))" }}
-                          activeProps={{
-                            style: {
-                              color: "oklch(var(--gz-p))",
-                              background: "oklch(var(--gz-p) / 0.10)",
-                              boxShadow: "0 0 12px oklch(var(--gz-p) / 0.15)",
-                              textShadow: "0 0 10px oklch(var(--gz-p) / 0.40)",
-                            }
-                          }}
-                          onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLElement).style.color = "oklch(var(--gz-txt))";
-                            (e.currentTarget as HTMLElement).style.background = "oklch(1 0 0 / 0.04)";
-                          }}
-                          onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLElement).style.color = "oklch(var(--gz-mut))";
-                            (e.currentTarget as HTMLElement).style.background = "transparent";
-                          }}
+                          className="navtab"
+                          activeProps={{ className: "navtab navtab-active" }}
                         >
                           {item.label}
                         </Link>
                       ))}
                     </nav>
-                    {/* Open Agent Console button — hidden on mobile */}
+
                     <a
                       href="https://hermes.gizzyfxstrategy.dpdns.org"
                       target="_blank"
                       rel="noreferrer"
-                      className="press relative whitespace-nowrap rounded px-3 py-1.5 text-[11px] sm:text-[12px] lg:text-[13px] font-semibold tracking-wide transition-all duration-150 hidden sm:inline-block"
-                      style={{
-                        color: "oklch(var(--gz-p))",
-                        background: "oklch(var(--gz-p) / 0.10)",
-                        boxShadow: "0 0 12px oklch(var(--gz-p) / 0.15)",
-                      }}
-                      title="Open Agent Console in new tab"
+                      className="btn btn-ghost btn-sweep hidden lg:inline-flex flex-shrink-0"
+                      title="Open the Trading Agent console in a new tab"
                     >
-                      Open Agent Console
+                      <ExternalLink size={12} />
+                      Agent Console
                     </a>
                   </div>
 
-                  {/* Right controls */}
-                  <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <Clock />
-                    <div className="h-4 w-px hidden sm:block" style={{ background: "oklch(var(--gz-p) / 0.15)" }} />
+                    <span className="vdivider hidden sm:block" style={{ height: 16 }} />
                     <NotificationBell />
                     <ThemeSwitcher />
                     <button
                       onClick={handleLogout}
-                      style={{
-                        height: 32, padding: "0 14px", borderRadius: 8,
-                        border: "1px solid oklch(0.500 0.200 25 / 0.25)",
-                        background: "oklch(0.500 0.200 25 / 0.08)",
-                        color: "oklch(0.720 0.180 25)",
-                        fontSize: 12, fontWeight: 700, letterSpacing: "0.04em",
-                        cursor: "pointer", textTransform: "uppercase",
-                        transition: "all 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "oklch(0.500 0.200 25 / 0.15)";
-                        e.currentTarget.style.borderColor = "oklch(0.500 0.200 25 / 0.40)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "oklch(0.500 0.200 25 / 0.08)";
-                        e.currentTarget.style.borderColor = "oklch(0.500 0.200 25 / 0.25)";
-                      }}
+                      className="btn btn-danger fx-press"
+                      title="Sign out"
                     >
-                      Sign Out
+                      <LogOut size={12} />
+                      <span className="hidden sm:inline">Sign Out</span>
                     </button>
                   </div>
                 </div>
               </div>
+
+              {/* Row 3 — live quote tape */}
+              <MarketTape />
             </header>
 
-          {/* ── Page content ─────────────────────────────────── */}
-          <main key={pathname} className="stagger w-full flex-1 px-4 pt-5 pb-8 sm:px-6 lg:px-10 xl:px-16" style={{ minWidth: 0 }}>
-            <Outlet />
-          </main>
+            {/* ── Page content ─────────────────────────────────── */}
+            <main
+              key={pathname}
+              className="fx-stagger w-full flex-1 px-4 pt-4 pb-8 sm:px-6 lg:px-10 xl:px-16"
+              style={{ minWidth: 0 }}
+            >
+              <Outlet />
+            </main>
 
-          {/* ── Footer ──────────────────────────────────────── */}
-          <footer
-            className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:px-10 xl:px-16"
-            style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.09)" }}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-[12px] sm:text-[13px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>
-                <span className="font-display font-semibold tracking-widest" style={{ color: "oklch(var(--gz-mut))" }}>GIZZYFX</span>
-                {" "}· Institutional terminal — hedge calculator, validator & MetaApi execution.
-              </p>
-              <p className="text-[12px] sm:text-[13px]" style={{ color: "oklch(var(--gz-mut) / 0.75)" }}>Educational use · Trade at your own risk.</p>
-            </div>
-          </footer>
-        </div>
+            {/* ── Footer ──────────────────────────────────────── */}
+            <footer className="appfooter w-full px-4 py-4 sm:px-6 sm:py-5 lg:px-10 xl:px-16">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.85)" }}>
+                  <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>GIZZYFX</span>
+                  {" · Institutional terminal — hedge engine, validator & MetaApi execution."}
+                </p>
+                <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.85)" }}>
+                  Educational use · Trade at your own risk.
+                </p>
+              </div>
+            </footer>
+          </div>
 
-        <Toaster
-          theme="dark"
-          position="top-center"
-          toastOptions={{
-            style: {
-              background: "oklch(var(--gz-s2) / 0.96)",
-              border: "1px solid oklch(var(--gz-p) / 0.28)",
-              color: "oklch(var(--gz-txt))",
-              boxShadow: "0 0 24px oklch(var(--gz-p) / 0.18)",
-              backdropFilter: "blur(16px)",
-            },
-          }}
-        />
-      </StoreProvider>
+          <Toaster
+            theme="dark"
+            position="top-center"
+            toastOptions={{
+              style: {
+                background: "oklch(var(--gz-s2) / 0.97)",
+                border: "1px solid oklch(var(--gz-p) / 0.24)",
+                color: "oklch(var(--gz-txt))",
+                borderRadius: 3,
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                boxShadow: "var(--gz-e3)",
+                backdropFilter: "blur(16px)",
+              },
+            }}
+          />
+        </StoreProvider>
       </NotificationProvider>
     </QueryClientProvider>
   );

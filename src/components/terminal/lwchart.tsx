@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
+import { chartTheme, onThemeChange } from "@/lib/chart-theme";
 
 declare global {
   interface Window {
@@ -251,25 +253,49 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
     if (!container) return;
 
     const LW = window.LightweightCharts;
+    const t = chartTheme();
     const chart = LW.createChart(container, {
       width: container.clientWidth,
       height: typeof height === "number" ? height : container.clientHeight || 480,
+      /* Native-resolution canvas: LW multiplies its internal buffer by the
+         device pixel ratio, so on a 3x phone or a 4K panel the candles and
+         axis text are rendered at real pixels instead of being upscaled. */
       layout: {
-        background: { color: "#0d0d0d" },
-        textColor: "#9ca3af",
-        fontFamily: "'JetBrains Mono', monospace",
+        background: { color: t.bg },
+        textColor: t.text,
+        fontFamily: "'JetBrains Mono', ui-monospace, monospace",
         fontSize: 11,
+        attributionLogo: false,
       },
-      grid: { vertLines: { color: "#1a1f2e" }, horzLines: { color: "#1a1f2e" } },
-      crosshair: { mode: 1 },
-      rightPriceScale: { borderColor: "#1e293b", minimumWidth: 64 },
-      timeScale: { borderColor: "#1e293b", timeVisible: true, secondsVisible: false },
+      grid: {
+        vertLines: { color: t.grid, style: 0 },
+        horzLines: { color: t.grid, style: 0 },
+      },
+      crosshair: {
+        mode: 1,
+        vertLine: { color: t.crosshair, width: 1, style: 2, labelBackgroundColor: t.accent },
+        horzLine: { color: t.crosshair, width: 1, style: 2, labelBackgroundColor: t.accent },
+      },
+      rightPriceScale: {
+        borderColor: t.border,
+        minimumWidth: 68,
+        scaleMargins: { top: 0.1, bottom: 0.1 },
+      },
+      timeScale: {
+        borderColor: t.border,
+        timeVisible: true,
+        secondsVisible: false,
+        rightOffset: 6,
+      },
+      handleScale: { axisPressedMouseMove: { time: true, price: true } },
     });
 
     const candleSeries = chart.addCandlestickSeries({
-      upColor: "#22c55e", downColor: "#ef4444",
-      borderDownColor: "#ef4444", borderUpColor: "#22c55e",
-      wickDownColor: "#6b7280", wickUpColor: "#6b7280",
+      upColor: t.up, downColor: t.down,
+      borderDownColor: t.down, borderUpColor: t.up,
+      wickDownColor: t.wick, wickUpColor: t.wick,
+      priceLineColor: t.accent,
+      priceLineStyle: 2,
     });
 
     chartRef.current = chart;
@@ -326,7 +352,30 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
     });
     ro.observe(container);
 
+    /* Repaint when the user switches palette — the switcher flips
+       data-theme on <html>, which canvas can't observe on its own. */
+    const offTheme = onThemeChange(() => {
+      const n = chartTheme();
+      chart.applyOptions({
+        layout: { background: { color: n.bg }, textColor: n.text },
+        grid: { vertLines: { color: n.grid }, horzLines: { color: n.grid } },
+        crosshair: {
+          vertLine: { color: n.crosshair, labelBackgroundColor: n.accent },
+          horzLine: { color: n.crosshair, labelBackgroundColor: n.accent },
+        },
+        rightPriceScale: { borderColor: n.border },
+        timeScale: { borderColor: n.border },
+      });
+      candleSeriesRef.current?.applyOptions({
+        upColor: n.up, downColor: n.down,
+        borderUpColor: n.up, borderDownColor: n.down,
+        wickUpColor: n.wick, wickDownColor: n.wick,
+        priceLineColor: n.accent,
+      });
+    });
+
     return () => {
+      offTheme();
       ro.disconnect();
       drawingSeriesRef.current = [];
       chart.remove();
@@ -345,10 +394,13 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
 
     // Re-create candle series to reset price lines (v4 limitation)
     const oldSeries = candleSeriesRef.current;
+    const ft = chartTheme();
     const freshSeries = chart.addCandlestickSeries({
-      upColor: "#22c55e", downColor: "#ef4444",
-      borderDownColor: "#ef4444", borderUpColor: "#22c55e",
-      wickDownColor: "#6b7280", wickUpColor: "#6b7280",
+      upColor: ft.up, downColor: ft.down,
+      borderDownColor: ft.down, borderUpColor: ft.up,
+      wickDownColor: ft.wick, wickUpColor: ft.wick,
+      priceLineColor: ft.accent,
+      priceLineStyle: 2,
     });
     if (oldSeries) {
       try { chart.removeSeries(oldSeries); } catch { /* ignore */ }
@@ -409,36 +461,57 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
           <button
             title="Clear my drawings"
             onClick={() => { setUserDrawings([]); setPendingPoint(null); }}
-            className="flex h-7 w-7 items-center justify-center rounded-md border border-red-500/40 bg-card/80 text-[11px] font-bold text-red-400 hover:bg-red-500/10 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-sm border transition-colors"
+            style={{
+              borderColor: "oklch(var(--gz-neg) / 0.40)",
+              background: "oklch(var(--gz-s2) / 0.85)",
+              color: "oklch(var(--gz-neg))",
+            }}
           >
-            ✕
+            <X size={13} strokeWidth={2.5} />
           </button>
         )}
       </div>
 
       {/* Pending point indicator */}
       {pendingPoint && (
-        <div className="absolute top-2 right-2 z-10 rounded-md border border-primary/40 bg-card/90 px-2 py-1 text-[11px] text-primary">
-          Click second point… (or press Esc)
+        <div
+          className="absolute top-2 right-2 z-10 rounded-sm px-2 py-1 text-[11px] fx-zoom"
+          style={{
+            border: "1px solid oklch(var(--gz-p) / 0.40)",
+            background: "oklch(var(--gz-s2) / 0.92)",
+            color: "oklch(var(--gz-p))",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          Click second point… (Esc to cancel)
         </div>
       )}
 
       <div
         ref={containerRef}
-        style={{ width: "100%", height: "100%", cursor: cursorStyle }}
-        className="bg-[#0d0d0d]"
+        style={{
+          width: "100%", height: "100%", cursor: cursorStyle,
+          background: "oklch(var(--gz-bg))",
+        }}
         onKeyDown={(e) => { if (e.key === "Escape") { setPendingPoint(null); setActiveTool("cursor"); } }}
         tabIndex={0}
       />
 
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#0d0d0d]/70">
-          <span className="text-[13px] text-muted-foreground animate-pulse">Loading chart…</span>
+        <div
+          className="absolute inset-0 flex items-center justify-center fx-scan"
+          style={{ background: "oklch(var(--gz-bg) / 0.75)" }}
+        >
+          <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>Loading chart…</span>
         </div>
       )}
       {!loading && !bars.length && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#0d0d0d]/60">
-          <span className="text-[13px] text-muted-foreground">No data</span>
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ background: "oklch(var(--gz-bg) / 0.65)" }}
+        >
+          <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>No data</span>
         </div>
       )}
     </div>

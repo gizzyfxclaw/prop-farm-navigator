@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
+import { AlertTriangle, Loader2, Lock, LogIn } from "lucide-react";
 import { LogoMark, LogoWordmark } from "../components/brand/logo";
 
 // ── Server action: clear the session (logout) ───────────────────────────────
@@ -31,10 +32,11 @@ function LoginPage() {
   useEffect(() => {
     try {
       const t = localStorage.getItem("gz-theme");
-      if (t && t !== "cyan") {
-        document.documentElement.dataset.theme = t;
+      const valid = ["graphite", "blue", "amber", "emerald", "purple"];
+      if (t && valid.includes(t)) {
+        document.documentElement.dataset["theme"] = t;
       } else {
-        delete document.documentElement.dataset.theme;
+        delete document.documentElement.dataset["theme"];
       }
     } catch {}
   }, []);
@@ -98,118 +100,105 @@ function LoginPage() {
         padding: "1rem",
       }}
     >
-      {/* Ambient glow */}
-      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
-        <div style={{
-          position: "absolute", top: "-10%", left: "-5%",
-          width: "60vw", height: "60vw", borderRadius: "50%",
-          background: "radial-gradient(circle, oklch(var(--gz-p) / 0.07) 0%, transparent 70%)",
-        }} />
-        <div style={{
-          position: "absolute", bottom: "-15%", right: "-10%",
-          width: "50vw", height: "50vw", borderRadius: "50%",
-          background: "radial-gradient(circle, oklch(var(--gz-p) / 0.05) 0%, transparent 70%)",
-        }} />
+      {/* Institutional backdrop — grid, mesh, vignette, grain */}
+      <div className="backdrop" aria-hidden>
+        <div className="backdrop-mesh fx-mesh" />
+        <div className="backdrop-grid" />
+        <div className="backdrop-grid-major" />
+        <div className="backdrop-vignette" />
+        <div className="backdrop-grain" />
       </div>
 
-      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 380 }}>
+      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 400 }}>
         {/* Brand */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 32 }}>
-          <LogoMark size={40} />
-          <LogoWordmark height={24} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 26 }}>
+          <LogoMark size={38} />
+          <LogoWordmark height={22} />
         </div>
 
-        {/* Card */}
-        <div style={{
-          background: "oklch(var(--gz-s1) / 0.92)",
-          border: "1px solid oklch(var(--gz-p) / 0.20)",
-          borderRadius: 20,
-          padding: "2rem",
-          backdropFilter: "blur(20px) saturate(1.5)",
-          boxShadow: "0 8px 40px oklch(0 0 0 / 0.50), 0 0 0 1px oklch(var(--gz-p) / 0.07) inset",
-        }}>
-          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "oklch(var(--gz-txt))", letterSpacing: "-0.01em" }}>
-            Sign in
-          </h1>
-          <p style={{ margin: "6px 0 24px", fontSize: 13, color: "oklch(var(--gz-mut))" }}>
-            GizzyFx Institutional Terminal
-          </p>
+        {/* Auth panel */}
+        <div className="panel panel-accent fx-edge fx-rise" style={{ boxShadow: "var(--gz-e3)" }}>
+          <div className="panel-head">
+            <h1 className="panel-head-title">Terminal access</h1>
+            <span className="badge badge-neutral">
+              <Lock size={9} />
+              Secured
+            </span>
+          </div>
 
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "oklch(var(--gz-mut))", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                Email
+          <div className="panel-body">
+            <p className="mono-cap" style={{ color: "oklch(var(--gz-mut))", marginBottom: 18 }}>
+              GizzyFx Institutional Terminal
+            </p>
+
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <span className="ctl-label">Email</span>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  className="ctl"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </label>
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{
-                  height: 44, borderRadius: 12, border: "1px solid oklch(var(--gz-p) / 0.22)",
-                  background: "oklch(var(--gz-inp))", color: "oklch(var(--gz-txt))",
-                  padding: "0 14px", fontSize: 14, fontFamily: "'Geist', system-ui, sans-serif",
-                  outline: "none",
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(var(--gz-p) / 0.65)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(var(--gz-p) / 0.22)"; }}
-              />
-            </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "oklch(var(--gz-mut))", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                Password
+              <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <span className="ctl-label">Password</span>
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  className="ctl"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
               </label>
-              <input
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  height: 44, borderRadius: 12, border: "1px solid oklch(var(--gz-p) / 0.22)",
-                  background: "oklch(var(--gz-inp))", color: "oklch(var(--gz-txt))",
-                  padding: "0 14px", fontSize: 14, fontFamily: "'Geist', system-ui, sans-serif",
-                  outline: "none",
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(var(--gz-p) / 0.65)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(var(--gz-p) / 0.22)"; }}
-              />
-            </div>
 
-            {error && (
-              <p style={{
-                margin: 0, padding: "10px 14px", borderRadius: 10, fontSize: 13,
-                background: locked ? "oklch(0.450 0.150 50 / 0.12)" : "oklch(0.500 0.200 25 / 0.12)",
-                border: locked ? "1px solid oklch(0.450 0.150 50 / 0.35)" : "1px solid oklch(0.500 0.200 25 / 0.30)",
-                color: locked ? "oklch(0.750 0.150 50)" : "oklch(0.720 0.180 25)",
-              }}>
-                {locked ? `Too many failed attempts. Try again in ${countdown}s.` : error}
-              </p>
-            )}
+              {error && (
+                <div className={locked ? "alert alert-amber" : "alert alert-red fx-nudge"}>
+                  <p className="alert-title">
+                    <AlertTriangle size={12} />
+                    {locked ? "Rate limited" : "Sign in failed"}
+                  </p>
+                  <p className="alert-body">
+                    {locked ? `Too many failed attempts. Try again in ${countdown}s.` : error}
+                  </p>
+                </div>
+              )}
 
-            <button
-              type="submit"
-              disabled={busy || locked}
-              style={{
-                marginTop: 4, height: 44, borderRadius: 12, border: "none",
-                cursor: busy || locked ? "default" : "pointer",
-                background: locked
-                  ? "oklch(0.350 0.080 50)"
-                  : busy ? "oklch(var(--gz-p) / 0.50)" : "oklch(var(--gz-p))",
-                color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em",
-                boxShadow: busy || locked ? "none" : "0 0 18px oklch(var(--gz-p) / 0.40)",
-                transition: "all 0.18s ease",
-              }}
-            >
-              {busy ? "Signing in…" : locked ? `Locked — ${countdown}s` : "Sign in"}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={busy || locked}
+                className="btn btn-primary btn-sweep"
+                style={{ marginTop: 4, height: 42, fontSize: 12 }}
+              >
+                {busy ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    Authenticating…
+                  </>
+                ) : locked ? (
+                  `Locked — ${countdown}s`
+                ) : (
+                  <>
+                    <LogIn size={13} />
+                    Sign in
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {busy && <span className="fx-loadbar" aria-hidden />}
         </div>
 
-        <p style={{ marginTop: 20, textAlign: "center", fontSize: 11, color: "oklch(var(--gz-mut) / 0.65)" }}>
-          GizzyFx — Institutional Prop Farming Terminal
+        <p
+          className="mono-cap"
+          style={{ marginTop: 16, textAlign: "center", color: "oklch(var(--gz-mut) / 0.65)" }}
+        >
+          Educational use · Trade at your own risk
         </p>
       </div>
     </div>

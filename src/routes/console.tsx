@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/terminal/ui";
+import { ExternalLink, RotateCcw, ShieldAlert } from "lucide-react";
+import { Badge, Button, CockpitHeader } from "@/components/terminal/ui";
 
 const HERMES_CONSOLE_URL = "https://hermes.gizzyfxstrategy.dpdns.org";
 
@@ -36,54 +37,71 @@ function ConsolePage() {
   }, [reloadKey]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Agent Console</h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            The GizzyFx Co-pilot console, running inside the terminal.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => setReloadKey((k) => k + 1)}>
-            Reload
-          </Button>
-          <a href={HERMES_CONSOLE_URL} target="_blank" rel="noreferrer">
-            <Button variant="ghost">Open in new tab ↗</Button>
-          </a>
-        </div>
-      </div>
+    <div className="engine-cockpit">
+      <CockpitHeader
+        title="Agent Console"
+        badges={
+          <Badge
+            tone={blocked ? "red" : loaded ? "green" : "amber"}
+            live={loaded && !blocked}
+          >
+            {blocked ? "Blocked" : loaded ? "Connected" : "Connecting"}
+          </Badge>
+        }
+        right={
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => setReloadKey((k) => k + 1)}>
+              <RotateCcw size={12} />
+              Reload
+            </Button>
+            <a href={HERMES_CONSOLE_URL} target="_blank" rel="noreferrer">
+              <Button variant="ghost">
+                <ExternalLink size={12} />
+                New tab
+              </Button>
+            </a>
+          </div>
+        }
+      />
 
       <div
-        className="relative overflow-hidden rounded-xl"
-        style={{
-          border: "1px solid oklch(0.680 0.230 295 / 0.13)",
-          boxShadow: "0 0 12px oklch(0.680 0.230 295 / 0.08)",
-          height: "calc(100svh - 160px)",
-          minHeight: 500,
-        }}
+        className="panel relative overflow-hidden"
+        style={{ height: "calc(100svh - 210px)", minHeight: 460, padding: 0 }}
       >
+        {!loaded && !blocked && <span className="fx-loadbar" aria-hidden />}
+
         {!loaded && !blocked && (
-          <div className="absolute inset-0 grid place-items-center">
-            <span className="animate-pulse text-[13px] text-muted-foreground">
-              Loading console…
+          <div className="absolute inset-0 grid place-items-center fx-scan" style={{ zIndex: 2 }}>
+            <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
+              Connecting to co-pilot…
             </span>
           </div>
         )}
+
         {blocked && (
-          <div className="absolute inset-0 grid place-items-center">
-            <div className="text-center">
-              <div className="text-lg font-semibold text-foreground mb-2">Console not loading</div>
-              <p className="text-[13px] text-muted-foreground mb-4">
-                The console may be blocked by browser security policies.
-                Try opening it in a new tab.
+          <div className="absolute inset-0 grid place-items-center px-4" style={{ zIndex: 2 }}>
+            <div className="alert alert-amber fx-zoom" style={{ maxWidth: 420 }}>
+              <p className="alert-title">
+                <ShieldAlert size={13} />
+                Console not loading
               </p>
-              <a href={HERMES_CONSOLE_URL} target="_blank" rel="noreferrer">
-                <Button>Open Console in New Tab ↗</Button>
+              <p className="alert-body">
+                The embed may be blocked by frame-ancestors policy or the mobile browser.
+                Open it directly instead.
+              </p>
+              <a
+                href={HERMES_CONSOLE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-primary btn-sweep mt-3 inline-flex"
+              >
+                <ExternalLink size={12} />
+                Open console
               </a>
             </div>
           </div>
         )}
+
         <iframe
           key={reloadKey}
           ref={frameRef}
@@ -92,7 +110,7 @@ function ConsolePage() {
           onLoad={() => setLoaded(true)}
           onError={() => setBlocked(true)}
           className="h-full w-full"
-          style={{ border: 0, background: "oklch(0.085 0.020 292)" }}
+          style={{ border: 0, background: "oklch(var(--gz-bg))" }}
           allow="clipboard-write; microphone"
         />
       </div>

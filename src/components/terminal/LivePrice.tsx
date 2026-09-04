@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { fetchQuote } from "@/lib/metaapi.functions";
+import { LiveDot, Skeleton, TickValue } from "./anim";
+
+/** Feed is stale once the last successful poll is older than this. */
+const STALE_AFTER_MS = 15_000;
 
 export function LivePrice() {
   const { engine, meta } = useStore();
@@ -44,43 +48,58 @@ export function LivePrice() {
   if (!configured) {
     return (
       <div className="flex items-center gap-2" title="Add MetaApi credentials in Settings for live price">
-        <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "oklch(var(--gz-mut))" }}>
-          {engine.pair}
-        </span>
-        <span className="font-mono text-[12px] font-semibold" style={{ color: "oklch(var(--gz-mut))" }}>
+        <span className="mono-cap c-mut">{engine.pair}</span>
+        <span className="font-mono c-mut" style={{ fontSize: 12, fontWeight: 600 }}>
           —
         </span>
+        <LiveDot state="dead" title="No credentials — feed offline" />
       </div>
     );
   }
 
+  const age = updatedAt === null ? null : Date.now() - updatedAt;
+  const feedState: "live" | "stale" | "dead" =
+    error !== null ? "dead" : age === null || age > STALE_AFTER_MS ? "stale" : "live";
+  const feedTitle =
+    error !== null
+      ? `Feed error: ${error}`
+      : age === null
+        ? "Waiting for first quote"
+        : `Last update ${Math.floor(age / 1000)}s ago`;
+
   return (
-    <div className="flex items-center gap-3" title={`Live ${engine.pair} from MetaApi`}>
-      <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "oklch(var(--gz-mut))" }}>
+    <div className="flex items-center gap-2.5" title={`Live ${engine.pair} from MetaApi`}>
+      <span className="mono-cap" style={{ color: "oklch(var(--gz-h))" }}>
         {engine.pair}
       </span>
+
       <span
-        className="font-mono text-[12px] font-semibold"
-        style={{ color: error ? "oklch(0.637 0.208 25.3)" : "oklch(var(--gz-txt))" }}
+        className="font-mono"
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          letterSpacing: "0.01em",
+          color: error !== null ? "oklch(var(--gz-neg))" : "oklch(var(--gz-txt))",
+        }}
       >
-        {loading && price === null ? "…" : price !== null ? price.toFixed(dec) : "—"}
+        {loading && price === null ? (
+          <Skeleton w={64} h={12} />
+        ) : (
+          <TickValue value={price} format={(v) => v.toFixed(dec)} showArrow />
+        )}
       </span>
+
       {bid !== null && ask !== null && (
-        <span className="font-mono text-[9px]" style={{ color: "oklch(var(--gz-mut))" }}>
+        <span
+          className="font-mono c-mut hidden lg:inline"
+          style={{ fontSize: 9.5, fontVariantNumeric: "tabular-nums slashed-zero" }}
+          title="Bid / Ask"
+        >
           {bid.toFixed(dec)} / {ask.toFixed(dec)}
         </span>
       )}
-      {updatedAt !== null && (
-        <span
-          className="inline-block h-1.5 w-1.5 rounded-full"
-          style={{
-            background: error ? "oklch(0.637 0.208 25.3)" : "oklch(0.720 0.190 148)",
-            boxShadow: error ? "none" : "0 0 4px oklch(0.720 0.190 148)",
-            animation: "gz-pulse 2s ease-in-out infinite",
-          }}
-          title={error ? `Error: ${error}` : `Live — updated ${Math.floor((Date.now() - updatedAt) / 1000)}s ago`}
-        />
-      )}
+
+      <LiveDot state={feedState} title={feedTitle} />
     </div>
   );
 }
