@@ -87,7 +87,12 @@ const KEYS = {
   journal: "gizzyfx.journal",
   meta: "gizzyfx.metaapi",
   engine: "gizzyfx.engine",
+  /** Bump this when preset account specs change — forces preset refresh. */
+  presetsVersion: "gizzyfx.presetsVersion",
 } as const;
+
+/** Current preset schema version — increment when PRESET_LADDER changes. */
+const PRESETS_VERSION = "2";  // v1=9%/fee44, v2=6%/fee28.60
 
 interface StorageAdapter {
   read<T>(key: string, fallback: T): T;
@@ -205,7 +210,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Step 1: hydrate from localStorage immediately for instant UI.
     const storedAccounts = storage.read<PropAccount[]>(KEYS.accounts, defaultAccounts());
-    const localAccounts = storedAccounts.length ? storedAccounts : defaultAccounts();
+    const storedPresetsVersion = storage.read<string>(KEYS.presetsVersion, "1");
+
+    // ── Preset migration ──────────────────────────────────────────────────
+    // When PRESET_LADDER changes (new fees, new percentages), old cached
+    // preset accounts in localStorage will have stale numbers.
+    // Strategy: replace stale presets with fresh ones, keep custom accounts.
+    let localAccounts: PropAccount[];
+    if (storedPresetsVersion !== PRESETS_VERSION) {
+      // Refresh presets — keep any non-preset (custom) accounts the user added.
+      const fresh = defaultAccounts();
+      const freshIds = new Set(fresh.map((a) => a.id));
+      const customAccounts = storedAccounts.filter((a) => !freshIds.has(a.id));
+      localAccounts = [...fresh, ...customAccounts];
+      storage.write(KEYS.accounts, localAccounts);
+      storage.write(KEYS.presetsVersion, PRESETS_VERSION);
+      // Also reset propRiskUsd to the correct default for the selected account
+      // so the engine doesn't start with a stale risk value.
+      const storedEngine = storage.read<Partial<EngineSettings>>(KEYS.engine, {});
+      const selectedId = storedEngine.selectedAccountId ?? localAccounts[0]?.id ?? "preset-5000";
+      const selectedAcct = localAccounts.find((a) => a.id === selectedId) ?? localAccounts[0];
+      if (selectedAcct) {
+        const baseSize = 5000;
+        const baseRisk = 50;
+        const scaledRisk = Math.round((baseRisk * selectedAcct.size / baseSize) * 100) / 100;
+        // Only reset risk if it's the old default ($50 flat for every account)
+        if (!storedEngine.propRiskUsd || storedEngine.propRiskUsd === 50) {
+          storedEngine.propRiskUsd = scaledRisk;
+          storage.write(KEYS.engine, { ...defaultEngine(selectedId), ...storedEngine });
+        }
+      }
+    } else {
+      localAccounts = storedAccounts.length ? storedAccounts : defaultAccounts();
+    }
     setAccounts(localAccounts);
     setEngineState({ ...defaultEngine(localAccounts[0]?.id ?? "preset-5000"), ...storage.read<Partial<EngineSettings>>(KEYS.engine, {}) });
     setMetaState({ ...defaultMeta(), ...storage.read<Partial<MetaApiSettings>>(KEYS.meta, {}) });
@@ -219,8 +256,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         storage.write(KEYS.journal, serverJournal);
       }
       if (serverSettings.accounts && serverSettings.accounts.length > 0) {
-        setAccounts(serverSettings.accounts);
-        storage.write(KEYS.accounts, serverSettings.accounts);
+        // Migrate stale presets from server-stored accounts too.
+        const fresh = defaultAccounts();
+        const freshIds = new Set(fresh.map((a) => a.id));
+        const customFromServer = serverSettings.accounts.filter((a: PropAccount) => !freshIds.has(a.id));
+        const mergedAccounts: PropAccount[] = [...fresh, ...customFromServer];
+        setAccounts(mergedAccounts);
+        storage.write(KEYS.accounts, mergedAccounts);
       }
       if (serverSettings.engine) {
         setEngineState((prev) => {
