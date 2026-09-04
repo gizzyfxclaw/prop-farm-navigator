@@ -417,7 +417,7 @@ export function RulesAlertPanel() {
       case "critical": return <XCircle size={size} style={{ color: "oklch(0.70 0.22 29)" }} />;
       case "warning": return <AlertTriangle size={size} style={{ color: "oklch(0.80 0.16 80)" }} />;
       case "ok": return <CheckCircle2 size={size} style={{ color: "oklch(0.65 0.2 155)" }} />;
-      case "info": return <Info size={size} style={{ color: "oklch(0.680 0.230 295)" }} />;
+      case "info": return <Info size={size} style={{ color: "oklch(var(--gz-p))" }} />;
     }
   };
 
@@ -426,7 +426,7 @@ export function RulesAlertPanel() {
       case "critical": return { background: "oklch(0.55 0.25 29 / 0.12)", border: "1px solid oklch(0.55 0.25 29 / 0.3)" };
       case "warning": return { background: "oklch(0.75 0.18 80 / 0.1)", border: "1px solid oklch(0.75 0.18 80 / 0.25)" };
       case "ok": return { background: "oklch(0.55 0.2 155 / 0.08)", border: "1px solid oklch(0.55 0.2 155 / 0.2)" };
-      case "info": return { background: "oklch(0.680 0.230 295 / 0.05)", border: "1px solid oklch(0.680 0.230 295 / 0.1)" };
+      case "info": return { background: "oklch(var(--gz-p) / 0.05)", border: "1px solid oklch(var(--gz-p) / 0.1)" };
     }
   };
 
@@ -435,7 +435,7 @@ export function RulesAlertPanel() {
       case "critical": return "oklch(0.70 0.22 29)";
       case "warning": return "oklch(0.80 0.16 80)";
       case "ok": return "oklch(0.65 0.2 155)";
-      case "info": return "oklch(0.680 0.230 295)";
+      case "info": return "oklch(var(--gz-p))";
     }
   };
 
@@ -443,11 +443,11 @@ export function RulesAlertPanel() {
   const dualClock = `${formatTime(wat)} WAT · ${formatTime(et)} ET`;
 
   return (
-    <div style={{ background: "oklch(0.13 0.01 295)", border: "1px solid oklch(0.680 0.230 295 / 0.13)", borderRadius: "12px", overflow: "hidden" }}>
+    <div style={{ background: "oklch(var(--gz-bg))", border: "1px solid oklch(var(--gz-p) / 0.13)", borderRadius: "12px", overflow: "hidden" }}>
       {/* Header */}
-      <header className="flex items-center justify-between gap-3 px-4 py-2.5" style={{ borderBottom: "1px solid oklch(0.680 0.230 295 / 0.1)", background: "oklch(0.15 0.01 295)" }}>
+      <header className="flex items-center justify-between gap-3 px-4 py-2.5" style={{ borderBottom: "1px solid oklch(var(--gz-p) / 0.1)", background: "oklch(var(--gz-s1))" }}>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "oklch(0.680 0.230 295)" }}>
+          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "oklch(var(--gz-p))" }}>
             Rules & Alerts
           </span>
           {/* Live status badges */}
@@ -474,17 +474,17 @@ export function RulesAlertPanel() {
           {/* Live pulse */}
           <div className="flex items-center gap-1.5">
             <div className="relative">
-              <div className="h-1.5 w-1.5 rounded-full animate-ping absolute" style={{ background: "oklch(0.680 0.230 295)", opacity: 0.4 }} />
-              <div className="h-1.5 w-1.5 rounded-full relative" style={{ background: "oklch(0.680 0.230 295)" }} />
+              <div className="h-1.5 w-1.5 rounded-full animate-ping absolute" style={{ background: "oklch(var(--gz-p))", opacity: 0.4 }} />
+              <div className="h-1.5 w-1.5 rounded-full relative" style={{ background: "oklch(var(--gz-p))" }} />
             </div>
-            <span className="font-mono text-[10px] tabular-nums" style={{ color: "oklch(0.680 0.230 295)" }}>
+            <span className="font-mono text-[10px] tabular-nums" style={{ color: "oklch(var(--gz-p))" }}>
               {dualClock}
             </span>
           </div>
           <button
             onClick={() => setExpanded(!expanded)}
             className="text-[10px] transition-colors"
-            style={{ color: "oklch(0.680 0.230 295 / 0.6)" }}
+            style={{ color: "oklch(var(--gz-p) / 0.6)" }}
           >
             {expanded ? "▲" : "▼"}
           </button>
@@ -560,7 +560,7 @@ export function RulesAlertPanel() {
                         CRITICAL
                       </span>
                     )}
-                    <span className="text-[8px] uppercase" style={{ color: "oklch(0.680 0.230 295 / 0.4)" }}>
+                    <span className="text-[8px] uppercase" style={{ color: "oklch(var(--gz-p) / 0.4)" }}>
                       {lr.rule.category}
                     </span>
                   </div>
@@ -588,7 +588,7 @@ export function RulesAlertPanel() {
             ))}
 
           {/* Market Status Bar */}
-          <div className="mt-2 rounded-lg p-2.5 flex items-center gap-3" style={{ background: "oklch(0.680 0.230 295 / 0.03)", border: "1px solid oklch(0.680 0.230 295 / 0.08)" }}>
+          <div className="mt-2 rounded-lg p-2.5 flex items-center gap-3" style={{ background: "oklch(var(--gz-p) / 0.03)", border: "1px solid oklch(var(--gz-p) / 0.08)" }}>
             <div className="flex items-center gap-1.5">
               <div className="relative">
                 <div
@@ -604,13 +604,13 @@ export function RulesAlertPanel() {
                 {market.open ? "MARKET OPEN" : "MARKET CLOSED"}
               </span>
             </div>
-            <span className="text-[9px]" style={{ color: "oklch(0.680 0.230 295 / 0.5)" }}>
+            <span className="text-[9px]" style={{ color: "oklch(var(--gz-p) / 0.5)" }}>
               {market.detail.slice(0, 60)}
             </span>
-            <span className="ml-auto font-mono text-[9px] tabular-nums" style={{ color: "oklch(0.680 0.230 295 / 0.5)" }}>
+            <span className="ml-auto font-mono text-[9px] tabular-nums" style={{ color: "oklch(var(--gz-p) / 0.5)" }}>
               {market.changesIn}
             </span>
-            <span className="font-mono text-[9px]" style={{ color: "oklch(0.680 0.230 295 / 0.4)" }}>
+            <span className="font-mono text-[9px]" style={{ color: "oklch(var(--gz-p) / 0.4)" }}>
               {r.phase === 1 ? "Phase 1" : "Phase 2"} · R:R 1:{r.rr}
             </span>
           </div>

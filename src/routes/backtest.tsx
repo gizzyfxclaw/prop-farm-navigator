@@ -384,7 +384,7 @@ function BacktestPage() {
                   <Line
                     type="monotone"
                     dataKey="equity"
-                    stroke="oklch(0.680 0.230 295)"
+                    stroke="oklch(var(--gz-p))"
                     dot={false}
                     strokeWidth={2}
                   />
