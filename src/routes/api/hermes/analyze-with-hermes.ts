@@ -26,13 +26,13 @@ const feedbackInput = z.object({
   request_id: z.string(),
   verdict: z.enum(["match", "diverge", "partial", "neutral"]),
   feedback: z.string(),
-  strategy_notes: z.string().optional(),
-  entry: z.number().optional(),
-  stop_loss: z.number().optional(),
-  take_profit_1: z.number().optional(),
-  take_profit_2: z.number().optional(),
-  direction: z.enum(["long", "short"]).optional(),
-  accuracy_grade: z.enum(["HIGH", "STANDARD", "NONE"]).optional(),
+  strategy_notes: z.string().nullish(),
+  entry: z.number().nullish(),
+  stop_loss: z.number().nullish(),
+  take_profit_1: z.number().nullish(),
+  take_profit_2: z.number().nullish(),
+  direction: z.enum(["long", "short"]).nullish(),
+  accuracy_grade: z.enum(["HIGH", "STANDARD", "NONE"]).nullish(),
 });
 
 export const Route = createFileRoute("/api/hermes/analyze-with-hermes")({
