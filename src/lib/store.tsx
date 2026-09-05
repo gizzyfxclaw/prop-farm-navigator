@@ -66,6 +66,10 @@ export interface MetaApiSettings {
 
 export type PendingOrderType = "BUY_LIMIT" | "BUY_STOP" | "SELL_LIMIT" | "SELL_STOP";
 
+export function directionFromPendingOrder(order: PendingOrderType): Direction {
+  return order.startsWith("BUY") ? "LONG" : "SHORT";
+}
+
 export function mirrorPendingOrder(order: PendingOrderType): PendingOrderType {
   const mirror: Record<PendingOrderType, PendingOrderType> = {
     BUY_LIMIT:  "SELL_STOP",

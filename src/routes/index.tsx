@@ -10,7 +10,7 @@ import {
 } from "@/components/terminal/ui";
 import { CountUp, Gauge, LedMeter, LoadBar, TickValue } from "@/components/terminal/anim";
 import { money, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
-import { mirrorPendingOrder, type PendingOrderType } from "@/lib/store";
+import { mirrorPendingOrder, directionFromPendingOrder, type PendingOrderType } from "@/lib/store";
 import { useNotifications } from "@/lib/notifications";
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
 import { placePendingOrder } from "@/lib/metaapi.functions";
@@ -413,24 +413,26 @@ function EnginePage() {
             <Field label="Safety buffer (%)" hint="Spread / slippage cushion">
               <TextInput type="number" step="1" value={engine.bufferPct} onChange={(e) => setEngine({ bufferPct: Number(e.target.value) })} />
             </Field>
-            <Field label="Prop pending order">
-              <Select value={engine.pendingOrderType} onChange={(e) => setEngine({ pendingOrderType: e.target.value as PendingOrderType })}>
-                <option value="BUY_LIMIT">BUY_LIMIT (entry below price)</option>
-                <option value="BUY_STOP">BUY_STOP (entry above price)</option>
-                <option value="SELL_LIMIT">SELL_LIMIT (entry above price)</option>
-                <option value="SELL_STOP">SELL_STOP (entry below price)</option>
-              </Select>
+            <Field label="Prop pending order" hint="Direction auto-derived (BUY=LONG, SELL=SHORT)">
+              <div className="flex gap-2">
+                <Select value={engine.pendingOrderType} onChange={(e) => {
+                  const order = e.target.value as PendingOrderType;
+                  setEngine({ pendingOrderType: order, direction: directionFromPendingOrder(order) });
+                }}>
+                  <option value="BUY_LIMIT">BUY_LIMIT → LONG (buy below)</option>
+                  <option value="BUY_STOP">BUY_STOP → LONG (buy above)</option>
+                  <option value="SELL_LIMIT">SELL_LIMIT → SHORT (sell above)</option>
+                  <option value="SELL_STOP">SELL_STOP → SHORT (sell below)</option>
+                </Select>
+                <div className="h-11 flex items-center rounded-xl border border-white/10 bg-white/[0.02] px-3 text-sm font-mono text-foreground min-w-[80px] justify-center">
+                  {directionFromPendingOrder(engine.pendingOrderType)}
+                </div>
+              </div>
             </Field>
             <Field label="Exness pending order" hint="Auto-mirrored — opposite of prop">
               <div className="h-11 flex items-center rounded-xl border border-white/10 bg-white/[0.02] px-3 text-sm font-mono text-foreground">
-                {mirrorPendingOrder(engine.pendingOrderType)}
+                {mirrorPendingOrder(engine.pendingOrderType)} ({directionFromPendingOrder(mirrorPendingOrder(engine.pendingOrderType))})
               </div>
-            </Field>
-            <Field label="Prop direction">
-              <Select value={engine.direction} onChange={(e) => setEngine({ direction: e.target.value as Direction })}>
-                <option value="LONG">LONG</option>
-                <option value="SHORT">SHORT</option>
-              </Select>
             </Field>
             <Field label="Exness account type">
               <Select value={engine.exnessAccountType} onChange={(e) => setEngine({ exnessAccountType: e.target.value as ExnessAccountType })}>
