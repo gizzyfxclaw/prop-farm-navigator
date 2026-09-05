@@ -9,7 +9,8 @@ import {
   Field, Row, Segmented, Select, Stat, TextInput,
 } from "@/components/terminal/ui";
 import { CountUp, Gauge, LedMeter, LoadBar, TickValue } from "@/components/terminal/anim";
-import { money, pendingOrderType, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
+import { money, type Direction, type ExnessAccountType } from "@/lib/engine/calc";
+import { mirrorPendingOrder, type PendingOrderType } from "@/lib/store";
 import { useNotifications } from "@/lib/notifications";
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
 import { placePendingOrder } from "@/lib/metaapi.functions";
@@ -136,7 +137,9 @@ function EnginePage() {
       return;
     }
 
-    const actionType = pendingOrderType(direction, r.entryPrice, live.price);
+    const propActionType = `ORDER_TYPE_${engine.pendingOrderType}` as const;
+    const exnessActionType = `ORDER_TYPE_${mirrorPendingOrder(engine.pendingOrderType)}` as const;
+    const actionType = isProp ? propActionType : exnessActionType;
     const summary = `${actionType.replace("ORDER_TYPE_", "")} ${symbol} ${volume} lots @ ${formatPrice(r.entryPrice, dec)} · SL ${formatPrice(stopLoss, dec)} · TP ${formatPrice(takeProfit, dec)}`;
     const equityLine = balance ? `\nLive equity ${money(balance.equity)} · free margin ${money(balance.freeMargin)}` : "";
     if (!window.confirm(`Place this pending order on ${legLabel}?\n\n${summary}${equityLine}`)) return;
@@ -409,6 +412,19 @@ function EnginePage() {
             </Field>
             <Field label="Safety buffer (%)" hint="Spread / slippage cushion">
               <TextInput type="number" step="1" value={engine.bufferPct} onChange={(e) => setEngine({ bufferPct: Number(e.target.value) })} />
+            </Field>
+            <Field label="Prop pending order">
+              <Select value={engine.pendingOrderType} onChange={(e) => setEngine({ pendingOrderType: e.target.value as PendingOrderType })}>
+                <option value="BUY_LIMIT">BUY_LIMIT (entry below price)</option>
+                <option value="BUY_STOP">BUY_STOP (entry above price)</option>
+                <option value="SELL_LIMIT">SELL_LIMIT (entry above price)</option>
+                <option value="SELL_STOP">SELL_STOP (entry below price)</option>
+              </Select>
+            </Field>
+            <Field label="Exness pending order" hint="Auto-mirrored — opposite of prop">
+              <div className="h-11 flex items-center rounded-xl border border-white/10 bg-white/[0.02] px-3 text-sm font-mono text-foreground">
+                {mirrorPendingOrder(engine.pendingOrderType)}
+              </div>
             </Field>
             <Field label="Prop direction">
               <Select value={engine.direction} onChange={(e) => setEngine({ direction: e.target.value as Direction })}>

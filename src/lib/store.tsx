@@ -64,6 +64,18 @@ export interface MetaApiSettings {
   clientApiUrl: string;
 }
 
+export type PendingOrderType = "BUY_LIMIT" | "BUY_STOP" | "SELL_LIMIT" | "SELL_STOP";
+
+export function mirrorPendingOrder(order: PendingOrderType): PendingOrderType {
+  const mirror: Record<PendingOrderType, PendingOrderType> = {
+    BUY_LIMIT:  "SELL_STOP",
+    BUY_STOP:   "SELL_LIMIT",
+    SELL_LIMIT: "BUY_STOP",
+    SELL_STOP:  "BUY_LIMIT",
+  };
+  return mirror[order];
+}
+
 export interface EngineSettings {
   selectedAccountId: string;
   phase: 1 | 2;
@@ -74,6 +86,7 @@ export interface EngineSettings {
   bufferPct: number;
   pair: PairSymbol;
   direction: Direction;
+  pendingOrderType: PendingOrderType;
   entryPrice: number;
   exnessAccountType: ExnessAccountType;
   /** Actual Exness account balance (user-entered or synced from MetaApi) */
@@ -167,6 +180,7 @@ const defaultEngine = (accountId: string): EngineSettings => ({
   bufferPct: 20,
   pair: "EURUSD",
   direction: "LONG",
+  pendingOrderType: "BUY_STOP",
   entryPrice: 1.085,
   exnessAccountType: "Cent",
   actualExnessBalance: 0,
