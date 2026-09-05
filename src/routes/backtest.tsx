@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { Alert, Badge, Button, Card, Field, TextInput } from "@/components/terminal/ui";
 import { runBacktest, type BacktestResult, type SimTrade } from "@/lib/backtest-engine";
+import { pairSpec } from "@/lib/engine/pairs";
 import { fetchHistoricalCandles } from "@/lib/metaapi.functions";
 import { loadStrategyRules, type StrategyRule } from "@/lib/hermes-db.functions";
 import { placePendingOrder } from "@/lib/metaapi.functions";
@@ -150,7 +151,8 @@ function BacktestPage() {
             slippagePips:          parseFloat(slippagePips)           || 0.5,
             commissionPerMicroLot: parseFloat(commissionPerMicroLot) || 0.07,
             lotSize:               parseFloat(lotSize)                || 0.01,
-            pipValuePerLot:        10,
+            pipValuePerLot:        pairSpec(pair).pipValue,
+            pipSize:               pairSpec(pair).pipSize,
             startingEquity:        parseFloat(startingEquity)         || 10_000,
           },
           periodDescription: `${pair} ${timeframe.toUpperCase()} ${fromDate} → ${toDate}`,

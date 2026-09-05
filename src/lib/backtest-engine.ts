@@ -54,6 +54,9 @@ export interface SimConfig {
   lotSize: number;
   /** Pip value in USD for 1.0 lot of this symbol. Default 10 (EURUSD). */
   pipValuePerLot: number;
+  /** Price distance of one pip for this symbol. Default 0.0001 (standard forex).
+   *  0.01 for JPY pairs and XAUUSD — pass `pairSpec(symbol).pipSize`. */
+  pipSize: number;
   /** Starting account equity in USD. */
   startingEquity: number;
 }
@@ -330,7 +333,7 @@ function simulate(
   rule: StrategyRuleInput,
   cfg: SimConfig,
 ): Omit<BacktestResult, "narrative" | "periodDescription"> {
-  const pipSz = 0.0001; // standard forex pip — adjust for JPY pairs if needed
+  const pipSz = cfg.pipSize;
   const pipVal = cfg.pipValuePerLot * cfg.lotSize; // USD per pip for our lot size
   const atrPeriod = 14;
   const atrVals = atr(bars, atrPeriod);
@@ -527,6 +530,7 @@ const backtestInput = z.object({
     commissionPerMicroLot:  z.number().nonnegative().default(0.07),
     lotSize:                z.number().positive().default(0.01),
     pipValuePerLot:         z.number().positive().default(10),
+    pipSize:                z.number().positive().default(0.0001),
     startingEquity:         z.number().positive().default(10_000),
   }).default({}),
   periodDescription: z.string().default(""),
@@ -548,6 +552,7 @@ export const runBacktest = createServerFn({ method: "POST" })
       commissionPerMicroLot: data.config.commissionPerMicroLot,
       lotSize:               data.config.lotSize,
       pipValuePerLot:        data.config.pipValuePerLot,
+      pipSize:               data.config.pipSize,
       startingEquity:        data.config.startingEquity,
     });
 
