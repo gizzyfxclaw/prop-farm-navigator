@@ -24,26 +24,60 @@ export interface ChartTheme {
   dpr: number;
 }
 
+/**
+ * Converts a CSS OKLCH triple ("L C H", hue in degrees) + optional alpha
+ * into an rgb()/rgba() string. Lightweight Charts parses colours with its
+ * own regex-based helper that only understands rgb/rgba/hex/hsl/named
+ * formats — handing it `oklch(...)` throws "Cannot parse color: ...", so
+ * every colour crossing into the chart must be converted here first.
+ */
+function oklchToRgb(raw: string, alpha?: number): string {
+  const [lStr = "0", cStr = "0", hStr = "0"] = raw.split(/\s+/);
+  const L = parseFloat(lStr);
+  const C = parseFloat(cStr);
+  const H = (parseFloat(hStr) || 0) * (Math.PI / 180);
+
+  const a = C * Math.cos(H);
+  const b = C * Math.sin(H);
+
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  const l = l_ ** 3, m = m_ ** 3, s = s_ ** 3;
+
+  const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  const g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  const bl = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+  const gamma = (v: number) => {
+    const c = Math.min(Math.max(v, 0), 1);
+    return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  };
+  const [r255, g255, b255] = [r, g, bl].map((v) => Math.round(gamma(v) * 255));
+
+  return alpha == null ? `rgb(${r255}, ${g255}, ${b255})` : `rgba(${r255}, ${g255}, ${b255}, ${alpha})`;
+}
+
 const FALLBACK: ChartTheme = {
-  bg: "oklch(0.038 0.006 220)",
-  text: "oklch(0.560 0.018 215)",
-  muted: "oklch(0.560 0.018 215)",
-  grid: "oklch(0.800 0.135 196 / 0.07)",
-  border: "oklch(0.800 0.135 196 / 0.18)",
-  accent: "oklch(0.800 0.135 196)",
-  highlight: "oklch(0.868 0.140 182)",
-  up: "oklch(0.735 0.185 148)",
-  down: "oklch(0.640 0.222 25)",
-  wick: "oklch(0.560 0.018 215)",
-  crosshair: "oklch(0.868 0.140 182 / 0.55)",
+  bg: oklchToRgb("0.038 0.006 220"),
+  text: oklchToRgb("0.560 0.018 215", 0.82),
+  muted: oklchToRgb("0.560 0.018 215"),
+  grid: oklchToRgb("0.800 0.135 196", 0.07),
+  border: oklchToRgb("0.800 0.135 196", 0.18),
+  accent: oklchToRgb("0.800 0.135 196"),
+  highlight: oklchToRgb("0.868 0.140 182"),
+  up: oklchToRgb("0.735 0.185 148"),
+  down: oklchToRgb("0.640 0.222 25"),
+  wick: oklchToRgb("0.560 0.018 215"),
+  crosshair: oklchToRgb("0.868 0.140 182", 0.55),
   dpr: 1,
 };
 
-/** Reads one `--gz-*` triple and wraps it as a usable oklch() colour. */
+/** Reads one `--gz-*` triple and converts it to a chart-safe colour string. */
 function token(styles: CSSStyleDeclaration, name: string, alpha?: number): string | null {
   const raw = styles.getPropertyValue(name).trim();
   if (!raw) return null;
-  return alpha == null ? `oklch(${raw})` : `oklch(${raw} / ${alpha})`;
+  return oklchToRgb(raw, alpha);
 }
 
 /**
