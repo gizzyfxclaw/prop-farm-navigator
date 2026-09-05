@@ -81,74 +81,44 @@ def get_past_verdicts():
     return ""
 
 def call_hermes_llm(prompt: str) -> str:
-    """Call the configured Hermes LLM for real AI analysis."""
-    # Load config to find the LLM endpoint
+    """Call the Hermes LLM for real AI analysis using the configured auth."""
     try:
-        import yaml
-        config_path = os.path.expanduser("~/.hermes/config.yaml")
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-
-        # Get provider config
-        provider = config.get("llm", {}).get("provider", "anthropic")
-        model = config.get("llm", {}).get("model", "claude-opus-4-5")
-        api_key_name = config.get("llm", {}).get("api_key_env", "ANTHROPIC_API_KEY")
-
-        # Get the API key from env or config
-        llm_key = os.environ.get(api_key_name, "")
-        if not llm_key:
-            # Try to load from .env
-            env_file = os.path.expanduser("~/.hermes/.env")
-            with open(env_file) as f:
-                for line in f:
-                    if "=" in line and not line.startswith("#"):
-                        k, _, v = line.strip().partition("=")
-                        if k == api_key_name:
-                            llm_key = v.strip()
-                            break
-
-        base_url = config.get("llm", {}).get("base_url", "")
-
-        if not llm_key and not base_url:
+        import json as _json
+        auth = _json.load(open(os.path.expanduser("~/.hermes/auth.json")))
+        nous_token = auth.get("providers", {}).get("nous", {}).get("access_token", "")
+        if not nous_token:
             return ""
 
-        # Build request
-        headers = {"Content-Type": "application/json"}
-        if base_url:
-            # OpenAI-compatible format (gorouter, etc.)
-            headers["Authorization"] = f"Bearer {llm_key}"
-            url = f"{base_url}/chat/completions"
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": "You are the GizzyFx Trading Agent — an expert in the GizzyFx Parallel Channel Breakout Strategy. Analyze trading setups honestly and accurately."},
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": 1000,
-                "temperature": 0.3,
-            }
-        else:
-            # Anthropic format
-            headers["x-api-key"] = llm_key
-            headers["anthropic-version"] = "2023-06-01"
-            url = "https://api.anthropic.com/v1/messages"
-            payload = {
-                "model": model,
-                "max_tokens": 1000,
-                "messages": [{"role": "user", "content": prompt}],
-            }
+        # Keep prompt short to avoid timeouts — max 2000 chars
+        trimmed = prompt[:2000] if len(prompt) > 2000 else prompt
 
-        r = requests.post(url, json=payload, headers=headers, timeout=30)
+        r = requests.post(
+            "https://inference-api.nousresearch.com/v1/chat/completions",
+            json={
+                "model": "meituan/longcat-2.0:free",
+                "messages": [
+                    {"role": "system", "content": "You are the GizzyFx Trading Agent. Analyze forex setups using the GizzyFx Parallel Channel Breakout Strategy. Be concise and specific with price levels."},
+                    {"role": "user", "content": trimmed}
+                ],
+                "max_tokens": 600,
+                "temperature": 0.2,
+            },
+            headers={"Authorization": f"Bearer {nous_token}", "Content-Type": "application/json"},
+            timeout=20
+        )
         if r.ok:
             data = r.json()
-            # Extract text from response
-            if "choices" in data:
-                return data["choices"][0]["message"]["content"]
-            elif "content" in data:
-                return data["content"][0]["text"]
+            if "choices" in data and data["choices"]:
+                return data["choices"][0].get("message", {}).get("content", "")
+            elif "content" in data and data["content"]:
+                return data["content"][0].get("text", "")
+        else:
+            log(f"  LLM error: {r.status_code}")
 
+    except requests.Timeout:
+        log("  LLM timeout — falling back")
     except Exception as e:
-        log(f"LLM call error: {e}")
+        log(f"  LLM error: {e}")
 
     return ""
 
@@ -213,47 +183,36 @@ def analyze_with_hermes_ai(review: dict, browser_data: dict) -> dict:
     bull_pts = "; ".join(p.get("claim","") for p in debate.get("bullCase",{}).get("points",[])[:3])
     bear_pts = "; ".join(p.get("claim","") for p in debate.get("bearCase",{}).get("points",[])[:3])
 
-    prompt = f"""You are the GizzyFx Trading Agent analyzing {pair} {timeframe} for a prop firm challenge.
+    prompt = f"""Analyze {pair} {timeframe} for GizzyFx Parallel Channel Breakout Strategy.
 
-## GizzyFx Strategy Knowledge Base:
-{knowledge if knowledge else "GizzyFx Parallel Channel Breakout: requires BOS + directional bias + order block confluence + multi-TF alignment. Entry at OB boundary retest. SL beyond OB. TP at next major structure. R:R minimum 1:2."}
+MARKET DATA:
+- Live price (TradingView): {tv_price}
+- EMA values: {ema_summary}
+- Structure: {bias} bias, BOS={bos if bos else 'NOT confirmed'}, confidence {confidence*100:.0f}%
+- Swing High: {structure.get('lastSwingHigh',0):.5f} | Low: {structure.get('lastSwingLow',0):.5f}
+- Order Blocks: {obs_summary[:150] if obs_summary else 'none'}
+- Bull ({bull_conf*100:.0f}%): {bull_pts[:100]}
+- Bear ({bear_conf*100:.0f}%): {bear_pts[:100]}
+- SMC verdict: {verdict_raw} | Suggested: Entry={entry} SL={sl} TP1={tp1} RR={rr}
+{f"- User's analysis: {user_notes[:200]}" if user_notes else ""}
 
-## Past Analysis Context (self-learning):
-{past_verdicts if past_verdicts else "No past verdicts available yet."}
+PAST CONTEXT:
+{past_verdicts if past_verdicts else "none"}
 
-## Current Market Data:
-- Pair: {pair} | Timeframe: {timeframe}
-- TradingView live price: {tv_price}
-- EMA values from chart: {ema_summary}
-- Structure bias: {bias} (bull {bull_conf*100:.0f}% vs bear {bear_conf*100:.0f}%)
-- BOS: {bos if bos else 'NOT CONFIRMED'}
-- Swing High: {swing_h:.5f} | Swing Low: {swing_l:.5f}
-- Order Blocks: {obs_summary if obs_summary else 'none detected'}
-- Bull case: {bull_pts}
-- Bear case: {bear_pts}
-- SMC system verdict: {verdict_raw} (confidence {confidence*100:.0f}%)
-- Suggested levels: Entry {entry} | SL {sl} | TP1 {tp1} | TP2 {tp2} | R:R {rr}
+STRATEGY RULES:
+- Requires: BOS confirmed + directional bias ≥60% + OB on breakout side + entry within 10pips of OB
+- HIGH grade: all 4 met. STANDARD: 3 of 4. NONE: BOS missing or bias <40%.
 
-{f"## User's Own Analysis:{chr(10)}{user_notes}" if user_notes else ""}
-
-## Your Task:
-Give your honest, independent point of view as the GizzyFx Trading Agent. Do NOT just repeat what the SMC system said — add your own reasoning.
-
-Respond in this EXACT format (each section on its own line):
+Give your own honest point of view. Respond EXACTLY in this format (no other text):
 VERDICT: match|diverge|partial|neutral
-DIRECTION: long|short|none  
+DIRECTION: long|short|none
 GRADE: HIGH|STANDARD|NONE
-ENTRY: (exact price or 'none')
-STOP_LOSS: (exact price or 'none')
-TP1: (exact price or 'none')
-TP2: (exact price or 'none')
-FEEDBACK: (2-3 paragraphs of your own analysis — what you see, what you think, why you agree or disagree with the SMC data. Be specific about price levels. Mention the EMA positions if available.)
-STRATEGY_NOTES: (your checklist — which GizzyFx rules pass ✓ or fail ✗ and why)
-
-Grade as HIGH only if: BOS confirmed + bias ≥60% + valid OB on breakout side + entry within 10pips of OB.
-Grade as STANDARD if: 3 of 4 conditions met.
-Grade as NONE if: BOS missing or bias <40%.
-Be honest. If the setup is weak, say so and explain what to wait for."""
+ENTRY: (price or none)
+STOP_LOSS: (price or none)
+TP1: (price or none)
+TP2: (price or none)
+FEEDBACK: (your analysis — 2 paragraphs, what you see, do you agree with user notes, specific levels)
+STRATEGY_NOTES: (checklist ✓/✗ for each rule)"""
 
     log("  Calling Hermes LLM for real AI analysis...")
     ai_response = call_hermes_llm(prompt)
