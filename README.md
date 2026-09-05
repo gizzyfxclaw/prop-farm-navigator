@@ -236,3 +236,6 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+
+<!-- Security scan triggered at 2026-09-05 07:22:31 -->
