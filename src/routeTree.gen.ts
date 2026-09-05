@@ -40,6 +40,7 @@ import { Route as ApiHermesNotesRouteImport } from './routes/api/hermes/notes'
 import { Route as ApiHermesRequestsRouteImport } from './routes/api/hermes/requests'
 import { Route as ApiHermesSetupsRouteImport } from './routes/api/hermes/setups'
 import { Route as ApiHermesSmcScreenshotsRouteImport } from './routes/api/hermes/smc-screenshots'
+import { Route as ApiHermesSmcStatusRouteImport } from './routes/api/hermes/smc-status'
 import { Route as ApiHermesStrategyRulesRouteImport } from './routes/api/hermes/strategy-rules'
 import { Route as ApiHermesUnderstandingRouteImport } from './routes/api/hermes/understanding'
 
@@ -199,6 +200,11 @@ const ApiHermesSmcScreenshotsRoute = ApiHermesSmcScreenshotsRouteImport.update({
   path: '/api/hermes/smc-screenshots',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesSmcStatusRoute = ApiHermesSmcStatusRouteImport.update({
+  id: '/api/hermes/smc-status',
+  path: '/api/hermes/smc-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHermesStrategyRulesRoute = ApiHermesStrategyRulesRouteImport.update({
   id: '/api/hermes/strategy-rules',
   path: '/api/hermes/strategy-rules',
@@ -242,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
   '/api/hermes/smc-screenshots': typeof ApiHermesSmcScreenshotsRoute
+  '/api/hermes/smc-status': typeof ApiHermesSmcStatusRoute
   '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
   '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
 }
@@ -277,6 +284,7 @@ export interface FileRoutesByTo {
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
   '/api/hermes/smc-screenshots': typeof ApiHermesSmcScreenshotsRoute
+  '/api/hermes/smc-status': typeof ApiHermesSmcStatusRoute
   '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
   '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
 }
@@ -313,6 +321,7 @@ export interface FileRoutesById {
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
   '/api/hermes/smc-screenshots': typeof ApiHermesSmcScreenshotsRoute
+  '/api/hermes/smc-status': typeof ApiHermesSmcStatusRoute
   '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
   '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
 }
@@ -350,6 +359,7 @@ export interface FileRouteTypes {
     | '/api/hermes/requests'
     | '/api/hermes/setups'
     | '/api/hermes/smc-screenshots'
+    | '/api/hermes/smc-status'
     | '/api/hermes/strategy-rules'
     | '/api/hermes/understanding'
   fileRoutesByTo: FileRoutesByTo
@@ -385,6 +395,7 @@ export interface FileRouteTypes {
     | '/api/hermes/requests'
     | '/api/hermes/setups'
     | '/api/hermes/smc-screenshots'
+    | '/api/hermes/smc-status'
     | '/api/hermes/strategy-rules'
     | '/api/hermes/understanding'
   id:
@@ -420,6 +431,7 @@ export interface FileRouteTypes {
     | '/api/hermes/requests'
     | '/api/hermes/setups'
     | '/api/hermes/smc-screenshots'
+    | '/api/hermes/smc-status'
     | '/api/hermes/strategy-rules'
     | '/api/hermes/understanding'
   fileRoutesById: FileRoutesById
@@ -456,6 +468,7 @@ export interface RootRouteChildren {
   ApiHermesRequestsRoute: typeof ApiHermesRequestsRoute
   ApiHermesSetupsRoute: typeof ApiHermesSetupsRoute
   ApiHermesSmcScreenshotsRoute: typeof ApiHermesSmcScreenshotsRoute
+  ApiHermesSmcStatusRoute: typeof ApiHermesSmcStatusRoute
   ApiHermesStrategyRulesRoute: typeof ApiHermesStrategyRulesRoute
   ApiHermesUnderstandingRoute: typeof ApiHermesUnderstandingRoute
 }
@@ -679,6 +692,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHermesSmcScreenshotsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/smc-status': {
+      id: '/api/hermes/smc-status'
+      path: '/api/hermes/smc-status'
+      fullPath: '/api/hermes/smc-status'
+      preLoaderRoute: typeof ApiHermesSmcStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/strategy-rules': {
       id: '/api/hermes/strategy-rules'
       path: '/api/hermes/strategy-rules'
@@ -728,6 +748,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHermesRequestsRoute: ApiHermesRequestsRoute,
   ApiHermesSetupsRoute: ApiHermesSetupsRoute,
   ApiHermesSmcScreenshotsRoute: ApiHermesSmcScreenshotsRoute,
+  ApiHermesSmcStatusRoute: ApiHermesSmcStatusRoute,
   ApiHermesStrategyRulesRoute: ApiHermesStrategyRulesRoute,
   ApiHermesUnderstandingRoute: ApiHermesUnderstandingRoute,
 }

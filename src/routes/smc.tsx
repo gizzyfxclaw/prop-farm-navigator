@@ -381,11 +381,14 @@ function SMCPage() {
   const [pineScript, setPineScript] = useState("");
 
   // Hermes panel
-  const [showHermesPanel, setShowHermesPanel] = useState(false);
+  const [showHermesPanel, setShowHermesPanel]             = useState(false);
   const [userNotes, setUserNotes]             = useState(saved.userNotes ?? "");
   const [userImage, setUserImage]             = useState<string | null>(null);
   const [imagePreview, setImagePreview]       = useState<string | null>(null);
   const [submitting, setSubmitting]           = useState(false);
+
+  // Live Hermes status
+  const [hermesStatus, setHermesStatus] = useState<{ isProcessing: boolean; currentPair: string; lastRun: string } | null>(null);
 
   // Reviews — persisted
   const [reviews, setReviews]               = useState<HermesReview[]>(saved.reviews ?? []);
@@ -469,14 +472,28 @@ function SMCPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Auto-poll when a review is pending ─────────────────────────── */
+  /* ── Auto-poll when ANY pending review exists ──────────────────── */
   useEffect(() => {
     if (pollTimer.current) clearInterval(pollTimer.current);
-    if (pollingId) {
+    const hasPending = reviews.some(r => r.status === "pending");
+    if (hasPending || pollingId) {
       pollTimer.current = setInterval(() => loadReviews(true), 8000);
     }
     return () => { if (pollTimer.current) clearInterval(pollTimer.current); };
-  }, [pollingId, loadReviews]);
+  }, [pollingId, reviews, loadReviews]);
+
+  /* ── Poll Hermes processor status every 10s ─────────────────────── */
+  useEffect(() => {
+    const fetchStatus = () => {
+      fetch("/api/hermes/smc-status")
+        .then(r => r.json() as Promise<{ isProcessing: boolean; currentPair: string; lastRun: string }>)
+        .then(d => setHermesStatus(d))
+        .catch(() => {});
+    };
+    fetchStatus();
+    const t = setInterval(fetchStatus, 10000);
+    return () => clearInterval(t);
+  }, []);
 
   /* ── Pine script ─────────────────────────────────────────────────── */
   const generatePine = useCallback(() => {
@@ -627,6 +644,51 @@ function SMCPage() {
           </div>
         )}
       </div>
+
+      {/* ── Live Hermes Status Banner ────────────────────────────── */}
+      {hermesStatus && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "8px 14px",
+          borderRadius: 8,
+          background: hermesStatus.isProcessing
+            ? "oklch(0.18 0.06 280 / 0.6)"
+            : "oklch(0.15 0.03 280 / 0.4)",
+          border: `1px solid ${hermesStatus.isProcessing ? "oklch(0.50 0.18 280 / 0.5)" : "oklch(0.30 0.05 280 / 0.3)"}`,
+          fontSize: 12,
+        }}>
+          {hermesStatus.isProcessing ? (
+            <>
+              <span style={{ position: "relative", display: "inline-flex", width: 10, height: 10 }}>
+                <span style={{
+                  position: "absolute", inset: 0, borderRadius: "50%",
+                  background: "oklch(0.65 0.2 280)",
+                  animation: "hz-ring 1.5s ease-out infinite",
+                  opacity: 0.5,
+                }} />
+                <span style={{ position: "absolute", inset: 2, borderRadius: "50%", background: "oklch(0.65 0.2 280)" }} />
+              </span>
+              <span style={{ color: "oklch(0.80 0.10 280)", fontWeight: 600 }}>
+                Hermes is analyzing{hermesStatus.currentPair ? ` ${hermesStatus.currentPair}` : ""}...
+              </span>
+              <span style={{ color: "oklch(0.55 0.08 280)", marginLeft: "auto", fontSize: 11 }}>
+                TradingView browser running · ~60s · result posts automatically
+              </span>
+            </>
+          ) : (
+            <>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "oklch(0.55 0.15 145)", display: "inline-block" }} />
+              <span style={{ color: "oklch(0.65 0.08 280)" }}>
+                Hermes ready — submit "Ask Hermes AI" and result arrives within 5 min
+              </span>
+              {hermesStatus.lastRun && (
+                <span style={{ color: "oklch(0.45 0.06 280)", marginLeft: "auto", fontSize: 11 }}>
+                  Last run: {new Date(hermesStatus.lastRun).toLocaleTimeString()}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── Config ──────────────────────────────────────────────────── */}
       <Card title="Configuration">
