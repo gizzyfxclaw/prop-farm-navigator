@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getCFEnv } from "@/lib/cloudflare-env";
+import { pairSpec } from "@/lib/engine/pairs";
 
 interface Bar {
   time: number;
@@ -239,7 +240,7 @@ function generateDebate(structure: ReturnType<typeof detectStructure>, bars: Bar
   };
 }
 
-function buildLevels(structure: ReturnType<typeof detectStructure>, lastPrice: number, atr: number, accuracyGrade?: string) {
+function buildLevels(structure: ReturnType<typeof detectStructure>, lastPrice: number, atr: number, accuracyGrade?: string, pairSymbol?: string) {
   const direction = structure.bias === "bullish" ? "long" : structure.bias === "bearish" ? "short" : "neutral";
 
   if (direction === "neutral") {
@@ -313,8 +314,9 @@ function buildLevels(structure: ReturnType<typeof detectStructure>, lastPrice: n
     : recommendedRR === "1:2"   ? tp20
     : tp15;
 
-  // Pip calculations (forex: 0.0001 = 1 pip)
-  const pipSize = 0.0001;
+  // Pip calculations — use actual pip size per pair
+  const spec = pairSpec(pairSymbol ?? "EURUSD");
+  const pipSize = spec.pipSize;
   const slPips = Math.round(slDist / pipSize);
   const tp15Pips = Math.round(Math.abs(tp15 - entryPrice) / pipSize);
   const tp20Pips = Math.round(Math.abs(tp20 - entryPrice) / pipSize);
@@ -367,7 +369,7 @@ export const Route = createFileRoute("/api/smc-analyze")({
         const atr = calcATR(bars, 14);
         const structure = detectStructure(bars);
         const debate = generateDebate(structure, bars, atr);
-        const levels = buildLevels(structure, bars[bars.length - 1]!.close, atr);
+        const levels = buildLevels(structure, bars[bars.length - 1]!.close, atr, undefined, pair);
 
         return Response.json({
           structure,

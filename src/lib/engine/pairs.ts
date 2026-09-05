@@ -1,6 +1,6 @@
-export type PairSymbol = "EURUSD" | "GBPUSD" | "USDJPY";
+export type PairSymbol = "EURUSD" | "GBPUSD" | "USDJPY" | "AUDUSD" | "XAUUSD";
 
-export const PAIRS: PairSymbol[] = ["EURUSD", "GBPUSD", "USDJPY"];
+export const PAIRS: PairSymbol[] = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "XAUUSD"];
 
 export interface PairSpec {
   symbol: PairSymbol;
@@ -27,12 +27,14 @@ export const PAIR_SPECS: Record<PairSymbol, PairSpec> = {
   EURUSD: { symbol: "EURUSD", label: "EUR/USD", pipValue: 10, pipSize: 0.0001, decimals: 5, quoteCurrencyIsUsd: true },
   GBPUSD: { symbol: "GBPUSD", label: "GBP/USD", pipValue: 10, pipSize: 0.0001, decimals: 5, quoteCurrencyIsUsd: true },
   USDJPY: { symbol: "USDJPY", label: "USD/JPY", pipValue: 9, pipSize: 0.01, decimals: 3, quoteCurrencyIsUsd: false },
+  AUDUSD: { symbol: "AUDUSD", label: "AUD/USD", pipValue: 10, pipSize: 0.0001, decimals: 5, quoteCurrencyIsUsd: true },
+  XAUUSD: { symbol: "XAUUSD", label: "XAU/USD", pipValue: 1, pipSize: 0.01, decimals: 2, quoteCurrencyIsUsd: true },
 };
 
 export function pairSpec(symbol: string): PairSpec {
   const key = symbol.replace(/[^A-Za-z]/g, "").toUpperCase();
-  const normalized = (["EURUSD", "GBPUSD", "USDJPY"] as const).find((p) => key.startsWith(p));
-  return PAIR_SPECS[(normalized ?? "EURUSD") as PairSymbol];
+  const normalized = PAIRS.find((p) => key.startsWith(p));
+  return PAIR_SPECS[normalized ?? "EURUSD"];
 }
 
 /**

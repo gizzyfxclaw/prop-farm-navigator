@@ -404,37 +404,37 @@ export function RulesAlertPanel() {
     : "GO";
 
   const verdictConfig = {
-    GO: { icon: <ShieldCheck size={20} />, label: "CLEAR TO TRADE", bg: "oklch(0.55 0.2 155 / 0.12)", border: "oklch(0.55 0.2 155 / 0.3)", color: "oklch(0.65 0.2 155)", sub: "All conditions met. Follow your entry rules." },
-    CAUTION: { icon: <ShieldAlert size={20} />, label: "TRADE WITH CAUTION", bg: "oklch(0.75 0.18 80 / 0.1)", border: "oklch(0.75 0.18 80 / 0.25)", color: "oklch(0.80 0.16 80)", sub: "News approaching. Enter only if setup is strong." },
-    WAIT_NEWS: { icon: <ShieldX size={20} />, label: "DO NOT TRADE — NEWS", bg: "oklch(0.55 0.25 29 / 0.12)", border: "oklch(0.55 0.25 29 / 0.3)", color: "oklch(0.70 0.22 29)", sub: "High-impact news within 30 minutes. Wait." },
-    WAIT_SESSION: { icon: <Clock size={20} />, label: "WAIT FOR SESSION", bg: "oklch(0.75 0.18 80 / 0.08)", border: "oklch(0.75 0.18 80 / 0.2)", color: "oklch(0.80 0.16 80)", sub: "Outside trading window. Wait for London or NY." },
+    GO: { icon: <ShieldCheck size={20} />, label: "CLEAR TO TRADE", bg: "oklch(var(--gz-pos) / 0.12)", border: "oklch(var(--gz-pos) / 0.3)", color: "oklch(var(--gz-pos))", sub: "All conditions met. Follow your entry rules." },
+    CAUTION: { icon: <ShieldAlert size={20} />, label: "TRADE WITH CAUTION", bg: "oklch(var(--gz-warn) / 0.1)", border: "oklch(var(--gz-warn) / 0.25)", color: "oklch(var(--gz-warn))", sub: "News approaching. Enter only if setup is strong." },
+    WAIT_NEWS: { icon: <ShieldX size={20} />, label: "DO NOT TRADE — NEWS", bg: "oklch(var(--gz-neg) / 0.12)", border: "oklch(var(--gz-neg) / 0.3)", color: "oklch(var(--gz-neg))", sub: "High-impact news within 30 minutes. Wait." },
+    WAIT_SESSION: { icon: <Clock size={20} />, label: "WAIT FOR SESSION", bg: "oklch(var(--gz-warn) / 0.08)", border: "oklch(var(--gz-warn) / 0.2)", color: "oklch(var(--gz-warn))", sub: "Outside trading window. Wait for London or NY." },
   };
   const v = verdictConfig[verdict];
 
   const statusIcon = (status: LiveRuleState["status"]) => {
     const size = 14;
     switch (status) {
-      case "critical": return <XCircle size={size} style={{ color: "oklch(0.70 0.22 29)" }} />;
-      case "warning": return <AlertTriangle size={size} style={{ color: "oklch(0.80 0.16 80)" }} />;
-      case "ok": return <CheckCircle2 size={size} style={{ color: "oklch(0.65 0.2 155)" }} />;
+      case "critical": return <XCircle size={size} style={{ color: "oklch(var(--gz-neg))" }} />;
+      case "warning": return <AlertTriangle size={size} style={{ color: "oklch(var(--gz-warn))" }} />;
+      case "ok": return <CheckCircle2 size={size} style={{ color: "oklch(var(--gz-pos))" }} />;
       case "info": return <Info size={size} style={{ color: "oklch(var(--gz-p))" }} />;
     }
   };
 
   const statusBg = (status: LiveRuleState["status"]) => {
     switch (status) {
-      case "critical": return { background: "oklch(0.55 0.25 29 / 0.12)", border: "1px solid oklch(0.55 0.25 29 / 0.3)" };
-      case "warning": return { background: "oklch(0.75 0.18 80 / 0.1)", border: "1px solid oklch(0.75 0.18 80 / 0.25)" };
-      case "ok": return { background: "oklch(0.55 0.2 155 / 0.08)", border: "1px solid oklch(0.55 0.2 155 / 0.2)" };
+      case "critical": return { background: "oklch(var(--gz-neg) / 0.12)", border: "1px solid oklch(var(--gz-neg) / 0.3)" };
+      case "warning": return { background: "oklch(var(--gz-warn) / 0.1)", border: "1px solid oklch(var(--gz-warn) / 0.25)" };
+      case "ok": return { background: "oklch(var(--gz-pos) / 0.08)", border: "1px solid oklch(var(--gz-pos) / 0.2)" };
       case "info": return { background: "oklch(var(--gz-p) / 0.05)", border: "1px solid oklch(var(--gz-p) / 0.1)" };
     }
   };
 
   const statusTextColor = (status: LiveRuleState["status"]) => {
     switch (status) {
-      case "critical": return "oklch(0.70 0.22 29)";
-      case "warning": return "oklch(0.80 0.16 80)";
-      case "ok": return "oklch(0.65 0.2 155)";
+      case "critical": return "oklch(var(--gz-neg))";
+      case "warning": return "oklch(var(--gz-warn))";
+      case "ok": return "oklch(var(--gz-pos))";
       case "info": return "oklch(var(--gz-p))";
     }
   };
@@ -453,19 +453,19 @@ export function RulesAlertPanel() {
           {/* Live status badges */}
           {criticalCount > 0 && (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white animate-pulse"
-              style={{ background: "oklch(0.55 0.25 29)" }}>
+              style={{ background: "oklch(var(--gz-neg))" }}>
               {criticalCount}
             </span>
           )}
           {warningCount > 0 && (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
-              style={{ background: "oklch(0.75 0.18 80 / 0.3)", color: "oklch(0.80 0.16 80)" }}>
+              style={{ background: "oklch(var(--gz-warn) / 0.3)", color: "oklch(var(--gz-warn))" }}>
               {warningCount}
             </span>
           )}
           {criticalCount === 0 && warningCount === 0 && (
             <span className="flex h-5 items-center gap-1 rounded-full px-2 text-[10px] font-bold"
-              style={{ background: "oklch(0.55 0.2 155 / 0.15)", color: "oklch(0.65 0.2 155)" }}>
+              style={{ background: "oklch(var(--gz-pos) / 0.15)", color: "oklch(var(--gz-pos))" }}>
               ALL OK
             </span>
           )}
@@ -525,7 +525,7 @@ export function RulesAlertPanel() {
                     {bufferAlert.rule.text}
                   </span>
                   <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded"
-                    style={{ background: "oklch(0.55 0.25 29 / 0.2)", color: "oklch(0.70 0.22 29)" }}>
+                    style={{ background: "oklch(var(--gz-neg) / 0.2)", color: "oklch(var(--gz-neg))" }}>
                     CRITICAL
                   </span>
                 </div>
@@ -554,8 +554,8 @@ export function RulesAlertPanel() {
                     {lr.rule.critical && (
                       <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded"
                         style={{
-                          background: lr.status === "critical" ? "oklch(0.55 0.25 29 / 0.2)" : "oklch(0.55 0.25 29 / 0.1)",
-                          color: lr.status === "critical" ? "oklch(0.70 0.22 29)" : "oklch(0.55 0.2 29 / 0.6)",
+                          background: lr.status === "critical" ? "oklch(var(--gz-neg) / 0.2)" : "oklch(var(--gz-neg) / 0.1)",
+                          color: lr.status === "critical" ? "oklch(var(--gz-neg))" : "oklch(var(--gz-neg) / 0.6)",
                         }}>
                         CRITICAL
                       </span>
@@ -593,14 +593,14 @@ export function RulesAlertPanel() {
               <div className="relative">
                 <div
                   className={`h-2 w-2 rounded-full ${market.open ? "animate-ping" : ""} absolute`}
-                  style={{ background: market.open ? "oklch(0.55 0.2 155)" : "oklch(0.55 0.25 29)", opacity: 0.4 }}
+                  style={{ background: market.open ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))", opacity: 0.4 }}
                 />
                 <div
                   className="h-2 w-2 rounded-full relative"
-                  style={{ background: market.open ? "oklch(0.55 0.2 155)" : "oklch(0.55 0.25 29)" }}
+                  style={{ background: market.open ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}
                 />
               </div>
-              <span className="text-[10px] font-bold" style={{ color: market.open ? "oklch(0.65 0.2 155)" : "oklch(0.70 0.22 29)" }}>
+              <span className="text-[10px] font-bold" style={{ color: market.open ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
                 {market.open ? "MARKET OPEN" : "MARKET CLOSED"}
               </span>
             </div>

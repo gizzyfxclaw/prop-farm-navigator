@@ -30,7 +30,7 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
         <div style={{
           margin: "2rem auto", maxWidth: 480, padding: "2rem",
           border: "1px solid oklch(0.55 0.18 10 / 0.3)",
-          borderRadius: 12, background: "oklch(0.12 0.04 10 / 0.5)",
+          borderRadius: 12, background: "oklch(0.12 0.04 10)",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
             <AlertTriangle size={18} color="oklch(0.65 0.18 10)" />
