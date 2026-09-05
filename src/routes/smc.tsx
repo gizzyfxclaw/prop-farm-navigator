@@ -78,7 +78,12 @@ interface HermesReview {
   analysis_steps: string | null;     // JSON array of step objects
 }
 
-/* ── Storage helpers ────────────────────────────────────────────── */
+interface ScreenshotRow {
+  id: string;
+  step: number;
+  label: string | null;
+  data: string;  // base64 image URL
+}
 const LS_KEY = "gizzyfx.smc";
 
 interface Persisted {
@@ -760,9 +765,25 @@ function SMCPage() {
                   {/* Expanded detail */}
                   {isOpen && (
                     <div className="border-t border-white/10 p-4 space-y-4 bg-white/[0.015]">
-                      {/* TradingView Screenshots */}
-                      {r.chart_screenshots && (() => {
-                        const shots = parseJsonField<string[]>(r.chart_screenshots, []);
+                      {/* TradingView Screenshots — loaded from separate endpoint */}
+                      {(() => {
+                        const [shots, setShots] = React.useState<ScreenshotRow[]>([]);
+                        const [loadingShots, setLoadingShots] = React.useState(false);
+                        React.useEffect(() => {
+                          if (!isOpen) return;
+                          setLoadingShots(true);
+                          fetch(`/api/hermes/smc-screenshots?review_id=${r.id}`)
+                            .then(res => res.json() as Promise<{ screenshots: ScreenshotRow[] }>)
+                            .then(d => setShots(d.screenshots ?? []))
+                            .catch(() => {})
+                            .finally(() => setLoadingShots(false));
+                        }, [isOpen]);
+
+                        if (loadingShots) return (
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                            <RefreshCw size={10} className="animate-spin" /> Loading screenshots...
+                          </div>
+                        );
                         if (shots.length === 0) return null;
                         return (
                           <div>
@@ -770,14 +791,16 @@ function SMCPage() {
                               <Camera size={11} /> TradingView Screenshots ({shots.length})
                             </p>
                             <div className="grid gap-2" style={{ gridTemplateColumns: shots.length > 1 ? "1fr 1fr" : "1fr" }}>
-                              {shots.map((src, i) => (
-                                <img
-                                  key={i}
-                                  src={src}
-                                  alt={`Chart ${i + 1}`}
-                                  className="w-full rounded-md border border-white/10 shadow"
-                                  style={{ maxHeight: 320, objectFit: "contain", background: "#000" }}
-                                />
+                              {shots.map((s) => (
+                                <div key={s.id}>
+                                  {s.label && <p className="text-[10px] text-muted-foreground mb-1">{s.label}</p>}
+                                  <img
+                                    src={s.data}
+                                    alt={s.label ?? `Chart ${s.step + 1}`}
+                                    className="w-full rounded-md border border-white/10 shadow"
+                                    style={{ maxHeight: 280, objectFit: "contain", background: "#000" }}
+                                  />
+                                </div>
                               ))}
                             </div>
                           </div>

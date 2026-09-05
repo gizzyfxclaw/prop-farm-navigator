@@ -32,7 +32,7 @@ def log(msg: str, level: str = "INFO"):
 
 def img_to_b64(path: str) -> str:
     with open(path, "rb") as f:
-        return "data:image/png;base64," + base64.b64encode(f.read()).decode()
+        return "data:image/jpeg;base64," + base64.b64encode(f.read()).decode()
 
 def analyze(pair: str, timeframe: str) -> dict:
     symbol = TV_SYMBOLS.get(pair.upper(), f"FX:{pair.upper()}")
@@ -92,10 +92,10 @@ def analyze(pair: str, timeframe: str) -> dict:
 
         # Screenshot 1: Clean chart
         step("Capturing Clean Chart", "Taking baseline screenshot before adding indicators")
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
             p1 = f.name
         tmp_files.append(p1)
-        page.screenshot(path=p1, full_page=False)
+        page.screenshot(path=p1, full_page=False, type="jpeg", quality=70)
         screenshots.append(img_to_b64(p1))
 
         # Get current price from DOM
@@ -153,10 +153,10 @@ def analyze(pair: str, timeframe: str) -> dict:
 
         # Screenshot 2: With indicators
         step("Capturing Indicator Chart", "Recording EMA 20/50/200 + Volume overlay screenshot")
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
             p2 = f.name
         tmp_files.append(p2)
-        page.screenshot(path=p2, full_page=False)
+        page.screenshot(path=p2, full_page=False, type="jpeg", quality=70)
         screenshots.append(img_to_b64(p2))
 
         # Read indicator legend values
@@ -186,10 +186,10 @@ def analyze(pair: str, timeframe: str) -> dict:
 
         # Screenshot 3: Final full chart
         step("Final Analysis Screenshot", "Capturing complete chart for strategy analysis")
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
             p3 = f.name
         tmp_files.append(p3)
-        page.screenshot(path=p3, full_page=False)
+        page.screenshot(path=p3, full_page=False, type="jpeg", quality=70)
         screenshots.append(img_to_b64(p3))
 
         browser.close()

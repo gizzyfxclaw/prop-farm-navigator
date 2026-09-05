@@ -218,21 +218,52 @@ def analyze_smc(review: dict, browser_data: dict) -> dict:
 
     return payload
 
-def patch_review(payload: dict) -> bool:
+def patch_review(payload: dict, screenshots: list) -> bool:
+    """PATCH the review (without screenshots), then POST screenshots separately."""
+    # Remove screenshots from main payload — post them separately
+    clean = {k: v for k, v in payload.items() if k not in ("chart_screenshots", "analysis_steps")}
+    request_id = payload.get("request_id", "")
+
     try:
         r = requests.patch(
             f"{BASE_URL}/api/hermes/analyze-with-hermes",
-            json=payload,
+            json=clean,
             timeout=30
         )
         if r.ok:
             log(f"  PATCH OK: verdict={payload['verdict']} grade={payload['accuracy_grade']}")
-            return True
         else:
             log(f"  PATCH failed: {r.status_code} {r.text[:100]}")
+            return False
     except Exception as e:
         log(f"  PATCH error: {e}")
-    return False
+        return False
+
+    # Post each screenshot individually (each ~180KB, well under 1MB limit)
+    if screenshots and request_id:
+        labels = ["Clean Chart", "EMA Indicators", "Final Analysis"]
+        ok_count = 0
+        for i, data in enumerate(screenshots):
+            try:
+                sr = requests.post(
+                    f"{BASE_URL}/api/hermes/smc-screenshots",
+                    json={
+                        "review_id": request_id,
+                        "step": i,
+                        "label": labels[i] if i < len(labels) else f"Screenshot {i+1}",
+                        "data": data,
+                    },
+                    timeout=30
+                )
+                if sr.ok:
+                    ok_count += 1
+                else:
+                    log(f"  Screenshot {i+1} post failed: {sr.status_code}")
+            except Exception as e:
+                log(f"  Screenshot {i+1} error: {e}")
+        log(f"  Posted {ok_count}/{len(screenshots)} screenshots")
+
+    return True
 
 def main():
     if not API_KEY:
@@ -264,9 +295,10 @@ def main():
         log("  Applying GizzyFx Channel Breakout Strategy...")
         payload = analyze_smc(review, browser_data)
 
-        # Step 3: PATCH result back
+        # Step 3: PATCH result back (screenshots posted separately)
+        shots = browser_data.get("screenshots", [])
         log("  Posting feedback to D1...")
-        patch_review(payload)
+        patch_review(payload, shots)
 
     log("Done.")
 

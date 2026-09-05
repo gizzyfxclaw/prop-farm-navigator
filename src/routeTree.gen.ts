@@ -28,6 +28,7 @@ import { Route as ApiFinnhub_webhookRouteImport } from './routes/api/finnhub_web
 import { Route as ApiOhlcvRouteImport } from './routes/api/ohlcv'
 import { Route as ApiSmcRouteImport } from './routes/api/smc'
 import { Route as ApiSmcAnalyzeRouteImport } from './routes/api/smc-analyze'
+import { Route as ApiSmcMigrateRouteImport } from './routes/api/smc-migrate'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
 import { Route as ApiHermesAnalysisRouteImport } from './routes/api/hermes/analysis'
@@ -38,6 +39,7 @@ import { Route as ApiHermesKnowledgeRouteImport } from './routes/api/hermes/know
 import { Route as ApiHermesNotesRouteImport } from './routes/api/hermes/notes'
 import { Route as ApiHermesRequestsRouteImport } from './routes/api/hermes/requests'
 import { Route as ApiHermesSetupsRouteImport } from './routes/api/hermes/setups'
+import { Route as ApiHermesSmcScreenshotsRouteImport } from './routes/api/hermes/smc-screenshots'
 import { Route as ApiHermesStrategyRulesRouteImport } from './routes/api/hermes/strategy-rules'
 import { Route as ApiHermesUnderstandingRouteImport } from './routes/api/hermes/understanding'
 
@@ -136,6 +138,11 @@ const ApiSmcAnalyzeRoute = ApiSmcAnalyzeRouteImport.update({
   path: '/api/smc-analyze',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSmcMigrateRoute = ApiSmcMigrateRouteImport.update({
+  id: '/api/smc-migrate',
+  path: '/api/smc-migrate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHermesDebugRoute = ApiHermesDebugRouteImport.update({
   id: '/api/hermes/_debug',
   path: '/api/hermes',
@@ -187,6 +194,11 @@ const ApiHermesSetupsRoute = ApiHermesSetupsRouteImport.update({
   path: '/api/hermes/setups',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesSmcScreenshotsRoute = ApiHermesSmcScreenshotsRouteImport.update({
+  id: '/api/hermes/smc-screenshots',
+  path: '/api/hermes/smc-screenshots',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHermesStrategyRulesRoute = ApiHermesStrategyRulesRouteImport.update({
   id: '/api/hermes/strategy-rules',
   path: '/api/hermes/strategy-rules',
@@ -218,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/api/ohlcv': typeof ApiOhlcvRoute
   '/api/smc': typeof ApiSmcRoute
   '/api/smc-analyze': typeof ApiSmcAnalyzeRoute
+  '/api/smc-migrate': typeof ApiSmcMigrateRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -228,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/api/hermes/notes': typeof ApiHermesNotesRoute
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
+  '/api/hermes/smc-screenshots': typeof ApiHermesSmcScreenshotsRoute
   '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
   '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
 }
@@ -251,6 +265,7 @@ export interface FileRoutesByTo {
   '/api/ohlcv': typeof ApiOhlcvRoute
   '/api/smc': typeof ApiSmcRoute
   '/api/smc-analyze': typeof ApiSmcAnalyzeRoute
+  '/api/smc-migrate': typeof ApiSmcMigrateRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -261,6 +276,7 @@ export interface FileRoutesByTo {
   '/api/hermes/notes': typeof ApiHermesNotesRoute
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
+  '/api/hermes/smc-screenshots': typeof ApiHermesSmcScreenshotsRoute
   '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
   '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
 }
@@ -285,6 +301,7 @@ export interface FileRoutesById {
   '/api/ohlcv': typeof ApiOhlcvRoute
   '/api/smc': typeof ApiSmcRoute
   '/api/smc-analyze': typeof ApiSmcAnalyzeRoute
+  '/api/smc-migrate': typeof ApiSmcMigrateRoute
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -295,6 +312,7 @@ export interface FileRoutesById {
   '/api/hermes/notes': typeof ApiHermesNotesRoute
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
+  '/api/hermes/smc-screenshots': typeof ApiHermesSmcScreenshotsRoute
   '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
   '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
 }
@@ -320,6 +338,7 @@ export interface FileRouteTypes {
     | '/api/ohlcv'
     | '/api/smc'
     | '/api/smc-analyze'
+    | '/api/smc-migrate'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -330,6 +349,7 @@ export interface FileRouteTypes {
     | '/api/hermes/notes'
     | '/api/hermes/requests'
     | '/api/hermes/setups'
+    | '/api/hermes/smc-screenshots'
     | '/api/hermes/strategy-rules'
     | '/api/hermes/understanding'
   fileRoutesByTo: FileRoutesByTo
@@ -353,6 +373,7 @@ export interface FileRouteTypes {
     | '/api/ohlcv'
     | '/api/smc'
     | '/api/smc-analyze'
+    | '/api/smc-migrate'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -363,6 +384,7 @@ export interface FileRouteTypes {
     | '/api/hermes/notes'
     | '/api/hermes/requests'
     | '/api/hermes/setups'
+    | '/api/hermes/smc-screenshots'
     | '/api/hermes/strategy-rules'
     | '/api/hermes/understanding'
   id:
@@ -386,6 +408,7 @@ export interface FileRouteTypes {
     | '/api/ohlcv'
     | '/api/smc'
     | '/api/smc-analyze'
+    | '/api/smc-migrate'
     | '/api/hermes/_debug'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -396,6 +419,7 @@ export interface FileRouteTypes {
     | '/api/hermes/notes'
     | '/api/hermes/requests'
     | '/api/hermes/setups'
+    | '/api/hermes/smc-screenshots'
     | '/api/hermes/strategy-rules'
     | '/api/hermes/understanding'
   fileRoutesById: FileRoutesById
@@ -420,6 +444,7 @@ export interface RootRouteChildren {
   ApiOhlcvRoute: typeof ApiOhlcvRoute
   ApiSmcRoute: typeof ApiSmcRoute
   ApiSmcAnalyzeRoute: typeof ApiSmcAnalyzeRoute
+  ApiSmcMigrateRoute: typeof ApiSmcMigrateRoute
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
   ApiHermesAnalysisRoute: typeof ApiHermesAnalysisRoute
@@ -430,6 +455,7 @@ export interface RootRouteChildren {
   ApiHermesNotesRoute: typeof ApiHermesNotesRoute
   ApiHermesRequestsRoute: typeof ApiHermesRequestsRoute
   ApiHermesSetupsRoute: typeof ApiHermesSetupsRoute
+  ApiHermesSmcScreenshotsRoute: typeof ApiHermesSmcScreenshotsRoute
   ApiHermesStrategyRulesRoute: typeof ApiHermesStrategyRulesRoute
   ApiHermesUnderstandingRoute: typeof ApiHermesUnderstandingRoute
 }
@@ -569,6 +595,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSmcAnalyzeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/smc-migrate': {
+      id: '/api/smc-migrate'
+      path: '/api/smc-migrate'
+      fullPath: '/api/smc-migrate'
+      preLoaderRoute: typeof ApiSmcMigrateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/_debug': {
       id: '/api/hermes/_debug'
       path: '/api/hermes'
@@ -639,6 +672,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHermesSetupsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/smc-screenshots': {
+      id: '/api/hermes/smc-screenshots'
+      path: '/api/hermes/smc-screenshots'
+      fullPath: '/api/hermes/smc-screenshots'
+      preLoaderRoute: typeof ApiHermesSmcScreenshotsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/strategy-rules': {
       id: '/api/hermes/strategy-rules'
       path: '/api/hermes/strategy-rules'
@@ -676,6 +716,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOhlcvRoute: ApiOhlcvRoute,
   ApiSmcRoute: ApiSmcRoute,
   ApiSmcAnalyzeRoute: ApiSmcAnalyzeRoute,
+  ApiSmcMigrateRoute: ApiSmcMigrateRoute,
   ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
   ApiHermesAnalysisRoute: ApiHermesAnalysisRoute,
@@ -686,6 +727,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHermesNotesRoute: ApiHermesNotesRoute,
   ApiHermesRequestsRoute: ApiHermesRequestsRoute,
   ApiHermesSetupsRoute: ApiHermesSetupsRoute,
+  ApiHermesSmcScreenshotsRoute: ApiHermesSmcScreenshotsRoute,
   ApiHermesStrategyRulesRoute: ApiHermesStrategyRulesRoute,
   ApiHermesUnderstandingRoute: ApiHermesUnderstandingRoute,
 }
