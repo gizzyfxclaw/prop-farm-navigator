@@ -132,7 +132,7 @@ const ANALYSIS_PHASES: Array<{ label: string; detail: string; icon: React.Elemen
 ];
 const TOTAL_SECONDS = ANALYSIS_PHASES.reduce((s, p) => s + p.duration, 0);
 
-function HermesAnalyzingCard({ submittedAt }: { submittedAt: number }) {
+function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; reviewId: string }) {
   const [elapsed, setElapsed] = React.useState(0);
   const [phaseIdx, setPhaseIdx] = React.useState(0);
   const [dots, setDots] = React.useState(".");
@@ -157,6 +157,7 @@ function HermesAnalyzingCard({ submittedAt }: { submittedAt: number }) {
 
   const progress = Math.min((elapsed / TOTAL_SECONDS) * 100, 99);
   const isOverdue = elapsed > TOTAL_SECONDS;
+  const isDelayed = elapsed > 360; // >6 min = cron should have run at least once
   const remaining = isOverdue ? 0 : TOTAL_SECONDS - elapsed;
   const currentPhase = ANALYSIS_PHASES[phaseIdx] ?? ANALYSIS_PHASES[ANALYSIS_PHASES.length - 1]!;
 
@@ -297,6 +298,21 @@ function HermesAnalyzingCard({ submittedAt }: { submittedAt: number }) {
           );
         })}
       </div>
+
+      {/* Delayed warning */}
+      {isDelayed && (
+        <div style={{
+          marginTop: 10, padding: "8px 10px", borderRadius: 6,
+          background: "oklch(0.25 0.08 50 / 0.5)",
+          border: "1px solid oklch(0.50 0.15 50 / 0.4)",
+        }}>
+          <div style={{ fontSize: 11, color: "oklch(0.75 0.15 50)", display: "flex", alignItems: "center", gap: 6 }}>
+            <AlertTriangle size={11} />
+            Taking longer than expected. Hermes is still processing in the background.
+            If you refreshed the page, don't worry — the cron job runs every 5 minutes and will complete automatically.
+          </div>
+        </div>
+      )}
 
       {/* Keyframe styles */}
       <style>{`
@@ -696,6 +712,7 @@ function SMCPage() {
             <HermesAnalyzingCard
               key={r.id}
               submittedAt={new Date(r.created_at).getTime()}
+              reviewId={r.id}
             />
           ))}
         </div>
