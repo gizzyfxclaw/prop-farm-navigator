@@ -56,6 +56,39 @@ export const Route = createFileRoute("/api/smc-migrate")({
           // Already exists — fine
         }
 
+        // Migration 007: create hermes_outcomes table (durable win-rate tracking)
+        try {
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS hermes_outcomes (
+              id TEXT PRIMARY KEY,
+              review_id TEXT NOT NULL UNIQUE,
+              pair TEXT NOT NULL,
+              timeframe TEXT,
+              direction TEXT CHECK(direction IN ('long', 'short')),
+              entry REAL,
+              stop_loss REAL,
+              take_profit REAL,
+              accuracy_grade TEXT,
+              outcome TEXT NOT NULL CHECK(outcome IN ('WIN', 'LOSS', 'PENDING')),
+              pips_moved REAL,
+              sl_pips REAL,
+              evaluated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+              created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+            )
+          `).bind().run();
+
+          await env.DB.prepare(`
+            CREATE INDEX IF NOT EXISTS idx_hermes_outcomes_outcome ON hermes_outcomes(outcome)
+          `).bind().run();
+          await env.DB.prepare(`
+            CREATE INDEX IF NOT EXISTS idx_hermes_outcomes_pair ON hermes_outcomes(pair)
+          `).bind().run();
+
+          applied.push("hermes_outcomes table");
+        } catch (e) {
+          // Already exists — fine
+        }
+
         return Response.json({ ok: true, applied, message: applied.length > 0 ? "Migrations applied" : "Already up to date" });
       },
     },

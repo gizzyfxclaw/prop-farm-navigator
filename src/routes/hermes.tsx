@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { Alert, Badge, Button, Card, Field, Row, Select, Stat } from "@/components/terminal/ui";
 import { TradingViewChart } from "@/components/terminal/tradingview-chart";
 import { LWChart, type Drawing, type OHLCBar } from "@/components/terminal/lwchart";
+import { WinRateBadge } from "@/components/terminal/WinRateBadge";
+import { buildSmcDrawings } from "@/lib/smc-drawings";
 import { PAIRS, PAIR_SPECS, formatPrice } from "@/lib/engine/pairs";
 import type { Direction } from "@/lib/engine/calc";
 import { useStore } from "@/lib/store";
@@ -89,10 +91,21 @@ function mergeDrawings(steps: AnalysisStep[], setup: HermesSetup | null): Drawin
   return all;
 }
 
-/* ── Live SMC Analysis Panel ─────────────────────────────────────── */
-function LiveSmcPanel() {
-  const [pair, setPair] = useState("EURUSD");
-  const [tf, setTf] = useState("1h");
+/* ── Live SMC Analysis Panel ─────────────────────────────────────────────
+   Pair/TF are controlled by the parent so this panel always analyzes the
+   SAME symbol the chart above is showing, and its trend line / order
+   blocks / entry-SL-TP get drawn onto that chart (via onAnalyzed) instead
+   of only appearing as numbers in this card. ────────────────────────── */
+function LiveSmcPanel({
+  pair, tf, onPairChange, onTfChange, lastBarTime, onAnalyzed,
+}: {
+  pair: string;
+  tf: string;
+  onPairChange: (pair: string) => void;
+  onTfChange: (tf: string) => void;
+  lastBarTime?: number | undefined;
+  onAnalyzed: (drawings: Drawing[]) => void;
+}) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -100,10 +113,21 @@ function LiveSmcPanel() {
     setLoading(true);
     try {
       const r = await fetch(`/api/smc-analyze?pair=${pair}&interval=${tf}&limit=500`);
-      if (r.ok) setData(await r.json());
+      if (r.ok) {
+        const json = await r.json();
+        setData(json);
+        onAnalyzed(buildSmcDrawings(json.structure, {
+          direction: json.levels?.direction,
+          entry: json.levels?.entry != null ? parseFloat(json.levels.entry) : null,
+          stopLoss: json.levels?.stopLoss != null ? parseFloat(json.levels.stopLoss) : null,
+          takeProfit1: json.levels?.takeProfit1 != null ? parseFloat(json.levels.takeProfit1) : null,
+          takeProfit2: json.levels?.takeProfit2 != null ? parseFloat(json.levels.takeProfit2) : null,
+        }, lastBarTime, json.channel));
+      }
     } catch {}
     setLoading(false);
-  }, [pair, tf]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pair, tf, lastBarTime]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -112,18 +136,22 @@ function LiveSmcPanel() {
   const isLong = dir === "long";
   const isShort = dir === "short";
   const hasSignal = isLong || isShort;
+  const mtf = data?.timeframeAlignment;
 
   return (
     <Card title="Live Market Analysis" badge={<Badge tone={hasSignal ? (isLong ? "green" : "red") : "neutral"}>SMC</Badge>}>
+      <div className="mb-3">
+        <WinRateBadge pair={pair} />
+      </div>
       <div className="flex flex-wrap gap-3 mb-4">
         <Field label="Pair">
-          <select className="h-11 rounded-xl border border-border bg-input px-3 text-sm" value={pair} onChange={e => setPair(e.target.value)}>
+          <select className="h-11 rounded-xl border border-border bg-input px-3 text-sm" value={pair} onChange={e => onPairChange(e.target.value)}>
             {["EURUSD","GBPUSD","USDJPY","AUDUSD","XAUUSD"].map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </Field>
         <Field label="TF">
-          <select className="h-11 rounded-xl border border-border bg-input px-3 text-sm" value={tf} onChange={e => setTf(e.target.value)}>
-            {["15m","1h","4h","1d"].map(t => <option key={t} value={t}>{t}</option>)}
+          <select className="h-11 rounded-xl border border-border bg-input px-3 text-sm" value={tf} onChange={e => onTfChange(e.target.value)}>
+            {["5m","15m","30m","1h","4h","1d","1w"].map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </Field>
         <div className="flex items-end">
@@ -140,6 +168,26 @@ function LiveSmcPanel() {
               SL: {lv.slPips}pips · {data.debate?.finalVerdict?.replace("_"," ")}
             </span>
           </div>
+          {mtf && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge tone={mtf.aligned ? "green" : "amber"}>
+                {mtf.aligned ? "MTF ALIGNED" : "MTF CONFLICT"}
+              </Badge>
+              <span className="text-[11px] text-muted-foreground">
+                {mtf.agreeCount}/{mtf.totalCount} timeframes agree (Daily→5M)
+                {!mtf.aligned && mtf.conflictingTfs?.length > 0 && ` — conflicting: ${mtf.conflictingTfs.map((t: string) => t.toUpperCase()).join(", ")}`}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge tone={(lv.retestCount ?? 0) >= 2 ? "green" : "red"}>
+              {lv.retestCount ?? 0} RETEST{(lv.retestCount ?? 0) === 1 ? "" : "S"}
+            </Badge>
+            <Badge tone={lv.breakoutConfirmed5m ? "green" : "neutral"}>
+              {lv.breakoutConfirmed5m ? "5M CONFIRMED" : "5M PENDING"}
+            </Badge>
+            {lv.nearbyConflict && <Badge tone="amber">CONFLICTING LEVEL</Badge>}
+          </div>
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
               <p className="text-[10px] text-muted-foreground">Entry</p>
@@ -154,10 +202,10 @@ function LiveSmcPanel() {
               <p className="text-lg font-bold font-mono text-amber-400">{lv.primaryTP}</p>
             </div>
           </div>
-          <div className="grid gap-2 sm:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-2">
             {lv.riskRewardOptions?.map((rr: string, i: number) => {
               const rec = rr === lv.recommendedRR;
-              const tp = [lv.takeProfit1, lv.takeProfit2, lv.takeProfit3, lv.takeProfit4][i];
+              const tp = [lv.takeProfit1, lv.takeProfit2][i];
               return (
                 <div key={rr} className="rounded-lg p-2 text-center" style={{ border: `1px solid ${rec ? "oklch(0.55 0.18 145)" : "oklch(0.25 0.04 280)"}`, background: rec ? "oklch(0.20 0.06 145 / 0.3)" : "transparent" }}>
                   <p className="text-[10px] font-bold" style={{ color: rec ? "oklch(0.70 0.15 145)" : "oklch(0.55 0.06 280)" }}>{rr} {rec && "★"}</p>
@@ -166,11 +214,16 @@ function LiveSmcPanel() {
               );
             })}
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            Drawn on the chart above — switch to the "Analysis" view if you're on TradingView.
+          </p>
         </div>
       )}
 
       {data && !hasSignal && (
-        <p className="text-[12px] text-muted-foreground">No clear signal — market is ranging. Wait for BOS confirmation.</p>
+        <p className="text-[12px] text-muted-foreground">
+          {lv?.reason ?? "No clear signal — market is ranging. Wait for a valid channel breakout."}
+        </p>
       )}
     </Card>
   );
@@ -190,6 +243,9 @@ function HermesPage() {
   const [bars, setBars] = useState<OHLCBar[]>([]);
   const [barsLoading, setBarsLoading] = useState(false);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
+  // Separate from `drawings` (the chat agent's) so the Live Market Analysis
+  // panel below can redraw without clobbering an in-progress chat analysis.
+  const [smcDrawings, setSmcDrawings] = useState<Drawing[]>([]);
   const [steps, setSteps] = useState<AnalysisStep[]>([]);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -243,6 +299,18 @@ function HermesPage() {
    * flight at all) still posts to the same hermes_setups table, so this
    * has to be checked independently of pollSteps to actually catch those.
    */
+  // Stable identities (empty deps) so LiveSmcPanel's fetch effect doesn't
+  // re-run just because HermesPage re-rendered.
+  const handleSmcPairChange = useCallback((p: string) => {
+    setChartPair(p);
+    setDrawings([]);
+    setSmcDrawings([]);
+  }, []);
+  const handleSmcAnalyzed = useCallback((d: Drawing[]) => {
+    setSmcDrawings(d);
+    setChartMode("lw");
+  }, []);
+
   function checkForNewSetups(freshSetups: HermesSetup[]) {
     if (seenSetupIdsRef.current === null) {
       seenSetupIdsRef.current = new Set(freshSetups.map((s) => s.id));
@@ -646,10 +714,7 @@ function HermesPage() {
 
           <Select
             value={chartPair}
-            onChange={(e) => {
-              setChartPair(e.target.value);
-              setDrawings([]);
-            }}
+            onChange={(e) => handleSmcPairChange(e.target.value)}
             className="h-8 w-32 text-[12px]"
           >
             {PAIRS.map((p) => (
@@ -687,7 +752,7 @@ function HermesPage() {
           {chartMode === "tv" ? (
             <TradingViewChart pair={chartPair} height="100%" />
           ) : (
-            <LWChart bars={bars} drawings={drawings} height="100%" loading={barsLoading} storageKey={chartPair} />
+            <LWChart bars={bars} drawings={[...drawings, ...smcDrawings]} height="100%" loading={barsLoading} storageKey={chartPair} />
           )}
         </div>
 
@@ -709,8 +774,8 @@ function HermesPage() {
         <p className="shrink-0 border-t border-border px-5 py-3 text-[12px] text-muted-foreground">
           {chartMode === "tv"
             ? "Full TradingView toolbar — mark up levels directly here. Switches to the analysis view automatically when you ask the agent for an analysis."
-            : drawings.length > 0
-              ? `${drawings.length} drawing${drawings.length > 1 ? "s" : ""} from the agent's analysis.`
+            : drawings.length + smcDrawings.length > 0
+              ? `${drawings.length + smcDrawings.length} drawing${drawings.length + smcDrawings.length > 1 ? "s" : ""} from the agent's analysis.`
               : "Ask the agent for an analysis below — its drawings appear here in real time."}
         </p>
       </section>
@@ -781,7 +846,14 @@ function HermesPage() {
       </Card>
 
       {/* Live SMC Analysis — real-time market analysis with pending orders */}
-      <LiveSmcPanel />
+      <LiveSmcPanel
+        pair={chartPair}
+        tf={chartInterval}
+        onPairChange={handleSmcPairChange}
+        onTfChange={setChartInterval}
+        lastBarTime={bars.length ? bars[bars.length - 1]!.time : undefined}
+        onAnalyzed={handleSmcAnalyzed}
+      />
 
       <Card title="Strategy Rules" badge={<Badge tone="neutral">{rules.length}</Badge>}>
         <div className="space-y-4">

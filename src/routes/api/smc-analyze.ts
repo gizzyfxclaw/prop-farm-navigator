@@ -83,6 +83,12 @@ function findSwings(bars: Bar[], lookback: number) {
   return { highs, lows };
 }
 
+/**
+ * Generic swing structure (HH/HL bias, order blocks). Kept as SUPPORTING
+ * signal — feeds the multi-timeframe confluence check and the "conflicting
+ * level near target" check — but no longer the primary setup detector.
+ * See detectChannel() below for the actual GizzyFx strategy logic.
+ */
 function detectStructure(bars: Bar[]) {
   const { highs, lows } = findSwings(bars, 5);
   let bias = "neutral";
@@ -101,6 +107,15 @@ function detectStructure(bars: Bar[]) {
   const lastSwingLow  = lows.length  > 0 ? bars[lows[lows.length   - 1]!]!.low  : 0;
   const bos = bias === "bullish" ? "bullish" : bias === "bearish" ? "bearish" : null;
 
+  const swingPoint = (idxArr: number[], nth: number, field: "high" | "low") => {
+    const idx = idxArr.length > nth ? idxArr[idxArr.length - 1 - nth] : undefined;
+    return idx != null ? { time: bars[idx]!.time, price: bars[idx]![field] } : null;
+  };
+  const trendline = {
+    highs: [swingPoint(highs, 1, "high"), swingPoint(highs, 0, "high")].filter(Boolean),
+    lows: [swingPoint(lows, 1, "low"), swingPoint(lows, 0, "low")].filter(Boolean),
+  };
+
   const orderBlocks: Array<{ low: number; high: number; kind: string; impulseMag: number }> = [];
   const atr = calcATR(bars, 14);
   for (let i = 5; i < bars.length - 3; i++) {
@@ -118,232 +133,388 @@ function detectStructure(bars: Bar[]) {
     }
   }
 
-  return { bias, bos, orderBlocks: orderBlocks.slice(-5), lastSwingHigh, lastSwingLow, highs: highs.length, lows: lows.length };
+  return { bias, bos, orderBlocks: orderBlocks.slice(-5), lastSwingHigh, lastSwingLow, highs: highs.length, lows: lows.length, trendline };
 }
 
-function generateDebate(structure: ReturnType<typeof detectStructure>, bars: Bar[], atr: number) {
-  const bullPoints: Array<{ claim: string; evidence: string }> = [];
-  const bearPoints: Array<{ claim: string; evidence: string }> = [];
-  let bullScore = 0;
-  let bearScore = 0;
+/* ── GizzyFx Parallel Channel Breakout — the actual strategy ───────────────
+   1) Draw an ascending or descending parallel channel from recent swing
+      points. 2) The far boundary (resistance for ascending, support for
+      descending) is the breakout level. 3) That boundary needs 2+ valid
+      retests before it's tradeable — 2 is the floor, not a cap. 4) A setup
+      is ALWAYS given as a pending order at the boundary (buy-stop above
+      resistance / sell-stop below support) — it does not wait for the 5M
+      breakout to already have happened. 5) SL is fixed 30 pips. 6) R:R is
+      1:2 when the 5M breakout is already confirmed + 3+ clean retests + no
+      conflicting level near target; 1:1.5 otherwise.
+   ─────────────────────────────────────────────────────────────────────── */
 
-  const lastBar = bars[bars.length - 1]!;
-  const prev20 = bars.slice(-20);
-  const prev5  = bars.slice(-5);
+export interface ChannelPoint { time: number; price: number; }
+export interface Channel {
+  type: "ascending" | "descending" | "none";
+  direction: "long" | "short" | "neutral";
+  baseLine: [ChannelPoint, ChannelPoint] | null;
+  breakoutLine: [ChannelPoint, ChannelPoint] | null;
+  breakoutBoundary: number;
+  retestCount: number;
+  retests: ChannelPoint[];
+}
 
-  // ── 1. Market structure bias (30 pts max) ───────────────────────────────
-  if (structure.bias === "bullish") {
-    bullScore += 30;
-    bullPoints.push({ claim: "Higher Highs + Higher Lows confirmed", evidence: `HH/HL structure across ${structure.highs} swing highs` });
-  } else if (structure.bias === "bearish") {
-    bearScore += 30;
-    bearPoints.push({ claim: "Lower Highs + Lower Lows confirmed", evidence: `LH/LL structure across ${structure.lows} swing lows` });
-  }
+function linreg(points: { x: number; y: number }[]): { slope: number; intercept: number } {
+  const n = points.length;
+  const sumX = points.reduce((s, p) => s + p.x, 0);
+  const sumY = points.reduce((s, p) => s + p.y, 0);
+  const sumXY = points.reduce((s, p) => s + p.x * p.y, 0);
+  const sumXX = points.reduce((s, p) => s + p.x * p.x, 0);
+  const denom = n * sumXX - sumX * sumX;
+  if (denom === 0) return { slope: 0, intercept: sumY / n };
+  const slope = (n * sumXY - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / n;
+  return { slope, intercept };
+}
 
-  // ── 2. BOS (20 pts) ─────────────────────────────────────────────────────
-  if (structure.bos === "bullish") {
-    bullScore += 20;
-    bullPoints.push({ claim: "Bullish BOS — broke prior swing high", evidence: `Break at ${structure.lastSwingHigh.toFixed(5)}` });
-  } else if (structure.bos === "bearish") {
-    bearScore += 20;
-    bearPoints.push({ claim: "Bearish BOS — broke prior swing low", evidence: `Break at ${structure.lastSwingLow.toFixed(5)}` });
-  }
+const EMPTY_CHANNEL: Channel = {
+  type: "none", direction: "neutral", baseLine: null, breakoutLine: null,
+  breakoutBoundary: 0, retestCount: 0, retests: [],
+};
 
-  // ── 3. Order blocks (10 pts per OB side, max 20) ────────────────────────
-  const bullOBs = structure.orderBlocks.filter(o => o.kind === "bullish");
-  const bearOBs = structure.orderBlocks.filter(o => o.kind === "bearish");
-  if (bullOBs.length > 0) {
-    const score = Math.min(bullOBs.length * 10, 20);
-    bullScore += score;
-    const ob = bullOBs[bullOBs.length - 1]!;
-    bullPoints.push({ claim: `${bullOBs.length} bullish OB(s) — demand zones`, evidence: `Nearest: ${ob.low.toFixed(5)}-${ob.high.toFixed(5)} (${ob.impulseMag.toFixed(1)}× ATR)` });
-  }
-  if (bearOBs.length > 0) {
-    const score = Math.min(bearOBs.length * 10, 20);
-    bearScore += score;
-    const ob = bearOBs[bearOBs.length - 1]!;
-    bearPoints.push({ claim: `${bearOBs.length} bearish OB(s) — supply zones`, evidence: `Nearest: ${ob.low.toFixed(5)}-${ob.high.toFixed(5)} (${ob.impulseMag.toFixed(1)}× ATR)` });
-  }
+function detectChannel(bars: Bar[], atr: number): Channel {
+  const { highs, lows } = findSwings(bars, 5);
+  if (highs.length < 3 || lows.length < 3) return EMPTY_CHANNEL;
 
-  // ── 4. Momentum — last 5 candles (15 pts) ───────────────────────────────
-  const bullCandles = prev5.filter(b => b.close > b.open).length;
-  const bearCandles = prev5.filter(b => b.close < b.open).length;
-  if (bullCandles >= 3) {
-    bullScore += 10 + (bullCandles - 3) * 5;
-    bullPoints.push({ claim: `Bullish momentum — ${bullCandles}/5 recent candles green`, evidence: `Close > Open pattern` });
-  } else if (bearCandles >= 3) {
-    bearScore += 10 + (bearCandles - 3) * 5;
-    bearPoints.push({ claim: `Bearish momentum — ${bearCandles}/5 recent candles red`, evidence: `Close < Open pattern` });
-  }
+  const recentHighIdx = highs.slice(-5);
+  const recentLowIdx = lows.slice(-5);
+  const highPts = recentHighIdx.map((i) => ({ x: i, y: bars[i]!.high }));
+  const lowPts = recentLowIdx.map((i) => ({ x: i, y: bars[i]!.low }));
 
-  // ── 5. Price vs 20-bar midpoint (10 pts) ────────────────────────────────
-  const high20 = Math.max(...prev20.map(b => b.high));
-  const low20  = Math.min(...prev20.map(b => b.low));
-  const mid20  = (high20 + low20) / 2;
-  if (lastBar.close > mid20 + atr * 0.3) {
-    bullScore += 10;
-    bullPoints.push({ claim: "Price above 20-bar midpoint", evidence: `${lastBar.close.toFixed(5)} vs mid ${mid20.toFixed(5)}` });
-  } else if (lastBar.close < mid20 - atr * 0.3) {
-    bearScore += 10;
-    bearPoints.push({ claim: "Price below 20-bar midpoint", evidence: `${lastBar.close.toFixed(5)} vs mid ${mid20.toFixed(5)}` });
-  }
+  const highReg = linreg(highPts);
+  const lowReg = linreg(lowPts);
 
-  // ── 6. Range position (5 pts) ─────────────────────────────────────────
-  const rangePos = (lastBar.close - low20) / (high20 - low20 || 1);
-  if (rangePos > 0.65) {
-    bullScore += 5;
-    bullPoints.push({ claim: `Price in upper ${((rangePos)*100).toFixed(0)}% of 20-bar range`, evidence: `Range: ${low20.toFixed(5)}-${high20.toFixed(5)}` });
-  } else if (rangePos < 0.35) {
-    bearScore += 5;
-    bearPoints.push({ claim: `Price in lower ${((1-rangePos)*100).toFixed(0)}% of 20-bar range`, evidence: `Range: ${low20.toFixed(5)}-${high20.toFixed(5)}` });
-  }
+  // Normalize slope by price so the ascending/descending threshold isn't
+  // pair-scale-dependent (JPY/XAU prices are 100-1000x FX majors).
+  const avgPrice = bars[bars.length - 1]!.close || 1;
+  const normSlope = ((highReg.slope + lowReg.slope) / 2) / avgPrice;
+  if (Math.abs(normSlope) < 0.00002) return EMPTY_CHANNEL; // too flat — no channel
 
-  // Add counter-arguments for balance
-  if (structure.bias === "bullish" && bearPoints.length === 0) {
-    bearPoints.push({ claim: "Single-timeframe view — no higher-TF confirmation", evidence: "1H BOS not confirmed by 4H/1D structure" });
-  }
-  if (structure.bias === "bearish" && bullPoints.length === 0) {
-    bullPoints.push({ claim: "Potential mean-reversion zone", evidence: "Extended move may attract buyers" });
-  }
-  if (bullPoints.length === 0) {
-    bullPoints.push({ claim: "No clear bullish confluence detected", evidence: "Awaiting BOS or OB confirmation" });
-  }
-  if (bearPoints.length === 0) {
-    bearPoints.push({ claim: "No clear bearish confluence detected", evidence: "Awaiting BOS or OB confirmation" });
-  }
+  const ascending = normSlope > 0;
+  const baseReg = ascending ? lowReg : highReg;   // channel is anchored to this side
+  const otherPts = ascending ? highPts : lowPts;  // opposite side sets the parallel offset
 
-  // Normalize to 0-1
-  const bullConf = Math.min(bullScore / 100, 1);
-  const bearConf = Math.min(bearScore / 100, 1);
+  let offset = ascending ? -Infinity : Infinity;
+  for (const p of otherPts) {
+    const baseY = baseReg.slope * p.x + baseReg.intercept;
+    const d = p.y - baseY;
+    offset = ascending ? Math.max(offset, d) : Math.min(offset, d);
+  }
+  if (!Number.isFinite(offset)) return EMPTY_CHANNEL;
 
-  let finalVerdict: string;
-  if (bullScore > bearScore + 30)      finalVerdict = "STRONG_LONG";
-  else if (bullScore > bearScore + 10) finalVerdict = "LEAN_LONG";
-  else if (bearScore > bullScore + 30) finalVerdict = "STRONG_SHORT";
-  else if (bearScore > bullScore + 10) finalVerdict = "LEAN_SHORT";
-  else                                  finalVerdict = "NEUTRAL";
+  const lastIdx = bars.length - 1;
+  const lineAt = (i: number) => baseReg.slope * i + baseReg.intercept;
+  const breakoutBoundary = lineAt(lastIdx) + offset;
+
+  const baseIdxs = ascending ? recentLowIdx : recentHighIdx;
+  const firstI = baseIdxs[0]!;
+  const lastI = baseIdxs[baseIdxs.length - 1]!;
+  const baseLine: [ChannelPoint, ChannelPoint] = [
+    { time: bars[firstI]!.time, price: lineAt(firstI) },
+    { time: bars[lastI]!.time, price: lineAt(lastI) },
+  ];
+  const breakoutLine: [ChannelPoint, ChannelPoint] = [
+    { time: bars[firstI]!.time, price: lineAt(firstI) + offset },
+    { time: bars[lastI]!.time, price: lineAt(lastI) + offset },
+  ];
+
+  // Retests: bars whose high (ascending → testing resistance) or low
+  // (descending → testing support) came close to the boundary at that bar's
+  // index without a full close through it. Consecutive touches collapse
+  // into one retest (a real test usually spans a few candles).
+  const tolerance = atr * 0.5;
+  const rawRetests: ChannelPoint[] = [];
+  const lookbackStart = Math.max(0, lastIdx - 150);
+  for (let i = lookbackStart; i <= lastIdx; i++) {
+    const boundaryAtI = lineAt(i) + offset;
+    const bar = bars[i]!;
+    if (ascending) {
+      const dist = boundaryAtI - bar.high;
+      if (dist >= -tolerance * 0.3 && dist <= tolerance && bar.close < boundaryAtI) {
+        rawRetests.push({ time: bar.time, price: bar.high });
+      }
+    } else {
+      const dist = bar.low - boundaryAtI;
+      if (dist >= -tolerance * 0.3 && dist <= tolerance && bar.close > boundaryAtI) {
+        rawRetests.push({ time: bar.time, price: bar.low });
+      }
+    }
+  }
+  const barSeconds = bars.length > 1 ? bars[1]!.time - bars[0]!.time : 3600;
+  const minGap = Math.max(barSeconds * 3, 3600);
+  const retests: ChannelPoint[] = [];
+  for (const r of rawRetests) {
+    const prev = retests[retests.length - 1];
+    if (!prev || r.time - prev.time > minGap) retests.push(r);
+  }
 
   return {
-    bullCase: { direction: "bullish", points: bullPoints, overallConfidence: bullConf },
-    bearCase: { direction: "bearish", points: bearPoints, overallConfidence: bearConf },
+    type: ascending ? "ascending" : "descending",
+    direction: ascending ? "long" : "short",
+    baseLine,
+    breakoutLine,
+    breakoutBoundary,
+    retestCount: retests.length,
+    retests,
+  };
+}
+
+/** Has the breakout already happened on the true 5-minute chart? Checked
+ *  independently of whatever timeframe the channel itself was drawn on —
+ *  requires the last 3 five-minute closes through the boundary, not a
+ *  single wick, to avoid a false positive. */
+function checkBreakoutConfirmed(bars5m: Bar[] | null, boundary: number, direction: Channel["direction"]): boolean {
+  if (!bars5m || direction === "neutral" || bars5m.length < 3 || boundary === 0) return false;
+  const lastCloses = bars5m.slice(-3).map((b) => b.close);
+  return direction === "long" ? lastCloses.every((c) => c > boundary) : lastCloses.every((c) => c < boundary);
+}
+
+function hasNearbyConflict(
+  orderBlocks: Array<{ low: number; high: number; kind: string }>,
+  targetPrice: number,
+  direction: Channel["direction"],
+  atr: number,
+): boolean {
+  if (direction === "neutral") return false;
+  const opposingKind = direction === "long" ? "bearish" : "bullish";
+  return orderBlocks.some(
+    (ob) => ob.kind === opposingKind && Math.min(Math.abs(ob.low - targetPrice), Math.abs(ob.high - targetPrice)) < atr,
+  );
+}
+
+/**
+ * Top-down trend alignment — the GizzyFx strategy requires the higher
+ * timeframes to agree with the channel's direction before a setup is
+ * trustworthy. Daily down to 5-minute is the full stack; anything narrower
+ * risks trading against the dominant trend on a lower timeframe.
+ */
+const MTF_STACK = ["1d", "4h", "1h", "15m", "5m"] as const;
+type Bias = "bullish" | "bearish" | "neutral";
+
+export interface TimeframeAlignment {
+  requested: string;
+  biasByTf: Record<string, Bias>;
+  aligned: boolean;
+  agreeCount: number;
+  totalCount: number;
+  conflictingTfs: string[];
+}
+
+async function fetchTimeframeBias(apiKey: string, pair: string, interval: string): Promise<Bias> {
+  const bars = await fetchBars(apiKey, pair, interval, 300);
+  if (!bars || bars.length < 20) return "neutral";
+  return detectStructure(bars).bias as Bias;
+}
+
+async function computeAlignment(
+  apiKey: string,
+  pair: string,
+  requestedInterval: string,
+  requestedBias: Bias,
+): Promise<TimeframeAlignment> {
+  const others = MTF_STACK.filter((tf) => tf !== requestedInterval);
+  const otherBiases = await Promise.all(others.map((tf) => fetchTimeframeBias(apiKey, pair, tf)));
+
+  const biasByTf: Record<string, Bias> = { [requestedInterval]: requestedBias };
+  others.forEach((tf, i) => { biasByTf[tf] = otherBiases[i]!; });
+
+  const dominant = requestedBias;
+  const conflictingTfs = dominant === "neutral"
+    ? []
+    : Object.entries(biasByTf)
+        .filter(([tf, b]) => tf !== requestedInterval && b !== "neutral" && b !== dominant)
+        .map(([tf]) => tf);
+  const agreeCount = Object.values(biasByTf).filter((b) => b === dominant).length;
+
+  return {
+    requested: requestedInterval,
+    biasByTf,
+    aligned: dominant !== "neutral" && conflictingTfs.length === 0,
+    agreeCount,
+    totalCount: Object.keys(biasByTf).length,
+    conflictingTfs,
+  };
+}
+
+function generateDebate(
+  channel: Channel,
+  breakoutConfirmed5m: boolean,
+  nearbyConflict: boolean,
+  alignment: TimeframeAlignment,
+) {
+  const points: Array<{ claim: string; evidence: string }> = [];
+  const counterPoints: Array<{ claim: string; evidence: string }> = [];
+  let score = 0;
+
+  // ── 1. Channel validity + retest gate (40 pts) — the core strategy rule ──
+  if (channel.type !== "none" && channel.retestCount >= 2) {
+    score += 40;
+    points.push({
+      claim: `${channel.type === "ascending" ? "Ascending" : "Descending"} channel confirmed — ${channel.retestCount} retest(s) of the breakout boundary`,
+      evidence: `Boundary at ${channel.breakoutBoundary.toFixed(5)}`,
+    });
+  } else if (channel.type !== "none") {
+    counterPoints.push({
+      claim: `Channel found but only ${channel.retestCount} retest(s) — needs 2+ before it's tradeable`,
+      evidence: `Boundary at ${channel.breakoutBoundary.toFixed(5)} not yet validated`,
+    });
+  } else {
+    counterPoints.push({ claim: "No valid parallel channel detected", evidence: "Price action too choppy or ranging for a clean channel" });
+  }
+
+  // ── 2. Retest quality — 3+ is "clean" per the strategy doc (15 pts) ─────
+  if (channel.retestCount >= 3) {
+    score += 15;
+    points.push({ claim: `${channel.retestCount} clean retests — exceeds the 2-touch floor`, evidence: "Stronger validation of the boundary" });
+  }
+
+  // ── 3. 5M breakout confirmation (20 pts) — feeds R:R, not a hard gate ───
+  if (breakoutConfirmed5m) {
+    score += 20;
+    points.push({ claim: "5M breakout already confirmed", evidence: "Last 3 five-minute closes are through the boundary" });
+  } else {
+    counterPoints.push({ claim: "5M breakout not yet confirmed", evidence: "Still anticipatory — pending order, not a live break" });
+  }
+
+  // ── 4. No conflicting level near the 1:2 target (10 pts) ────────────────
+  if (nearbyConflict) {
+    counterPoints.push({ claim: "Conflicting order block near the 1:2 target", evidence: "TP2 sits close to an opposing supply/demand zone" });
+  } else if (channel.type !== "none") {
+    score += 10;
+    points.push({ claim: "No conflicting level near target", evidence: "Clear path to the 1:2 take-profit" });
+  }
+
+  // ── 5. Multi-timeframe alignment, Daily → 5M (25 pts) ───────────────────
+  const tfOrder = [...MTF_STACK, alignment.requested].filter(
+    (tf, i, arr) => tf in alignment.biasByTf && arr.indexOf(tf) === i,
+  );
+  const tfSummary = tfOrder.map((tf) => `${tf.toUpperCase()}=${alignment.biasByTf[tf]}`).join(", ");
+  if (alignment.aligned) {
+    score += 25;
+    points.push({
+      claim: `Multi-timeframe alignment — ${alignment.agreeCount}/${alignment.totalCount} timeframes agree ${channel.direction === "long" ? "bullish" : "bearish"}`,
+      evidence: tfSummary,
+    });
+  } else if (alignment.conflictingTfs.length > 0) {
+    counterPoints.push({
+      claim: `${alignment.conflictingTfs.length} timeframe(s) disagree`,
+      evidence: `Conflicting: ${alignment.conflictingTfs.map((tf) => tf.toUpperCase()).join(", ")} — full stack: ${tfSummary}`,
+    });
+  }
+
+  if (points.length === 0) points.push({ claim: "No supporting confluence yet", evidence: "Wait for a valid channel + retests" });
+  if (counterPoints.length === 0) counterPoints.push({ claim: "No major red flags", evidence: "Setup passes the base checklist" });
+
+  const confidence = Math.min(score / 110, 1); // max: 40+15+20+10+25
+  const isLong = channel.direction === "long";
+
+  let finalVerdict: string;
+  if (channel.direction === "neutral") finalVerdict = "NEUTRAL";
+  else if (confidence >= 0.75) finalVerdict = isLong ? "STRONG_LONG" : "STRONG_SHORT";
+  else if (confidence >= 0.5) finalVerdict = isLong ? "LEAN_LONG" : "LEAN_SHORT";
+  else finalVerdict = "NEUTRAL";
+
+  return {
+    // bullCase/bearCase kept as the frontend's existing shape — populated
+    // with whichever list (for/against) actually matches "bullish"/"bearish"
+    // given the channel's direction, not a separate bull-vs-bear score.
+    bullCase: { direction: "bullish", points: isLong ? points : counterPoints, overallConfidence: isLong ? confidence : 1 - confidence },
+    bearCase: { direction: "bearish", points: isLong ? counterPoints : points, overallConfidence: isLong ? 1 - confidence : confidence },
     debateRounds: [
-      `Bull: "${bullPoints[0]?.claim ?? "No case"}" (${(bullConf * 100).toFixed(0)}%)`,
-      `Bear: "${bearPoints[0]?.claim ?? "No case"}" (${(bearConf * 100).toFixed(0)}%)`,
-      `Synthesis: ${finalVerdict.replace("_", " ")} — ${bullScore > bearScore ? "bulls" : bearScore > bullScore ? "bears" : "balanced"} in control`,
+      `For: "${points[0]?.claim ?? "No case"}"`,
+      `Against: "${counterPoints[0]?.claim ?? "No case"}"`,
+      `Synthesis: ${finalVerdict.replace("_", " ")} — confidence ${(confidence * 100).toFixed(0)}%`,
     ],
     finalVerdict,
-    confidence: Math.max(bullConf, bearConf),
-    finalRationale: `Bull: ${bullScore}pts vs Bear: ${bearScore}pts`,
-    entryZone: "See levels below",
-    invalidationLevel: structure.bias === "bullish" ? structure.lastSwingLow.toFixed(5) : structure.lastSwingHigh.toFixed(5),
+    confidence,
+    finalRationale: `Setup score: ${score}/110`,
+    entryZone: channel.type !== "none" ? channel.breakoutBoundary.toFixed(5) : "See levels below",
+    invalidationLevel: channel.baseLine ? channel.baseLine[1].price.toFixed(5) : "",
     riskReward: "See levels below",
   };
 }
 
-function buildLevels(structure: ReturnType<typeof detectStructure>, lastPrice: number, atr: number, accuracyGrade?: string, pairSymbol?: string) {
-  const direction = structure.bias === "bullish" ? "long" : structure.bias === "bearish" ? "short" : "neutral";
+function buildStrategyLevels(
+  channel: Channel,
+  orderBlocks: ReturnType<typeof detectStructure>["orderBlocks"],
+  lastPrice: number,
+  atr: number,
+  pairSymbol: string,
+  breakoutConfirmed5m: boolean,
+) {
+  const spec = pairSpec(pairSymbol);
+  const SL_PIPS = 30; // fixed, per the strategy doc — never ATR-derived
 
-  if (direction === "neutral") {
+  if (channel.type === "none" || channel.retestCount < 2) {
     return {
-      direction, confidence: 0.5, orderType: "MARKET",
-      entry: lastPrice.toFixed(5),
-      stopLoss: (lastPrice - atr * 2).toFixed(5),
-      takeProfit1: (lastPrice + atr * 1.5).toFixed(5),
-      takeProfit2: (lastPrice + atr * 2).toFixed(5),
-      takeProfit3: (lastPrice + atr * 2.5).toFixed(5),
-      takeProfit4: (lastPrice + atr * 3).toFixed(5),
-      riskReward: "1:2",
-      riskRewardOptions: ["1:1.5", "1:2", "1:2.5", "1:3"],
-      recommendedRR: "1:2",
+      direction: "neutral" as const,
+      confidence: 0.3,
+      orderType: "NONE",
+      entry: lastPrice.toFixed(spec.decimals),
+      stopLoss: lastPrice.toFixed(spec.decimals),
+      takeProfit1: lastPrice.toFixed(spec.decimals),
+      takeProfit2: lastPrice.toFixed(spec.decimals),
+      riskReward: "1:1.5",
+      riskRewardOptions: ["1:1.5", "1:2"],
+      recommendedRR: "1:1.5",
+      slPips: SL_PIPS,
+      tp15Pips: 0,
+      tp20Pips: 0,
+      primaryTPPips: 0,
+      primaryTP: lastPrice.toFixed(spec.decimals),
+      retestCount: channel.retestCount,
+      breakoutConfirmed5m,
+      nearbyConflict: false,
+      reason: channel.type === "none"
+        ? "No valid ascending/descending channel — market is too choppy or ranging"
+        : `Only ${channel.retestCount} retest(s) of the breakout boundary — needs 2+ before this is tradeable`,
     };
   }
 
-  // Entry: use nearest OB boundary as a PENDING ORDER (limit entry)
-  const bullOBs = structure.orderBlocks.filter(o => o.kind === "bullish");
-  const bearOBs = structure.orderBlocks.filter(o => o.kind === "bearish");
+  const entryPrice = channel.breakoutBoundary;
+  const slDist = SL_PIPS * spec.pipSize;
+  const stopLoss = channel.direction === "long" ? entryPrice - slDist : entryPrice + slDist;
 
-  let entryPrice = lastPrice;
-  let orderType = "MARKET";
+  const tp15Dist = SL_PIPS * 1.5 * spec.pipSize;
+  const tp20Dist = SL_PIPS * 2 * spec.pipSize;
+  const tp15 = channel.direction === "long" ? entryPrice + tp15Dist : entryPrice - tp15Dist;
+  const tp20 = channel.direction === "long" ? entryPrice + tp20Dist : entryPrice - tp20Dist;
 
-  if (direction === "long" && bullOBs.length > 0) {
-    const ob = bullOBs[bullOBs.length - 1]!;
-    const obMid = (ob.low + ob.high) / 2;
-    // Set entry at OB high (top of bullish OB) — BUY_LIMIT if price is above it, else BUY_STOP
-    if (lastPrice > obMid) {
-      entryPrice = ob.high; // price needs to pull back to OB — BUY_LIMIT
-      orderType = "BUY_LIMIT";
-    } else {
-      entryPrice = ob.high; // price hasn't reached OB yet — BUY_STOP
-      orderType = "BUY_STOP";
-    }
-  } else if (direction === "short" && bearOBs.length > 0) {
-    const ob = bearOBs[bearOBs.length - 1]!;
-    const obMid = (ob.low + ob.high) / 2;
-    if (lastPrice < obMid) {
-      entryPrice = ob.low; // price needs to rally to OB — SELL_LIMIT
-      orderType = "SELL_LIMIT";
-    } else {
-      entryPrice = ob.low; // price hasn't reached OB — SELL_STOP
-      orderType = "SELL_STOP";
-    }
-  }
+  const nearbyConflict = hasNearbyConflict(orderBlocks, tp20, channel.direction, atr);
 
-  // SL beyond OB
-  const slAtrMult = 1.5;
-  const stopLoss = direction === "long"
-    ? entryPrice - atr * slAtrMult
-    : entryPrice + atr * slAtrMult;
-
-  const slDist = Math.abs(entryPrice - stopLoss);
-
-  // 4 TP levels based on R:R ratios
-  const tp15 = direction === "long" ? entryPrice + slDist * 1.5 : entryPrice - slDist * 1.5;
-  const tp20 = direction === "long" ? entryPrice + slDist * 2.0 : entryPrice - slDist * 2.0;
-  const tp25 = direction === "long" ? entryPrice + slDist * 2.5 : entryPrice - slDist * 2.5;
-  const tp30 = direction === "long" ? entryPrice + slDist * 3.0 : entryPrice - slDist * 3.0;
-
-  // Recommended R:R based on accuracy grade
-  let recommendedRR = "1:2";
-  if (accuracyGrade === "HIGH")     recommendedRR = "1:3";
-  else if (accuracyGrade === "STANDARD") recommendedRR = "1:2";
-  else                               recommendedRR = "1:1.5";
-
-  // Primary TP = recommended
-  const primaryTP = recommendedRR === "1:3" ? tp30
-    : recommendedRR === "1:2.5" ? tp25
-    : recommendedRR === "1:2"   ? tp20
-    : tp15;
-
-  // Pip calculations — use actual pip size per pair
-  const spec = pairSpec(pairSymbol ?? "EURUSD");
-  const pipSize = spec.pipSize;
-  const slPips = Math.round(slDist / pipSize);
-  const tp15Pips = Math.round(Math.abs(tp15 - entryPrice) / pipSize);
-  const tp20Pips = Math.round(Math.abs(tp20 - entryPrice) / pipSize);
-  const tp25Pips = Math.round(Math.abs(tp25 - entryPrice) / pipSize);
-  const tp30Pips = Math.round(Math.abs(tp30 - entryPrice) / pipSize);
-  const primaryTPPips = Math.round(Math.abs(primaryTP - entryPrice) / pipSize);
+  // Per the documented rule: 1:2 only when the breakout is already
+  // confirmed on 5M AND there have been 3+ clean retests AND no conflicting
+  // level sits near the 1:2 target; 1:1.5 otherwise (still anticipatory, or
+  // right at the 2-touch minimum, or a level is in the way).
+  const strongSetup = breakoutConfirmed5m && channel.retestCount >= 3 && !nearbyConflict;
+  const recommendedRR = strongSetup ? "1:2" : "1:1.5";
+  const primaryTP = strongSetup ? tp20 : tp15;
+  const primaryTPPips = strongSetup ? SL_PIPS * 2 : SL_PIPS * 1.5;
 
   return {
-    direction,
-    confidence: 0.7,
-    orderType,
-    entry: entryPrice.toFixed(5),
-    stopLoss: stopLoss.toFixed(5),
-    takeProfit1: tp15.toFixed(5),
-    takeProfit2: tp20.toFixed(5),
-    takeProfit3: tp25.toFixed(5),
-    takeProfit4: tp30.toFixed(5),
-    primaryTP: primaryTP.toFixed(5),
+    direction: channel.direction,
+    confidence: strongSetup ? 0.85 : 0.65,
+    orderType: channel.direction === "long" ? "BUY_STOP" : "SELL_STOP",
+    entry: entryPrice.toFixed(spec.decimals),
+    stopLoss: stopLoss.toFixed(spec.decimals),
+    takeProfit1: tp15.toFixed(spec.decimals),
+    takeProfit2: tp20.toFixed(spec.decimals),
+    primaryTP: primaryTP.toFixed(spec.decimals),
     riskReward: recommendedRR,
-    riskRewardOptions: ["1:1.5", "1:2", "1:2.5", "1:3"],
+    riskRewardOptions: ["1:1.5", "1:2"],
     recommendedRR,
-    slPips,
-    tp15Pips,
-    tp20Pips,
-    tp25Pips,
-    tp30Pips,
+    slPips: SL_PIPS,
+    tp15Pips: SL_PIPS * 1.5,
+    tp20Pips: SL_PIPS * 2,
     primaryTPPips,
+    retestCount: channel.retestCount,
+    breakoutConfirmed5m,
+    nearbyConflict,
   };
 }
 
@@ -368,13 +539,26 @@ export const Route = createFileRoute("/api/smc-analyze")({
 
         const atr = calcATR(bars, 14);
         const structure = detectStructure(bars);
-        const debate = generateDebate(structure, bars, atr);
-        const levels = buildLevels(structure, bars[bars.length - 1]!.close, atr, undefined, pair);
+        const channel = detectChannel(bars, atr);
+
+        // 5M confirmation is always checked on the true 5-minute chart,
+        // regardless of which timeframe the channel was drawn on — reuse
+        // `bars` when the request already IS 5m to avoid a redundant fetch.
+        const bars5m = interval === "5m" ? bars : await fetchBars(apiKey, pair, "5m", 200);
+        const breakoutConfirmed5m = checkBreakoutConfirmed(bars5m, channel.breakoutBoundary, channel.direction);
+
+        const channelBias: Bias = channel.direction === "long" ? "bullish" : channel.direction === "short" ? "bearish" : "neutral";
+        const alignment = await computeAlignment(apiKey, pair, interval, channelBias);
+
+        const levels = buildStrategyLevels(channel, structure.orderBlocks, bars[bars.length - 1]!.close, atr, pair, breakoutConfirmed5m);
+        const debate = generateDebate(channel, breakoutConfirmed5m, levels.nearbyConflict, alignment);
 
         return Response.json({
           structure,
+          channel,
           debate,
           levels,
+          timeframeAlignment: alignment,
           pair,
           interval,
           barCount: bars.length,

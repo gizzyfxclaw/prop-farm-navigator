@@ -89,8 +89,11 @@ def call_hermes_llm(prompt: str) -> str:
         if not nous_token:
             return ""
 
-        # Keep prompt short to avoid timeouts — max 2000 chars
-        trimmed = prompt[:2000] if len(prompt) > 2000 else prompt
+        # Cap prompt size to avoid timeouts. IMPORTANT: this must stay large
+        # enough to never truncate the "Respond EXACTLY in this format"
+        # instructions at the END of the prompt — a front-anchored slice
+        # that cuts those off breaks response parsing entirely, silently.
+        trimmed = prompt[:6000] if len(prompt) > 6000 else prompt
 
         r = requests.post(
             "https://inference-api.nousresearch.com/v1/chat/completions",
@@ -145,17 +148,18 @@ def analyze_with_hermes_ai(review: dict, browser_data: dict) -> dict:
     """Run real Hermes AI analysis using LLM + knowledge base."""
     smc = json.loads(review["smc_data"]) if isinstance(review["smc_data"], str) else review["smc_data"]
     structure = smc.get("structure", {})
+    channel   = smc.get("channel", {})
     debate    = smc.get("debate", {})
     levels    = smc.get("levels", {})
     pair      = review["pair"]
     timeframe = review["timeframe"]
     user_notes = review.get("user_notes") or ""
 
-    bias        = structure.get("bias", "neutral")
-    bos         = structure.get("bos")
     obs         = structure.get("orderBlocks", [])
-    swing_h     = structure.get("lastSwingHigh", 0)
-    swing_l     = structure.get("lastSwingLow", 0)
+    channel_type = channel.get("type", "none")
+    retest_count = levels.get("retestCount", 0)
+    confirmed_5m = levels.get("breakoutConfirmed5m", False)
+    nearby_conflict = levels.get("nearbyConflict", False)
     confidence  = debate.get("confidence", 0)
     bull_conf   = debate.get("bullCase", {}).get("overallConfidence", 0)
     bear_conf   = debate.get("bearCase", {}).get("overallConfidence", 0)
@@ -164,8 +168,11 @@ def analyze_with_hermes_ai(review: dict, browser_data: dict) -> dict:
     sl          = levels.get("stopLoss", "")
     tp1         = levels.get("takeProfit1", "")
     tp2         = levels.get("takeProfit2", "")
-    rr          = levels.get("riskReward", "1:2")
+    rr          = levels.get("riskReward", "1:1.5")
     last_price  = smc.get("lastPrice", 0)
+    mtf         = smc.get("timeframeAlignment", {})
+    mtf_aligned = mtf.get("aligned", False)
+    mtf_summary = ", ".join(f"{tf.upper()}={b}" for tf, b in mtf.get("biasByTf", {}).items())
 
     tv_price    = browser_data.get("price_info", {}).get("price", str(last_price))
     tv_emas     = browser_data.get("indicator_data", {}).get("legendValues", [])
@@ -188,20 +195,26 @@ def analyze_with_hermes_ai(review: dict, browser_data: dict) -> dict:
 MARKET DATA:
 - Live price (TradingView): {tv_price}
 - EMA values: {ema_summary}
-- Structure: {bias} bias, BOS={bos if bos else 'NOT confirmed'}, confidence {confidence*100:.0f}%
-- Swing High: {structure.get('lastSwingHigh',0):.5f} | Low: {structure.get('lastSwingLow',0):.5f}
+- Channel: {channel_type} — {retest_count} retest(s) of the breakout boundary, 5M breakout {"CONFIRMED" if confirmed_5m else "not yet confirmed"}
+- Boundary: {channel.get('breakoutBoundary', 0):.5f}
 - Order Blocks: {obs_summary[:150] if obs_summary else 'none'}
-- Bull ({bull_conf*100:.0f}%): {bull_pts[:100]}
-- Bear ({bear_conf*100:.0f}%): {bear_pts[:100]}
-- SMC verdict: {verdict_raw} | Suggested: Entry={entry} SL={sl} TP1={tp1} RR={rr}
+- Conflicting level near 1:2 target: {"YES" if nearby_conflict else "no"}
+- For ({bull_conf*100:.0f}%): {bull_pts[:100]}
+- Against ({bear_conf*100:.0f}%): {bear_pts[:100]}
+- Verdict: {verdict_raw} | Suggested: Entry={entry} SL={sl} TP1={tp1} RR={rr}
+- Multi-timeframe alignment (Daily→5M): {"ALIGNED" if mtf_aligned else "CONFLICTING"} — {mtf_summary if mtf_summary else "not available"}
 {f"- User's analysis: {user_notes[:200]}" if user_notes else ""}
 
 PAST CONTEXT:
 {past_verdicts if past_verdicts else "none"}
 
-STRATEGY RULES:
-- Requires: BOS confirmed + directional bias ≥60% + OB on breakout side + entry within 10pips of OB
-- HIGH grade: all 4 met. STANDARD: 3 of 4. NONE: BOS missing or bias <40%.
+STRATEGY KNOWLEDGE (from the taught GizzyFx strategy docs — ground your analysis in this, not generic SMC theory):
+{knowledge[:1500] if knowledge else "none taught yet"}
+
+STRATEGY RULES (GizzyFx Parallel Channel Breakout):
+- Requires: valid ascending/descending channel + 2 or more retests of the breakout boundary + Daily→5M timeframes aligned
+- SL is always fixed 30 pips. R:R is 1:2 only when the 5M breakout is already confirmed AND there are 3+ clean retests AND no conflicting level near the target; otherwise 1:1.5.
+- HIGH grade: channel valid + 2+ retests + MTF aligned + (3+ retests or 5M confirmed). STANDARD: channel valid + 2+ retests, but MTF conflicts or setup is still anticipatory. NONE: no valid channel, or fewer than 2 retests.
 
 Give your own honest point of view. Respond EXACTLY in this format (no other text):
 VERDICT: match|diverge|partial|neutral
@@ -311,16 +324,19 @@ STRATEGY_NOTES: (checklist ✓/✗ for each rule)"""
 def analyze_rule_based(review: dict, browser_data: dict) -> dict:
     """Fallback rule-based analysis if LLM unavailable."""
     smc = json.loads(review["smc_data"]) if isinstance(review["smc_data"], str) else review["smc_data"]
-    structure = smc.get("structure", {})
-    debate    = smc.get("debate", {})
+    channel   = smc.get("channel", {})
     levels    = smc.get("levels", {})
-    bias      = structure.get("bias", "neutral")
-    bos       = structure.get("bos")
-    conf      = debate.get("confidence", 0)
+    channel_type = channel.get("type", "none")
+    retest_count = levels.get("retestCount", 0)
+    confirmed_5m = levels.get("breakoutConfirmed5m", False)
+    nearby_conflict = levels.get("nearbyConflict", False)
     entry     = levels.get("entry", "")
     sl        = levels.get("stopLoss", "")
     tp1       = levels.get("takeProfit1", "")
     tp2       = levels.get("takeProfit2", "")
+    mtf       = smc.get("timeframeAlignment", {})
+    mtf_aligned = mtf.get("aligned", False)
+    mtf_conflicts = mtf.get("conflictingTfs", [])
 
     tv_price  = browser_data.get("price_info", {}).get("price", "")
     tv_emas   = browser_data.get("indicator_data", {}).get("legendValues", [])
@@ -328,31 +344,49 @@ def analyze_rule_based(review: dict, browser_data: dict) -> dict:
     score = 0
     checks = []
 
-    if bos:
-        score += 30
-        checks.append(f"✓ BOS {bos} confirmed")
+    if channel_type != "none" and retest_count >= 2:
+        score += 40
+        checks.append(f"✓ {channel_type} channel confirmed — {retest_count} retest(s)")
+    elif channel_type != "none":
+        checks.append(f"✗ Channel found but only {retest_count} retest(s) — needs 2+")
     else:
-        checks.append("✗ BOS — missing (required)")
+        checks.append("✗ No valid channel — market too choppy/ranging")
 
-    if conf >= 0.6 and bias != "neutral":
+    if confirmed_5m:
         score += 20
-        checks.append(f"✓ Bias {bias} at {conf*100:.0f}%")
+        checks.append("✓ 5M breakout already confirmed")
     else:
-        checks.append(f"✗ Bias too weak ({conf*100:.0f}%, need 60%+)")
+        checks.append("✗ 5M breakout not yet confirmed — still anticipatory")
+
+    if nearby_conflict:
+        checks.append("✗ Conflicting order block near the 1:2 target")
+    elif channel_type != "none":
+        score += 15
+        checks.append("✓ No conflicting level near target")
+
+    if mtf_aligned:
+        score += 25
+        checks.append(f"✓ Multi-timeframe aligned ({mtf.get('agreeCount','?')}/{mtf.get('totalCount','?')} Daily→5M)")
+    else:
+        checks.append(f"✗ Timeframes conflict: {', '.join(t.upper() for t in mtf_conflicts) if mtf_conflicts else 'alignment unavailable'}")
 
     if tv_emas:
         checks.append(f"✓ TradingView EMA: {', '.join(str(v) for v in tv_emas[:3])}")
     if tv_price:
         checks.append(f"✓ Live price: {tv_price}")
 
-    if score >= 50:
+    # The backend's own `levels.direction` is already the authoritative
+    # channel-gated signal (neutral unless a valid channel + 2+ retests
+    # exist) — no need to re-derive it here. MTF conflict is a hard gate on
+    # HIGH regardless of raw score.
+    direction = levels.get("direction") if levels.get("direction") in ("long", "short") else None
+
+    if direction and score >= 65 and mtf_aligned:
         verdict = "match"
         grade   = "HIGH"
-        direction = "long" if bias == "bullish" else "short"
-    elif score >= 30:
+    elif direction and score >= 40:
         verdict = "partial"
         grade   = "STANDARD"
-        direction = "long" if bias == "bullish" else "short"
     else:
         verdict = "neutral"
         grade   = "NONE"
@@ -360,11 +394,12 @@ def analyze_rule_based(review: dict, browser_data: dict) -> dict:
 
     feedback = (
         f"{review['pair']} {review['timeframe']} — Rule-based analysis (AI offline).\n\n"
-        f"BOS: {'confirmed' if bos else 'NOT confirmed'}. "
-        f"Bias: {bias} ({conf*100:.0f}%). "
+        f"Channel: {channel_type} ({retest_count} retest(s)). "
+        f"5M breakout: {'confirmed' if confirmed_5m else 'not yet confirmed'}. "
+        f"MTF: {'aligned' if mtf_aligned else 'conflicting (' + ', '.join(mtf_conflicts) + ')' if mtf_conflicts else 'unavailable'}. "
         f"Live price: {tv_price}. "
         f"Score: {score}/100.\n\n"
-        f"{'Valid setup — entry ' + entry + ' SL ' + sl + ' TP ' + tp1 if direction else 'No valid setup. Wait for BOS confirmation.'}"
+        f"{'Valid setup — entry ' + str(entry) + ' SL ' + str(sl) + ' TP ' + str(tp1) if direction else levels.get('reason', 'No valid setup. Wait for a channel breakout with 2+ retests.')}"
     )
 
     result = {

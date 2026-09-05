@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import { Badge, Button, Card } from "@/components/terminal/ui";
 import { generatePineScript } from "@/lib/pine-script-generator";
+import { LWChart, type OHLCBar } from "@/components/terminal/lwchart";
+import { WinRateBadge } from "@/components/terminal/WinRateBadge";
+import { buildSmcDrawings, type DrawableLevels, type SmcChannel } from "@/lib/smc-drawings";
 
 export const Route = createFileRoute("/smc")({
   head: () => ({ meta: [{ title: "SMC Analysis — GizzyFx" }] }),
@@ -24,6 +27,15 @@ interface AnalysisStep {
   ts?: string;
 }
 
+interface TimeframeAlignment {
+  requested: string;
+  biasByTf: Record<string, "bullish" | "bearish" | "neutral">;
+  aligned: boolean;
+  agreeCount: number;
+  totalCount: number;
+  conflictingTfs: string[];
+}
+
 interface AnalysisData {
   structure: {
     bias: string;
@@ -33,6 +45,10 @@ interface AnalysisData {
     lastSwingLow: number;
     highs: number;
     lows: number;
+    trendline?: {
+      highs: Array<{ time: number; price: number }>;
+      lows: Array<{ time: number; price: number }>;
+    };
   };
   debate: {
     bullCase: { points: Array<{ claim: string; evidence: string }>; overallConfidence: number };
@@ -41,6 +57,8 @@ interface AnalysisData {
     confidence: number;
     debateRounds: string[];
   };
+  timeframeAlignment?: TimeframeAlignment;
+  channel?: SmcChannel;
   levels: {
     direction: string;
     entry: string;
@@ -60,6 +78,10 @@ interface AnalysisData {
     tp25Pips?: number;
     tp30Pips?: number;
     primaryTPPips?: number;
+    retestCount?: number;
+    breakoutConfirmed5m?: boolean;
+    nearbyConflict?: boolean;
+    reason?: string;
   };
   pair: string;
   interval: string;
@@ -125,7 +147,7 @@ function writeLS(v: Partial<Persisted>) {
 
 /* ── Constants ──────────────────────────────────────────────────── */
 const PAIRS = ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "XAUUSD"];
-const TIMEFRAMES = ["15m", "1h", "4h", "1d"] as const;
+const TIMEFRAMES = ["5m", "15m", "1h", "4h", "1d"] as const;
 type TF = (typeof TIMEFRAMES)[number];
 
 /* ── Hermes Analysis Progress Animation ─────────────────────────── */
@@ -337,6 +359,46 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
   );
 }
 
+function AnalysisChart({
+  pair, timeframe, structure, levels, channel, height = 360,
+}: {
+  pair: string;
+  timeframe: string;
+  structure: AnalysisData["structure"] | undefined;
+  levels: DrawableLevels | undefined;
+  channel?: SmcChannel | undefined;
+  height?: number;
+}) {
+  const [bars, setBars] = React.useState<OHLCBar[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/ohlcv?pair=${pair}&interval=${timeframe}&limit=300`)
+      .then((res) => res.json() as Promise<{ bars: OHLCBar[] }>)
+      .then((d) => { if (!cancelled) setBars(d.bars ?? []); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [pair, timeframe]);
+
+  const lastBarTime = bars.length ? bars[bars.length - 1]!.time : undefined;
+  const drawings = React.useMemo(
+    () => buildSmcDrawings(structure, levels, lastBarTime, channel),
+    [structure, levels, lastBarTime, channel],
+  );
+
+  return (
+    <div>
+      <p className="text-[12px] text-muted-foreground mb-2 flex items-center gap-1">
+        <TrendingUp size={11} /> Hermes's Marked-Up Chart — trend, order blocks &amp; entry/SL/TP drawn from the actual analysis
+      </p>
+      <LWChart bars={bars} drawings={drawings} height={height} loading={loading} />
+    </div>
+  );
+}
+
 /* ── Screenshots sub-component (hooks must be in a real component) ─ */
 function ReviewScreenshots({ reviewId }: { reviewId: string }) {
   const [shots, setShots] = React.useState<ScreenshotRow[]>([]);
@@ -360,7 +422,7 @@ function ReviewScreenshots({ reviewId }: { reviewId: string }) {
   return (
     <div>
       <p className="text-[12px] text-muted-foreground mb-2 flex items-center gap-1">
-        <Camera size={11} /> TradingView Screenshots ({shots.length})
+        <Camera size={11} /> Raw TradingView Screenshots ({shots.length}) — unmarked, for price/EMA context
       </p>
       <div className="grid gap-2" style={{ gridTemplateColumns: shots.length > 1 ? "1fr 1fr" : "1fr" }}>
         {shots.map((s) => (
@@ -661,6 +723,9 @@ function SMCPage() {
               </span>
             )}
           </p>
+          <div className="mt-1.5">
+            <WinRateBadge />
+          </div>
         </div>
         {/* Polling indicator */}
         {pollingId && (
@@ -923,7 +988,25 @@ function SMCPage() {
                   {/* Expanded detail */}
                   {isOpen && (
                     <div className="border-t border-white/10 p-4 space-y-4 bg-white/[0.015]">
-                      {/* TradingView Screenshots */}
+                      {/* Hermes's marked-up chart — the trend, order blocks and
+                          entry/SL/TP actually drawn from this review's analysis,
+                          not just described in text. */}
+                      {(() => {
+                        const smc = parseJsonField<AnalysisData | null>(r.smc_data, null);
+                        if (!smc?.structure) return null;
+                        const drawLevels: DrawableLevels = {
+                          direction: r.direction ?? smc.levels?.direction,
+                          entry: r.entry ?? (smc.levels?.entry ? parseFloat(smc.levels.entry) : null),
+                          stopLoss: r.stop_loss ?? (smc.levels?.stopLoss ? parseFloat(smc.levels.stopLoss) : null),
+                          takeProfit1: r.take_profit_1 ?? (smc.levels?.takeProfit1 ? parseFloat(smc.levels.takeProfit1) : null),
+                          takeProfit2: r.take_profit_2 ?? (smc.levels?.takeProfit2 ? parseFloat(smc.levels.takeProfit2) : null),
+                        };
+                        return (
+                          <AnalysisChart pair={r.pair} timeframe={r.timeframe} structure={smc.structure} levels={drawLevels} channel={smc.channel} height={320} />
+                        );
+                      })()}
+
+                      {/* Raw TradingView screenshots (unmarked, context only) */}
                       {isOpen && <ReviewScreenshots reviewId={r.id} />}
 
                       {/* Feedback */}
@@ -1037,6 +1120,82 @@ function SMCPage() {
       {/* ── Results ──────────────────────────────────────────────────── */}
       {data && !loading && (
         <>
+          {/* Hermes's marked-up chart — trend, order blocks, entry/SL/TP */}
+          <Card title="Hermes's Marked-Up Chart">
+            <AnalysisChart
+              pair={pair}
+              timeframe={timeframe}
+              structure={data.structure}
+              levels={{
+                direction: data.levels?.direction,
+                entry: data.levels?.entry ? parseFloat(data.levels.entry) : null,
+                stopLoss: data.levels?.stopLoss ? parseFloat(data.levels.stopLoss) : null,
+                takeProfit1: data.levels?.takeProfit1 ? parseFloat(data.levels.takeProfit1) : null,
+                takeProfit2: data.levels?.takeProfit2 ? parseFloat(data.levels.takeProfit2) : null,
+              }}
+              channel={data.channel}
+              height={400}
+            />
+          </Card>
+
+          {/* Channel / retest / 5M confirmation — the actual GizzyFx strategy gate */}
+          {data.channel && (
+            <Card title="Parallel Channel Breakout Check" accent={data.channel.type !== "none" && (data.levels.retestCount ?? 0) >= 2 ? "pos" : "neg"}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Badge tone={data.channel.type === "none" ? "neutral" : "amber"}>
+                  {data.channel.type === "none" ? "NO CHANNEL" : data.channel.type.toUpperCase()}
+                </Badge>
+                <Badge tone={(data.levels.retestCount ?? 0) >= 2 ? "green" : "red"}>
+                  {data.levels.retestCount ?? 0} RETEST{(data.levels.retestCount ?? 0) === 1 ? "" : "S"}
+                </Badge>
+                <Badge tone={data.levels.breakoutConfirmed5m ? "green" : "neutral"}>
+                  {data.levels.breakoutConfirmed5m ? "5M BREAKOUT CONFIRMED" : "5M NOT YET CONFIRMED"}
+                </Badge>
+                {data.levels.nearbyConflict && <Badge tone="amber">CONFLICTING LEVEL NEAR TARGET</Badge>}
+              </div>
+              {data.levels.reason && (
+                <p className="mt-2 text-[12px] text-muted-foreground">{data.levels.reason}</p>
+              )}
+            </Card>
+          )}
+
+          {/* Multi-timeframe trend alignment — Daily down to 5M should agree */}
+          {data.timeframeAlignment && (
+            <Card title="Multi-Timeframe Trend Alignment" accent={data.timeframeAlignment.aligned ? "pos" : "neg"}>
+              <div className="flex items-center gap-3 mb-3 flex-wrap">
+                <Badge tone={data.timeframeAlignment.aligned ? "green" : "amber"}>
+                  {data.timeframeAlignment.aligned ? "ALIGNED" : "CONFLICTING"}
+                </Badge>
+                <span className="text-[13px] text-muted-foreground">
+                  {data.timeframeAlignment.agreeCount}/{data.timeframeAlignment.totalCount} timeframes agree with the {bias} bias — Daily down to 5M.
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {["1d", "4h", "1h", "15m", "5m"].map((tf) => {
+                  const b = data.timeframeAlignment!.biasByTf[tf];
+                  const isConflict = data.timeframeAlignment!.conflictingTfs.includes(tf);
+                  return (
+                    <div
+                      key={tf}
+                      className="rounded-md border p-2 text-center"
+                      style={{
+                        borderColor: isConflict ? "oklch(var(--gz-neg) / 0.4)" : "oklch(var(--gz-p) / 0.15)",
+                        background: isConflict ? "oklch(var(--gz-neg) / 0.08)" : "transparent",
+                      }}
+                    >
+                      <p className="text-[10px] text-muted-foreground uppercase">{tf}</p>
+                      <p className={`text-[12px] font-bold capitalize ${
+                        b === "bullish" ? "text-emerald-400" : b === "bearish" ? "text-red-400" : "text-amber-400"
+                      }`}>
+                        {b ?? "—"}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
           {/* Trading Levels */}
           {data.levels && data.levels.direction !== "neutral" && (
             <Card title="Trading Levels" accent={data.levels.direction === "long" ? "pos" : "neg"}>
@@ -1071,11 +1230,11 @@ function SMCPage() {
 
               {/* All R:R Options */}
               <p className="text-[11px] text-muted-foreground mb-2">All Risk:Reward Options (TP levels)</p>
-              <div className="grid gap-2 sm:grid-cols-4">
+              <div className="grid gap-2 sm:grid-cols-2">
                 {data.levels.riskRewardOptions?.map((rr, i) => {
                   const isRecommended = rr === data.levels.recommendedRR;
-                  const tp = [data.levels.takeProfit1, data.levels.takeProfit2, data.levels.takeProfit3, data.levels.takeProfit4][i];
-                  const pips = [data.levels.tp15Pips, data.levels.tp20Pips, data.levels.tp25Pips, data.levels.tp30Pips][i];
+                  const tp = [data.levels.takeProfit1, data.levels.takeProfit2][i];
+                  const pips = [data.levels.tp15Pips, data.levels.tp20Pips][i];
                   return (
                     <div
                       key={rr}
@@ -1098,6 +1257,13 @@ function SMCPage() {
                   );
                 })}
               </div>
+            </Card>
+          )}
+          {data.levels && data.levels.direction === "neutral" && (
+            <Card title="Trading Levels">
+              <p className="text-[13px] text-muted-foreground">
+                {data.levels.reason ?? "No valid setup yet — waiting for a channel breakout."}
+              </p>
             </Card>
           )}
 
