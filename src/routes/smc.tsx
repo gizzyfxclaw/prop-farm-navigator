@@ -325,6 +325,48 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
   );
 }
 
+/* ── Screenshots sub-component (hooks must be in a real component) ─ */
+function ReviewScreenshots({ reviewId }: { reviewId: string }) {
+  const [shots, setShots] = React.useState<ScreenshotRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    setLoading(true);
+    fetch(`/api/hermes/smc-screenshots?review_id=${reviewId}`)
+      .then(res => res.json() as Promise<{ screenshots: ScreenshotRow[] }>)
+      .then(d => setShots(d.screenshots ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [reviewId]);
+
+  if (loading) return (
+    <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+      <RefreshCw size={10} className="animate-spin" /> Loading screenshots...
+    </div>
+  );
+  if (shots.length === 0) return null;
+  return (
+    <div>
+      <p className="text-[12px] text-muted-foreground mb-2 flex items-center gap-1">
+        <Camera size={11} /> TradingView Screenshots ({shots.length})
+      </p>
+      <div className="grid gap-2" style={{ gridTemplateColumns: shots.length > 1 ? "1fr 1fr" : "1fr" }}>
+        {shots.map((s) => (
+          <div key={s.id}>
+            {s.label && <p className="text-[10px] text-muted-foreground mb-1">{s.label}</p>}
+            <img
+              src={s.data}
+              alt={s.label ?? `Chart ${s.step + 1}`}
+              className="w-full rounded-md border border-white/10 shadow"
+              style={{ maxHeight: 280, objectFit: "contain", background: "#000" }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Main component ─────────────────────────────────────────────── */
 function SMCPage() {
   const saved = readLS();
@@ -782,47 +824,8 @@ function SMCPage() {
                   {/* Expanded detail */}
                   {isOpen && (
                     <div className="border-t border-white/10 p-4 space-y-4 bg-white/[0.015]">
-                      {/* TradingView Screenshots — loaded from separate endpoint */}
-                      {(() => {
-                        const [shots, setShots] = React.useState<ScreenshotRow[]>([]);
-                        const [loadingShots, setLoadingShots] = React.useState(false);
-                        React.useEffect(() => {
-                          if (!isOpen) return;
-                          setLoadingShots(true);
-                          fetch(`/api/hermes/smc-screenshots?review_id=${r.id}`)
-                            .then(res => res.json() as Promise<{ screenshots: ScreenshotRow[] }>)
-                            .then(d => setShots(d.screenshots ?? []))
-                            .catch(() => {})
-                            .finally(() => setLoadingShots(false));
-                        }, [isOpen]);
-
-                        if (loadingShots) return (
-                          <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                            <RefreshCw size={10} className="animate-spin" /> Loading screenshots...
-                          </div>
-                        );
-                        if (shots.length === 0) return null;
-                        return (
-                          <div>
-                            <p className="text-[12px] text-muted-foreground mb-2 flex items-center gap-1">
-                              <Camera size={11} /> TradingView Screenshots ({shots.length})
-                            </p>
-                            <div className="grid gap-2" style={{ gridTemplateColumns: shots.length > 1 ? "1fr 1fr" : "1fr" }}>
-                              {shots.map((s) => (
-                                <div key={s.id}>
-                                  {s.label && <p className="text-[10px] text-muted-foreground mb-1">{s.label}</p>}
-                                  <img
-                                    src={s.data}
-                                    alt={s.label ?? `Chart ${s.step + 1}`}
-                                    className="w-full rounded-md border border-white/10 shadow"
-                                    style={{ maxHeight: 280, objectFit: "contain", background: "#000" }}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
+                      {/* TradingView Screenshots */}
+                      {isOpen && <ReviewScreenshots reviewId={r.id} />}
 
                       {/* Feedback */}
                       {r.feedback && (
