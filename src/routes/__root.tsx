@@ -7,12 +7,57 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, Component, type ErrorInfo } from "react";
 import { Toaster } from "sonner";
-import { Palette, Check, LogOut, ExternalLink, Sun, Moon } from "lucide-react";
+import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, RefreshCw } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+
+/* ── Error Boundary ─────────────────────────────────────────────── */
+class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  override componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[GizzyFx] Page render error:", error, info);
+  }
+  override render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          margin: "2rem auto", maxWidth: 480, padding: "2rem",
+          border: "1px solid oklch(0.55 0.18 10 / 0.3)",
+          borderRadius: 12, background: "oklch(0.12 0.04 10 / 0.5)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <AlertTriangle size={18} color="oklch(0.65 0.18 10)" />
+            <span style={{ fontWeight: 700, fontSize: 15, color: "oklch(0.85 0.05 10)" }}>
+              Page Error
+            </span>
+          </div>
+          <p style={{ fontSize: 13, color: "oklch(0.60 0.05 10)", marginBottom: 16 }}>
+            {this.state.error.message}
+          </p>
+          <button
+            onClick={() => this.setState({ error: null })}
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 16px",
+              borderRadius: 6, border: "1px solid oklch(0.40 0.10 10 / 0.5)",
+              background: "oklch(0.20 0.06 10)", color: "oklch(0.80 0.05 10)",
+              cursor: "pointer", fontSize: 13,
+            }}
+          >
+            <RefreshCw size={13} /> Try again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { StoreProvider } from "../lib/store";
 import { NotificationProvider } from "../lib/notifications";
 import { NotificationBell } from "../components/terminal/NotificationBell";
@@ -520,7 +565,9 @@ function RootComponent() {
                 paddingTop: headerH > 0 ? `calc(${headerH}px + 12px)` : "calc(var(--cmdbar-h) + 12px)",
               }}
             >
-              <Outlet />
+              <PageErrorBoundary>
+                <Outlet />
+              </PageErrorBoundary>
             </main>
 
             {/* ── Footer ──────────────────────────────────────── */}
