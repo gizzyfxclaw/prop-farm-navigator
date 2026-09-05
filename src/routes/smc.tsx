@@ -55,6 +55,11 @@ interface AnalysisData {
     recommendedRR?: string;
     orderType?: string;
     slPips?: number;
+    tp15Pips?: number;
+    tp20Pips?: number;
+    tp25Pips?: number;
+    tp30Pips?: number;
+    primaryTPPips?: number;
   };
   pair: string;
   interval: string;
@@ -1055,11 +1060,11 @@ function SMCPage() {
                   <p className="text-[18px] font-bold font-mono text-emerald-400">{data.levels.entry}</p>
                 </div>
                 <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3 text-center">
-                  <p className="text-[11px] text-muted-foreground">Stop Loss</p>
+                  <p className="text-[11px] text-muted-foreground">Stop Loss ({data.levels.slPips} pips)</p>
                   <p className="text-[18px] font-bold font-mono text-red-400">{data.levels.stopLoss}</p>
                 </div>
                 <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3 text-center">
-                  <p className="text-[11px] text-muted-foreground">Primary TP ({data.levels.recommendedRR})</p>
+                  <p className="text-[11px] text-muted-foreground">Primary TP ({data.levels.recommendedRR} = {data.levels.primaryTPPips} pips)</p>
                   <p className="text-[18px] font-bold font-mono text-amber-400">{data.levels.primaryTP}</p>
                 </div>
               </div>
@@ -1070,6 +1075,7 @@ function SMCPage() {
                 {data.levels.riskRewardOptions?.map((rr, i) => {
                   const isRecommended = rr === data.levels.recommendedRR;
                   const tp = [data.levels.takeProfit1, data.levels.takeProfit2, data.levels.takeProfit3, data.levels.takeProfit4][i];
+                  const pips = [data.levels.tp15Pips, data.levels.tp20Pips, data.levels.tp25Pips, data.levels.tp30Pips][i];
                   return (
                     <div
                       key={rr}
@@ -1084,6 +1090,9 @@ function SMCPage() {
                       </p>
                       <p style={{ fontSize: 14, fontFamily: "monospace", fontWeight: 700, color: isRecommended ? "oklch(0.70 0.15 145)" : "oklch(0.70 0.05 280)" }}>
                         {tp}
+                      </p>
+                      <p style={{ fontSize: 10, color: isRecommended ? "oklch(0.60 0.12 145)" : "oklch(0.45 0.05 280)" }}>
+                        {pips} pips
                       </p>
                     </div>
                   );

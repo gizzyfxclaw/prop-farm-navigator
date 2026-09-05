@@ -313,21 +313,35 @@ function buildLevels(structure: ReturnType<typeof detectStructure>, lastPrice: n
     : recommendedRR === "1:2"   ? tp20
     : tp15;
 
+  // Pip calculations (forex: 0.0001 = 1 pip)
+  const pipSize = 0.0001;
+  const slPips = Math.round(slDist / pipSize);
+  const tp15Pips = Math.round(Math.abs(tp15 - entryPrice) / pipSize);
+  const tp20Pips = Math.round(Math.abs(tp20 - entryPrice) / pipSize);
+  const tp25Pips = Math.round(Math.abs(tp25 - entryPrice) / pipSize);
+  const tp30Pips = Math.round(Math.abs(tp30 - entryPrice) / pipSize);
+  const primaryTPPips = Math.round(Math.abs(primaryTP - entryPrice) / pipSize);
+
   return {
     direction,
     confidence: 0.7,
     orderType,
     entry: entryPrice.toFixed(5),
     stopLoss: stopLoss.toFixed(5),
-    takeProfit1: tp15.toFixed(5),   // 1:1.5
-    takeProfit2: tp20.toFixed(5),   // 1:2
-    takeProfit3: tp25.toFixed(5),   // 1:2.5
-    takeProfit4: tp30.toFixed(5),   // 1:3
+    takeProfit1: tp15.toFixed(5),
+    takeProfit2: tp20.toFixed(5),
+    takeProfit3: tp25.toFixed(5),
+    takeProfit4: tp30.toFixed(5),
     primaryTP: primaryTP.toFixed(5),
     riskReward: recommendedRR,
     riskRewardOptions: ["1:1.5", "1:2", "1:2.5", "1:3"],
     recommendedRR,
-    slPips: Math.round(slDist * 10000),  // pips for forex pairs
+    slPips,
+    tp15Pips,
+    tp20Pips,
+    tp25Pips,
+    tp30Pips,
+    primaryTPPips,
   };
 }
 
