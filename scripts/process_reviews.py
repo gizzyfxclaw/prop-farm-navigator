@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """
-GizzyFx SMC Review Processor
-Runs every 5 minutes via cron. Picks up pending SMC reviews, opens TradingView
-in headless Chromium, captures screenshots, runs strategy analysis, and PATCHes
-the result back to D1. No LLM in the loop — deterministic.
+GizzyFx SMC Review Processor — with real Hermes AI analysis.
+
+Flow per review:
+  1. PATCH /api/hermes/smc-status — mark as_processing=true
+  2. Run TradingView browser → 3 screenshots
+  3. Fetch Hermes knowledge base from /api/hermes/knowledge
+  4. Call Hermes LLM (via configured provider) for real AI analysis
+  5. PATCH review with AI feedback + screenshots
+  6. POST screenshots to separate table
+  7. PATCH smc-status — mark is_processing=false, record timing
 """
 
-import os, sys, json, time, requests
+import os, sys, json, time, subprocess, traceback
 from datetime import datetime, timezone
+import requests
 
 # ── Config ───────────────────────────────────────────────────────────────────
 BASE_URL   = os.environ.get("GIZZYFX_BASE_URL", "https://gizzyfxstrategy.dpdns.org")
@@ -15,10 +22,17 @@ API_KEY    = os.environ.get("GIZZYFX_API_KEY", "")
 ANALYZER   = os.path.join(os.path.dirname(__file__), "tradingview_analyzer.py")
 PYTHON     = "/home/ubuntu/.hermes/hermes-agent/venv/bin/python3"
 MAX_REVIEWS = 2
-BROWSER_TIMEOUT = 90  # seconds for TradingView browser session
+BROWSER_TIMEOUT = 90
 
 def log(msg):
     print(f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] {msg}", flush=True)
+
+def patch_status(**kwargs):
+    """Write processor status to D1 so the UI can show live state."""
+    try:
+        requests.patch(f"{BASE_URL}/api/hermes/smc-status", json=kwargs, timeout=8)
+    except Exception:
+        pass
 
 def get_pending():
     try:
@@ -29,9 +43,117 @@ def get_pending():
         log(f"ERROR fetching pending: {e}")
     return []
 
+def get_knowledge_base():
+    """Fetch Hermes strategy knowledge docs."""
+    try:
+        r = requests.get(
+            f"{BASE_URL}/api/hermes/knowledge",
+            headers={"X-Hermes-Key": API_KEY},
+            timeout=10
+        )
+        if r.ok:
+            docs = r.json().get("docs", [])
+            return "\n\n".join(
+                f"=== {d.get('title', 'Doc')} ===\n{d.get('content', '')}"
+                for d in docs[:5]  # max 5 docs to keep prompt small
+            )
+    except Exception as e:
+        log(f"Knowledge fetch error: {e}")
+    return ""
+
+def get_past_verdicts():
+    """Get recent fulfilled reviews for context (self-learning)."""
+    try:
+        r = requests.get(f"{BASE_URL}/api/hermes/analyze-with-hermes?status=fulfilled", timeout=10)
+        if r.ok:
+            reviews = r.json().get("reviews", [])
+            # Last 3 fulfilled reviews as context
+            lines = []
+            for rv in reviews[:3]:
+                lines.append(
+                    f"Past: {rv.get('pair')} {rv.get('timeframe')} → "
+                    f"verdict={rv.get('verdict')} grade={rv.get('accuracy_grade')} "
+                    f"direction={rv.get('direction','?')}"
+                )
+            return "\n".join(lines)
+    except Exception:
+        pass
+    return ""
+
+def call_hermes_llm(prompt: str) -> str:
+    """Call the configured Hermes LLM for real AI analysis."""
+    # Load config to find the LLM endpoint
+    try:
+        import yaml
+        config_path = os.path.expanduser("~/.hermes/config.yaml")
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+
+        # Get provider config
+        provider = config.get("llm", {}).get("provider", "anthropic")
+        model = config.get("llm", {}).get("model", "claude-opus-4-5")
+        api_key_name = config.get("llm", {}).get("api_key_env", "ANTHROPIC_API_KEY")
+
+        # Get the API key from env or config
+        llm_key = os.environ.get(api_key_name, "")
+        if not llm_key:
+            # Try to load from .env
+            env_file = os.path.expanduser("~/.hermes/.env")
+            with open(env_file) as f:
+                for line in f:
+                    if "=" in line and not line.startswith("#"):
+                        k, _, v = line.strip().partition("=")
+                        if k == api_key_name:
+                            llm_key = v.strip()
+                            break
+
+        base_url = config.get("llm", {}).get("base_url", "")
+
+        if not llm_key and not base_url:
+            return ""
+
+        # Build request
+        headers = {"Content-Type": "application/json"}
+        if base_url:
+            # OpenAI-compatible format (gorouter, etc.)
+            headers["Authorization"] = f"Bearer {llm_key}"
+            url = f"{base_url}/chat/completions"
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": "You are the GizzyFx Trading Agent — an expert in the GizzyFx Parallel Channel Breakout Strategy. Analyze trading setups honestly and accurately."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": 1000,
+                "temperature": 0.3,
+            }
+        else:
+            # Anthropic format
+            headers["x-api-key"] = llm_key
+            headers["anthropic-version"] = "2023-06-01"
+            url = "https://api.anthropic.com/v1/messages"
+            payload = {
+                "model": model,
+                "max_tokens": 1000,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+
+        r = requests.post(url, json=payload, headers=headers, timeout=30)
+        if r.ok:
+            data = r.json()
+            # Extract text from response
+            if "choices" in data:
+                return data["choices"][0]["message"]["content"]
+            elif "content" in data:
+                return data["content"][0]["text"]
+
+    except Exception as e:
+        log(f"LLM call error: {e}")
+
+    return ""
+
 def run_browser(pair: str, timeframe: str) -> dict:
-    """Run TradingView headless browser and return {screenshots, steps, price_info}."""
-    import subprocess
+    """Run TradingView headless browser."""
     env = {**os.environ, "GIZZYFX_API_KEY": API_KEY}
     try:
         result = subprocess.run(
@@ -42,233 +164,315 @@ def run_browser(pair: str, timeframe: str) -> dict:
         if result.returncode == 0 and result.stdout.strip():
             return json.loads(result.stdout)
         else:
-            log(f"Browser script failed (exit {result.returncode}): {result.stderr[-200:]}")
+            log(f"Browser script failed: {result.stderr[-150:]}")
     except subprocess.TimeoutExpired:
         log(f"Browser timeout after {BROWSER_TIMEOUT}s")
     except Exception as e:
         log(f"Browser error: {e}")
     return {"screenshots": [], "steps": [], "elapsed": 0}
 
-def analyze_smc(review: dict, browser_data: dict) -> dict:
-    """Apply GizzyFx Channel Breakout Strategy to the SMC data. Returns PATCH payload."""
+def analyze_with_hermes_ai(review: dict, browser_data: dict) -> dict:
+    """Run real Hermes AI analysis using LLM + knowledge base."""
     smc = json.loads(review["smc_data"]) if isinstance(review["smc_data"], str) else review["smc_data"]
     structure = smc.get("structure", {})
     debate    = smc.get("debate", {})
     levels    = smc.get("levels", {})
-    last_price = smc.get("lastPrice", 0)
     pair      = review["pair"]
     timeframe = review["timeframe"]
     user_notes = review.get("user_notes") or ""
 
+    bias        = structure.get("bias", "neutral")
+    bos         = structure.get("bos")
+    obs         = structure.get("orderBlocks", [])
+    swing_h     = structure.get("lastSwingHigh", 0)
+    swing_l     = structure.get("lastSwingLow", 0)
+    confidence  = debate.get("confidence", 0)
+    bull_conf   = debate.get("bullCase", {}).get("overallConfidence", 0)
+    bear_conf   = debate.get("bearCase", {}).get("overallConfidence", 0)
+    verdict_raw = debate.get("finalVerdict", "NEUTRAL")
+    entry       = levels.get("entry", "")
+    sl          = levels.get("stopLoss", "")
+    tp1         = levels.get("takeProfit1", "")
+    tp2         = levels.get("takeProfit2", "")
+    rr          = levels.get("riskReward", "1:2")
+    last_price  = smc.get("lastPrice", 0)
+
+    tv_price    = browser_data.get("price_info", {}).get("price", str(last_price))
+    tv_emas     = browser_data.get("indicator_data", {}).get("legendValues", [])
+
+    # Fetch knowledge base and past verdicts
+    knowledge = get_knowledge_base()
+    past_verdicts = get_past_verdicts()
+
+    # Build LLM prompt
+    obs_summary = "; ".join(
+        f"{o.get('kind','?')} OB at {o.get('low',0):.5f}-{o.get('high',0):.5f} ({o.get('impulseMag',0):.1f}x ATR)"
+        for o in obs[:3]
+    )
+    ema_summary = ", ".join(str(v) for v in tv_emas[:4]) if tv_emas else "not available"
+    bull_pts = "; ".join(p.get("claim","") for p in debate.get("bullCase",{}).get("points",[])[:3])
+    bear_pts = "; ".join(p.get("claim","") for p in debate.get("bearCase",{}).get("points",[])[:3])
+
+    prompt = f"""You are the GizzyFx Trading Agent analyzing {pair} {timeframe} for a prop firm challenge.
+
+## GizzyFx Strategy Knowledge Base:
+{knowledge if knowledge else "GizzyFx Parallel Channel Breakout: requires BOS + directional bias + order block confluence + multi-TF alignment. Entry at OB boundary retest. SL beyond OB. TP at next major structure. R:R minimum 1:2."}
+
+## Past Analysis Context (self-learning):
+{past_verdicts if past_verdicts else "No past verdicts available yet."}
+
+## Current Market Data:
+- Pair: {pair} | Timeframe: {timeframe}
+- TradingView live price: {tv_price}
+- EMA values from chart: {ema_summary}
+- Structure bias: {bias} (bull {bull_conf*100:.0f}% vs bear {bear_conf*100:.0f}%)
+- BOS: {bos if bos else 'NOT CONFIRMED'}
+- Swing High: {swing_h:.5f} | Swing Low: {swing_l:.5f}
+- Order Blocks: {obs_summary if obs_summary else 'none detected'}
+- Bull case: {bull_pts}
+- Bear case: {bear_pts}
+- SMC system verdict: {verdict_raw} (confidence {confidence*100:.0f}%)
+- Suggested levels: Entry {entry} | SL {sl} | TP1 {tp1} | TP2 {tp2} | R:R {rr}
+
+{f"## User's Own Analysis:{chr(10)}{user_notes}" if user_notes else ""}
+
+## Your Task:
+Give your honest, independent point of view as the GizzyFx Trading Agent. Do NOT just repeat what the SMC system said — add your own reasoning.
+
+Respond in this EXACT format (each section on its own line):
+VERDICT: match|diverge|partial|neutral
+DIRECTION: long|short|none  
+GRADE: HIGH|STANDARD|NONE
+ENTRY: (exact price or 'none')
+STOP_LOSS: (exact price or 'none')
+TP1: (exact price or 'none')
+TP2: (exact price or 'none')
+FEEDBACK: (2-3 paragraphs of your own analysis — what you see, what you think, why you agree or disagree with the SMC data. Be specific about price levels. Mention the EMA positions if available.)
+STRATEGY_NOTES: (your checklist — which GizzyFx rules pass ✓ or fail ✗ and why)
+
+Grade as HIGH only if: BOS confirmed + bias ≥60% + valid OB on breakout side + entry within 10pips of OB.
+Grade as STANDARD if: 3 of 4 conditions met.
+Grade as NONE if: BOS missing or bias <40%.
+Be honest. If the setup is weak, say so and explain what to wait for."""
+
+    log("  Calling Hermes LLM for real AI analysis...")
+    ai_response = call_hermes_llm(prompt)
+
+    if not ai_response:
+        log("  LLM not available — falling back to rule-based analysis")
+        return analyze_rule_based(review, browser_data)
+
+    log(f"  LLM responded ({len(ai_response)} chars)")
+
+    # Parse structured response
+    result = {
+        "verdict": "neutral", "direction": None, "accuracy_grade": "NONE",
+        "entry": None, "stop_loss": None, "take_profit_1": None, "take_profit_2": None,
+        "feedback": ai_response, "strategy_notes": "",
+    }
+
+    for line in ai_response.split("\n"):
+        line = line.strip()
+        if line.startswith("VERDICT:"):
+            v = line.split(":", 1)[1].strip().lower()
+            if v in ("match", "diverge", "partial", "neutral"):
+                result["verdict"] = v
+        elif line.startswith("DIRECTION:"):
+            d = line.split(":", 1)[1].strip().lower()
+            if d in ("long", "short"):
+                result["direction"] = d
+        elif line.startswith("GRADE:"):
+            g = line.split(":", 1)[1].strip().upper()
+            if g in ("HIGH", "STANDARD", "NONE"):
+                result["accuracy_grade"] = g
+        elif line.startswith("ENTRY:"):
+            try:
+                v = line.split(":", 1)[1].strip()
+                if v.lower() != "none":
+                    result["entry"] = float(v)
+            except Exception:
+                pass
+        elif line.startswith("STOP_LOSS:"):
+            try:
+                v = line.split(":", 1)[1].strip()
+                if v.lower() != "none":
+                    result["stop_loss"] = float(v)
+            except Exception:
+                pass
+        elif line.startswith("TP1:"):
+            try:
+                v = line.split(":", 1)[1].strip()
+                if v.lower() != "none":
+                    result["take_profit_1"] = float(v)
+            except Exception:
+                pass
+        elif line.startswith("TP2:"):
+            try:
+                v = line.split(":", 1)[1].strip()
+                if v.lower() != "none":
+                    result["take_profit_2"] = float(v)
+            except Exception:
+                pass
+        elif line.startswith("FEEDBACK:"):
+            result["feedback"] = line.split(":", 1)[1].strip()
+        elif line.startswith("STRATEGY_NOTES:"):
+            result["strategy_notes"] = line.split(":", 1)[1].strip()
+
+    # If feedback is just the structured fields, extract the actual text
+    if len(result["feedback"]) < 100:
+        # Try to extract FEEDBACK section from multi-line response
+        in_feedback = False
+        feedback_lines = []
+        notes_lines = []
+        in_notes = False
+        for line in ai_response.split("\n"):
+            if line.startswith("FEEDBACK:"):
+                in_feedback = True
+                rest = line.split(":", 1)[1].strip()
+                if rest:
+                    feedback_lines.append(rest)
+            elif line.startswith("STRATEGY_NOTES:"):
+                in_feedback = False
+                in_notes = True
+                rest = line.split(":", 1)[1].strip()
+                if rest:
+                    notes_lines.append(rest)
+            elif in_feedback:
+                feedback_lines.append(line)
+            elif in_notes:
+                notes_lines.append(line)
+
+        if feedback_lines:
+            result["feedback"] = "\n".join(feedback_lines).strip()
+        if notes_lines:
+            result["strategy_notes"] = "\n".join(notes_lines).strip()
+
+    return result
+
+def analyze_rule_based(review: dict, browser_data: dict) -> dict:
+    """Fallback rule-based analysis if LLM unavailable."""
+    smc = json.loads(review["smc_data"]) if isinstance(review["smc_data"], str) else review["smc_data"]
+    structure = smc.get("structure", {})
+    debate    = smc.get("debate", {})
+    levels    = smc.get("levels", {})
     bias      = structure.get("bias", "neutral")
     bos       = structure.get("bos")
-    obs       = structure.get("orderBlocks", [])
-    bull_obs  = [o for o in obs if o.get("kind") == "bullish"]
-    bear_obs  = [o for o in obs if o.get("kind") == "bearish"]
-    swing_h   = structure.get("lastSwingHigh", 0)
-    swing_l   = structure.get("lastSwingLow", 0)
-    confidence = debate.get("confidence", 0)
-    verdict_raw = debate.get("finalVerdict", "NEUTRAL")
-    entry     = levels.get("entry", str(last_price))
+    conf      = debate.get("confidence", 0)
+    entry     = levels.get("entry", "")
     sl        = levels.get("stopLoss", "")
     tp1       = levels.get("takeProfit1", "")
     tp2       = levels.get("takeProfit2", "")
-    rr        = levels.get("riskReward", "1.0")
 
-    # Price from TradingView browser (more reliable)
-    tv_price  = browser_data.get("price_info", {}).get("price", str(last_price))
+    tv_price  = browser_data.get("price_info", {}).get("price", "")
     tv_emas   = browser_data.get("indicator_data", {}).get("legendValues", [])
 
-    # ── GizzyFx Channel Breakout checklist ─────────────────────────────────
-    checks = []
     score = 0
+    checks = []
 
-    # 1. BOS required
     if bos:
-        checks.append(f"✓ BOS confirmed — {bos} break detected")
         score += 30
+        checks.append(f"✓ BOS {bos} confirmed")
     else:
-        checks.append("✗ BOS — MISSING (non-negotiable requirement)")
+        checks.append("✗ BOS — missing (required)")
 
-    # 2. Directional bias
-    if confidence >= 0.6 and bias != "neutral":
-        checks.append(f"✓ Directional bias {bias} at {confidence*100:.0f}% confidence")
+    if conf >= 0.6 and bias != "neutral":
         score += 20
+        checks.append(f"✓ Bias {bias} at {conf*100:.0f}%")
     else:
-        checks.append(f"✗ Directional bias — too weak ({confidence*100:.0f}%, need ≥60%)")
+        checks.append(f"✗ Bias too weak ({conf*100:.0f}%, need 60%+)")
 
-    # 3. Order blocks
-    if bias == "bullish" and bull_obs:
-        nearest = bull_obs[-1]
-        checks.append(f"✓ Bullish OB at {nearest['low']:.5f}-{nearest['high']:.5f} ({nearest['impulseMag']:.1f}× ATR)")
-        score += 20
-    elif bias == "bearish" and bear_obs:
-        nearest = bear_obs[-1]
-        checks.append(f"✓ Bearish OB at {nearest['low']:.5f}-{nearest['high']:.5f} ({nearest['impulseMag']:.1f}× ATR)")
-        score += 20
-    else:
-        checks.append("✗ No aligned order blocks on breakout side")
-
-    # 4. Entry quality
-    try:
-        entry_f = float(entry)
-        if bias == "bullish" and bull_obs:
-            ob = bull_obs[-1]
-            dist = abs(entry_f - ob["high"])
-            if dist < abs(swing_h - swing_l) * 0.15:
-                checks.append(f"✓ Entry {entry} near OB boundary (within 15% of range)")
-                score += 15
-            else:
-                checks.append(f"~ Entry {entry} not near OB boundary (dist {dist:.5f})")
-        elif bias == "bearish" and bear_obs:
-            ob = bear_obs[-1]
-            dist = abs(entry_f - ob["low"])
-            if dist < abs(swing_h - swing_l) * 0.15:
-                checks.append(f"✓ Entry {entry} near OB boundary")
-                score += 15
-            else:
-                checks.append(f"~ Entry {entry} not near OB boundary")
-    except Exception:
-        checks.append(f"~ Entry {entry} — could not validate proximity")
-
-    # 5. EMA context from TradingView
     if tv_emas:
-        checks.append(f"✓ TradingView EMA values: {', '.join(str(v) for v in tv_emas[:4])}")
-    checks.append(f"✓ Live TradingView price: {tv_price}")
+        checks.append(f"✓ TradingView EMA: {', '.join(str(v) for v in tv_emas[:3])}")
+    if tv_price:
+        checks.append(f"✓ Live price: {tv_price}")
 
-    # ── Verdict ────────────────────────────────────────────────────────────
-    if score >= 70:
-        verdict     = "match"
-        grade       = "HIGH"
-        direction   = "long" if bias == "bullish" else "short"
-    elif score >= 40:
-        verdict     = "partial"
-        grade       = "STANDARD"
-        direction   = "long" if bias == "bullish" else "short"
+    if score >= 50:
+        verdict = "match"
+        grade   = "HIGH"
+        direction = "long" if bias == "bullish" else "short"
+    elif score >= 30:
+        verdict = "partial"
+        grade   = "STANDARD"
+        direction = "long" if bias == "bullish" else "short"
     else:
-        verdict     = "neutral"
-        grade       = "NONE"
-        direction   = None
+        verdict = "neutral"
+        grade   = "NONE"
+        direction = None
 
-    # ── Feedback text ───────────────────────────────────────────────────────
-    missing = [c for c in checks if c.startswith("✗")]
-    passing = [c for c in checks if c.startswith("✓")]
+    feedback = (
+        f"{review['pair']} {review['timeframe']} — Rule-based analysis (AI offline).\n\n"
+        f"BOS: {'confirmed' if bos else 'NOT confirmed'}. "
+        f"Bias: {bias} ({conf*100:.0f}%). "
+        f"Live price: {tv_price}. "
+        f"Score: {score}/100.\n\n"
+        f"{'Valid setup — entry ' + entry + ' SL ' + sl + ' TP ' + tp1 if direction else 'No valid setup. Wait for BOS confirmation.'}"
+    )
 
-    if grade == "NONE":
-        summary = (
-            f"{pair} {timeframe} — No Valid Setup (Score: {score}/100)\n\n"
-            f"The GizzyFx Channel Breakout Strategy requires all key conditions to be met before entry. "
-            f"This setup is missing critical requirements:\n"
-            + "\n".join(f"  {c}" for c in missing) + "\n\n"
-            f"Current price from TradingView: {tv_price}. "
-            f"Swing High: {swing_h:.5f} | Swing Low: {swing_l:.5f}. "
-            f"{'Wait for a confirmed BOS before considering any entry.' if not bos else 'Wait for directional confluence before entry.'}"
-        )
-        if user_notes:
-            summary += f"\n\nYour analysis: \"{user_notes}\" — "
-            if not bos:
-                summary += "Agreed that caution is warranted, but BOS must be confirmed first."
-            else:
-                summary += "The key issue is directional confidence, which is currently insufficient."
-    else:
-        action = "LONG (BUY)" if direction == "long" else "SHORT (SELL)"
-        summary = (
-            f"{pair} {timeframe} — {grade} Setup ({action}, Score: {score}/100)\n\n"
-            f"The GizzyFx Channel Breakout Strategy conditions are {'fully' if grade == 'HIGH' else 'partially'} met:\n"
-            + "\n".join(f"  {c}" for c in passing) + "\n\n"
-            f"TradingView confirms price at {tv_price}. "
-            f"Entry: {entry} | Stop Loss: {sl} | TP1: {tp1} | R:R {rr}. "
-            f"The setup {'has clear confluence and is actionable.' if grade == 'HIGH' else 'has partial confluence — reduce position size or wait for stronger confirmation.'}"
-        )
-        if user_notes:
-            summary += f"\n\nYour analysis: \"{user_notes}\" — "
-            if verdict == "match":
-                summary += "Your read aligns well with the strategy. Good analysis."
-            elif verdict == "partial":
-                summary += "Your analysis is partially correct but some conditions are not fully met."
-            else:
-                summary += "There is some divergence from the taught strategy rules."
-
-    strategy_notes = "\n".join(checks)
-
-    payload = {
-        "request_id": review["id"],
-        "verdict": verdict,
-        "feedback": summary,
-        "strategy_notes": strategy_notes,
-        "accuracy_grade": grade,
+    result = {
+        "verdict": verdict, "direction": direction, "accuracy_grade": grade,
+        "feedback": feedback, "strategy_notes": "\n".join(checks),
     }
-
-    # Add levels only if there's a valid setup
     if direction and entry:
         try:
-            payload["entry"]        = float(entry)
-            payload["direction"]    = direction
-            if sl:  payload["stop_loss"]    = float(sl)
-            if tp1: payload["take_profit_1"] = float(tp1)
-            if tp2: payload["take_profit_2"] = float(tp2)
+            result["entry"] = float(entry)
+            if sl:  result["stop_loss"] = float(sl)
+            if tp1: result["take_profit_1"] = float(tp1)
+            if tp2: result["take_profit_2"] = float(tp2)
         except Exception:
             pass
+    return result
 
-    # Add screenshots if available
-    shots = browser_data.get("screenshots", [])
-    if shots:
-        payload["chart_screenshots"] = shots
-        log(f"  Attaching {len(shots)} TradingView screenshots")
+def post_screenshots(review_id: str, screenshots: list):
+    """Post screenshots one at a time (each ~180KB)."""
+    labels = ["Clean Chart", "EMA Indicators", "Final Analysis"]
+    ok = 0
+    for i, data in enumerate(screenshots):
+        try:
+            r = requests.post(
+                f"{BASE_URL}/api/hermes/smc-screenshots",
+                json={"review_id": review_id, "step": i, "label": labels[i] if i < len(labels) else f"Screenshot {i+1}", "data": data},
+                timeout=30
+            )
+            if r.ok:
+                ok += 1
+            else:
+                log(f"  Screenshot {i+1} failed: {r.status_code}")
+        except Exception as e:
+            log(f"  Screenshot {i+1} error: {e}")
+    log(f"  Posted {ok}/{len(screenshots)} screenshots")
 
-    return payload
-
-def patch_review(payload: dict, screenshots: list) -> bool:
-    """PATCH the review (without screenshots), then POST screenshots separately."""
-    # Remove screenshots from main payload — post them separately
-    clean = {k: v for k, v in payload.items() if k not in ("chart_screenshots", "analysis_steps")}
-    request_id = payload.get("request_id", "")
-
+def patch_review(payload: dict) -> bool:
+    """PATCH the review result back to D1."""
+    clean = {k: v for k, v in payload.items() if k not in ("chart_screenshots",) and v is not None}
     try:
-        r = requests.patch(
-            f"{BASE_URL}/api/hermes/analyze-with-hermes",
-            json=clean,
-            timeout=30
-        )
+        r = requests.patch(f"{BASE_URL}/api/hermes/analyze-with-hermes", json=clean, timeout=30)
         if r.ok:
-            log(f"  PATCH OK: verdict={payload['verdict']} grade={payload['accuracy_grade']}")
+            log(f"  PATCH OK: verdict={payload.get('verdict')} grade={payload.get('accuracy_grade')}")
+            return True
         else:
-            log(f"  PATCH failed: {r.status_code} {r.text[:100]}")
-            return False
+            log(f"  PATCH failed: {r.status_code} {r.text[:80]}")
     except Exception as e:
         log(f"  PATCH error: {e}")
-        return False
-
-    # Post each screenshot individually (each ~180KB, well under 1MB limit)
-    if screenshots and request_id:
-        labels = ["Clean Chart", "EMA Indicators", "Final Analysis"]
-        ok_count = 0
-        for i, data in enumerate(screenshots):
-            try:
-                sr = requests.post(
-                    f"{BASE_URL}/api/hermes/smc-screenshots",
-                    json={
-                        "review_id": request_id,
-                        "step": i,
-                        "label": labels[i] if i < len(labels) else f"Screenshot {i+1}",
-                        "data": data,
-                    },
-                    timeout=30
-                )
-                if sr.ok:
-                    ok_count += 1
-                else:
-                    log(f"  Screenshot {i+1} post failed: {sr.status_code}")
-            except Exception as e:
-                log(f"  Screenshot {i+1} error: {e}")
-        log(f"  Posted {ok_count}/{len(screenshots)} screenshots")
-
-    return True
+    return False
 
 def main():
     if not API_KEY:
         log("ERROR: GIZZYFX_API_KEY not set")
         sys.exit(1)
+
+    # Calculate next cron run time
+    now = datetime.now(timezone.utc)
+    next_min = (now.minute // 5 + 1) * 5
+    next_run = now.replace(minute=next_min % 60, second=0, microsecond=0)
+    if next_min >= 60:
+        import datetime as dt
+        next_run = next_run + dt.timedelta(hours=1)
+
+    patch_status(
+        is_processing="false",
+        last_run=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        next_run_at=next_run.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
 
     pending = get_pending()
     if not pending:
@@ -281,26 +485,56 @@ def main():
         rid   = review["id"][:8]
         pair  = review["pair"]
         tf    = review.get("timeframe", "1h")
+
+        # Update status — show user what's happening
+        patch_status(
+            is_processing="true",
+            current_pair=f"{pair} {tf}",
+            last_run=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+
         log(f"Processing {rid}: {pair} {tf}")
 
-        # Step 1: Run TradingView browser analysis
-        log(f"  Starting TradingView browser for {pair} {tf}...")
+        # Step 1: Browser
+        log(f"  Opening TradingView for {pair} {tf}...")
         t0 = time.time()
         browser_data = run_browser(pair, tf)
         elapsed = round(time.time() - t0, 1)
         shots = len(browser_data.get("screenshots", []))
         log(f"  Browser done in {elapsed}s — {shots} screenshots")
 
-        # Step 2: Apply strategy analysis
-        log("  Applying GizzyFx Channel Breakout Strategy...")
-        payload = analyze_smc(review, browser_data)
+        # Step 2: Hermes AI analysis
+        log("  Running Hermes AI analysis...")
+        payload = analyze_with_hermes_ai(review, browser_data)
+        payload["request_id"] = review["id"]
 
-        # Step 3: PATCH result back (screenshots posted separately)
-        shots = browser_data.get("screenshots", [])
-        log("  Posting feedback to D1...")
-        patch_review(payload, shots)
+        # Step 3: PATCH result
+        log("  Posting to D1...")
+        if patch_review(payload):
+            patch_status(
+                last_verdict=payload.get("verdict", ""),
+                last_grade=payload.get("accuracy_grade", ""),
+            )
 
+        # Step 4: Screenshots
+        shots_data = browser_data.get("screenshots", [])
+        if shots_data:
+            log(f"  Posting {len(shots_data)} screenshots...")
+            post_screenshots(review["id"], shots_data)
+
+    # Mark done
+    patch_status(
+        is_processing="false",
+        current_pair="",
+        last_run=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        next_run_at=next_run.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
     log("Done.")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        log(f"FATAL: {e}\n{traceback.format_exc()}")
+        patch_status(is_processing="false", current_pair="", last_run=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+        sys.exit(0)

@@ -1,61 +1,75 @@
 import { createFileRoute } from "@tanstack/react-router";
-import * as fs from "node:fs";
+import { getCFEnv } from "@/lib/cloudflare-env";
 
 /**
- * Returns live status of the SMC processor — last log lines + isProcessing flag.
- * The UI polls this to show "Hermes is analyzing EURUSD..." in real time.
+ * Live Hermes processor status — stored in D1 so the Worker can read it.
+ * The processor (smc-processor.sh) writes to D1 via PATCH.
+ * The UI polls GET every 10s.
  */
 export const Route = createFileRoute("/api/hermes/smc-status")({
   server: {
     handlers: {
       GET: async () => {
-        const LOG = "/home/ubuntu/.hermes/smc-processor.log";
-        let lines: string[] = [];
-        let isProcessing = false;
-        let lastRun = "";
-        let currentPair = "";
+        const env = getCFEnv();
+        if (!env) return Response.json({ isProcessing: false, currentPair: "", lastRun: "", nextRun: "" });
 
         try {
-          const content = fs.readFileSync(LOG, "utf-8");
-          const all = content.split("\n").filter(Boolean);
+          // Create table if it doesn't exist
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS hermes_processor_status (
+              key TEXT PRIMARY KEY,
+              value TEXT NOT NULL,
+              updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+            )
+          `).bind().run().catch(() => {});
 
-          // Find last Start and Done positions
-          let lastStartIdx = -1;
-          let lastDoneIdx  = -1;
-          for (let i = all.length - 1; i >= 0; i--) {
-            const l = all[i] ?? "";
-            if (lastStartIdx < 0 && l.includes("Starting...")) lastStartIdx = i;
-            if (lastDoneIdx  < 0 && l.includes("Done (exit")) lastDoneIdx  = i;
-            if (lastStartIdx >= 0 && lastDoneIdx >= 0) break;
+          const rows = await env.DB.prepare(
+            "SELECT key, value, updated_at FROM hermes_processor_status"
+          ).bind().all();
+
+          const status: Record<string, string> = {};
+          for (const row of rows.results as any[]) {
+            status[row.key] = row.value;
           }
 
-          isProcessing = lastStartIdx > lastDoneIdx;
-
-          // Last timestamp line
-          for (let i = all.length - 1; i >= 0; i--) {
-            const l = all[i] ?? "";
-            if (/^\d{4}-\d{2}-\d{2}T/.test(l)) {
-              lastRun = l.split(" ")[0] ?? l;
-              break;
-            }
-          }
-
-          // Current pair being processed
-          for (let i = all.length - 1; i >= 0; i--) {
-            const l = all[i] ?? "";
-            const m = l.match(/Processing [0-9a-f]+: (\w+) (\w+)/);
-            if (m) {
-              currentPair = `${m[1]} ${m[2]}`;
-              break;
-            }
-          }
-
-          lines = all.slice(-15);
+          return Response.json({
+            isProcessing: status["is_processing"] === "true",
+            currentPair:  status["current_pair"]  ?? "",
+            lastRun:      status["last_run"]       ?? "",
+            nextRun:      status["next_run_at"]    ?? "",
+            lastVerdict:  status["last_verdict"]   ?? "",
+            lastGrade:    status["last_grade"]      ?? "",
+          });
         } catch {
-          lines = ["Log not available"];
+          return Response.json({ isProcessing: false, currentPair: "", lastRun: "" });
         }
+      },
 
-        return Response.json({ isProcessing, lastRun, currentPair, lines });
+      PATCH: async ({ request }) => {
+        const env = getCFEnv();
+        if (!env) return new Response("unavailable", { status: 503 });
+
+        const body = await request.json() as Record<string, string>;
+
+        try {
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS hermes_processor_status (
+              key TEXT PRIMARY KEY,
+              value TEXT NOT NULL,
+              updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+            )
+          `).bind().run().catch(() => {});
+
+          for (const [key, value] of Object.entries(body)) {
+            await env.DB.prepare(
+              "INSERT OR REPLACE INTO hermes_processor_status (key, value, updated_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%SZ','now'))"
+            ).bind(key, String(value)).run();
+          }
+
+          return Response.json({ ok: true });
+        } catch (e) {
+          return Response.json({ ok: false, error: String(e) }, { status: 500 });
+        }
       },
     },
   },

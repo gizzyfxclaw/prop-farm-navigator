@@ -388,7 +388,11 @@ function SMCPage() {
   const [submitting, setSubmitting]           = useState(false);
 
   // Live Hermes status
-  const [hermesStatus, setHermesStatus] = useState<{ isProcessing: boolean; currentPair: string; lastRun: string } | null>(null);
+  const [hermesStatus, setHermesStatus] = useState<{
+    isProcessing: boolean; currentPair: string; lastRun: string;
+    nextRun: string; lastVerdict: string; lastGrade: string;
+  } | null>(null);
+  const [countdown, setCountdown] = useState(0);
 
   // Reviews — persisted
   const [reviews, setReviews]               = useState<HermesReview[]>(saved.reviews ?? []);
@@ -486,7 +490,7 @@ function SMCPage() {
   useEffect(() => {
     const fetchStatus = () => {
       fetch("/api/hermes/smc-status")
-        .then(r => r.json() as Promise<{ isProcessing: boolean; currentPair: string; lastRun: string }>)
+        .then(r => r.json() as Promise<{ isProcessing: boolean; currentPair: string; lastRun: string; nextRun: string; lastVerdict: string; lastGrade: string }>)
         .then(d => setHermesStatus(d))
         .catch(() => {});
     };
@@ -494,6 +498,19 @@ function SMCPage() {
     const t = setInterval(fetchStatus, 10000);
     return () => clearInterval(t);
   }, []);
+
+  /* ── Countdown to next cron run ─────────────────────────────────── */
+  useEffect(() => {
+    const tick = () => {
+      if (hermesStatus?.nextRun) {
+        const secs = Math.max(0, Math.round((new Date(hermesStatus.nextRun).getTime() - Date.now()) / 1000));
+        setCountdown(secs);
+      }
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [hermesStatus?.nextRun]);
 
   /* ── Pine script ─────────────────────────────────────────────────── */
   const generatePine = useCallback(() => {
@@ -680,11 +697,19 @@ function SMCPage() {
               <span style={{ color: "oklch(0.65 0.08 280)" }}>
                 Hermes ready — submit "Ask Hermes AI" and result arrives within 5 min
               </span>
-              {hermesStatus.lastRun && (
-                <span style={{ color: "oklch(0.45 0.06 280)", marginLeft: "auto", fontSize: 11 }}>
-                  Last run: {new Date(hermesStatus.lastRun).toLocaleTimeString()}
-                </span>
-              )}
+              <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 11 }}>
+                {countdown > 0 && (
+                  <span style={{ color: "oklch(0.65 0.15 280)", fontFamily: "monospace", fontWeight: 600 }}>
+                    Next check: {Math.floor(countdown/60)}:{String(countdown%60).padStart(2,"0")}
+                  </span>
+                )}
+                {hermesStatus.lastRun && (
+                  <div style={{ color: "oklch(0.45 0.06 280)", marginTop: 2 }}>
+                    Last: {new Date(hermesStatus.lastRun).toLocaleTimeString()}
+                    {hermesStatus.lastGrade && ` · ${hermesStatus.lastVerdict} ${hermesStatus.lastGrade}`}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
