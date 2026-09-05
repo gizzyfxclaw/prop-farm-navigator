@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { chartTheme, onThemeChange } from "@/lib/chart-theme";
+import { pairSpec } from "@/lib/engine/pairs";
 
 declare global {
   interface Window {
@@ -45,6 +46,8 @@ interface Props {
    *  so they survive navigating away and back, or a page reload. Omit to
    *  keep drawings in-memory only (cleared on unmount, as before). */
   storageKey?: string;
+  /** Override pair for price formatting (defaults to storageKey). */
+  pair?: string;
 }
 
 function loadStoredDrawings(storageKey: string | undefined): Drawing[] {
@@ -88,6 +91,7 @@ function applyDrawings(
   drawings: Drawing[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   drawingSeriesRef: React.MutableRefObject<any[]>,
+  dec: number,
 ) {
   // Remove old trendline/zone series
   for (const s of drawingSeriesRef.current) {
@@ -106,7 +110,7 @@ function applyDrawings(
         lineWidth: 1,
         lineStyle: lineStyleFromString(d.style),
         axisLabelVisible: true,
-        title: d.label ?? "",
+        title: d.label ?? d.price.toFixed(dec),
       });
     } else if (
       d.type === "trendline" &&
@@ -162,7 +166,8 @@ function applyDrawings(
   );
 }
 
-export function LWChart({ bars, drawings = [], height = 480, loading, storageKey }: Props) {
+export function LWChart({ bars, drawings = [], height = 480, loading, storageKey, pair }: Props) {
+  const dec = pairSpec(pair ?? storageKey ?? "EURUSD").decimals;
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null);
@@ -280,6 +285,11 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
         borderColor: t.border,
         minimumWidth: 68,
         scaleMargins: { top: 0.1, bottom: 0.1 },
+        priceFormat: {
+          type: "price" as any,
+          precision: dec,
+          minMove: Math.pow(10, -dec),
+        },
       },
       timeScale: {
         borderColor: t.border,
@@ -296,6 +306,11 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
       wickDownColor: t.wick, wickUpColor: t.wick,
       priceLineColor: t.accent,
       priceLineStyle: 2,
+      priceFormat: {
+        type: "price" as any,
+        precision: dec,
+        minMove: Math.pow(10, -dec),
+      },
     });
 
     chartRef.current = chart;
@@ -315,7 +330,7 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
       if (tool === "hline") {
         setUserDrawings((prev) => [
           ...prev,
-          { type: "hline", price, color: "#3b82f6", style: "solid", label: price.toFixed(5) },
+          { type: "hline", price, color: "#3b82f6", style: "solid", label: price.toFixed(dec) },
         ]);
       } else if (tool === "trendline") {
         if (!pendingPointRef.current) {
@@ -407,7 +422,7 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
     }
     candleSeriesRef.current = freshSeries;
 
-    applyDrawings(chart, freshSeries, bars, allDrawings, drawingSeriesRef);
+    applyDrawings(chart, freshSeries, bars, allDrawings, drawingSeriesRef, dec);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawings, userDrawings, ready]);
 

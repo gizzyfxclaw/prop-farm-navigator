@@ -13,6 +13,8 @@ except ImportError as e:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gizzyfx_backtest_engine import simulate, PIP_SIZE, TV_SYMBOL, period_description
 
+PAIR_DECIMALS = {"EURUSD": 5, "GBPUSD": 5, "USDJPY": 3, "AUDUSD": 5, "XAUUSD": 2, "USDCAD": 5, "NZDUSD": 5, "USDCHF": 5}
+
 API_URL = os.environ.get("GIZZYFX_API_URL", "").rstrip("/")
 API_KEY  = os.environ.get("GIZZYFX_API_KEY", "")
 if not API_URL or not API_KEY:
@@ -62,7 +64,7 @@ def _lerp(v, in_min, in_max, out_min, out_max):
         return (out_min + out_max) / 2
     return out_min + (v - in_min) / (in_max - in_min) * (out_max - out_min)
 
-def render_analysis_svg(bars, drawings, width=1000, height=520):
+def render_analysis_svg(bars, drawings, width=1000, height=520, pair=None):
     """Candlesticks + the same drawing schema used by post_analysis_step
     (hline/trendline/zone/marker), as a standalone SVG string. Pure stdlib —
     no plotting library needed, and it mirrors src/components/terminal/
@@ -112,13 +114,16 @@ def render_analysis_svg(bars, drawings, width=1000, height=520):
     def esc(s):
         return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+    dec = PAIR_DECIMALS.get(pair, 5)
+
     for d in drawings or []:
         color, label, dtype = d.get("color") or "#f59e0b", esc(d.get("label") or ""), d.get("type")
         if dtype == "hline" and d.get("price") is not None:
             yy = y(d["price"])
             dash = {"dashed": "5,4", "dotted": "1.5,3"}.get(d.get("style"), "0")
+            plabel = label or f"{d['price']:.{dec}f}"
             parts.append(f'<line x1="{pad_l}" y1="{yy:.1f}" x2="{width - pad_r}" y2="{yy:.1f}" stroke="{color}" stroke-width="1" stroke-dasharray="{dash}"/>')
-            parts.append(f'<text x="{width - pad_r + 4}" y="{yy + 3:.1f}" fill="{color}" font-size="10" font-family="monospace">{label or d["price"]}</text>')
+            parts.append(f'<text x="{width - pad_r + 4}" y="{yy + 3:.1f}" fill="{color}" font-size="10" font-family="monospace">{plabel}</text>')
         elif dtype == "trendline" and None not in (d.get("p1time"), d.get("p2time"), d.get("p1price"), d.get("p2price")):
             x1, y1, x2, y2 = x(d["p1time"]), y(d["p1price"]), x(d["p2time"]), y(d["p2price"])
             parts.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{color}" stroke-width="1.5"/>')
@@ -139,6 +144,16 @@ def render_analysis_svg(bars, drawings, width=1000, height=520):
                 parts.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="3.5" fill="{color}"/>')
                 if label:
                     parts.append(f'<text x="{cx + 5:.1f}" y="{cy + 3:.1f}" fill="{color}" font-size="9" font-family="monospace">{label}</text>')
+
+    # --- Right-side Y-axis price ticks ---
+    n_ticks = 6
+    for i in range(n_ticks):
+        price = p_min + (p_max - p_min) * i / (n_ticks - 1)
+        yy = y(price)
+        tick_x0 = width - pad_r
+        tick_x1 = width - pad_r + 4
+        parts.append(f'<line x1="{tick_x0}" y1="{yy:.1f}" x2="{tick_x1}" y2="{yy:.1f}" stroke="#6b7280" stroke-width="0.7"/>')
+        parts.append(f'<text x="{tick_x1 + 2}" y="{yy + 3:.1f}" fill="#9ca3af" font-size="9" font-family="monospace">{price:.{dec}f}</text>')
 
     parts.append(f'<text x="{pad_l}" y="{height - 8}" fill="#6b7280" font-size="10" font-family="monospace">{len(bars)} bars, {len(drawings or [])} drawing(s)</text>')
     parts.append("</svg>")
@@ -314,8 +329,12 @@ TOOLS = [
                     "description": "Same drawing objects used with post_analysis_step (hline/trendline/zone/marker) — pass everything you drew for this analysis.",
                     "items": {"type": "object"},
                 },
+                "pair": {
+                    "type": "string",
+                    "description": "Pair being rendered (e.g. 'EURUSD', 'USDJPY', 'XAUUSD') — used to format price labels to the correct decimal places. Required for accurate pricing.",
+                },
             },
-            "required": ["bars"],
+            "required": ["bars", "pair"],
         },
     ),
     Tool(name="mark_request_fulfilled", description="Mark a request done after posting all steps.", inputSchema={"type":"object","properties":{"request_id":{"type":"string"}},"required":["request_id"]}),
@@ -562,7 +581,7 @@ async def call_tool(name, arguments):
             data = _post("/api/hermes/analysis", body)
             result = f"Step posted (id={data.get('id')})."
         elif name == "render_analysis_chart":
-            svg = render_analysis_svg(arguments.get("bars", []), arguments.get("drawings", []))
+            svg = render_analysis_svg(arguments.get("bars", []), arguments.get("drawings", []), pair=arguments.get("pair"))
             if not svg:
                 result = "No usable bars provided — nothing to render."
             else:

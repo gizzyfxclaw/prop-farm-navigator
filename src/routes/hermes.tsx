@@ -752,7 +752,7 @@ function HermesPage() {
           {chartMode === "tv" ? (
             <TradingViewChart pair={chartPair} height="100%" />
           ) : (
-            <LWChart bars={bars} drawings={[...drawings, ...smcDrawings]} height="100%" loading={barsLoading} storageKey={chartPair} />
+            <LWChart bars={bars} drawings={[...drawings, ...smcDrawings]} height="100%" loading={barsLoading} storageKey={chartPair} pair={chartPair} />
           )}
         </div>
 

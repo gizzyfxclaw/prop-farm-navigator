@@ -8,10 +8,10 @@ import {
   Loader, CheckCheck, Cpu,
 } from "lucide-react";
 import { Badge, Button, Card } from "@/components/terminal/ui";
-import { generatePineScript } from "@/lib/pine-script-generator";
 import { LWChart, type OHLCBar } from "@/components/terminal/lwchart";
 import { WinRateBadge } from "@/components/terminal/WinRateBadge";
 import { buildSmcDrawings, type DrawableLevels, type SmcChannel } from "@/lib/smc-drawings";
+import { generateSnapshotPineScript } from "@/lib/pine-snapshot-generator";
 
 export const Route = createFileRoute("/smc")({
   head: () => ({ meta: [{ title: "SMC Analysis — GizzyFx" }] }),
@@ -40,7 +40,7 @@ interface AnalysisData {
   structure: {
     bias: string;
     bos: string | null;
-    orderBlocks: Array<{ low: number; high: number; kind: string; impulseMag: number }>;
+    orderBlocks: Array<{ low: number; high: number; kind: string; impulseMag: number; time?: number }>;
     lastSwingHigh: number;
     lastSwingLow: number;
     highs: number;
@@ -394,7 +394,7 @@ function AnalysisChart({
       <p className="text-[12px] text-muted-foreground mb-2 flex items-center gap-1">
         <TrendingUp size={11} /> Hermes's Marked-Up Chart — trend, order blocks &amp; entry/SL/TP drawn from the actual analysis
       </p>
-      <LWChart bars={bars} drawings={drawings} height={height} loading={loading} />
+      <LWChart bars={bars} drawings={drawings} height={height} loading={loading} pair={pair} />
     </div>
   );
 }
@@ -589,10 +589,22 @@ function SMCPage() {
   /* ── Pine script ─────────────────────────────────────────────────── */
   const generatePine = useCallback(() => {
     if (!data) return;
-    const smc = { ok: true, structure: data.structure, orderBlocks: data.structure.orderBlocks, fvgs: [], sweeps: [], zone: { zone: "unknown" } };
-    setPineScript(generatePineScript(smc as any, pair));
+    const script = generateSnapshotPineScript(
+      pair,
+      timeframe,
+      data.structure,
+      {
+        direction: data.levels?.direction,
+        entry: data.levels?.entry ? parseFloat(data.levels.entry) : null,
+        stopLoss: data.levels?.stopLoss ? parseFloat(data.levels.stopLoss) : null,
+        takeProfit1: data.levels?.takeProfit1 ? parseFloat(data.levels.takeProfit1) : null,
+        takeProfit2: data.levels?.takeProfit2 ? parseFloat(data.levels.takeProfit2) : null,
+      },
+      data.channel,
+    );
+    setPineScript(script);
     setShowPine(true);
-  }, [pair, data]);
+  }, [pair, timeframe, data]);
 
   /* ── Image upload ────────────────────────────────────────────────── */
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1375,7 +1387,14 @@ function SMCPage() {
           )}
 
           {/* Pine Script */}
-          <Card title="Pine Script Export">
+          <Card title="Export to TradingView (Pine Script)">
+            <p className="text-[12px] text-muted-foreground mb-3">
+              Generates the exact channel, order blocks, retests and entry/SL/TP shown in
+              "Hermes's Marked-Up Chart" above as a Pine Script v5 snapshot — paste it into
+              TradingView's Pine Editor (bottom panel on tradingview.com → Pine Editor → paste →
+              Add to Chart) to see this analysis on the real chart. It's a frozen snapshot of
+              this one analysis, not a live indicator — re-generate after the next analysis to refresh it.
+            </p>
             <div className="mb-3 flex items-center gap-2 flex-wrap">
               <Button variant="ghost" onClick={generatePine}>
                 <BarChart3 size={12} /> Generate Pine Script
