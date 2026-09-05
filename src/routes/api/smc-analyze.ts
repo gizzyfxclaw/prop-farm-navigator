@@ -239,22 +239,95 @@ function generateDebate(structure: ReturnType<typeof detectStructure>, bars: Bar
   };
 }
 
-function buildLevels(structure: ReturnType<typeof detectStructure>, lastPrice: number, atr: number) {
+function buildLevels(structure: ReturnType<typeof detectStructure>, lastPrice: number, atr: number, accuracyGrade?: string) {
   const direction = structure.bias === "bullish" ? "long" : structure.bias === "bearish" ? "short" : "neutral";
-  if (direction === "neutral") return { direction, confidence: 0.5, entry: lastPrice.toFixed(5), stopLoss: (lastPrice - atr * 2).toFixed(5), takeProfit1: (lastPrice + atr * 2).toFixed(5), takeProfit2: (lastPrice + atr * 3).toFixed(5), riskReward: "1.0" };
 
-  const stopLoss = direction === "long" ? lastPrice - atr * 1.5 : lastPrice + atr * 1.5;
-  const takeProfit1 = direction === "long" ? lastPrice + atr * 2 : lastPrice - atr * 2;
-  const takeProfit2 = direction === "long" ? lastPrice + atr * 3 : lastPrice - atr * 3;
+  if (direction === "neutral") {
+    return {
+      direction, confidence: 0.5, orderType: "MARKET",
+      entry: lastPrice.toFixed(5),
+      stopLoss: (lastPrice - atr * 2).toFixed(5),
+      takeProfit1: (lastPrice + atr * 1.5).toFixed(5),
+      takeProfit2: (lastPrice + atr * 2).toFixed(5),
+      takeProfit3: (lastPrice + atr * 2.5).toFixed(5),
+      takeProfit4: (lastPrice + atr * 3).toFixed(5),
+      riskReward: "1:2",
+      riskRewardOptions: ["1:1.5", "1:2", "1:2.5", "1:3"],
+      recommendedRR: "1:2",
+    };
+  }
+
+  // Entry: use nearest OB boundary as a PENDING ORDER (limit entry)
+  const bullOBs = structure.orderBlocks.filter(o => o.kind === "bullish");
+  const bearOBs = structure.orderBlocks.filter(o => o.kind === "bearish");
+
+  let entryPrice = lastPrice;
+  let orderType = "MARKET";
+
+  if (direction === "long" && bullOBs.length > 0) {
+    const ob = bullOBs[bullOBs.length - 1]!;
+    const obMid = (ob.low + ob.high) / 2;
+    // Set entry at OB high (top of bullish OB) — BUY_LIMIT if price is above it, else BUY_STOP
+    if (lastPrice > obMid) {
+      entryPrice = ob.high; // price needs to pull back to OB — BUY_LIMIT
+      orderType = "BUY_LIMIT";
+    } else {
+      entryPrice = ob.high; // price hasn't reached OB yet — BUY_STOP
+      orderType = "BUY_STOP";
+    }
+  } else if (direction === "short" && bearOBs.length > 0) {
+    const ob = bearOBs[bearOBs.length - 1]!;
+    const obMid = (ob.low + ob.high) / 2;
+    if (lastPrice < obMid) {
+      entryPrice = ob.low; // price needs to rally to OB — SELL_LIMIT
+      orderType = "SELL_LIMIT";
+    } else {
+      entryPrice = ob.low; // price hasn't reached OB — SELL_STOP
+      orderType = "SELL_STOP";
+    }
+  }
+
+  // SL beyond OB
+  const slAtrMult = 1.5;
+  const stopLoss = direction === "long"
+    ? entryPrice - atr * slAtrMult
+    : entryPrice + atr * slAtrMult;
+
+  const slDist = Math.abs(entryPrice - stopLoss);
+
+  // 4 TP levels based on R:R ratios
+  const tp15 = direction === "long" ? entryPrice + slDist * 1.5 : entryPrice - slDist * 1.5;
+  const tp20 = direction === "long" ? entryPrice + slDist * 2.0 : entryPrice - slDist * 2.0;
+  const tp25 = direction === "long" ? entryPrice + slDist * 2.5 : entryPrice - slDist * 2.5;
+  const tp30 = direction === "long" ? entryPrice + slDist * 3.0 : entryPrice - slDist * 3.0;
+
+  // Recommended R:R based on accuracy grade
+  let recommendedRR = "1:2";
+  if (accuracyGrade === "HIGH")     recommendedRR = "1:3";
+  else if (accuracyGrade === "STANDARD") recommendedRR = "1:2";
+  else                               recommendedRR = "1:1.5";
+
+  // Primary TP = recommended
+  const primaryTP = recommendedRR === "1:3" ? tp30
+    : recommendedRR === "1:2.5" ? tp25
+    : recommendedRR === "1:2"   ? tp20
+    : tp15;
 
   return {
     direction,
     confidence: 0.7,
-    entry: lastPrice.toFixed(5),
+    orderType,
+    entry: entryPrice.toFixed(5),
     stopLoss: stopLoss.toFixed(5),
-    takeProfit1: takeProfit1.toFixed(5),
-    takeProfit2: takeProfit2.toFixed(5),
-    riskReward: ((Math.abs(takeProfit2 - lastPrice)) / Math.abs(stopLoss - lastPrice)).toFixed(1),
+    takeProfit1: tp15.toFixed(5),   // 1:1.5
+    takeProfit2: tp20.toFixed(5),   // 1:2
+    takeProfit3: tp25.toFixed(5),   // 1:2.5
+    takeProfit4: tp30.toFixed(5),   // 1:3
+    primaryTP: primaryTP.toFixed(5),
+    riskReward: recommendedRR,
+    riskRewardOptions: ["1:1.5", "1:2", "1:2.5", "1:3"],
+    recommendedRR,
+    slPips: Math.round(slDist * 10000),  // pips for forex pairs
   };
 }
 

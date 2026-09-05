@@ -47,7 +47,14 @@ interface AnalysisData {
     stopLoss: string;
     takeProfit1: string;
     takeProfit2: string;
+    takeProfit3?: string;
+    takeProfit4?: string;
+    primaryTP?: string;
     riskReward: string;
+    riskRewardOptions?: string[];
+    recommendedRR?: string;
+    orderType?: string;
+    slPips?: number;
   };
   pair: string;
   interval: string;
@@ -1028,32 +1035,59 @@ function SMCPage() {
           {/* Trading Levels */}
           {data.levels && data.levels.direction !== "neutral" && (
             <Card title="Trading Levels" accent={data.levels.direction === "long" ? "pos" : "neg"}>
-              <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center gap-4 mb-4 flex-wrap">
                 <Badge tone={verdictColor === "green" ? "green" : verdictColor === "red" ? "red" : "amber"}>
                   <Target size={12} />
                   {data.debate?.finalVerdict?.replace("_", " ") || "ANALYZING"}
                 </Badge>
+                <Badge tone={data.levels.direction === "long" ? "green" : "red"}>
+                  {data.levels.orderType?.replace("_", " ") || "MARKET"}
+                </Badge>
                 <span className="text-[13px] text-muted-foreground">
-                  Confidence: {((data.debate?.confidence ?? 0) * 100).toFixed(0)}% · R:R {data.levels.riskReward}
+                  Confidence: {((data.debate?.confidence ?? 0) * 100).toFixed(0)}% · SL: {data.levels.slPips} pips
                 </span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-4">
+
+              {/* Entry / SL / Primary TP */}
+              <div className="grid gap-3 sm:grid-cols-3 mb-4">
                 <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
-                  <p className="text-[11px] text-muted-foreground">Entry</p>
+                  <p className="text-[11px] text-muted-foreground">Entry ({data.levels.orderType?.replace("_"," ") ?? "MARKET"})</p>
                   <p className="text-[18px] font-bold font-mono text-emerald-400">{data.levels.entry}</p>
                 </div>
                 <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3 text-center">
                   <p className="text-[11px] text-muted-foreground">Stop Loss</p>
                   <p className="text-[18px] font-bold font-mono text-red-400">{data.levels.stopLoss}</p>
                 </div>
-                <div className="rounded-md border border-blue-500/20 bg-blue-500/5 p-3 text-center">
-                  <p className="text-[11px] text-muted-foreground">TP1</p>
-                  <p className="text-[18px] font-bold font-mono text-blue-400">{data.levels.takeProfit1}</p>
+                <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3 text-center">
+                  <p className="text-[11px] text-muted-foreground">Primary TP ({data.levels.recommendedRR})</p>
+                  <p className="text-[18px] font-bold font-mono text-amber-400">{data.levels.primaryTP}</p>
                 </div>
-                <div className="rounded-md border border-blue-500/20 bg-blue-500/5 p-3 text-center">
-                  <p className="text-[11px] text-muted-foreground">TP2</p>
-                  <p className="text-[16px] font-bold font-mono text-blue-400/80">{data.levels.takeProfit2}</p>
-                </div>
+              </div>
+
+              {/* All R:R Options */}
+              <p className="text-[11px] text-muted-foreground mb-2">All Risk:Reward Options (TP levels)</p>
+              <div className="grid gap-2 sm:grid-cols-4">
+                {data.levels.riskRewardOptions?.map((rr, i) => {
+                  const isRecommended = rr === data.levels.recommendedRR;
+                  const tp = [data.levels.takeProfit1, data.levels.takeProfit2, data.levels.takeProfit3, data.levels.takeProfit4][i];
+                  return (
+                    <div
+                      key={rr}
+                      style={{
+                        padding: "8px 12px", borderRadius: 6, textAlign: "center",
+                        border: `1px solid ${isRecommended ? "oklch(0.55 0.18 145)" : "oklch(0.25 0.04 280)"}`,
+                        background: isRecommended ? "oklch(0.20 0.06 145 / 0.3)" : "oklch(0.12 0.02 280 / 0.3)",
+                      }}
+                    >
+                      <p style={{ fontSize: 10, fontWeight: isRecommended ? 700 : 400, color: isRecommended ? "oklch(0.70 0.15 145)" : "oklch(0.55 0.06 280)" }}>
+                        {rr} {isRecommended && "★ RECOMMENDED"}
+                      </p>
+                      <p style={{ fontSize: 14, fontFamily: "monospace", fontWeight: 700, color: isRecommended ? "oklch(0.70 0.15 145)" : "oklch(0.70 0.05 280)" }}>
+                        {tp}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           )}
