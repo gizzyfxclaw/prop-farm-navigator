@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { Alert, Badge, Button, Card, Field, Row, Select, Stat } from "@/components/terminal/ui";
 import { TradingViewChart } from "@/components/terminal/tradingview-chart";
@@ -87,6 +87,93 @@ function mergeDrawings(steps: AnalysisStep[], setup: HermesSetup | null): Drawin
     if (setup.tp3) all.push({ type: "hline", price: setup.tp3, label: "TP3", color: "#bbf7d0", style: "dotted" });
   }
   return all;
+}
+
+/* ── Live SMC Analysis Panel ─────────────────────────────────────── */
+function LiveSmcPanel() {
+  const [pair, setPair] = useState("EURUSD");
+  const [tf, setTf] = useState("1h");
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/smc-analyze?pair=${pair}&interval=${tf}&limit=500`);
+      if (r.ok) setData(await r.json());
+    } catch {}
+    setLoading(false);
+  }, [pair, tf]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const lv = data?.levels;
+  const dir = lv?.direction;
+  const isLong = dir === "long";
+  const isShort = dir === "short";
+  const hasSignal = isLong || isShort;
+
+  return (
+    <Card title="Live Market Analysis" badge={<Badge tone={hasSignal ? (isLong ? "green" : "red") : "neutral"}>SMC</Badge>}>
+      <div className="flex flex-wrap gap-3 mb-4">
+        <Field label="Pair">
+          <select className="h-11 rounded-xl border border-border bg-input px-3 text-sm" value={pair} onChange={e => setPair(e.target.value)}>
+            {["EURUSD","GBPUSD","USDJPY","AUDUSD","XAUUSD"].map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </Field>
+        <Field label="TF">
+          <select className="h-11 rounded-xl border border-border bg-input px-3 text-sm" value={tf} onChange={e => setTf(e.target.value)}>
+            {["15m","1h","4h","1d"].map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </Field>
+        <div className="flex items-end">
+          <Button onClick={load} disabled={loading}>{loading ? "..." : "Analyze"}</Button>
+        </div>
+      </div>
+
+      {data && hasSignal && lv && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Badge tone={isLong ? "green" : "red"}>{isLong ? "LONG" : "SHORT"}</Badge>
+            <Badge tone="amber">{lv.orderType?.replace("_"," ")}</Badge>
+            <span className="text-[12px] text-muted-foreground">
+              SL: {lv.slPips}pips · {data.debate?.finalVerdict?.replace("_"," ")}
+            </span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
+              <p className="text-[10px] text-muted-foreground">Entry</p>
+              <p className="text-lg font-bold font-mono text-emerald-400">{lv.entry}</p>
+            </div>
+            <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-center">
+              <p className="text-[10px] text-muted-foreground">SL</p>
+              <p className="text-lg font-bold font-mono text-red-400">{lv.stopLoss}</p>
+            </div>
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-center">
+              <p className="text-[10px] text-muted-foreground">TP ({lv.recommendedRR})</p>
+              <p className="text-lg font-bold font-mono text-amber-400">{lv.primaryTP}</p>
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-4">
+            {lv.riskRewardOptions?.map((rr: string, i: number) => {
+              const rec = rr === lv.recommendedRR;
+              const tp = [lv.takeProfit1, lv.takeProfit2, lv.takeProfit3, lv.takeProfit4][i];
+              return (
+                <div key={rr} className="rounded-lg p-2 text-center" style={{ border: `1px solid ${rec ? "oklch(0.55 0.18 145)" : "oklch(0.25 0.04 280)"}`, background: rec ? "oklch(0.20 0.06 145 / 0.3)" : "transparent" }}>
+                  <p className="text-[10px] font-bold" style={{ color: rec ? "oklch(0.70 0.15 145)" : "oklch(0.55 0.06 280)" }}>{rr} {rec && "★"}</p>
+                  <p className="text-sm font-mono font-bold" style={{ color: rec ? "oklch(0.70 0.15 145)" : "oklch(0.65 0.05 280)" }}>{tp}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {data && !hasSignal && (
+        <p className="text-[12px] text-muted-foreground">No clear signal — market is ranging. Wait for BOS confirmation.</p>
+      )}
+    </Card>
+  );
 }
 
 function HermesPage() {
@@ -692,6 +779,9 @@ function HermesPage() {
           </div>
         </div>
       </Card>
+
+      {/* Live SMC Analysis — real-time market analysis with pending orders */}
+      <LiveSmcPanel />
 
       <Card title="Strategy Rules" badge={<Badge tone="neutral">{rules.length}</Badge>}>
         <div className="space-y-4">
