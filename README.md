@@ -34,8 +34,65 @@ What's **lost** and must be rebuilt on a new VPS:
 
 **Recovery time:** ~30-60 minutes on a fresh Ubuntu VPS.
 
-See [`docs/vps-recovery.md`](docs/vps-recovery.md) for the full step-by-step
-playbook (commands, backup strategies, checklist).
+### Quick Recovery Steps
+
+```bash
+# 1. Provision new Ubuntu VPS, then install dependencies
+sudo apt update && sudo apt install -y python3 python3-venv python3-pip nodejs npm git curl build-essential
+curl -fsSL https://bun.sh/install | bash && export PATH="$HOME/.bun/bin:$PATH"
+
+# 2. Clone repos
+cd /home/ubuntu
+git clone https://github.com/gizzyfxclaw/prop-farm-navigator.git
+git clone https://github.com/gizzyfxclaw/gizzyfx-skills.git
+
+# 3. Set up auth.json (Nous API key)
+mkdir -p /home/ubuntu/.hermes
+cat > /home/ubuntu/.hermes/auth.json << 'EOF'
+{
+  "providers": {
+    "nous": {
+      "access_token": "<YOUR_NOUS_API_KEY>"
+    }
+  }
+}
+EOF
+# Get key from: https://inference-api.nousresearch.com → Account → API Keys
+
+# 4. Set up .env
+cat > /home/ubuntu/.hermes/.env << 'EOF'
+GIZZYFX_BASE_URL=https://gizzyfxstrategy.dpdns.org
+GIZZYFX_API_KEY=<YOUR_HERMES_KEY>
+EOF
+
+# 5. Set up Python venv + dependencies
+python3 -m venv /home/ubuntu/.hermes/hermes-agent/venv
+source /home/ubuntu/.hermes/hermes-agent/venv/bin/activate
+pip install requests playwright Pillow
+playwright install chromium
+
+# 6. Set up smc-processor.sh
+mkdir -p /home/ubuntu/bin
+cp /home/ubuntu/prop-farm-navigator/scripts/smc-processor.sh /home/ubuntu/bin/
+chmod +x /home/ubuntu/bin/smc-processor.sh
+
+# 7. Set up crontab
+crontab -e
+# Add: */5 * * * * /home/ubuntu/bin/smc-processor.sh >> /home/ubuntu/.hermes/smc-processor.log 2>&1
+
+# 8. GitHub SSH key (for pushes)
+ssh-keygen -t ed25519 -C "gizzyfxclaw"
+cat ~/.ssh/id_ed25519.pub
+# Add to GitHub → Settings → SSH Keys
+
+# 9. Verify everything works
+/home/ubuntu/bin/smc-processor.sh          # Should run without errors
+cd /home/ubuntu/prop-farm-navigator
+bun run build                              # Should build successfully
+npx nitro deploy --prebuilt                 # Should deploy to Cloudflare
+```
+
+See [`docs/vps-recovery.md`](docs/vps-recovery.md) for the full detailed playbook (backup strategies, optional cloud backups, future-proofing tips).
 
 ---
 
