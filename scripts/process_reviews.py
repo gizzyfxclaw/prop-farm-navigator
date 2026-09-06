@@ -32,9 +32,11 @@ def log(msg, lvl="INFO"):
 def patch_status(**kwargs):
     """Write processor status + step to D1 so the UI can show live state."""
     try:
-        requests.patch(f"{BASE_URL}/api/hermes/smc-status", json=kwargs, timeout=8)
-    except Exception:
-        pass
+        r = requests.patch(f"{BASE_URL}/api/hermes/smc-status", json=kwargs, timeout=8)
+        if not r.ok:
+            log(f"  PATCH status failed: {r.status_code}")
+    except Exception as e:
+        log(f"  PATCH status error: {e}")
 
 def patch_step(step, detail="", eta=None):
     """Write the current processing step to D1 for real-time UI updates."""
@@ -42,9 +44,11 @@ def patch_step(step, detail="", eta=None):
     if eta:
         payload["step_eta"] = eta
     try:
-        requests.patch(f"{BASE_URL}/api/hermes/smc-status", json=payload, timeout=8)
-    except Exception:
-        pass
+        r = requests.patch(f"{BASE_URL}/api/hermes/smc-status", json=payload, timeout=8)
+        if not r.ok:
+            log(f"  PATCH step failed: {r.status_code}")
+    except Exception as e:
+        log(f"  PATCH step error: {e}")
 
 def get_pending():
     try:
@@ -138,20 +142,66 @@ def call_hermes_llm(prompt: str) -> str:
     return ""
 
 def run_browser(pair: str, timeframe: str) -> dict:
-    """Run TradingView headless browser."""
+    """Run TradingView headless browser with real-time step tracking."""
     env = {**os.environ, "GIZZYFX_API_KEY": API_KEY}
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             [PYTHON, ANALYZER, pair, timeframe],
-            capture_output=True, text=True,
-            timeout=BROWSER_TIMEOUT, env=env
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
         )
-        if result.returncode == 0 and result.stdout.strip():
-            return json.loads(result.stdout)
+        
+        # Read stderr in real-time for step tracking
+        steps = []
+        stderr_lines = []
+        
+        # Use select for non-blocking read on Unix
+        import select
+        
+        while process.poll() is None:
+            # Check if there's data to read
+            readable, _, _ = select.select([process.stderr], [], [], 0.1)
+            if readable:
+                line = process.stderr.readline()
+                if line:
+                    stderr_lines.append(line)
+                    try:
+                        step_data = json.loads(line.strip())
+                        msg = step_data.get("msg", "")
+                        lvl = step_data.get("lvl", "INFO")
+                        if msg:
+                            steps.append(msg)
+                            # Write step to D1 for real-time UI
+                            patch_step(msg, lvl.lower(), eta=None)
+                    except (json.JSONDecodeError, Exception):
+                        pass
+        
+        # Read remaining stderr
+        remaining = process.stderr.read()
+        if remaining:
+            for line in remaining.strip().split('\n'):
+                if line.strip():
+                    stderr_lines.append(line)
+                    try:
+                        step_data = json.loads(line.strip())
+                        msg = step_data.get("msg", "")
+                        lvl = step_data.get("lvl", "INFO")
+                        if msg:
+                            steps.append(msg)
+                            patch_step(msg, lvl.lower(), eta=None)
+                    except (json.JSONDecodeError, Exception):
+                        pass
+        
+        stdout = process.stdout.read()
+        
+        if process.returncode == 0 and stdout.strip():
+            result = json.loads(stdout)
+            result["steps"] = steps
+            return result
         else:
-            log(f"Browser script failed: {result.stderr[-150:]}")
-    except subprocess.TimeoutExpired:
-        log(f"Browser timeout after {BROWSER_TIMEOUT}s")
+            log(f"Browser script failed: {''.join(stderr_lines)[-150:]}")
     except Exception as e:
         log(f"Browser error: {e}")
     return {"screenshots": [], "steps": [], "elapsed": 0}
@@ -537,6 +587,8 @@ def main():
             patch_step("Uploading screenshots", f"Posting {len(shots_data)} screenshots...", eta="15s")
             log(f"  Posting {len(shots_data)} screenshots...")
             post_screenshots(review["id"], shots_data)
+
+        patch_step("Finalizing...", "Analysis complete!", eta="0s")
 
     # Mark done
     patch_status(

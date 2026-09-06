@@ -129,14 +129,23 @@ interface Persisted {
   reviews: HermesReview[];
   selectedReviewId: string | null;
   userNotes: string;
+  pollingId: string | null;
+  pollingSubmittedAt: number | null;
 }
 
 function readLS(): Persisted {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw) as Persisted;
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<Persisted>;
+      return { ...defaultPersisted(), ...parsed };
+    }
   } catch { /* ignore */ }
-  return { pair: "EURUSD", timeframe: "1h", data: null, fetchedAt: null, reviews: [], selectedReviewId: null, userNotes: "" };
+  return defaultPersisted();
+}
+
+function defaultPersisted(): Persisted {
+  return { pair: "EURUSD", timeframe: "1h", data: null, fetchedAt: null, reviews: [], selectedReviewId: null, userNotes: "", pollingId: null, pollingSubmittedAt: null };
 }
 
 function writeLS(v: Partial<Persisted>) {
@@ -279,32 +288,103 @@ function ChatWithHermes({ reviewId }: { reviewId: string }) {
 
 function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; reviewId: string }) {
   const [elapsed, setElapsed] = useState(0);
-  const [phaseIdx, setPhaseIdx] = React.useState(0);
-  const [dots, setDots] = React.useState(".");
+  const [hermesStatus, setHermesStatus] = useState<{
+    isProcessing: boolean; currentStep: string; stepDetail: string;
+  } | null>(null);
+  const [reviewFulfilled, setReviewFulfilled] = useState(false);
 
-  React.useEffect(() => {
+  // Poll D1 for real-time step status from the processor
+  useEffect(() => {
+    const fetchStatus = () => {
+      fetch("/api/hermes/smc-status")
+        .then(r => r.json() as Promise<{ isProcessing: boolean; currentStep: string; stepDetail: string }>)
+        .then(d => setHermesStatus(d))
+        .catch(() => {});
+    };
+    fetchStatus();
+    const t = setInterval(fetchStatus, 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Poll for review fulfillment
+  useEffect(() => {
+    const check = () => {
+      fetch(`/api/hermes/analyze-with-hermes?id=${reviewId}`)
+        .then(r => r.json())
+        .then(d => {
+          const review = d.reviews?.[0];
+          if (review?.status === "fulfilled") setReviewFulfilled(true);
+        })
+        .catch(() => {});
+    };
+    const t = setInterval(check, 5000);
+    return () => clearInterval(t);
+  }, [reviewId]);
+
+  useEffect(() => {
     const t = setInterval(() => {
-      const e = Math.floor((Date.now() - submittedAt) / 1000);
-      setElapsed(e);
-
-      // Phase from elapsed time
-      let acc = 0;
-      for (let i = 0; i < ANALYSIS_PHASES.length; i++) {
-        acc += ANALYSIS_PHASES[i]!.duration;
-        if (e < acc) { setPhaseIdx(i); break; }
-        if (i === ANALYSIS_PHASES.length - 1) setPhaseIdx(i);
-      }
-
-      setDots(prev => prev.length >= 3 ? "." : prev + ".");
+      setElapsed(Math.floor((Date.now() - submittedAt) / 1000));
     }, 1000);
     return () => clearInterval(t);
   }, [submittedAt]);
 
+  // Map D1 step to phase index
+  const stepToPhaseIdx: Record<string, number> = {
+    "Browser Launch": 0, "Opening TradingView": 0,
+    "Loading TradingView": 1,
+    "Clearing Popups": 2,
+    "Capturing Clean Chart": 3,
+    "Reading Price Data": 4,
+    "Applying Indicators": 5,
+    "Indicator Screenshot": 6,
+    "Reading Indicators": 7,
+    "Final Screenshot": 8,
+    "Applying Strategy": 9,
+    "Compiling Verdict": 10, "Posting results": 10,
+    "Writing feedback, levels & grade": 10,
+    "Finalizing...": 10, "Uploading screenshots": 10,
+  };
+
+  let phaseIdx = 0;
+  const currentStep = hermesStatus?.currentStep || "";
+  for (const [key, idx] of Object.entries(stepToPhaseIdx)) {
+    if (currentStep === key || currentStep.startsWith(key)) {
+      phaseIdx = idx;
+      break;
+    }
+  }
+
+  if (!currentStep && elapsed < 5) phaseIdx = 0;
+  if (currentStep === "Finalizing...") phaseIdx = 10;
+
+  const stepDetail = hermesStatus?.stepDetail || "";
   const progress = Math.min((elapsed / TOTAL_SECONDS) * 100, 99);
   const isOverdue = elapsed > TOTAL_SECONDS;
-  const isDelayed = elapsed > 360; // >6 min = cron should have run at least once
   const remaining = isOverdue ? 0 : TOTAL_SECONDS - elapsed;
   const currentPhase = ANALYSIS_PHASES[phaseIdx] ?? ANALYSIS_PHASES[ANALYSIS_PHASES.length - 1]!;
+
+  if (reviewFulfilled) {
+    return (
+      <div style={{
+        border: "1px solid oklch(0.55 0.18 145 / 0.4)",
+        borderRadius: 12,
+        background: "oklch(0.10 0.04 145 / 0.7)",
+        padding: "1.25rem",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <CheckCircle2 size={32} color="oklch(0.65 0.18 145)" />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "oklch(0.92 0.04 145)" }}>
+              Hermes Analysis Complete
+            </div>
+            <div style={{ fontSize: 11, color: "oklch(0.60 0.10 145)" }}>
+              {elapsed}s elapsed — click the review below to see results
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -316,16 +396,13 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
       position: "relative",
       overflow: "hidden",
     }}>
-      {/* Animated scan line */}
       <div style={{
         position: "absolute", top: 0, left: "-100%", right: 0, height: 2,
         background: "linear-gradient(90deg, transparent, oklch(0.65 0.2 280), transparent)",
         animation: "hz-scan 2.4s linear infinite",
       }} />
 
-      {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-        {/* Pulsing AI badge */}
         <div style={{ position: "relative", width: 40, height: 40, flexShrink: 0 }}>
           <div style={{
             position: "absolute", inset: 0, borderRadius: "50%",
@@ -341,18 +418,14 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
             <Bot size={16} color="#fff" />
           </div>
         </div>
-
-        {/* Title + current action */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: "oklch(0.92 0.04 280)", marginBottom: 2 }}>
-            Hermes Analyzing{dots}
+            Hermes Analyzing...
           </div>
           <div style={{ fontSize: 11, color: "oklch(0.60 0.10 280)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {currentPhase.detail}
+            {stepDetail || currentPhase.detail}
           </div>
         </div>
-
-        {/* Timer */}
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "monospace", color: isOverdue ? "oklch(0.65 0.15 145)" : "oklch(0.70 0.16 280)" }}>
             {isOverdue ? "Finalizing..." : `~${remaining}s left`}
@@ -363,7 +436,6 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
         </div>
       </div>
 
-      {/* Progress bar */}
       <div style={{ background: "oklch(0.18 0.04 280)", borderRadius: 4, height: 5, marginBottom: 14, overflow: "hidden" }}>
         <div style={{
           height: "100%", borderRadius: 4,
@@ -374,7 +446,6 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
         }} />
       </div>
 
-      {/* Phase list — show all, active highlighted */}
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         {ANALYSIS_PHASES.map((p, i) => {
           const isDone   = i < phaseIdx;
@@ -390,14 +461,9 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
               border: isActive ? "1px solid oklch(0.40 0.12 280 / 0.5)" : "1px solid transparent",
               transition: "all 0.4s",
             }}>
-              {/* Status indicator */}
               <div style={{
                 width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
-                background: isDone
-                  ? "oklch(0.42 0.16 145)"
-                  : isActive
-                    ? "oklch(0.38 0.14 280)"
-                    : "oklch(0.18 0.04 280)",
+                background: isDone ? "oklch(0.42 0.16 145)" : isActive ? "oklch(0.38 0.14 280)" : "oklch(0.18 0.04 280)",
                 border: `1.5px solid ${isDone ? "oklch(0.56 0.18 145)" : isActive ? "oklch(0.55 0.18 280)" : "oklch(0.30 0.06 280)"}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}>
@@ -408,44 +474,32 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
                     : <div style={{ width: 5, height: 5, borderRadius: "50%", background: "oklch(0.35 0.06 280)" }} />
                 }
               </div>
-
-              {/* Phase icon */}
               <PhaseIcon size={12} color={isDone ? "oklch(0.60 0.15 145)" : isActive ? "oklch(0.72 0.14 280)" : "oklch(0.38 0.06 280)"} />
-
-              {/* Label + detail */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <span style={{
-                  fontSize: 11,
-                  fontWeight: isActive ? 600 : 400,
+                  fontSize: 11, fontWeight: isActive ? 600 : 400,
                   color: isDone ? "oklch(0.62 0.12 145)" : isActive ? "oklch(0.88 0.06 280)" : "oklch(0.45 0.05 280)",
                 }}>
                   {p.label}
                 </span>
-                {isActive && (
+                {isActive && stepDetail && (
                   <span style={{ fontSize: 10, color: "oklch(0.52 0.10 280)", marginLeft: 6 }}>
-                    {p.detail}
+                    {stepDetail}
                   </span>
                 )}
               </div>
-
-              {/* Time chip */}
               {isDone && (
-                <span style={{ fontSize: 10, color: "oklch(0.50 0.10 145)", fontFamily: "monospace" }}>
-                  done
-                </span>
+                <span style={{ fontSize: 10, color: "oklch(0.50 0.10 145)", fontFamily: "monospace" }}>done</span>
               )}
               {isActive && (
-                <span style={{ fontSize: 10, color: "oklch(0.55 0.14 280)", fontFamily: "monospace", animation: "hz-blink 1s step-end infinite" }}>
-                  ●
-                </span>
+                <span style={{ fontSize: 10, color: "oklch(0.55 0.14 280)", fontFamily: "monospace", animation: "hz-blink 1s step-end infinite" }}>●</span>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Delayed warning */}
-      {isDelayed && (
+      {elapsed > 360 && (
         <div style={{
           marginTop: 10, padding: "8px 10px", borderRadius: 6,
           background: "oklch(0.25 0.08 50 / 0.5)",
@@ -453,21 +507,16 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
         }}>
           <div style={{ fontSize: 11, color: "oklch(0.75 0.15 50)", display: "flex", alignItems: "center", gap: 6 }}>
             <AlertTriangle size={11} />
-            Taking longer than expected. Hermes is still processing in the background.
-            If you refreshed the page, don't worry — the cron job runs every 5 minutes and will complete automatically.
+            Taking longer than expected. Hermes is still processing in the background. The cron job runs every 5 minutes and will complete automatically.
           </div>
         </div>
       )}
 
-      {/* Keyframe styles */}
       <style>{`
         @keyframes hz-scan  { from { left: -100% } to { left: 100% } }
         @keyframes hz-ring  { 75%, 100% { transform: scale(1.9); opacity: 0; } }
         @keyframes hz-spin  { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
         @keyframes hz-blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
-        @keyframes hza-rotate { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
-        @keyframes hza-pulse { 0%, 100% { transform: scale(1); opacity: 1 } 50% { transform: scale(1.15); opacity: 0.7 } }
-        @keyframes hza-progress { 0% { left: -50% } 100% { left: 100% } }
       `}</style>
     </div>
   );
@@ -588,7 +637,8 @@ function SMCPage() {
   const [reviews, setReviews]               = useState<HermesReview[]>(saved.reviews ?? []);
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(saved.selectedReviewId);
   const [loadingReviews, setLoadingReviews] = useState(false);
-  const [pollingId, setPollingId]           = useState<string | null>(null);  // ID being polled
+  const [pollingId, setPollingId]           = useState<string | null>(saved.pollingId ?? null);
+  const [pollingSubmittedAt, setPollingSubmittedAt] = useState<number | null>(saved.pollingSubmittedAt ?? null);
   const [expandedReview, setExpandedReview] = useState<HermesReview | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -600,6 +650,8 @@ function SMCPage() {
   useEffect(() => { writeLS({ reviews }); }, [reviews]);
   useEffect(() => { writeLS({ selectedReviewId }); }, [selectedReviewId]);
   useEffect(() => { writeLS({ userNotes }); }, [userNotes]);
+  useEffect(() => { writeLS({ pollingId }); }, [pollingId]);
+  useEffect(() => { writeLS({ pollingSubmittedAt }); }, [pollingSubmittedAt]);
 
   /* ── Load expanded review from persisted reviews list ─────────── */
   useEffect(() => {
@@ -675,6 +727,21 @@ function SMCPage() {
     }
     return () => { if (pollTimer.current) clearInterval(pollTimer.current); };
   }, [pollingId, reviews, loadReviews]);
+
+  /* ── Restore analyzing card from persisted pollingId ──────────── */
+  useEffect(() => {
+    if (pollingId && !expandedReview) {
+      // Check if review exists and is pending
+      const found = reviews.find(r => r.id === pollingId);
+      if (found?.status === "pending") {
+        // Show analyzing card
+      } else if (found?.status === "fulfilled") {
+        setPollingId(null);
+        setExpandedReview(found);
+        setSelectedReviewId(found.id);
+      }
+    }
+  }, [pollingId, reviews, expandedReview]);
 
   /* ── Poll Hermes processor status every 1s for real-time updates ─────── */
   useEffect(() => {
@@ -779,7 +846,8 @@ function SMCPage() {
       setUserImage(null);
       setImagePreview(null);
       setShowHermesPanel(false);
-      setPollingId(json.id);  // Start polling for this review
+      setPollingId(json.id);
+      setPollingSubmittedAt(Date.now());
       await loadReviews();
     } catch {
       alert("Failed to submit to Hermes. Please try again.");
