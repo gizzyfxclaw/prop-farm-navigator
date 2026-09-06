@@ -12,6 +12,7 @@ import { LWChart, type OHLCBar } from "@/components/terminal/lwchart";
 import { WinRateBadge } from "@/components/terminal/WinRateBadge";
 import { buildSmcDrawings, type DrawableLevels, type SmcChannel } from "@/lib/smc-drawings";
 import { generateSnapshotPineScript } from "@/lib/pine-snapshot-generator";
+import SmcStrategyConfig from "@/components/terminal/SmcStrategyConfig";
 
 export const Route = createFileRoute("/smc")({
   head: () => ({ meta: [{ title: "SMC Analysis — GizzyFx" }] }),

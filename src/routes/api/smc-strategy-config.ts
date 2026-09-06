@@ -81,8 +81,8 @@ export const Route = createFileRoute("/api/smc-strategy-config")({
           // Merge with defaults (stored overrides default)
           const config = { ...DEFAULT_CONFIG, ...stored };
           // Deep merge confluence_weights
-          if (stored.confluence_weights) {
-            config.confluence_weights = { ...DEFAULT_CONFIG.confluence_weights, ...(stored.confluence_weights as Record<string, number>) };
+          if (stored["confluence_weights"]) {
+            config["confluence_weights"] = { ...DEFAULT_CONFIG.confluence_weights, ...(stored["confluence_weights"] as Record<string, number>) };
           }
 
           return Response.json({ config, defaults: DEFAULT_CONFIG, param_meta: PARAM_META });

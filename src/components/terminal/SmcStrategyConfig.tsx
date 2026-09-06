@@ -213,3 +213,5 @@ function SmcStrategyConfig() {
     </Card>
   );
 }
+
+export default SmcStrategyConfig;
