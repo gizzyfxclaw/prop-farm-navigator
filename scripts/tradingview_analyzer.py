@@ -38,7 +38,12 @@ PAIR_RANGE = {
 
 
 def log(msg, lvl="INFO"):
-    print(f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] [{lvl}] {msg}", file=sys.stderr, flush=True)
+    """Write to stderr as JSON step line for real-time tracking."""
+    import sys
+    ts = datetime.now(timezone.utc).strftime('%H:%M:%S')
+    # Write structured step data for the parent process
+    step_data = {"ts": ts, "lvl": lvl, "msg": msg}
+    print(json.dumps(step_data), file=sys.stderr, flush=True)
 
 
 def safe_screenshot(page, path, quality=70):

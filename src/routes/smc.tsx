@@ -289,7 +289,7 @@ function ChatWithHermes({ reviewId }: { reviewId: string }) {
 function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; reviewId: string }) {
   const [elapsed, setElapsed] = useState(0);
   const [hermesStatus, setHermesStatus] = useState<{
-    isProcessing: boolean; currentStep: string; stepDetail: string;
+    isProcessing: boolean; currentStep: string; stepDetail: string; stepUpdatedAt?: string;
   } | null>(null);
   const [reviewFulfilled, setReviewFulfilled] = useState(false);
 
@@ -358,6 +358,16 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
   if (currentStep === "Finalizing...") phaseIdx = 10;
 
   const stepDetail = hermesStatus?.stepDetail || "";
+  const stepUpdatedAt = hermesStatus?.stepUpdatedAt;
+  
+  // Detect stale steps (no update for >90s means process likely stalled/killed)
+  let isStale = false;
+  if (stepUpdatedAt) {
+    const stepAge = (Date.now() - new Date(stepUpdatedAt).getTime()) / 1000;
+    isStale = stepAge > 90 && elapsed > 120;
+  }
+  // Also stale if elapsed > 240s (timeout) and still showing
+  if (elapsed > 240 && !stepDetail) isStale = true;
   const progress = Math.min((elapsed / TOTAL_SECONDS) * 100, 99);
   const isOverdue = elapsed > TOTAL_SECONDS;
   const remaining = isOverdue ? 0 : TOTAL_SECONDS - elapsed;
@@ -508,6 +518,27 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
           <div style={{ fontSize: 11, color: "oklch(0.75 0.15 50)", display: "flex", alignItems: "center", gap: 6 }}>
             <AlertTriangle size={11} />
             Taking longer than expected. Hermes is still processing in the background. The cron job runs every 5 minutes and will complete automatically.
+          </div>
+        </div>
+      )}
+
+      {isStale && (
+        <div style={{
+          marginTop: 10, padding: "8px 10px", borderRadius: 6,
+          background: "oklch(0.15 0.05 280 / 0.5)",
+          border: "1px solid oklch(0.40 0.12 280 / 0.3)",
+        }}>
+          <div style={{ fontSize: 11, color: "oklch(0.65 0.12 280)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <AlertTriangle size={11} />
+              Process appears stalled. Will retry automatically.
+            </span>
+            <button
+              onClick={() => window.location.reload()}
+              style={{ fontSize: 10, color: "oklch(0.75 0.15 280)", cursor: "pointer", padding: "2px 6px", borderRadius: 4, border: "1px solid oklch(0.50 0.15 280 / 0.3)", background: "transparent" }}
+            >
+              Refresh
+            </button>
           </div>
         </div>
       )}
@@ -701,6 +732,10 @@ function SMCPage() {
             setPollingId(null);
             setExpandedReview(found);
             setSelectedReviewId(found.id);
+          } else if (!found) {
+            // Review was deleted or no longer exists — clear polling
+            setPollingId(null);
+            setPollingSubmittedAt(null);
           }
         }
       }
@@ -731,17 +766,21 @@ function SMCPage() {
   /* ── Restore analyzing card from persisted pollingId ──────────── */
   useEffect(() => {
     if (pollingId && !expandedReview) {
-      // Check if review exists and is pending
-      const found = reviews.find(r => r.id === pollingId);
-      if (found?.status === "pending") {
-        // Show analyzing card
-      } else if (found?.status === "fulfilled") {
-        setPollingId(null);
-        setExpandedReview(found);
-        setSelectedReviewId(found.id);
+      // If D1 says not processing and review is not pending, clear
+      if (!hermesStatus?.isProcessing) {
+        const found = reviews.find(r => r.id === pollingId);
+        if (found?.status === "fulfilled") {
+          setPollingId(null);
+          setExpandedReview(found);
+          setSelectedReviewId(found.id);
+        } else if (!found || found.status !== "pending") {
+          // Review not found or not pending — clear
+          setPollingId(null);
+          setPollingSubmittedAt(null);
+        }
       }
     }
-  }, [pollingId, reviews, expandedReview]);
+  }, [pollingId, reviews, expandedReview, hermesStatus?.isProcessing]);
 
   /* ── Poll Hermes processor status every 1s for real-time updates ─────── */
   useEffect(() => {

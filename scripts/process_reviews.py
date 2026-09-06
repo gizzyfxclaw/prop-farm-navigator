@@ -151,17 +151,33 @@ def run_browser(pair: str, timeframe: str) -> dict:
             stderr=subprocess.PIPE,
             text=True,
             env=env,
+            bufsize=1,  # Line-buffered
         )
         
         # Read stderr in real-time for step tracking
+        # MUST also drain stdout to prevent deadlock when the subprocess
+        # writes a large JSON result at the end — pipe buffer is only 64KB.
+        import select
+        import threading
+        
+        stdout_lines = []
+        
+        def drain_stdout():
+            """Read stdout in a thread to prevent pipe-buffer deadlock."""
+            try:
+                if process.stdout:
+                    for line in process.stdout:
+                        stdout_lines.append(line)
+            except Exception:
+                pass
+        
+        stdout_thread = threading.Thread(target=drain_stdout, daemon=True)
+        stdout_thread.start()
+        
         steps = []
         stderr_lines = []
         
-        # Use select for non-blocking read on Unix
-        import select
-        
         while process.poll() is None:
-            # Check if there's data to read
             readable, _, _ = select.select([process.stderr], [], [], 0.1)
             if readable:
                 line = process.stderr.readline()
@@ -170,13 +186,27 @@ def run_browser(pair: str, timeframe: str) -> dict:
                     try:
                         step_data = json.loads(line.strip())
                         msg = step_data.get("msg", "")
-                        lvl = step_data.get("lvl", "INFO")
+                        # Parse the step message format: "[18.7s] Label: detail"
+                        # Extract just the label for D1 current_step
+                        label = msg
+                        detail = ""
+                        if "] " in msg:
+                            # Extract part after "[Xs] "
+                            after_ts = msg.split("] ", 1)[1]
+                            if ": " in after_ts:
+                                label = after_ts.split(": ", 1)[0]
+                                detail = after_ts.split(": ", 1)[1]
+                            else:
+                                label = after_ts
                         if msg:
                             steps.append(msg)
                             # Write step to D1 for real-time UI
-                            patch_step(msg, lvl.lower(), eta=None)
+                            patch_step(label, detail, eta=None)
                     except (json.JSONDecodeError, Exception):
                         pass
+        
+        # Wait for stdout thread to finish
+        stdout_thread.join(timeout=5)
         
         # Read remaining stderr
         remaining = process.stderr.read()
@@ -187,14 +217,22 @@ def run_browser(pair: str, timeframe: str) -> dict:
                     try:
                         step_data = json.loads(line.strip())
                         msg = step_data.get("msg", "")
-                        lvl = step_data.get("lvl", "INFO")
+                        label = msg
+                        detail = ""
+                        if "] " in msg:
+                            after_ts = msg.split("] ", 1)[1]
+                            if ": " in after_ts:
+                                label = after_ts.split(": ", 1)[0]
+                                detail = after_ts.split(": ", 1)[1]
+                            else:
+                                label = after_ts
                         if msg:
                             steps.append(msg)
-                            patch_step(msg, lvl.lower(), eta=None)
+                            patch_step(label, detail, eta=None)
                     except (json.JSONDecodeError, Exception):
                         pass
         
-        stdout = process.stdout.read()
+        stdout = "".join(stdout_lines)
         
         if process.returncode == 0 and stdout.strip():
             result = json.loads(stdout)
@@ -417,10 +455,8 @@ def analyze_rule_based(review: dict, browser_data: dict) -> dict:
     if channel_type != "none":
         score += 25
         checks.append(f"✓ Valid {channel_type} channel with {retest_count} retest(s)")
-    elif channel_type != "none":
-        checks.append(f"✗ Channel found but only {retest_count} retest(s) — needs 2+")
     else:
-        checks.append("✗ No valid channel — market too choppy/ranging")
+        checks.append(f"✗ No valid channel — market too choppy/ranging")
 
     if confirmed_5m:
         score += 20
