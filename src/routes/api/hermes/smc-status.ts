@@ -50,6 +50,7 @@ export const Route = createFileRoute("/api/hermes/smc-status")({
             stepDetail:   status["step_detail"]    ?? "",
             stepUpdatedAt: status["step_updated_at"] ?? "",
             stepEta:      status["step_eta"]       ?? "",
+            subSteps:     JSON.parse(status["sub_steps"] || "[]"),
           });
         } catch {
           return Response.json({ isProcessing: false, currentPair: "", lastRun: "" });
@@ -70,6 +71,16 @@ export const Route = createFileRoute("/api/hermes/smc-status")({
               updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
             )
           `).bind().run().catch(() => {});
+
+          // When is_processing is set to false, clear stale step data
+          if (body["is_processing"] === "false") {
+            body["current_step"] = "";
+            body["step_detail"] = "";
+            body["step_updated_at"] = "";
+            body["step_eta"] = "";
+            body["sub_steps"] = "[]";
+            body["current_pair"] = "";
+          }
 
           for (const [key, value] of Object.entries(body)) {
             await env.DB.prepare(
