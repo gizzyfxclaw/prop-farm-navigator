@@ -90,7 +90,7 @@ function buildSystemPrompt(review: Record<string, unknown>): string {
   const direction = (review["direction"] as string) || "neutral";
   const userNotes = (review["user_notes"] as string) || "No user notes.";
 
-  return `You are Hermes, the GizzyFx Trading Agent. You have just completed an analysis for ${pair} ${tf}. Here is the analysis context:
+  return `You are GizzyFx Co-Pilot, the GizzyFx Trading Agent. You have just completed an analysis for ${pair} ${tf}. Here is the analysis context:
 
 ## Your Analysis
 **Verdict:** ${verdict}

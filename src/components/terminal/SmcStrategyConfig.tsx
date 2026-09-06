@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { Alert, Badge, Button, Card, Field } from "@/components/terminal/ui";
-import { Settings, Wand2, RotateCcw, Save, MessageSquare, Send, CheckCircle2 } from "lucide-react";
+import { Settings, Wand2, RotateCcw, Save, MessageSquare, Send, CheckCircle2, ImagePlus, X } from "lucide-react";
 
 interface SmcConfig {
   atr_period: number;
@@ -65,7 +65,7 @@ const WEIGHT_META: Record<string, string> = {
   zone: "Premium/Discount Zone",
 };
 
-function HermesUpgradeChat({
+function GizzyFxCopilotChat({
   currentConfig,
   onApply,
   onCancel,
@@ -74,22 +74,25 @@ function HermesUpgradeChat({
   onApply: (config: SmcConfig) => void;
   onCancel: () => void;
 }) {
-  const [messages, setMessages] = useState<Array<{ role: string; content: string; timestamp?: string }>>([]);
+  const [messages, setMessages] = useState<Array<{ role: string; content: string; image?: string; timestamp?: string }>>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [suggestedConfig, setSuggestedConfig] = useState<SmcConfig | null>(null);
   const [discussionPhase, setDiscussionPhase] = useState<"initial" | "discussing" | "reviewing">("initial");
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
   useEffect(() => {
-    // Start the conversation with Hermes
     const startChat = async () => {
       setLoading(true);
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 90000);
         const res = await fetch("/api/hermes/smc-upgrade-chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -97,7 +100,9 @@ function HermesUpgradeChat({
             current_config: currentConfig,
             message: "start",
           }),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         const data = await res.json();
         if (data.reply) {
           setMessages([{ role: "assistant", content: data.reply, timestamp: new Date().toISOString() }]);
@@ -114,14 +119,37 @@ function HermesUpgradeChat({
     startChat();
   }, [currentConfig]);
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4_000_000) { alert("Image too large. Max 4MB."); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setUploadedImage(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    setUploadedImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const sendMessage = async () => {
     const msg = input.trim();
-    if (!msg || loading) return;
+    if ((!msg && !uploadedImage) || loading) return;
     setInput("");
     setLoading(true);
-    const userMsg = { role: "user", content: msg, timestamp: new Date().toISOString() };
+    const userMsg: { role: string; content: string; image?: string; timestamp: string } = {
+      role: "user",
+      content: msg || "See attached image",
+      timestamp: new Date().toISOString(),
+    };
+    if (uploadedImage) userMsg.image = uploadedImage;
     setMessages(prev => [...prev, userMsg]);
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
       const res = await fetch("/api/hermes/smc-upgrade-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,8 +158,11 @@ function HermesUpgradeChat({
           suggested_config: suggestedConfig,
           message: msg,
           chat_history: messages.slice(-10),
+          image: uploadedImage,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (data.reply) {
         setMessages(prev => [...prev, { role: "assistant", content: data.reply, timestamp: new Date().toISOString() }]);
@@ -145,13 +176,8 @@ function HermesUpgradeChat({
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again.", timestamp: new Date().toISOString() }]);
     }
+    setUploadedImage(null);
     setLoading(false);
-  };
-
-  const applyUpgrade = () => {
-    if (suggestedConfig) {
-      onApply(suggestedConfig);
-    }
   };
 
   const acceptAndApply = async () => {
@@ -172,7 +198,6 @@ function HermesUpgradeChat({
       if (data.reply) {
         setMessages(prev => [...prev, { role: "assistant", content: data.reply, timestamp: new Date().toISOString() }]);
       }
-      // Apply after a short delay so user sees the confirmation
       setTimeout(() => {
         if (suggestedConfig) onApply(suggestedConfig);
       }, 1500);
@@ -183,11 +208,11 @@ function HermesUpgradeChat({
   };
 
   return (
-    <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4 space-y-3">
+    <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: "oklch(var(--gz-p) / 0.2)", background: "oklch(var(--gz-s1) / 0.5)" }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Wand2 size={14} className="text-purple-400" />
-          <span className="text-[13px] font-semibold text-purple-300">Upgrade with Hermes</span>
+          <Wand2 size={14} style={{ color: "oklch(var(--gz-p))" }} />
+          <span className="text-[13px] font-semibold" style={{ color: "oklch(var(--gz-p))" }}>Upgrade with GizzyFx Co-Pilot</span>
           {discussionPhase === "reviewing" && suggestedConfig && (
             <Badge tone="green">Ready to apply</Badge>
           )}
@@ -197,16 +222,18 @@ function HermesUpgradeChat({
         </button>
       </div>
 
-      <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1">
+      <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1 scrollbar-institutional">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[90%] rounded-lg px-3 py-2 text-[12px] leading-relaxed ${
-              m.role === "user"
-                ? "bg-purple-500/20 text-purple-100"
-                : "bg-white/5 text-foreground"
-            }`}>
+            <div className="max-w-[90%] rounded-lg px-3 py-2 text-[12px] leading-relaxed" style={{
+              background: m.role === "user" ? "oklch(var(--gz-p) / 0.15)" : "oklch(var(--gz-s2) / 0.5)",
+              color: m.role === "user" ? "oklch(var(--gz-txt))" : "oklch(var(--gz-txt))",
+            }}>
               {m.role === "assistant" && (
-                <span className="text-[10px] text-purple-400 font-semibold block mb-0.5">Hermes</span>
+                <span className="text-[10px] font-semibold block mb-0.5" style={{ color: "oklch(var(--gz-p))" }}>GizzyFx Co-Pilot</span>
+              )}
+              {m.image && (
+                <img src={m.image} alt="Uploaded" className="max-w-full rounded mb-2 max-h-40 object-contain" />
               )}
               <span className="whitespace-pre-wrap">{m.content}</span>
             </div>
@@ -214,43 +241,112 @@ function HermesUpgradeChat({
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-white/5 rounded-lg px-3 py-2 text-[12px] text-muted-foreground">
-              <span className="text-[10px] text-purple-400 font-semibold block mb-0.5">Hermes</span>
-              <span className="inline-block animate-pulse">typing...</span>
+            <div className="rounded-lg px-3 py-2 text-[12px] text-muted-foreground" style={{ background: "oklch(var(--gz-s2) / 0.5)" }}>
+              <span className="text-[10px] font-semibold block mb-0.5" style={{ color: "oklch(var(--gz-p))" }}>GizzyFx Co-Pilot</span>
+              <span className="inline-block animate-pulse">analyzing...</span>
             </div>
           </div>
         )}
         <div ref={chatEndRef} />
       </div>
 
-      {discussionPhase === "reviewing" && suggestedConfig && (
-        <div className="flex gap-2 pt-2 border-t border-purple-500/20">
-          <Button variant="ghost" onClick={acceptAndApply} disabled={loading} className="flex-1 border border-emerald-500/30 bg-emerald-500/5">
+      {discussionPhase === "discussing" && suggestedConfig && (
+        <div className="rounded border p-2 space-y-1" style={{ borderColor: "oklch(var(--gz-p) / 0.15)", background: "oklch(var(--gz-s1) / 0.3)" }}>
+          <p className="text-[10px] font-semibold" style={{ color: "oklch(var(--gz-p))" }}>Suggested Changes</p>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px]">
+            {Object.entries(PARAM_META).map(([key, meta]) => {
+              const current = (currentConfig as unknown as Record<string, number>)[key];
+              const suggested = (suggestedConfig as unknown as Record<string, number>)[key];
+              if (current === suggested) return null;
+              return (
+                <div key={key} className="flex justify-between gap-1">
+                  <span className="text-muted-foreground truncate">{meta.label}</span>
+                  <span className="font-mono">
+                    <span style={{ color: "oklch(var(--gz-neg))" }}>{current}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span style={{ color: "oklch(var(--gz-pos))" }}>{suggested}</span>
+                  </span>
+                </div>
+              );
+            })}
+            {Object.entries(WEIGHT_META).map(([key, label]) => {
+              const current = currentConfig.confluence_weights?.[key] ?? 0;
+              const suggested = suggestedConfig.confluence_weights?.[key] ?? 0;
+              if (current === suggested) return null;
+              return (
+                <div key={`w_${key}`} className="flex justify-between gap-1">
+                  <span className="text-muted-foreground truncate">{label}</span>
+                  <span className="font-mono">
+                    <span style={{ color: "oklch(var(--gz-neg))" }}>{current}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span style={{ color: "oklch(var(--gz-pos))" }}>{suggested}</span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {discussionPhase === "discussing" && (
+        <div className="space-y-2">
+          {uploadedImage && (
+            <div className="relative inline-block">
+              <img src={uploadedImage} alt="Preview" className="max-h-24 rounded border" style={{ borderColor: "oklch(var(--gz-p) / 0.2)" }} />
+              <button onClick={removeImage} className="absolute -top-1 -right-1 rounded-full p-0.5" style={{ background: "oklch(var(--gz-neg))", color: "#fff" }}>
+                <X size={10} />
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2 pt-2" style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.1)" }}>
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }}}
+              placeholder="Discuss changes or upload a chart image..."
+              className="flex-1 rounded-lg border px-3 py-2 text-[12px] outline-none"
+              style={{
+                borderColor: "oklch(var(--gz-p) / 0.14)",
+                background: "oklch(var(--gz-inp))",
+                color: "oklch(var(--gz-txt))",
+              }}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-lg px-3 py-2 text-[12px] transition-colors"
+              style={{ background: "oklch(var(--gz-s2) / 0.5)", color: "oklch(var(--gz-mut))" }}
+              title="Upload chart image"
+            >
+              <ImagePlus size={14} />
+            </button>
+            <button
+              onClick={sendMessage}
+              disabled={loading || (!input.trim() && !uploadedImage)}
+              className="rounded-lg px-3 py-2 text-[12px] transition-colors disabled:opacity-40"
+              style={{ background: "oklch(var(--gz-p) / 0.15)", color: "oklch(var(--gz-p))" }}
+            >
+              <Send size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {discussionPhase === "discussing" && suggestedConfig && (
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={acceptAndApply} disabled={loading} className="flex-1" style={{ borderColor: "oklch(var(--gz-pos) / 0.3)", background: "oklch(var(--gz-pos) / 0.05)", color: "oklch(var(--gz-pos))" }}>
             <CheckCircle2 size={12} /> Apply Upgrade
           </Button>
           <Button variant="ghost" onClick={onCancel} disabled={loading}>
             Discard
           </Button>
-        </div>
-      )}
-
-      {discussionPhase === "discussing" && (
-        <div className="flex gap-2 pt-2 border-t border-purple-500/20">
-          <input
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }}}
-            placeholder="Discuss changes with Hermes..."
-            className="flex-1 rounded-lg border border-white/10 bg-background px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-purple-500/50"
-          />
-          <button
-            onClick={sendMessage}
-            disabled={loading || !input.trim()}
-            className="rounded-lg bg-purple-500/20 px-3 py-2 text-[12px] text-purple-300 hover:bg-purple-500/30 disabled:opacity-40 transition-colors"
-          >
-            <Send size={14} />
-          </button>
         </div>
       )}
     </div>
@@ -342,12 +438,12 @@ function SmcStrategyConfig() {
               <li><strong>Liquidity Sweeps</strong> — Finds false breakouts of swing levels</li>
               <li><strong>Confluence Scoring</strong> — Weights each factor to produce a confidence score</li>
             </ol>
-            <p className="mt-2">Tune these parameters manually or ask Hermes to suggest improvements through a discussion.</p>
+            <p className="mt-2">Tune these parameters manually or ask GizzyFx Co-Pilot to suggest improvements through a discussion.</p>
           </div>
         </Alert>
 
         {showUpgradeChat ? (
-          <HermesUpgradeChat
+          <GizzyFxCopilotChat
             currentConfig={config}
             onApply={applyUpgrade}
             onCancel={() => setShowUpgradeChat(false)}
@@ -361,7 +457,7 @@ function SmcStrategyConfig() {
               <RotateCcw size={12} /> Reset to Defaults
             </Button>
             <Button variant="ghost" onClick={() => setShowUpgradeChat(true)} disabled={saving}>
-              <Wand2 size={12} /> Upgrade with Hermes
+              <Wand2 size={12} /> Upgrade with GizzyFx Co-Pilot
             </Button>
           </div>
         )}

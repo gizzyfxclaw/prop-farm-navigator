@@ -264,7 +264,7 @@ function buildSystemPrompt(review: any): string {
   const direction = review.direction || "neutral";
   const userNotes = review.user_notes || "No user notes.";
 
-  return `You are Hermes, the GizzyFx Trading Agent. You have just completed an analysis for ${pair} ${tf}. Here is the analysis context:
+  return `You are GizzyFx Co-Pilot, the GizzyFx Trading Agent. You have just completed an analysis for ${pair} ${tf}. Here is the analysis context:
 
 ## Your Analysis
 **Verdict:** ${verdict}

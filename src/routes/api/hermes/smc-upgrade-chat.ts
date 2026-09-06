@@ -37,14 +37,16 @@ export const Route = createFileRoute("/api/hermes/smc-upgrade-chat")({
             suggested_config?: typeof DEFAULT_CONFIG | null;
             message: string;
             chat_history?: Array<{ role: string; content: string }>;
+            image?: string; // base64 data URL
           };
 
-          const { current_config, suggested_config, message, chat_history } = body;
+          const { current_config, suggested_config, message, chat_history, image } = body;
           const result = await callHermesForUpgradeChat(
             current_config,
             suggested_config || null,
             message,
-            chat_history || []
+            chat_history || [],
+            image || null
           );
 
           return Response.json({
@@ -70,7 +72,8 @@ async function callHermesForUpgradeChat(
   currentConfig: typeof DEFAULT_CONFIG,
   suggestedConfig: typeof DEFAULT_CONFIG | null,
   message: string,
-  chatHistory: Array<{ role: string; content: string }>
+  chatHistory: Array<{ role: string; content: string }>,
+  image: string | null
 ): Promise<UpgradeChatResult> {
   const NOUS_API = "https://inference-api.nousresearch.com/v1/chat/completions";
   const MODEL = "meituan/longcat-2.0:free";
@@ -83,35 +86,11 @@ async function callHermesForUpgradeChat(
       msg.includes("accept") || msg.includes("go ahead") || msg.includes("do it")
     ));
 
-  const systemPrompt = `You are Hermes, the GizzyFx Trading Agent. You are having a conversation with the user about upgrading the SMC (Smart Money Concepts) strategy configuration. Your goal is to help them understand what changes you suggest and why, discuss the trade-offs, and only apply changes when they agree.
-
-## Current Configuration
-${JSON.stringify(currentConfig, null, 2)}
-
-${suggestedConfig ? `## Currently Suggested Configuration
-${JSON.stringify(suggestedConfig, null, 2)}
-
-## Differences from Current
-${JSON.stringify(computeDiff(currentConfig, suggestedConfig), null, 2)}` : ""}
-
-## Your Role
-- Explain your suggestions clearly and concisely
-- Discuss trade-offs of each change
-- Answer questions about why you recommend specific values
-- Only apply when the user explicitly agrees (says "yes", "apply", "go ahead", etc.)
-- Keep responses under 150 words
-- Use plain text (no markdown)
-
-## Rules for "apply" responses
-When the user agrees to apply, confirm you will apply the changes and summarize what was changed.
-
-Return your response in this EXACT JSON format:
-{"reply": "your text response", "suggested_config": {...full config object...}, "phase": "initial"|"discussing"|"reviewing"}
-
-The suggested_config must be a COMPLETE config object with ALL fields, not just the changed ones. Use the same structure as the current config.`;
+  // Keep prompt short for faster LLM response (<30s to avoid Worker timeout)
+  const systemPrompt = `You are GizzyFx Co-Pilot, GizzyFx Trading Agent. Suggest SMC strategy config improvements for EURUSD/USDJPY during London/NY overlap. Current: ${JSON.stringify(currentConfig)}. ${suggestedConfig ? `Suggested: ${JSON.stringify(suggestedConfig)}` : ""} ${image ? "User uploaded a chart image — analyze it and factor it into your suggestions." : ""} Keep reply under 100 words. Return JSON: {reply, suggested_config, phase}`;
 
   const userMessage = isStart 
-    ? "I want to upgrade the SMC strategy. Please analyze the current market conditions (EURUSD, USDJPY, GBPUSD during London/NY overlap) and suggest improvements to the configuration. Explain why you suggest each change."
+    ? "Suggest improvements for volatile overlap conditions."
     : message;
 
   const payload = {
@@ -129,6 +108,15 @@ The suggested_config must be a COMPLETE config object with ALL fields, not just 
     // Read API key from Cloudflare env (set via wrangler secret put NOUS_API_KEY)
     const env = getCFEnv();
     const apiKey = env?.NOUS_API_KEY || "";
+    
+    if (!apiKey) {
+      console.error("NOUS_API_KEY not set in Cloudflare secrets");
+      return {
+        reply: "I apologize, the AI service is not configured. Please contact the administrator.",
+        suggested_config: suggestedConfig || currentConfig,
+        phase: "discussing",
+      };
+    }
 
     const response = await fetch(NOUS_API, {
       method: "POST",
@@ -147,13 +135,23 @@ The suggested_config must be a COMPLETE config object with ALL fields, not just 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
-        const parsed = JSON.parse(jsonMatch[0]);
+        let jsonStr = jsonMatch[0];
+        // Fix common LLM JSON errors: unquoted keys like {reply": -> {"reply":
+        jsonStr = jsonStr.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+        jsonStr = jsonStr.replace(/\{([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '{"$1":');
+        
+        const parsed = JSON.parse(jsonStr);
+        // Normalize phase to one of the expected values
+        let phase = parsed.phase || (isApply ? "reviewing" : "discussing");
+        if (!["initial", "discussing", "reviewing"].includes(phase)) {
+          phase = isApply ? "reviewing" : "discussing";
+        }
         return {
           reply: parsed.reply || content,
           suggested_config: parsed.suggested_config 
             ? { ...DEFAULT_CONFIG, ...parsed.suggested_config, confluence_weights: { ...DEFAULT_CONFIG.confluence_weights, ...(parsed.suggested_config.confluence_weights || {}) } }
             : (suggestedConfig || currentConfig),
-          phase: parsed.phase || (isApply ? "reviewing" : "discussing"),
+          phase,
         };
       } catch {
         // JSON parse failed, fall through
@@ -167,8 +165,9 @@ The suggested_config must be a COMPLETE config object with ALL fields, not just 
     };
   } catch (err) {
     console.error("Hermes upgrade chat call failed:", err);
+    const errMsg = err instanceof Error ? err.message : String(err);
     return {
-      reply: "I apologize, I'm having trouble connecting to the AI service. Please try again in a moment.",
+      reply: `Connection error: ${errMsg}`,
       suggested_config: suggestedConfig || currentConfig,
       phase: "discussing",
     };

@@ -61,7 +61,7 @@ async function callHermesForUpgrade(currentConfig: typeof DEFAULT_CONFIG): Promi
   const NOUS_API = "https://inference-api.nousresearch.com/v1/chat/completions";
   const MODEL = "meituan/longcat-2.0:free";
 
-  const systemPrompt = `You are Hermes, the GizzyFx Trading Agent. Your job is to analyze the current SMC strategy configuration and suggest improvements based on how Smart Money Concepts work in volatile vs ranging markets.
+  const systemPrompt = `You are GizzyFx Co-Pilot, the GizzyFx Trading Agent. Your job is to analyze the current SMC strategy configuration and suggest improvements based on how Smart Money Concepts work in volatile vs ranging markets.
 
 Current SMC Strategy Configuration:
 ${JSON.stringify(currentConfig, null, 2)}
