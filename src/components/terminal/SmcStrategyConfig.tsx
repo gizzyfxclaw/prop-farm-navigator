@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Alert, Badge, Button, Card, Field } from "@/components/terminal/ui";
-import { Settings, Wand2, RotateCcw, Save } from "lucide-react";
+import { Settings, Wand2, RotateCcw, Save, MessageSquare, Send, CheckCircle2 } from "lucide-react";
 
 interface SmcConfig {
   atr_period: number;
@@ -65,12 +65,204 @@ const WEIGHT_META: Record<string, string> = {
   zone: "Premium/Discount Zone",
 };
 
+function HermesUpgradeChat({
+  currentConfig,
+  onApply,
+  onCancel,
+}: {
+  currentConfig: SmcConfig;
+  onApply: (config: SmcConfig) => void;
+  onCancel: () => void;
+}) {
+  const [messages, setMessages] = useState<Array<{ role: string; content: string; timestamp?: string }>>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [suggestedConfig, setSuggestedConfig] = useState<SmcConfig | null>(null);
+  const [discussionPhase, setDiscussionPhase] = useState<"initial" | "discussing" | "reviewing">("initial");
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  useEffect(() => {
+    // Start the conversation with Hermes
+    const startChat = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/hermes/smc-upgrade-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_config: currentConfig,
+            message: "start",
+          }),
+        });
+        const data = await res.json();
+        if (data.reply) {
+          setMessages([{ role: "assistant", content: data.reply, timestamp: new Date().toISOString() }]);
+          if (data.suggested_config) {
+            setSuggestedConfig(data.suggested_config as SmcConfig);
+          }
+          setDiscussionPhase("discussing");
+        }
+      } catch {
+        setMessages([{ role: "assistant", content: "Sorry, I'm having trouble connecting. Please try again.", timestamp: new Date().toISOString() }]);
+      }
+      setLoading(false);
+    };
+    startChat();
+  }, [currentConfig]);
+
+  const sendMessage = async () => {
+    const msg = input.trim();
+    if (!msg || loading) return;
+    setInput("");
+    setLoading(true);
+    const userMsg = { role: "user", content: msg, timestamp: new Date().toISOString() };
+    setMessages(prev => [...prev, userMsg]);
+    try {
+      const res = await fetch("/api/hermes/smc-upgrade-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          current_config: currentConfig,
+          suggested_config: suggestedConfig,
+          message: msg,
+          chat_history: messages.slice(-10),
+        }),
+      });
+      const data = await res.json();
+      if (data.reply) {
+        setMessages(prev => [...prev, { role: "assistant", content: data.reply, timestamp: new Date().toISOString() }]);
+      }
+      if (data.suggested_config) {
+        setSuggestedConfig(data.suggested_config as SmcConfig);
+      }
+      if (data.phase === "reviewing") {
+        setDiscussionPhase("reviewing");
+      }
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again.", timestamp: new Date().toISOString() }]);
+    }
+    setLoading(false);
+  };
+
+  const applyUpgrade = () => {
+    if (suggestedConfig) {
+      onApply(suggestedConfig);
+    }
+  };
+
+  const acceptAndApply = async () => {
+    setLoading(true);
+    setMessages(prev => [...prev, { role: "user", content: "Yes, apply the upgrade.", timestamp: new Date().toISOString() }]);
+    try {
+      const res = await fetch("/api/hermes/smc-upgrade-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          current_config: currentConfig,
+          suggested_config: suggestedConfig,
+          message: "apply",
+          chat_history: messages,
+        }),
+      });
+      const data = await res.json();
+      if (data.reply) {
+        setMessages(prev => [...prev, { role: "assistant", content: data.reply, timestamp: new Date().toISOString() }]);
+      }
+      // Apply after a short delay so user sees the confirmation
+      setTimeout(() => {
+        if (suggestedConfig) onApply(suggestedConfig);
+      }, 1500);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "Error applying upgrade. Please try Save Changes instead.", timestamp: new Date().toISOString() }]);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Wand2 size={14} className="text-purple-400" />
+          <span className="text-[13px] font-semibold text-purple-300">Upgrade with Hermes</span>
+          {discussionPhase === "reviewing" && suggestedConfig && (
+            <Badge tone="green">Ready to apply</Badge>
+          )}
+        </div>
+        <button onClick={onCancel} className="text-[12px] text-muted-foreground hover:text-foreground">
+          ✕ Cancel
+        </button>
+      </div>
+
+      <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[90%] rounded-lg px-3 py-2 text-[12px] leading-relaxed ${
+              m.role === "user"
+                ? "bg-purple-500/20 text-purple-100"
+                : "bg-white/5 text-foreground"
+            }`}>
+              {m.role === "assistant" && (
+                <span className="text-[10px] text-purple-400 font-semibold block mb-0.5">Hermes</span>
+              )}
+              <span className="whitespace-pre-wrap">{m.content}</span>
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-white/5 rounded-lg px-3 py-2 text-[12px] text-muted-foreground">
+              <span className="text-[10px] text-purple-400 font-semibold block mb-0.5">Hermes</span>
+              <span className="inline-block animate-pulse">typing...</span>
+            </div>
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+
+      {discussionPhase === "reviewing" && suggestedConfig && (
+        <div className="flex gap-2 pt-2 border-t border-purple-500/20">
+          <Button variant="ghost" onClick={acceptAndApply} disabled={loading} className="flex-1 border border-emerald-500/30 bg-emerald-500/5">
+            <CheckCircle2 size={12} /> Apply Upgrade
+          </Button>
+          <Button variant="ghost" onClick={onCancel} disabled={loading}>
+            Discard
+          </Button>
+        </div>
+      )}
+
+      {discussionPhase === "discussing" && (
+        <div className="flex gap-2 pt-2 border-t border-purple-500/20">
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }}}
+            placeholder="Discuss changes with Hermes..."
+            className="flex-1 rounded-lg border border-white/10 bg-background px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-purple-500/50"
+          />
+          <button
+            onClick={sendMessage}
+            disabled={loading || !input.trim()}
+            className="rounded-lg bg-purple-500/20 px-3 py-2 text-[12px] text-purple-300 hover:bg-purple-500/30 disabled:opacity-40 transition-colors"
+          >
+            <Send size={14} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SmcStrategyConfig() {
   const [config, setConfig] = useState<SmcConfig>(DEFAULT_CONFIG);
   const [defaults, setDefaults] = useState<SmcConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [upgrading, setUpgrading] = useState(false);
+  const [showUpgradeChat, setShowUpgradeChat] = useState(false);
 
   useEffect(() => {
     fetch("/api/smc-strategy-config")
@@ -106,20 +298,19 @@ function SmcStrategyConfig() {
     } catch {}
   };
 
-  const upgradeWithHermes = async () => {
-    setUpgrading(true);
+  const applyUpgrade = async (newConfig: SmcConfig) => {
+    setConfig(newConfig);
+    setShowUpgradeChat(false);
+    setSaving(true);
     try {
-      const res = await fetch("/api/hermes/smc-upgrade-config", {
-        method: "POST",
+      await fetch("/api/smc-strategy-config", {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_config: config }),
+        body: JSON.stringify(newConfig),
       });
-      const data = await res.json();
-      if (data.config) {
-        setConfig(data.config as SmcConfig);
-      }
+      setDefaults(newConfig);
     } catch {}
-    setUpgrading(false);
+    setSaving(false);
   };
 
   if (loading) {
@@ -151,21 +342,29 @@ function SmcStrategyConfig() {
               <li><strong>Liquidity Sweeps</strong> — Finds false breakouts of swing levels</li>
               <li><strong>Confluence Scoring</strong> — Weights each factor to produce a confidence score</li>
             </ol>
-            <p className="mt-2">Tune these parameters manually or ask Hermes to suggest improvements based on current market conditions.</p>
+            <p className="mt-2">Tune these parameters manually or ask Hermes to suggest improvements through a discussion.</p>
           </div>
         </Alert>
 
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="ghost" onClick={saveConfig} disabled={saving || !isModified}>
-            <Save size={12} /> {saving ? "Saving..." : "Save Changes"}
-          </Button>
-          <Button variant="ghost" onClick={resetDefaults} disabled={saving}>
-            <RotateCcw size={12} /> Reset to Defaults
-          </Button>
-          <Button variant="ghost" onClick={upgradeWithHermes} disabled={upgrading}>
-            <Wand2 size={12} /> {upgrading ? "Hermes is analyzing..." : "Upgrade with Hermes"}
-          </Button>
-        </div>
+        {showUpgradeChat ? (
+          <HermesUpgradeChat
+            currentConfig={config}
+            onApply={applyUpgrade}
+            onCancel={() => setShowUpgradeChat(false)}
+          />
+        ) : (
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="ghost" onClick={saveConfig} disabled={saving || !isModified}>
+              <Save size={12} /> {saving ? "Saving..." : "Save Changes"}
+            </Button>
+            <Button variant="ghost" onClick={resetDefaults} disabled={saving}>
+              <RotateCcw size={12} /> Reset to Defaults
+            </Button>
+            <Button variant="ghost" onClick={() => setShowUpgradeChat(true)} disabled={saving}>
+              <Wand2 size={12} /> Upgrade with Hermes
+            </Button>
+          </div>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2">
           {Object.entries(PARAM_META).map(([key, meta]) => (
