@@ -120,6 +120,10 @@ async function callHermesLLM(systemPrompt: string, messages: Array<{ role: strin
   const env = getCFEnv();
   const apiKey = env?.NOUS_API_KEY || "";
 
+  if (!apiKey) {
+    return "I apologize, the AI service is not configured. Please contact support.";
+  }
+
   const payload = {
     model: MODEL,
     messages: [
@@ -131,14 +135,20 @@ async function callHermesLLM(systemPrompt: string, messages: Array<{ role: strin
   };
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     const response = await fetch(NOUS_API, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) throw new Error(`LLM API error: ${response.status}`);
 
@@ -146,6 +156,9 @@ async function callHermesLLM(systemPrompt: string, messages: Array<{ role: strin
     return data.choices?.[0]?.content || data.choices?.[0]?.message?.content || "I apologize, I'm having trouble processing your request right now.";
   } catch (err) {
     console.error("LLM call failed:", err);
+    if (err instanceof Error && err.name === "AbortError") {
+      return "I apologize, the AI service is taking longer than expected. Please try again in a moment.";
+    }
     return "I apologize, the analysis service is temporarily unavailable. Please try again shortly.";
   }
 }
