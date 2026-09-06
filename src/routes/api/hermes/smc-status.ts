@@ -5,6 +5,12 @@ import { getCFEnv } from "@/lib/cloudflare-env";
  * Live Hermes processor status — stored in D1 so the Worker can read it.
  * The processor (smc-processor.sh) writes to D1 via PATCH.
  * The UI polls GET every 10s.
+ * 
+ * Now includes real-time step tracking:
+ * - current_step: what Hermes is doing right now
+ * - step_detail: detailed description
+ * - step_updated_at: when the step was last updated
+ * - step_eta: estimated time remaining for current step
  */
 export const Route = createFileRoute("/api/hermes/smc-status")({
   server: {
@@ -39,6 +45,11 @@ export const Route = createFileRoute("/api/hermes/smc-status")({
             nextRun:      status["next_run_at"]    ?? "",
             lastVerdict:  status["last_verdict"]   ?? "",
             lastGrade:    status["last_grade"]      ?? "",
+            // Real-time step tracking
+            currentStep:  status["current_step"]   ?? "",
+            stepDetail:   status["step_detail"]    ?? "",
+            stepUpdatedAt: status["step_updated_at"] ?? "",
+            stepEta:      status["step_eta"]       ?? "",
           });
         } catch {
           return Response.json({ isProcessing: false, currentPair: "", lastRun: "" });

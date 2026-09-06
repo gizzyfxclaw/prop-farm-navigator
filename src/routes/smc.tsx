@@ -465,8 +465,10 @@ function SMCPage() {
   const [hermesStatus, setHermesStatus] = useState<{
     isProcessing: boolean; currentPair: string; lastRun: string;
     nextRun: string; lastVerdict: string; lastGrade: string;
+    currentStep: string; stepDetail: string; stepUpdatedAt: string; stepEta: string;
   } | null>(null);
   const [countdown, setCountdown] = useState(0);
+  const [stepElapsed, setStepElapsed] = useState(0); // seconds since step started
 
   // Reviews — persisted
   const [reviews, setReviews]               = useState<HermesReview[]>(saved.reviews ?? []);
@@ -564,7 +566,7 @@ function SMCPage() {
   useEffect(() => {
     const fetchStatus = () => {
       fetch("/api/hermes/smc-status")
-        .then(r => r.json() as Promise<{ isProcessing: boolean; currentPair: string; lastRun: string; nextRun: string; lastVerdict: string; lastGrade: string }>)
+        .then(r => r.json() as Promise<{ isProcessing: boolean; currentPair: string; lastRun: string; nextRun: string; lastVerdict: string; lastGrade: string; currentStep: string; stepDetail: string; stepUpdatedAt: string; stepEta: string }>)
         .then(d => setHermesStatus(d))
         .catch(() => {});
     };
@@ -572,6 +574,21 @@ function SMCPage() {
     const t = setInterval(fetchStatus, 10000);
     return () => clearInterval(t);
   }, []);
+
+  /* ── Step elapsed timer ────────────────────────────────────────── */
+  useEffect(() => {
+    if (!hermesStatus?.isProcessing || !hermesStatus?.stepUpdatedAt) {
+      setStepElapsed(0);
+      return;
+    }
+    const stepStart = new Date(hermesStatus.stepUpdatedAt).getTime();
+    const tick = () => {
+      setStepElapsed(Math.max(0, Math.round((Date.now() - stepStart) / 1000)));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [hermesStatus?.isProcessing, hermesStatus?.stepUpdatedAt]);
 
   /* ── Countdown to next cron run ─────────────────────────────────── */
   useEffect(() => {
@@ -746,7 +763,21 @@ function SMCPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
             </span>
-            <span className="text-[12px] text-primary font-medium">Hermes analyzing...</span>
+            <span className="text-[12px] text-primary font-medium">
+              {hermesStatus?.currentStep ? (
+                <span>
+                  {hermesStatus.currentStep}
+                  {hermesStatus.stepDetail && ` — ${hermesStatus.stepDetail}`}
+                  {stepElapsed > 0 && (
+                    <span style={{ fontFamily: "monospace", marginLeft: 4, opacity: 0.7 }}>
+                      {stepElapsed}s
+                    </span>
+                  )}
+                </span>
+              ) : (
+                "Hermes analyzing..."
+              )}
+            </span>
           </div>
         )}
       </div>
@@ -777,7 +808,20 @@ function SMCPage() {
                 Hermes is analyzing{hermesStatus.currentPair ? ` ${hermesStatus.currentPair}` : ""}...
               </span>
               <span style={{ color: "oklch(0.55 0.08 280)", marginLeft: "auto", fontSize: 11 }}>
-                TradingView browser running · ~60s · result posts automatically
+                {hermesStatus.currentStep ? (
+                  <span>
+                    <span style={{ fontWeight: 600, color: "oklch(0.75 0.15 280)" }}>{hermesStatus.currentStep}</span>
+                    {hermesStatus.stepDetail && ` — ${hermesStatus.stepDetail}`}
+                    {stepElapsed > 0 && (
+                      <span style={{ fontFamily: "monospace", marginLeft: 6, color: "oklch(0.60 0.10 280)" }}>
+                        {stepElapsed}s
+                        {hermesStatus.stepEta && ` / ~${hermesStatus.stepEta}`}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  "TradingView browser running · ~60s · result posts automatically"
+                )}
               </span>
             </>
           ) : (

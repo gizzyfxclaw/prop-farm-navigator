@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
-GizzyFx SMC Review Processor — with real Hermes AI analysis.
+GizzyFx SMC Review Processor — with real Hermes AI analysis + real-time step tracking.
 
 Flow per review:
-  1. PATCH /api/hermes/smc-status — mark as_processing=true
-  2. Run TradingView browser → 3 screenshots
-  3. Fetch Hermes knowledge base from /api/hermes/knowledge
-  4. Call Hermes LLM (via configured provider) for real AI analysis
-  5. PATCH review with AI feedback + screenshots
-  6. POST screenshots to separate table
-  7. PATCH smc-status — mark is_processing=false, record timing
+  1. PATCH /api/hermes/smc-status — mark as_processing=true, write step "Opening TradingView"
+  2. Run TradingView browser → 3 screenshots (each step written to D1)
+  3. PATCH step "Running AI analysis"
+  4. Fetch Hermes knowledge base from /api/hermes/knowledge
+  5. Call Hermes LLM (via configured provider) for real AI analysis
+  6. PATCH step "Posting results"
+  7. PATCH review with AI feedback + screenshots
+  8. POST screenshots to separate table
+  9. PATCH smc-status — mark is_processing=false, record timing
 """
 
 import os, sys, json, time, subprocess, traceback
@@ -24,13 +26,23 @@ PYTHON     = "/home/ubuntu/.hermes/hermes-agent/venv/bin/python3"
 MAX_REVIEWS = 2
 BROWSER_TIMEOUT = 90
 
-def log(msg):
-    print(f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] {msg}", flush=True)
+def log(msg, lvl="INFO"):
+    print(f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] [{lvl}] {msg}", flush=True)
 
 def patch_status(**kwargs):
-    """Write processor status to D1 so the UI can show live state."""
+    """Write processor status + step to D1 so the UI can show live state."""
     try:
         requests.patch(f"{BASE_URL}/api/hermes/smc-status", json=kwargs, timeout=8)
+    except Exception:
+        pass
+
+def patch_step(step, detail="", eta=None):
+    """Write the current processing step to D1 for real-time UI updates."""
+    payload = {"current_step": step, "step_detail": detail, "step_updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    if eta:
+        payload["step_eta"] = eta
+    try:
+        requests.patch(f"{BASE_URL}/api/hermes/smc-status", json=payload, timeout=8)
     except Exception:
         pass
 
@@ -152,7 +164,7 @@ def analyze_with_hermes_ai(review: dict, browser_data: dict) -> dict:
     debate    = smc.get("debate", {})
     levels    = smc.get("levels", {})
     pair      = review["pair"]
-    timeframe = review["timeframe"]
+    timeframe = review.get("timeframe", "1h")
     user_notes = review.get("user_notes") or ""
 
     obs         = structure.get("orderBlocks", [])
@@ -298,55 +310,63 @@ STRATEGY_NOTES: (checklist ✓/✗ for each rule)"""
         notes_lines = []
         in_notes = False
         for line in ai_response.split("\n"):
-            if line.startswith("FEEDBACK:"):
+            if line.strip().startswith("FEEDBACK:"):
                 in_feedback = True
-                rest = line.split(":", 1)[1].strip()
-                if rest:
-                    feedback_lines.append(rest)
-            elif line.startswith("STRATEGY_NOTES:"):
+                in_notes = False
+                feedback_lines.append(line.split(":", 1)[1].strip())
+            elif line.strip().startswith("STRATEGY_NOTES:"):
                 in_feedback = False
                 in_notes = True
-                rest = line.split(":", 1)[1].strip()
-                if rest:
-                    notes_lines.append(rest)
+                notes_lines.append(line.split(":", 1)[1].strip())
             elif in_feedback:
-                feedback_lines.append(line)
+                feedback_lines.append(line.strip())
             elif in_notes:
-                notes_lines.append(line)
-
+                notes_lines.append(line.strip())
         if feedback_lines:
-            result["feedback"] = "\n".join(feedback_lines).strip()
+            result["feedback"] = " ".join(feedback_lines)
         if notes_lines:
-            result["strategy_notes"] = "\n".join(notes_lines).strip()
+            result["strategy_notes"] = " ".join(notes_lines)
 
     return result
 
 def analyze_rule_based(review: dict, browser_data: dict) -> dict:
-    """Fallback rule-based analysis if LLM unavailable."""
+    """Rule-based fallback when LLM is unavailable."""
     smc = json.loads(review["smc_data"]) if isinstance(review["smc_data"], str) else review["smc_data"]
+    structure = smc.get("structure", {})
     channel   = smc.get("channel", {})
+    debate    = smc.get("debate", {})
     levels    = smc.get("levels", {})
+    pair      = review["pair"]
+    timeframe = review.get("timeframe", "1h")
+
     channel_type = channel.get("type", "none")
     retest_count = levels.get("retestCount", 0)
     confirmed_5m = levels.get("breakoutConfirmed5m", False)
     nearby_conflict = levels.get("nearbyConflict", False)
-    entry     = levels.get("entry", "")
-    sl        = levels.get("stopLoss", "")
-    tp1       = levels.get("takeProfit1", "")
-    tp2       = levels.get("takeProfit2", "")
-    mtf       = smc.get("timeframeAlignment", {})
+    confidence  = debate.get("confidence", 0)
+    bull_conf   = debate.get("bullCase", {}).get("overallConfidence", 0)
+    bear_conf   = debate.get("bearCase", {}).get("overallConfidence", 0)
+    verdict_raw = debate.get("finalVerdict", "NEUTRAL")
+    entry       = levels.get("entry", "")
+    sl          = levels.get("stopLoss", "")
+    tp1         = levels.get("takeProfit1", "")
+    tp2         = levels.get("takeProfit2", "")
+    rr          = levels.get("riskReward", "1:1.5")
+    last_price  = smc.get("lastPrice", 0)
+    mtf         = smc.get("timeframeAlignment", {})
     mtf_aligned = mtf.get("aligned", False)
     mtf_conflicts = mtf.get("conflictingTfs", [])
 
-    tv_price  = browser_data.get("price_info", {}).get("price", "")
-    tv_emas   = browser_data.get("indicator_data", {}).get("legendValues", [])
+    tv_price    = browser_data.get("price_info", {}).get("price", str(last_price))
+    tv_emas     = browser_data.get("indicator_data", {}).get("legendValues", [])
 
+    # Score
     score = 0
     checks = []
 
-    if channel_type != "none" and retest_count >= 2:
-        score += 40
-        checks.append(f"✓ {channel_type} channel confirmed — {retest_count} retest(s)")
+    if channel_type != "none":
+        score += 25
+        checks.append(f"✓ Valid {channel_type} channel with {retest_count} retest(s)")
     elif channel_type != "none":
         checks.append(f"✗ Channel found but only {retest_count} retest(s) — needs 2+")
     else:
@@ -393,7 +413,7 @@ def analyze_rule_based(review: dict, browser_data: dict) -> dict:
         direction = None
 
     feedback = (
-        f"{review['pair']} {review['timeframe']} — Rule-based analysis (AI offline).\n\n"
+        f"{pair} {timeframe} — Rule-based analysis (AI offline).\n\n"
         f"Channel: {channel_type} ({retest_count} retest(s)). "
         f"5M breakout: {'confirmed' if confirmed_5m else 'not yet confirmed'}. "
         f"MTF: {'aligned' if mtf_aligned else 'conflicting (' + ', '.join(mtf_conflicts) + ')' if mtf_conflicts else 'unavailable'}. "
@@ -489,20 +509,21 @@ def main():
 
         log(f"Processing {rid}: {pair} {tf}")
 
-        # Step 1: Browser
-        log(f"  Opening TradingView for {pair} {tf}...")
+        # ── Step 1: Open TradingView ──────────────────────────────
+        patch_step("Opening TradingView", f"Launching browser for {pair} {tf}...", eta="20s")
         t0 = time.time()
         browser_data = run_browser(pair, tf)
         elapsed = round(time.time() - t0, 1)
         shots = len(browser_data.get("screenshots", []))
         log(f"  Browser done in {elapsed}s — {shots} screenshots")
 
-        # Step 2: Hermes AI analysis
-        log("  Running Hermes AI analysis...")
+        # ── Step 2: Run AI analysis ───────────────────────────────
+        patch_step("Running AI analysis", f"Calling Hermes LLM for {pair} {tf}...", eta="30s")
         payload = analyze_with_hermes_ai(review, browser_data)
         payload["request_id"] = review["id"]
 
-        # Step 3: PATCH result
+        # ── Step 3: Post results ──────────────────────────────────
+        patch_step("Posting results", f"Saving verdict={payload.get('verdict')} grade={payload.get('accuracy_grade')}...", eta="10s")
         log("  Posting to D1...")
         if patch_review(payload):
             patch_status(
@@ -510,9 +531,10 @@ def main():
                 last_grade=payload.get("accuracy_grade", ""),
             )
 
-        # Step 4: Screenshots
+        # ── Step 4: Post screenshots ──────────────────────────────
         shots_data = browser_data.get("screenshots", [])
         if shots_data:
+            patch_step("Uploading screenshots", f"Posting {len(shots_data)} screenshots...", eta="15s")
             log(f"  Posting {len(shots_data)} screenshots...")
             post_screenshots(review["id"], shots_data)
 
