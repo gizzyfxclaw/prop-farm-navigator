@@ -8,6 +8,35 @@ can't see the knowledge base / strategy rules)? See
 the full path from a bare VPS to a working Hermes agent, what's automatic
 vs. a one-time manual step, and how to verify it's actually wired up.
 
+## VPS Recovery
+
+If your Ubuntu VPS dies, most of the system lives in Cloudflare and
+**survives the loss**:
+
+| Component | Location | Survives? |
+|-----------|----------|-----------|
+| Cloudflare Worker + D1 + KV | Cloudflare | ✅ |
+| All secrets (NOUS_API_KEY, AUTH_*, TVREMIX_*, FINNHUB_*) | Cloudflare | ✅ |
+| GitHub repos | github.com/gizzyfxclaw | ✅ |
+| Deployed site (gizzyfxstrategy.dpdns.org) | Cloudflare | ✅ |
+| SMC config, reviews, chat history | D1 | ✅ |
+
+What's **lost** and must be rebuilt on a new VPS:
+
+| Component | Recovery |
+|-----------|----------|
+| `auth.json` (Nous API key) | Re-create from https://inference-api.nousresearch.com |
+| `.env` file | Re-create with base URL + hermes key |
+| Local repo clone | `git clone` from GitHub |
+| Python venv + Playwright | `pip install` + `playwright install chromium` |
+| `smc-processor.sh` + crontab | Copy from repo + `crontab -e` |
+| GitHub SSH keys | `ssh-keygen` + add to GitHub |
+
+**Recovery time:** ~30-60 minutes on a fresh Ubuntu VPS.
+
+See [`docs/vps-recovery.md`](docs/vps-recovery.md) for the full step-by-step
+playbook (commands, backup strategies, checklist).
+
 ---
 
 This is the project and working on so I want everything to now be connected to meta API cloud so I want both the account stat and details shoe to be derived from meta API and let everything be functioning let the Lost size and everything be calculated accordingly and well calculated with no errors and mistake and if I want to execute the trade into execute the trade in the exness account using the exact blood size to be used and entry with stop loss with the exact risk to be taken I want you to improve this file and make it very professional and let all the calculation and everything be working accurately and also in the calculator I want to be able to select the exact prop account that I want to work with and if they calculation calculus it will calculate everything based on the prop account I selected and to be showing me the correct exact total capital needed for the strategy to work perfectly this is the calculation prompt of how the machine works Here is the ultimate, exhaustive prompt. This is written specifically to be fed into an advanced AI coding agent (like Cursor, Devin, or Claude 3.5). 
