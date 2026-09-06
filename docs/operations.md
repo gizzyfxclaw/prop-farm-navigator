@@ -42,26 +42,38 @@
 
 ## Key Creation Guide
 
+This section explains **how each key was created**, **what it does**, and
+**how to recreate it** if lost.
+
+---
+
 ### 1. Nous API Key (for GizzyFx Co-Pilot LLM)
 
 **Purpose:** Authenticates LLM calls to `inference-api.nousresearch.com`
 **Used by:** `smc-upgrade-chat.ts`, `smc-chat.ts`, `analyze-with-hermes.ts`
 **Stored as:** Cloudflare secret `NOUS_API_KEY` + local `auth.json`
 
-**How to create:**
-1. Go to https://inference-api.nousresearch.com
-2. Sign up / log in
-3. Navigate to **Account → API Keys**
-4. Click **Create New Key**
-5. Copy the key (starts with `eyJ...`)
+**How it was created:**
+1. Signed up at https://inference-api.nousresearch.com
+2. Created an API key from the account dashboard
+3. Key is a JWT token (starts with `eyJ...`) — 1825 characters long
+4. Set as Cloudflare secret via `npx wrangler secret put NOUS_API_KEY`
+5. Also saved locally to `/home/ubuntu/.hermes/auth.json` for VPS scripts
 
-**How to set:**
+**What it does:**
+- Powers the GizzyFx Co-Pilot chat (strategy upgrade discussions)
+- Powers the SMC analysis feedback (verdict, grade, levels)
+- Powers the chat-about-review feature (ask questions about analysis)
+- Model used: `meituan/longcat-2.0:free` (free tier)
+
+**How to recreate:**
 ```bash
-# Set in Cloudflare (auto-deployed to Worker)
+# 1. Go to https://inference-api.nousresearch.com → Account → API Keys
+# 2. Create new key
+# 3. Set in Cloudflare
 npx wrangler secret put NOUS_API_KEY
-# Paste key when prompted
 
-# Set on VPS (for local scripts)
+# 4. Set on VPS
 mkdir -p /home/ubuntu/.hermes
 cat > /home/ubuntu/.hermes/auth.json << 'EOF'
 {
@@ -74,43 +86,68 @@ cat > /home/ubuntu/.hermes/auth.json << 'EOF'
 EOF
 ```
 
+---
+
 ### 2. GIZZYFX_API_KEY (Hermes Shared Secret)
 
 **Purpose:** Authenticates VPS scripts → Cloudflare Worker
 **Used by:** `smc-processor.sh`, `process_reviews.py`, `self_learn.py`
 **Stored as:** D1 table `hermes_auth` (key=`shared_secret`) + local `.env`
 
-**How to create:**
+**How it was created:**
+1. Generated via `openssl rand -hex 32` — a random 64-character hex string
+2. Original value: `33d1d4fe788bdddc3af35dac80ae8dff132be97c7e95dec47309e1df592e693f`
+3. Inserted into D1: `INSERT INTO hermes_auth (key, value) VALUES ('shared_secret', '...')`
+4. Added to `/home/ubuntu/.hermes/.env` as `GIZZYFX_API_KEY=...`
+5. Scripts read it from `.env` and send as `x-hermes-key` header
+
+**What it does:**
+- VPS scripts (process_reviews.py, self_learn.py) send this key in the
+  `x-hermes-key` header when calling `/api/hermes/*` endpoints
+- Cloudflare Worker checks it against the `hermes_auth` D1 table
+- If mismatch → 401 Unauthorized
+- This is the **only** key that the VPS needs to authenticate with Cloudflare
+
+**How to recreate:**
 ```bash
-# Generate a random 64-char hex key
+# 1. Generate new key
 openssl rand -hex 32
-# Output: 33d1d4fe788bdddc3af35dac80ae8dff132be97c7e95dec47309e1df592e693f
-```
+# Output: 4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5
 
-**How to set:**
-```bash
-# Set in D1 (from any machine with wrangler)
+# 2. Update D1 (from any machine with wrangler)
 npx wrangler d1 execute prop-farm-navigator-db --remote \
-  --command "INSERT OR REPLACE INTO hermes_auth (key, value) VALUES ('shared_secret', 'YOUR_NEW_KEY')"
+  --command "UPDATE hermes_auth SET value='NEW_KEY' WHERE key='shared_secret'"
 
-# Set on VPS
-echo "GIZZYFX_API_KEY=YOUR_NEW_KEY" >> /home/ubuntu/.hermes/.env
+# 3. Update .env on VPS
+sed -i "s/GIZZYFX_API_KEY=.*/GIZZYFX_API_KEY=NEW_KEY/" /home/ubuntu/.hermes/.env
+
+# 4. Restart scripts (they read .env on startup)
+pkill -f process_reviews
 ```
+
+---
 
 ### 3. Cloudflare Auth Secrets (AUTH_EMAIL, AUTH_PASSWORD, AUTH_SECRET)
 
-**Purpose:** Protects the site with a login
+**Purpose:** Protects the site with a login page
 **Used by:** `server.ts` auth gate
 **Stored as:** Cloudflare secrets
 
-**How to create:**
-```bash
-# Generate a random secret
-openssl rand -hex 16
-# Output: 4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c
-```
+**How it was created:**
+1. `AUTH_EMAIL` — your Gmail address (gizzyfxclawaiagent@gmail.com)
+2. `AUTH_PASSWORD` — a secure password you chose
+3. `AUTH_SECRET` — generated via `openssl rand -hex 16` (32-char hex)
+4. All three set via `npx wrangler secret put`
 
-**How to set:**
+**What it does:**
+- When you visit gizzyfxstrategy.dpdns.org, you're redirected to `/login`
+- You enter email + password
+- Server verifies against `AUTH_EMAIL` + `AUTH_PASSWORD` secrets
+- On success, creates a session cookie signed with `AUTH_SECRET` (HMAC-SHA256)
+- Cookie is sent on subsequent requests — no need to log in again
+- Session persists until you close the browser
+
+**How to recreate:**
 ```bash
 npx wrangler secret put AUTH_EMAIL
 # Enter: your@email.com
@@ -119,8 +156,10 @@ npx wrangler secret put AUTH_PASSWORD
 # Enter: your_secure_password
 
 npx wrangler secret put AUTH_SECRET
-# Enter: 4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c
+# Enter: generate with openssl rand -hex 16
 ```
+
+---
 
 ### 4. TVREMIX_API_KEY (TradingView Data)
 
@@ -128,16 +167,26 @@ npx wrangler secret put AUTH_SECRET
 **Used by:** `smc-analyze.ts`, `ohlcv.ts`, `smc.ts`
 **Stored as:** Cloudflare secret
 
-**How to create:**
-1. Go to https://tvremix.com (or the service that provides it)
-2. Subscribe / get API access
-3. Copy the bearer token
+**How it was created:**
+1. Subscribed to tvremix (the TradingView data service)
+2. Got a bearer token from the dashboard
+3. Set via `npx wrangler secret put TVREMIX_API_KEY`
 
-**How to set:**
+**What it does:**
+- Fetches real-time OHLCV bars for EURUSD, USDJPY, GBPUSD
+- Fetches technical indicators (RSI, MACD, EMA, Bollinger Bands)
+- Fetches SMC structure (swing highs/lows, order blocks, FVGs)
+- Powers the SMC Analysis page data
+- Powers the live charts on the Hermes page
+
+**How to recreate:**
 ```bash
+# 1. Go to tvremix.com → Dashboard → API Keys
+# 2. Copy bearer token
 npx wrangler secret put TVREMIX_API_KEY
-# Paste token when prompted
 ```
+
+---
 
 ### 5. FINNHUB_API_KEY (Economic Calendar)
 
@@ -145,16 +194,65 @@ npx wrangler secret put TVREMIX_API_KEY
 **Used by:** `fetch-events.ts`, scheduled cron
 **Stored as:** Cloudflare secret
 
-**How to create:**
-1. Go to https://finnhub.io
-2. Register (free tier: 60 calls/min)
-3. Get API key from dashboard
+**How it was created:**
+1. Registered at https://finnhub.io (free tier: 60 calls/min)
+2. Got API key from dashboard
+3. Set via `npx wrangler secret put FINNHUB_API_KEY`
 
-**How to set:**
+**What it does:**
+- Fetches upcoming economic events (GDP, CPI, FOMC, NFP, etc.)
+- Events stored in D1, displayed on the Calendar page
+- Used by the trading agent to avoid trading during high-impact news
+- Cron job runs every 15 minutes to refresh events
+
+**How to recreate:**
 ```bash
+# 1. Go to https://finnhub.io → Dashboard
+# 2. Copy API key
 npx wrangler secret put FINNHUB_API_KEY
-# Paste key when prompted
 ```
+
+---
+
+### 6. HONCHO_API_KEY (Agent Memory)
+
+**Purpose:** Powers the Honcho agent memory system
+**Used by:** `honcho_profile`, `honcho_search`, `honcho_reasoning` tools
+**Stored in:** `/home/ubuntu/.hermes/.env`
+
+**How it was created:**
+1. Signed up at https://honcho.ai (or the Honcho service)
+2. Created an API key from the dashboard
+3. Added to `/home/ubuntu/.hermes/.env` as `HONCHO_API_KEY=...`
+
+**What it does:**
+- Stores persistent memory about the user (preferences, corrections, patterns)
+- Powers the `honcho_profile` tool (read/write peer card)
+- Powers the `honcho_search` tool (search past conversations)
+- Powers the `honcho_reasoning` tool (synthesized answers about the user)
+- Memory persists across sessions — Hermes remembers what you taught it
+
+**How to recreate:**
+```bash
+# 1. Go to honcho.ai → Account → API Keys
+# 2. Create new key
+echo "HONCHO_API_KEY=hch-v3-..." >> /home/ubuntu/.hermes/.env
+```
+
+---
+
+### Summary Table
+
+| Key | Service | Location | Created By |
+|-----|---------|----------|------------|
+| `NOUS_API_KEY` | inference-api.nousresearch.com | Cloudflare secret + auth.json | Nous dashboard |
+| `GIZZYFX_API_KEY` | Cloudflare Worker auth | D1 `hermes_auth` + .env | `openssl rand -hex 32` |
+| `AUTH_EMAIL` | Site login | Cloudflare secret | Your email |
+| `AUTH_PASSWORD` | Site login | Cloudflare secret | Your password |
+| `AUTH_SECRET` | Session signing | Cloudflare secret | `openssl rand -hex 16` |
+| `TVREMIX_API_KEY` | tvremix.com | Cloudflare secret | TV dashboard |
+| `FINNHUB_API_KEY` | finnhub.io | Cloudflare secret | FH dashboard |
+| `HONCHO_API_KEY` | honcho.ai | .env local only | Honcho dashboard |
 
 ---
 
