@@ -565,7 +565,7 @@ function SMCPage() {
     return () => { if (pollTimer.current) clearInterval(pollTimer.current); };
   }, [pollingId, reviews, loadReviews]);
 
-  /* ── Poll Hermes processor status every 10s ─────────────────────── */
+  /* ── Poll Hermes processor status every 1s for real-time updates ─────── */
   useEffect(() => {
     const fetchStatus = () => {
       fetch("/api/hermes/smc-status")
@@ -574,7 +574,7 @@ function SMCPage() {
         .catch(() => {});
     };
     fetchStatus();
-    const t = setInterval(fetchStatus, 10000);
+    const t = setInterval(fetchStatus, 1000); // 1 second for real-time
     return () => clearInterval(t);
   }, []);
 
@@ -704,6 +704,23 @@ function SMCPage() {
     try { return JSON.parse(raw) as T; } catch { return fallback; }
   }
 
+function safeNum(val: unknown, fallback = 0): number {
+  const n = typeof val === "number" ? val : parseFloat(val as string);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function safeStr(val: unknown, fallback = "—"): string {
+  return val != null ? String(val) : fallback;
+}
+
+function safeBool(val: unknown, fallback = false): boolean {
+  return typeof val === "boolean" ? val : fallback;
+}
+
+function fmt(val: unknown, decimals = 5): string {
+  return safeNum(val).toFixed(decimals);
+}
+
   /* ── Helpers ─────────────────────────────────────────────────────── */
   const bias = data?.structure?.bias ?? "neutral";
   const verdictColor = data?.debate?.finalVerdict?.includes("LONG") ? "green"
@@ -762,21 +779,22 @@ function SMCPage() {
         {/* Hermes AI Analysis Loader — Professional Trading Terminal Style */}
         {pollingId && (
           <div style={{
-            borderRadius: 12,
-            border: "1px solid oklch(0.45 0.20 280 / 0.3)",
-            background: "linear-gradient(135deg, oklch(0.10 0.04 280 / 0.95) 0%, oklch(0.08 0.03 260 / 0.95) 100%)",
+            borderRadius: 16,
+            border: "1px solid oklch(0.40 0.22 280 / 0.25)",
+            background: "linear-gradient(145deg, oklch(0.08 0.04 280 / 0.98) 0%, oklch(0.06 0.03 260 / 0.98) 50%, oklch(0.08 0.04 300 / 0.98) 100%)",
             overflow: "hidden",
+            boxShadow: "0 8px 32px oklch(0.05 0.05 280 / 0.5), inset 0 1px 0 oklch(0.30 0.10 280 / 0.15)",
           }}>
             {/* Top bar */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "8px 14px",
-              borderBottom: "1px solid oklch(0.35 0.10 280 / 0.2)",
-              background: "oklch(0.15 0.05 280 / 0.5)",
+              padding: "10px 16px",
+              borderBottom: "1px solid oklch(0.30 0.10 280 / 0.15)",
+              background: "linear-gradient(90deg, oklch(0.12 0.05 280 / 0.6) 0%, oklch(0.10 0.04 300 / 0.6) 100%)",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 {/* Animated AI orb */}
-                <div style={{ position: "relative", width: 20, height: 20 }}>
+                <div style={{ position: "relative", width: 28, height: 28 }}>
                   {/* Outer rotating ring */}
                   <div style={{
                     position: "absolute", inset: 0,
@@ -784,84 +802,109 @@ function SMCPage() {
                     borderTopColor: "oklch(0.70 0.25 280)",
                     borderRightColor: "oklch(0.65 0.22 320)",
                     borderRadius: "50%",
-                    animation: "hza-rotate 1.5s linear infinite",
+                    animation: "hza-rotate 2s linear infinite",
+                  }} />
+                  {/* Middle rotating ring */}
+                  <div style={{
+                    position: "absolute", inset: 3,
+                    border: "1.5px solid transparent",
+                    borderBottomColor: "oklch(0.60 0.20 200)",
+                    borderLeftColor: "oklch(0.55 0.18 180)",
+                    borderRadius: "50%",
+                    animation: "hza-rotate 1.5s linear infinite reverse",
                   }} />
                   {/* Inner pulsing core */}
                   <div style={{
-                    position: "absolute", inset: 4,
+                    position: "absolute", inset: 7,
                     borderRadius: "50%",
-                    background: "radial-gradient(circle, oklch(0.80 0.20 280) 0%, oklch(0.50 0.30 320) 100%)",
-                    animation: "hza-pulse 1.5s ease-in-out infinite",
-                    boxShadow: "0 0 8px oklch(0.60 0.25 280 / 0.6)",
+                    background: "radial-gradient(circle, oklch(0.85 0.15 280) 0%, oklch(0.50 0.30 320) 100%)",
+                    animation: "hza-pulse 1.8s ease-in-out infinite",
+                    boxShadow: "0 0 12px oklch(0.60 0.25 280 / 0.8), 0 0 24px oklch(0.50 0.30 320 / 0.4)",
                   }} />
                 </div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span style={{
+                    fontSize: 12, fontWeight: 700, letterSpacing: 0.8,
+                    background: "linear-gradient(90deg, oklch(0.80 0.15 280), oklch(0.70 0.20 320))",
+                    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                  }}>
+                    HERMES AI
+                  </span>
+                  <span style={{ fontSize: 9, color: "oklch(0.50 0.10 280)", fontWeight: 500 }}>
+                    Trading Agent v2.0
+                  </span>
+                </div>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-                  background: "linear-gradient(90deg, oklch(0.75 0.18 280), oklch(0.65 0.22 320))",
-                  WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-                }}>
-                  HERMES AI
-                </span>
-                <span style={{
-                  fontSize: 9, padding: "2px 6px", borderRadius: 4,
-                  background: "oklch(0.50 0.20 280 / 0.15)",
-                  border: "1px solid oklch(0.50 0.20 280 / 0.25)",
-                  color: "oklch(0.70 0.15 280)", fontWeight: 600, letterSpacing: 0.3,
+                  fontSize: 9, padding: "3px 8px", borderRadius: 6,
+                  background: "linear-gradient(135deg, oklch(0.50 0.20 280 / 0.2), oklch(0.40 0.15 320 / 0.2))",
+                  border: "1px solid oklch(0.50 0.20 280 / 0.3)",
+                  color: "oklch(0.75 0.15 280)", fontWeight: 600, letterSpacing: 0.5,
                 }}>
                   ANALYZING
                 </span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{
-                  width: 6, height: 6, borderRadius: "50%",
+                  width: 8, height: 8, borderRadius: "50%",
                   background: "oklch(0.60 0.25 145)",
-                  boxShadow: "0 0 6px oklch(0.60 0.25 145 / 0.5)",
-                  animation: "hza-pulse 1s ease-in-out infinite",
+                  boxShadow: "0 0 8px oklch(0.60 0.25 145 / 0.6)",
+                  animation: "hza-pulse 1.2s ease-in-out infinite",
                 }} />
-                <span style={{ fontSize: 9, color: "oklch(0.60 0.10 280)", fontWeight: 600 }}>
+                <span style={{ fontSize: 10, color: "oklch(0.65 0.12 145)", fontWeight: 600 }}>
                   LIVE
                 </span>
               </div>
             </div>
 
             {/* Main loader body */}
-            <div style={{ padding: "12px 14px" }}>
-              {/* Step progress visualization */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
-                {["TV", "AI", "POST", "DONE"].map((step, i) => {
-                  const currentStepIdx = hermesStatus?.currentStep === "Opening TradingView" ? 0
-                    : hermesStatus?.currentStep === "Running AI analysis" ? 1
-                    : hermesStatus?.currentStep === "Posting results" ? 2
-                    : hermesStatus?.currentStep === "Uploading screenshots" ? 3
+            <div style={{ padding: "14px 16px" }}>
+              {/* Progress steps visualization */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                {[
+                  { key: "BROWSER", label: "Browser" },
+                  { key: "ANALYSIS", label: "AI Analysis" },
+                  { key: "VERDICT", label: "Verdict" },
+                ].map((phase, i) => {
+                  const stepMap: Record<string, number> = {
+                    "BROWSER": 0,
+                    "ANALYSIS": 1,
+                    "VERDICT": 2,
+                  };
+                  const currentStepIdx = hermesStatus?.currentStep === "Opening TradingView" || hermesStatus?.currentStep === "Browser Launch" || hermesStatus?.currentStep === "Loading TradingView" || hermesStatus?.currentStep === "Clearing Popups" || hermesStatus?.currentStep === "Capturing Clean Chart" || hermesStatus?.currentStep === "Reading Price Data" || hermesStatus?.currentStep === "Applying Indicators" || hermesStatus?.currentStep === "Indicator Screenshot" || hermesStatus?.currentStep === "Reading Indicators" || hermesStatus?.currentStep === "Final Screenshot" ? 0
+                    : hermesStatus?.currentStep === "Running AI analysis" || hermesStatus?.currentStep === "Applying Strategy" || hermesStatus?.currentStep === "Compiling Verdict" ? 1
+                    : hermesStatus?.currentStep === "Posting results" || hermesStatus?.currentStep === "Writing feedback, levels & grade" || hermesStatus?.currentStep === "Finalizing..." ? 2
                     : -1;
-                  const isComplete = i < currentStepIdx;
-                  const isCurrent = i === currentStepIdx;
+                  const phaseIdx = stepMap[phase.key] ?? -1;
+                  const isComplete = phaseIdx < currentStepIdx;
+                  const isCurrent = phaseIdx === currentStepIdx;
                   return (
-                    <div key={step} style={{ display: "flex", alignItems: "center", gap: 4, flex: i < 3 ? "none" : 1 }}>
+                    <div key={phase.key} style={{ display: "flex", alignItems: "center", gap: 6, flex: i < 2 ? "none" : 1 }}>
                       <div style={{
-                        width: 22, height: 22, borderRadius: 6,
+                        width: 28, height: 28, borderRadius: 8,
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 9, fontWeight: 700,
-                        background: isComplete ? "oklch(0.55 0.20 145 / 0.2)" : isCurrent ? "oklch(0.50 0.25 280 / 0.2)" : "oklch(0.20 0.05 280 / 0.1)",
-                        border: `1px solid ${isComplete ? "oklch(0.55 0.20 145 / 0.4)" : isCurrent ? "oklch(0.50 0.25 280 / 0.4)" : "oklch(0.25 0.05 280 / 0.2)"}`,
-                        color: isComplete ? "oklch(0.65 0.20 145)" : isCurrent ? "oklch(0.75 0.20 280)" : "oklch(0.45 0.08 280)",
-                        boxShadow: isCurrent ? "0 0 8px oklch(0.50 0.25 280 / 0.3)" : "none",
+                        fontSize: 10, fontWeight: 700,
+                        background: isComplete ? "linear-gradient(135deg, oklch(0.55 0.20 145 / 0.25), oklch(0.45 0.15 145 / 0.25)" : isCurrent ? "linear-gradient(135deg, oklch(0.50 0.25 280 / 0.3), oklch(0.40 0.20 320 / 0.3))" : "oklch(0.15 0.05 280 / 0.15)",
+                        border: `1px solid ${isComplete ? "oklch(0.55 0.20 145 / 0.5)" : isCurrent ? "oklch(0.50 0.25 280 / 0.5)" : "oklch(0.25 0.05 280 / 0.2)"}`,
+                        color: isComplete ? "oklch(0.70 0.20 145)" : isCurrent ? "oklch(0.80 0.20 280)" : "oklch(0.45 0.08 280)",
+                        boxShadow: isCurrent ? "0 0 12px oklch(0.50 0.25 280 / 0.4)" : "none",
+                        transition: "all 0.3s ease",
                       }}>
-                        {isComplete ? "✓" : step}
+                        {isComplete ? "✓" : phase.label}
                       </div>
-                      {i < 3 && (
+                      {i < 2 && (
                         <div style={{
-                          flex: 1, height: 2,
-                          background: isComplete ? "oklch(0.55 0.20 145 / 0.3)" : "oklch(0.20 0.05 280 / 0.15)",
-                          borderRadius: 1,
+                          flex: 1, height: 3,
+                          background: isComplete ? "linear-gradient(90deg, oklch(0.55 0.20 145 / 0.4), oklch(0.45 0.15 145 / 0.4))" : "oklch(0.15 0.05 280 / 0.15)",
+                          borderRadius: 2,
                           position: "relative", overflow: "hidden",
                         }}>
                           {isCurrent && (
                             <div style={{
                               position: "absolute", inset: 0,
                               background: "linear-gradient(90deg, oklch(0.50 0.25 280), oklch(0.65 0.22 320))",
-                              animation: "hza-progress 2s ease-in-out infinite",
-                              width: "50%",
+                              animation: "hza-progress 1.5s ease-in-out infinite",
+                              width: "60%",
+                              borderRadius: 2,
                             }} />
                           )}
                         </div>
@@ -874,33 +917,34 @@ function SMCPage() {
               {/* Current step detail */}
               <div style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "8px 10px", borderRadius: 6,
-                background: "oklch(0.15 0.05 280 / 0.3)",
-                border: "1px solid oklch(0.30 0.08 280 / 0.15)",
+                padding: "10px 12px", borderRadius: 8,
+                background: "linear-gradient(135deg, oklch(0.12 0.05 280 / 0.4), oklch(0.10 0.04 300 / 0.4))",
+                border: "1px solid oklch(0.30 0.10 280 / 0.2)",
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{
-                    width: 4, height: 4, borderRadius: "50%",
+                    width: 6, height: 6, borderRadius: "50%",
                     background: "oklch(0.70 0.25 280)",
-                    animation: "hza-pulse 1s ease-in-out infinite",
+                    animation: "hza-pulse 0.8s ease-in-out infinite",
+                    boxShadow: "0 0 8px oklch(0.70 0.25 280 / 0.6)",
                   }} />
-                  <span style={{ fontSize: 11, color: "oklch(0.80 0.10 280)", fontWeight: 500 }}>
+                  <span style={{ fontSize: 12, color: "oklch(0.85 0.10 280)", fontWeight: 600 }}>
                     {hermesStatus?.currentStep || "Initializing..."}
                   </span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   {hermesStatus?.stepDetail && (
-                    <span style={{ fontSize: 10, color: "oklch(0.55 0.08 280)" }}>
+                    <span style={{ fontSize: 10, color: "oklch(0.60 0.08 280)", fontWeight: 500 }}>
                       {hermesStatus.stepDetail}
                     </span>
                   )}
                   {stepElapsed > 0 && (
                     <span style={{
-                      fontSize: 10, fontFamily: "monospace", fontWeight: 700,
-                      color: "oklch(0.70 0.18 280)",
-                      padding: "2px 6px", borderRadius: 3,
-                      background: "oklch(0.30 0.10 280 / 0.15)",
-                      border: "1px solid oklch(0.40 0.15 280 / 0.2)",
+                      fontSize: 11, fontFamily: "monospace", fontWeight: 700,
+                      color: "oklch(0.75 0.18 280)",
+                      padding: "3px 8px", borderRadius: 4,
+                      background: "oklch(0.25 0.10 280 / 0.2)",
+                      border: "1px solid oklch(0.40 0.15 280 / 0.25)",
                     }}>
                       {stepElapsed}s
                     </span>
@@ -910,11 +954,11 @@ function SMCPage() {
 
               {/* ETA bar */}
               {hermesStatus?.stepEta && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 9, color: "oklch(0.45 0.08 280)", fontWeight: 600 }}>ETA</span>
+                <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 10, color: "oklch(0.50 0.08 280)", fontWeight: 600 }}>ETA</span>
                   <div style={{
-                    flex: 1, height: 3, borderRadius: 2,
-                    background: "oklch(0.20 0.05 280 / 0.15)",
+                    flex: 1, height: 4, borderRadius: 2,
+                    background: "oklch(0.15 0.05 280 / 0.2)",
                     overflow: "hidden",
                   }}>
                     <div style={{
@@ -925,7 +969,7 @@ function SMCPage() {
                       transition: "width 0.3s ease",
                     }} />
                   </div>
-                  <span style={{ fontSize: 9, color: "oklch(0.45 0.08 280)", fontWeight: 600 }}>{hermesStatus.stepEta}</span>
+                  <span style={{ fontSize: 10, color: "oklch(0.50 0.08 280)", fontWeight: 600 }}>{hermesStatus.stepEta}</span>
                 </div>
               )}
             </div>
@@ -1095,7 +1139,7 @@ function SMCPage() {
                   <span className="capitalize font-bold">{data.structure.bias}</span> bias ·{" "}
                   {data.structure.bos ? `BOS ${data.structure.bos}` : "No BOS"} ·{" "}
                   {data.structure.orderBlocks.length} order blocks · Last price{" "}
-                  <span className="font-mono">{data.lastPrice.toFixed(5)}</span>
+                  <span className="font-mono">{data.lastPrice?.toFixed(5) ?? "—"}</span>
                 </p>
               </div>
             )}
@@ -1243,28 +1287,28 @@ function SMCPage() {
                         <div>
                           <p className="text-[12px] text-muted-foreground mb-2">Hermes Suggested Levels</p>
                           <div className="grid gap-3 sm:grid-cols-4">
-                            {r.entry && (
+                            {r.entry != null && (
                               <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
                                 <p className="text-[11px] text-muted-foreground">Entry</p>
-                                <p className="text-[16px] font-bold font-mono text-emerald-400">{r.entry.toFixed(5)}</p>
+                                <p className="text-[16px] font-bold font-mono text-emerald-400">{r.entry?.toFixed(5) ?? "—"}</p>
                               </div>
                             )}
-                            {r.stop_loss && (
+                            {r.stop_loss != null && (
                               <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3 text-center">
                                 <p className="text-[11px] text-muted-foreground">Stop Loss</p>
-                                <p className="text-[16px] font-bold font-mono text-red-400">{r.stop_loss.toFixed(5)}</p>
+                                <p className="text-[16px] font-bold font-mono text-red-400">{r.stop_loss?.toFixed(5) ?? "—"}</p>
                               </div>
                             )}
-                            {r.take_profit_1 && (
+                            {r.take_profit_1 != null && (
                               <div className="rounded-md border border-blue-500/20 bg-blue-500/5 p-3 text-center">
                                 <p className="text-[11px] text-muted-foreground">TP1</p>
-                                <p className="text-[16px] font-bold font-mono text-blue-400">{r.take_profit_1.toFixed(5)}</p>
+                                <p className="text-[16px] font-bold font-mono text-blue-400">{r.take_profit_1?.toFixed(5) ?? "—"}</p>
                               </div>
                             )}
-                            {r.take_profit_2 && (
+                            {r.take_profit_2 != null && (
                               <div className="rounded-md border border-blue-500/20 bg-blue-500/5 p-3 text-center">
                                 <p className="text-[11px] text-muted-foreground">TP2</p>
-                                <p className="text-[16px] font-mono text-blue-400/80">{r.take_profit_2.toFixed(5)}</p>
+                                <p className="text-[16px] font-mono text-blue-400/80">{r.take_profit_2?.toFixed(5) ?? "—"}</p>
                               </div>
                             )}
                           </div>
@@ -1480,7 +1524,7 @@ function SMCPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3">
                   <p className="text-[12px] font-bold text-emerald-400 mb-2">
-                    BULL CASE ({(data.debate.bullCase.overallConfidence * 100).toFixed(0)}%)
+                    BULL CASE ({((data.debate?.bullCase?.overallConfidence ?? 0) * 100).toFixed(0)}%)
                   </p>
                   <ul className="space-y-1 text-[12px]">
                     {data.debate.bullCase.points.map((p, i) => (
@@ -1493,7 +1537,7 @@ function SMCPage() {
                 </div>
                 <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3">
                   <p className="text-[12px] font-bold text-red-400 mb-2">
-                    BEAR CASE ({(data.debate.bearCase.overallConfidence * 100).toFixed(0)}%)
+                    BEAR CASE ({((data.debate?.bearCase?.overallConfidence ?? 0) * 100).toFixed(0)}%)
                   </p>
                   <ul className="space-y-1 text-[12px]">
                     {data.debate.bearCase.points.map((p, i) => (
@@ -1537,15 +1581,15 @@ function SMCPage() {
               <div className="grid gap-2 text-[13px]">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Resistance:</span>
-                  <span className="font-mono text-red-400">{data.structure.lastSwingHigh.toFixed(5)}</span>
+                  <span className="font-mono text-red-400">{fmt(data.structure.lastSwingHigh)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Support:</span>
-                  <span className="font-mono text-emerald-400">{data.structure.lastSwingLow.toFixed(5)}</span>
+                  <span className="font-mono text-emerald-400">{fmt(data.structure.lastSwingLow)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Last Price:</span>
-                  <span className="font-mono text-foreground">{data.lastPrice.toFixed(5)}</span>
+                  <span className="font-mono text-foreground">{fmt(data.lastPrice)}</span>
                 </div>
               </div>
             </Card>
@@ -1570,9 +1614,9 @@ function SMCPage() {
                         <td className="px-2 py-1.5">
                           <Badge tone={ob.kind === "bullish" ? "green" : "red"}>{ob.kind}</Badge>
                         </td>
-                        <td className="px-2 py-1.5 font-mono">{ob.low.toFixed(5)}</td>
-                        <td className="px-2 py-1.5 font-mono">{ob.high.toFixed(5)}</td>
-                        <td className="px-2 py-1.5 font-mono text-amber-400">{ob.impulseMag.toFixed(1)}× ATR</td>
+                        <td className="px-2 py-1.5 font-mono">{fmt(ob.low)}</td>
+                        <td className="px-2 py-1.5 font-mono">{fmt(ob.high)}</td>
+                        <td className="px-2 py-1.5 font-mono text-amber-400">{fmt(ob.impulseMag, 1)}× ATR</td>
                       </tr>
                     ))}
                   </tbody>
