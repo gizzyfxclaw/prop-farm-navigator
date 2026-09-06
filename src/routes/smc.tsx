@@ -166,8 +166,118 @@ const ANALYSIS_PHASES: Array<{ label: string; detail: string; icon: React.Elemen
 ];
 const TOTAL_SECONDS = ANALYSIS_PHASES.reduce((s, p) => s + p.duration, 0);
 
+function ChatWithHermes({ reviewId }: { reviewId: string }) {
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string; timestamp?: string }>>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!chatOpen) return;
+    setChatMessages([]);
+    fetch(`/api/hermes/smc-chat?review_id=${reviewId}`)
+      .then(r => r.json())
+      .then(d => setChatMessages(d.chat_messages || []))
+      .catch(() => setChatMessages([]));
+  }, [chatOpen, reviewId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const sendChat = async () => {
+    const msg = chatInput.trim();
+    if (!msg || chatLoading) return;
+    setChatInput("");
+    setChatLoading(true);
+    const userMsg = { role: "user", content: msg, timestamp: new Date().toISOString() };
+    setChatMessages(prev => [...prev, userMsg]);
+    try {
+      const res = await fetch("/api/hermes/smc-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ review_id: reviewId, message: msg }),
+      });
+      const data = await res.json();
+      if (data.reply) {
+        const assistantMsg = { role: "assistant", content: data.reply, timestamp: new Date().toISOString() };
+        setChatMessages(prev => [...prev, assistantMsg]);
+      }
+    } catch {
+      const errMsg = { role: "assistant", content: "Connection error. Please try again.", timestamp: new Date().toISOString() };
+      setChatMessages(prev => [...prev, errMsg]);
+    }
+    setChatLoading(false);
+  };
+
+  if (!chatOpen) {
+    return (
+      <button
+        onClick={() => setChatOpen(true)}
+        className="flex items-center gap-2 text-[12px] text-purple-400 hover:text-purple-300 transition-colors"
+      >
+        <MessageSquare size={12} />
+        Chat with Hermes about this analysis
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] text-purple-400 font-semibold">Hermes Chat</span>
+        <button onClick={() => setChatOpen(false)} className="text-[11px] text-muted-foreground hover:text-foreground">
+          ✕ Close
+        </button>
+      </div>
+      <div className="max-h-[200px] overflow-y-auto space-y-2 mb-2 pr-1">
+        {chatMessages.length === 0 && (
+          <p className="text-[11px] text-muted-foreground italic">Ask Hermes about this analysis...</p>
+        )}
+        {chatMessages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-lg px-3 py-1.5 text-[12px] leading-relaxed ${
+              m.role === "user"
+                ? "bg-purple-500/20 text-purple-100"
+                : "bg-white/5 text-foreground"
+            }`}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {chatLoading && (
+          <div className="flex justify-start">
+            <div className="bg-white/5 rounded-lg px-3 py-1.5 text-[12px] text-muted-foreground">
+              <span className="inline-block animate-pulse">Hermes is typing...</span>
+            </div>
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={chatInput}
+          onChange={e => setChatInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") sendChat(); }}
+          placeholder="Ask about this analysis..."
+          className="flex-1 rounded-md border border-white/10 bg-background px-3 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-purple-500/50"
+        />
+        <button
+          onClick={sendChat}
+          disabled={chatLoading || !chatInput.trim()}
+          className="rounded-md bg-purple-500/20 px-3 py-1.5 text-[12px] text-purple-300 hover:bg-purple-500/30 disabled:opacity-40 transition-colors"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; reviewId: string }) {
-  const [elapsed, setElapsed] = React.useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [phaseIdx, setPhaseIdx] = React.useState(0);
   const [dots, setDots] = React.useState(".");
 
@@ -1336,6 +1446,18 @@ function fmt(val: unknown, decimals = 5): string {
                             alt="User chart"
                             className="max-w-full rounded-md border border-white/10 shadow"
                           />
+                        </div>
+                      )}
+
+                      {/* Chat with Hermes about this analysis */}
+                      {r.status === "fulfilled" && r.feedback && (
+                        <div>
+                          <p className="text-[12px] text-muted-foreground mb-1 flex items-center gap-1">
+                            <MessageSquare size={11} /> Discuss with Hermes
+                          </p>
+                          <div className="rounded-md border border-purple-500/20 bg-purple-500/5 p-3">
+                            <ChatWithHermes reviewId={r.id} />
+                          </div>
                         </div>
                       )}
 
