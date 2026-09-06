@@ -2,11 +2,17 @@
 
 ## Hermes Trading Agent setup
 
+## Operations & Troubleshooting
+
 Setting up the Hermes integration on a new VPS (or debugging why Hermes
 can't see the knowledge base / strategy rules)? See
 [`hermes-webui/hermes/SETUP.md`](hermes-webui/hermes/SETUP.md) — it covers
 the full path from a bare VPS to a working Hermes agent, what's automatic
 vs. a one-time manual step, and how to verify it's actually wired up.
+
+Looking for the full operations guide? See
+[`docs/operations.md`](docs/operations.md) — key creation, common fixes,
+file locations, API endpoints, and monitoring commands.
 
 ## VPS Recovery
 
