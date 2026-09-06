@@ -354,6 +354,9 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
         @keyframes hz-ring  { 75%, 100% { transform: scale(1.9); opacity: 0; } }
         @keyframes hz-spin  { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
         @keyframes hz-blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
+        @keyframes hza-rotate { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes hza-pulse { 0%, 100% { transform: scale(1); opacity: 1 } 50% { transform: scale(1.15); opacity: 0.7 } }
+        @keyframes hza-progress { 0% { left: -50% } 100% { left: 100% } }
       `}</style>
     </div>
   );
@@ -756,28 +759,176 @@ function SMCPage() {
             <WinRateBadge />
           </div>
         </div>
-        {/* Polling indicator */}
+        {/* Hermes AI Analysis Loader — Professional Trading Terminal Style */}
         {pollingId && (
-          <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-            </span>
-            <span className="text-[12px] text-primary font-medium">
-              {hermesStatus?.currentStep ? (
-                <span>
-                  {hermesStatus.currentStep}
-                  {hermesStatus.stepDetail && ` — ${hermesStatus.stepDetail}`}
+          <div style={{
+            borderRadius: 12,
+            border: "1px solid oklch(0.45 0.20 280 / 0.3)",
+            background: "linear-gradient(135deg, oklch(0.10 0.04 280 / 0.95) 0%, oklch(0.08 0.03 260 / 0.95) 100%)",
+            overflow: "hidden",
+          }}>
+            {/* Top bar */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "8px 14px",
+              borderBottom: "1px solid oklch(0.35 0.10 280 / 0.2)",
+              background: "oklch(0.15 0.05 280 / 0.5)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {/* Animated AI orb */}
+                <div style={{ position: "relative", width: 20, height: 20 }}>
+                  {/* Outer rotating ring */}
+                  <div style={{
+                    position: "absolute", inset: 0,
+                    border: "2px solid transparent",
+                    borderTopColor: "oklch(0.70 0.25 280)",
+                    borderRightColor: "oklch(0.65 0.22 320)",
+                    borderRadius: "50%",
+                    animation: "hza-rotate 1.5s linear infinite",
+                  }} />
+                  {/* Inner pulsing core */}
+                  <div style={{
+                    position: "absolute", inset: 4,
+                    borderRadius: "50%",
+                    background: "radial-gradient(circle, oklch(0.80 0.20 280) 0%, oklch(0.50 0.30 320) 100%)",
+                    animation: "hza-pulse 1.5s ease-in-out infinite",
+                    boxShadow: "0 0 8px oklch(0.60 0.25 280 / 0.6)",
+                  }} />
+                </div>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                  background: "linear-gradient(90deg, oklch(0.75 0.18 280), oklch(0.65 0.22 320))",
+                  WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                }}>
+                  HERMES AI
+                </span>
+                <span style={{
+                  fontSize: 9, padding: "2px 6px", borderRadius: 4,
+                  background: "oklch(0.50 0.20 280 / 0.15)",
+                  border: "1px solid oklch(0.50 0.20 280 / 0.25)",
+                  color: "oklch(0.70 0.15 280)", fontWeight: 600, letterSpacing: 0.3,
+                }}>
+                  ANALYZING
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: "oklch(0.60 0.25 145)",
+                  boxShadow: "0 0 6px oklch(0.60 0.25 145 / 0.5)",
+                  animation: "hza-pulse 1s ease-in-out infinite",
+                }} />
+                <span style={{ fontSize: 9, color: "oklch(0.60 0.10 280)", fontWeight: 600 }}>
+                  LIVE
+                </span>
+              </div>
+            </div>
+
+            {/* Main loader body */}
+            <div style={{ padding: "12px 14px" }}>
+              {/* Step progress visualization */}
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
+                {["TV", "AI", "POST", "DONE"].map((step, i) => {
+                  const currentStepIdx = hermesStatus?.currentStep === "Opening TradingView" ? 0
+                    : hermesStatus?.currentStep === "Running AI analysis" ? 1
+                    : hermesStatus?.currentStep === "Posting results" ? 2
+                    : hermesStatus?.currentStep === "Uploading screenshots" ? 3
+                    : -1;
+                  const isComplete = i < currentStepIdx;
+                  const isCurrent = i === currentStepIdx;
+                  return (
+                    <div key={step} style={{ display: "flex", alignItems: "center", gap: 4, flex: i < 3 ? "none" : 1 }}>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: 6,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 9, fontWeight: 700,
+                        background: isComplete ? "oklch(0.55 0.20 145 / 0.2)" : isCurrent ? "oklch(0.50 0.25 280 / 0.2)" : "oklch(0.20 0.05 280 / 0.1)",
+                        border: `1px solid ${isComplete ? "oklch(0.55 0.20 145 / 0.4)" : isCurrent ? "oklch(0.50 0.25 280 / 0.4)" : "oklch(0.25 0.05 280 / 0.2)"}`,
+                        color: isComplete ? "oklch(0.65 0.20 145)" : isCurrent ? "oklch(0.75 0.20 280)" : "oklch(0.45 0.08 280)",
+                        boxShadow: isCurrent ? "0 0 8px oklch(0.50 0.25 280 / 0.3)" : "none",
+                      }}>
+                        {isComplete ? "✓" : step}
+                      </div>
+                      {i < 3 && (
+                        <div style={{
+                          flex: 1, height: 2,
+                          background: isComplete ? "oklch(0.55 0.20 145 / 0.3)" : "oklch(0.20 0.05 280 / 0.15)",
+                          borderRadius: 1,
+                          position: "relative", overflow: "hidden",
+                        }}>
+                          {isCurrent && (
+                            <div style={{
+                              position: "absolute", inset: 0,
+                              background: "linear-gradient(90deg, oklch(0.50 0.25 280), oklch(0.65 0.22 320))",
+                              animation: "hza-progress 2s ease-in-out infinite",
+                              width: "50%",
+                            }} />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Current step detail */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "8px 10px", borderRadius: 6,
+                background: "oklch(0.15 0.05 280 / 0.3)",
+                border: "1px solid oklch(0.30 0.08 280 / 0.15)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{
+                    width: 4, height: 4, borderRadius: "50%",
+                    background: "oklch(0.70 0.25 280)",
+                    animation: "hza-pulse 1s ease-in-out infinite",
+                  }} />
+                  <span style={{ fontSize: 11, color: "oklch(0.80 0.10 280)", fontWeight: 500 }}>
+                    {hermesStatus?.currentStep || "Initializing..."}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {hermesStatus?.stepDetail && (
+                    <span style={{ fontSize: 10, color: "oklch(0.55 0.08 280)" }}>
+                      {hermesStatus.stepDetail}
+                    </span>
+                  )}
                   {stepElapsed > 0 && (
-                    <span style={{ fontFamily: "monospace", marginLeft: 4, opacity: 0.7 }}>
+                    <span style={{
+                      fontSize: 10, fontFamily: "monospace", fontWeight: 700,
+                      color: "oklch(0.70 0.18 280)",
+                      padding: "2px 6px", borderRadius: 3,
+                      background: "oklch(0.30 0.10 280 / 0.15)",
+                      border: "1px solid oklch(0.40 0.15 280 / 0.2)",
+                    }}>
                       {stepElapsed}s
                     </span>
                   )}
-                </span>
-              ) : (
-                "Hermes analyzing..."
+                </div>
+              </div>
+
+              {/* ETA bar */}
+              {hermesStatus?.stepEta && (
+                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 9, color: "oklch(0.45 0.08 280)", fontWeight: 600 }}>ETA</span>
+                  <div style={{
+                    flex: 1, height: 3, borderRadius: 2,
+                    background: "oklch(0.20 0.05 280 / 0.15)",
+                    overflow: "hidden",
+                  }}>
+                    <div style={{
+                      height: "100%",
+                      width: `${Math.min(100, (stepElapsed / parseInt(hermesStatus.stepEta)) * 100)}%`,
+                      background: "linear-gradient(90deg, oklch(0.50 0.25 280), oklch(0.65 0.22 320))",
+                      borderRadius: 2,
+                      transition: "width 0.3s ease",
+                    }} />
+                  </div>
+                  <span style={{ fontSize: 9, color: "oklch(0.45 0.08 280)", fontWeight: 600 }}>{hermesStatus.stepEta}</span>
+                </div>
               )}
-            </span>
+            </div>
           </div>
         )}
       </div>
@@ -1228,8 +1379,8 @@ function SMCPage() {
               </div>
               <div className="grid grid-cols-5 gap-2">
                 {["1d", "4h", "1h", "15m", "5m"].map((tf) => {
-                  const b = data.timeframeAlignment!.biasByTf[tf];
-                  const isConflict = data.timeframeAlignment!.conflictingTfs.includes(tf);
+                  const b = data.timeframeAlignment?.biasByTf?.[tf];
+                  const isConflict = data.timeframeAlignment?.conflictingTfs?.includes(tf) ?? false;
                   return (
                     <div
                       key={tf}
