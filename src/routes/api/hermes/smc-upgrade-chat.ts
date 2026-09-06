@@ -118,14 +118,20 @@ async function callHermesForUpgradeChat(
       };
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
     const response = await fetch(NOUS_API, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) throw new Error(`LLM API error: ${response.status}`);
 

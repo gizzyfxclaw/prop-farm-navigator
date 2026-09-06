@@ -43,6 +43,8 @@ export interface CFEnv {
   FINNHUB_WEBHOOK_SECRET?: string;
   /** Nous Research API key for Hermes LLM calls */
   NOUS_API_KEY?: string;
+  /** OpenRouter API key for LLM calls (free tier, no credit card) */
+  OPENROUTER_API_KEY?: string;
   /** Bot token for Telegram alerts */
   TELEGRAM_BOT_TOKEN?: string;
   /** Chat ID for Telegram alerts */

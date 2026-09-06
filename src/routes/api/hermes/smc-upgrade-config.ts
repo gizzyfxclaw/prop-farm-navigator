@@ -105,19 +105,25 @@ Return ONLY a JSON object with the suggested config. Use this exact format:
     const env = getCFEnv();
     const apiKey = env?.NOUS_API_KEY || "";
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
     const response = await fetch(NOUS_API, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) throw new Error(`LLM API error: ${response.status}`);
 
     const data = await response.json() as any;
-    const content = data.choices?.[0]?.content || data.choices?.[0]?.message?.content || "";
+    const content = data.choices?.[0]?.message?.content || data.choices?.[0]?.content || "";
 
     // Parse JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);

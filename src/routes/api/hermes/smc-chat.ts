@@ -136,7 +136,7 @@ async function callHermesLLM(systemPrompt: string, messages: Array<{ role: strin
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     const response = await fetch(NOUS_API, {
       method: "POST",
