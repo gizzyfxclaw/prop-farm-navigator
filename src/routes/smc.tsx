@@ -160,7 +160,7 @@ const PAIRS = ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "XAUUSD"];
 const TIMEFRAMES = ["5m", "15m", "1h", "4h", "1d"] as const;
 type TF = (typeof TIMEFRAMES)[number];
 
-/* ── Hermes Analysis Progress Animation ─────────────────────────── */
+/* ── GizzyFx Co-Pilot Analysis Progress Animation ──────────────── */
 const ANALYSIS_PHASES: Array<{ label: string; detail: string; icon: React.ElementType; duration: number }> = [
   { label: "Browser Launch",         detail: "Starting headless Chromium",             icon: Cpu,           duration: 4  },
   { label: "Loading TradingView",    detail: "Opening live chart on TradingView.com",  icon: Globe,         duration: 12 },
@@ -176,7 +176,7 @@ const ANALYSIS_PHASES: Array<{ label: string; detail: string; icon: React.Elemen
 ];
 const TOTAL_SECONDS = ANALYSIS_PHASES.reduce((s, p) => s + p.duration, 0);
 
-function ChatWithHermes({ reviewId }: { reviewId: string }) {
+function ChatWithGizzyFxCoPilot({ reviewId }: { reviewId: string }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string; timestamp?: string }>>([]);
   const [chatInput, setChatInput] = useState("");
@@ -228,7 +228,7 @@ function ChatWithHermes({ reviewId }: { reviewId: string }) {
         className="flex items-center gap-2 text-[12px] text-purple-400 hover:text-purple-300 transition-colors"
       >
         <MessageSquare size={12} />
-        Chat with Hermes about this analysis
+        Chat with GizzyFx Co-Pilot about this analysis
       </button>
     );
   }
@@ -236,7 +236,7 @@ function ChatWithHermes({ reviewId }: { reviewId: string }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] text-purple-400 font-semibold">Hermes Chat</span>
+        <span className="text-[11px] text-purple-400 font-semibold">GizzyFx Co-Pilot Chat</span>
         <button onClick={() => setChatOpen(false)} className="text-[11px] text-muted-foreground hover:text-foreground">
           ✕ Close
         </button>
@@ -286,7 +286,7 @@ function ChatWithHermes({ reviewId }: { reviewId: string }) {
   );
 }
 
-function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; reviewId: string }) {
+function GizzyFxCoPilotAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; reviewId: string }) {
   const [elapsed, setElapsed] = useState(0);
   const [hermesStatus, setHermesStatus] = useState<{
     isProcessing: boolean; currentStep: string; stepDetail: string; stepUpdatedAt?: string;
@@ -385,7 +385,7 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
           <CheckCircle2 size={32} color="oklch(0.65 0.18 145)" />
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: "oklch(0.92 0.04 145)" }}>
-              Hermes Analysis Complete
+              GizzyFx Co-Pilot Analysis Complete
             </div>
             <div style={{ fontSize: 11, color: "oklch(0.60 0.10 145)" }}>
               {elapsed}s elapsed — click the review below to see results
@@ -430,7 +430,7 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: "oklch(0.92 0.04 280)", marginBottom: 2 }}>
-            Hermes Analyzing...
+            GizzyFx Co-Pilot Analyzing...
           </div>
           <div style={{ fontSize: 11, color: "oklch(0.60 0.10 280)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {stepDetail || currentPhase.detail}
@@ -517,7 +517,7 @@ function HermesAnalyzingCard({ submittedAt, reviewId }: { submittedAt: number; r
         }}>
           <div style={{ fontSize: 11, color: "oklch(0.75 0.15 50)", display: "flex", alignItems: "center", gap: 6 }}>
             <AlertTriangle size={11} />
-            Taking longer than expected. Hermes is still processing in the background. The cron job runs every 5 minutes and will complete automatically.
+            Taking longer than expected. GizzyFx Co-Pilot is still processing in the background. The cron job runs every 5 minutes and will complete automatically.
           </div>
         </div>
       )}
@@ -1384,7 +1384,7 @@ function fmt(val: unknown, decimals = 5): string {
       {pendingReviews.length > 0 && (
         <div className="space-y-3">
           {pendingReviews.map((r) => (
-            <HermesAnalyzingCard
+            <GizzyFxCoPilotAnalyzingCard
               key={r.id}
               submittedAt={new Date(r.created_at).getTime()}
               reviewId={r.id}
@@ -1564,7 +1564,7 @@ function fmt(val: unknown, decimals = 5): string {
                             <MessageSquare size={11} /> Discuss with Hermes
                           </p>
                           <div className="rounded-md border border-purple-500/20 bg-purple-500/5 p-3">
-                            <ChatWithHermes reviewId={r.id} />
+                            <ChatWithGizzyFxCoPilot reviewId={r.id} />
                           </div>
                         </div>
                       )}
