@@ -41,6 +41,8 @@ export interface CFEnv {
   FINNHUB_API_KEY?: string;
   /** Webhook secret for Finnhub push notifications */
   FINNHUB_WEBHOOK_SECRET?: string;
+  /** Nous Research API key for Hermes LLM calls */
+  NOUS_API_KEY?: string;
   /** Bot token for Telegram alerts */
   TELEGRAM_BOT_TOKEN?: string;
   /** Chat ID for Telegram alerts */

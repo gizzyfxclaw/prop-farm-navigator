@@ -101,9 +101,16 @@ Return ONLY a JSON object with the suggested config. Use this exact format:
   };
 
   try {
+    // Read API key from Cloudflare env (set via wrangler secret put NOUS_API_KEY)
+    const env = getCFEnv();
+    const apiKey = env?.NOUS_API_KEY || "";
+
     const response = await fetch(NOUS_API, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
+      },
       body: JSON.stringify(payload),
     });
 

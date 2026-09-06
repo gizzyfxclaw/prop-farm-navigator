@@ -12,6 +12,7 @@ import { getCFEnv } from "@/lib/cloudflare-env";
  * 4. Hermes analyzes using strategy knowledge + image + SMC data
  * 5. Hermes POSTs feedback back to the table
  * 6. Browser polls GET to display feedback
+ * 7. User can chat with Hermes about the analysis (POST /api/hermes/smc-chat)
  */
 
 const submitInput = z.object({
@@ -35,6 +36,11 @@ const feedbackInput = z.object({
   accuracy_grade: z.enum(["HIGH", "STANDARD", "NONE"]).nullish(),
   chart_screenshots: z.array(z.string()).nullish(),
   analysis_steps: z.array(z.record(z.any())).nullish(),
+});
+
+const chatInput = z.object({
+  review_id: z.string(),
+  message: z.string().min(1).max(4000),
 });
 
 export const Route = createFileRoute("/api/hermes/analyze-with-hermes")({
@@ -159,3 +165,163 @@ export const Route = createFileRoute("/api/hermes/analyze-with-hermes")({
     },
   },
 });
+
+/**
+ * Chat with Hermes about a specific analysis review.
+ * Each review has its own chat thread stored in the `chat_messages` column.
+ * The Worker calls the Nous LLM directly with full review context.
+ */
+export const RouteChat = createFileRoute("/api/hermes/smc-chat")({
+  server: {
+    handlers: {
+      // Send a message to Hermes and get a reply
+      POST: async ({ request }) => {
+        const env = getCFEnv();
+        if (!env) return new Response("Service unavailable", { status: 503 });
+
+        const body = chatInput.parse(await request.json());
+        const { review_id, message } = body;
+
+        // Fetch the review
+        const { results } = await env.DB.prepare(
+          "SELECT * FROM hermes_smc_reviews WHERE id = ?"
+        ).bind(review_id).all();
+
+        if (!results.length) {
+          return Response.json({ error: "review not found" }, { status: 404 });
+        }
+        const review = results[0];
+
+        // Parse existing chat messages
+        let chatMessages: Array<{ role: string; content: string; timestamp?: string }> = [];
+        try {
+          chatMessages = JSON.parse(review.chat_messages as string || "[]");
+        } catch {
+          chatMessages = [];
+        }
+
+        // Add user message
+        const userMsg = { role: "user", content: message, timestamp: new Date().toISOString() };
+        chatMessages.push(userMsg);
+
+        // Build system prompt with full review context
+        const systemPrompt = buildSystemPrompt(review);
+
+        // Call Nous LLM
+        const assistantReply = await callHermesLLM(systemPrompt, chatMessages);
+
+        // Add assistant reply
+        const assistantMsg = { role: "assistant", content: assistantReply, timestamp: new Date().toISOString() };
+        chatMessages.push(assistantMsg);
+
+        // Store updated chat messages
+        await env.DB.prepare(
+          "UPDATE hermes_smc_reviews SET chat_messages = ? WHERE id = ?"
+        ).bind(JSON.stringify(chatMessages), review_id).run();
+
+        return Response.json({ reply: assistantReply, chat_messages: chatMessages });
+      },
+
+      // Get chat history for a review
+      GET: async ({ request }) => {
+        const env = getCFEnv();
+        if (!env) return Response.json({ chat_messages: [] });
+
+        const url = new URL(request.url);
+        const reviewId = url.searchParams.get("review_id");
+        if (!reviewId) return Response.json({ error: "review_id required" }, { status: 400 });
+
+        const { results } = await env.DB.prepare(
+          "SELECT chat_messages FROM hermes_smc_reviews WHERE id = ?"
+        ).bind(reviewId).all();
+
+        if (!results.length) return Response.json({ chat_messages: [] });
+
+        let chatMessages: Array<{ role: string; content: string; timestamp?: string }> = [];
+        try {
+          chatMessages = JSON.parse(results[0].chat_messages as string || "[]");
+        } catch {
+          chatMessages = [];
+        }
+
+        return Response.json({ chat_messages: chatMessages });
+      },
+    },
+  },
+});
+
+function buildSystemPrompt(review: any): string {
+  const pair = review.pair;
+  const tf = review.timeframe;
+  const feedback = review.feedback || "No analysis available yet.";
+  const strategyNotes = review.strategy_notes || "";
+  const verdict = review.verdict || "neutral";
+  const grade = review.accuracy_grade || "NONE";
+  const entry = review.entry ?? "N/A";
+  const sl = review.stop_loss ?? "N/A";
+  const tp1 = review.take_profit_1 ?? "N/A";
+  const tp2 = review.take_profit_2 ?? "N/A";
+  const direction = review.direction || "neutral";
+  const userNotes = review.user_notes || "No user notes.";
+
+  return `You are Hermes, the GizzyFx Trading Agent. You have just completed an analysis for ${pair} ${tf}. Here is the analysis context:
+
+## Your Analysis
+**Verdict:** ${verdict}
+**Grade:** ${grade}
+**Direction:** ${direction}
+**Entry:** ${entry}
+**Stop Loss:** ${sl}
+**Take Profit 1:** ${tp1}
+**Take Profit 2:** ${tp2}
+
+**Feedback:** ${feedback}
+
+**Strategy Notes:** ${strategyNotes}
+
+## User's Original Notes
+${userNotes}
+
+## Your Role
+The user will ask follow-up questions about this specific analysis. Respond concisely and precisely. Reference the analysis levels (entry, SL, TP) when relevant. If the user questions your reasoning, explain or defend it using the GizzyFx Parallel Channel Breakout Strategy rules. Keep responses under 200 words. Use plain text (no markdown).`;
+}
+
+async function callHermesLLM(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<string> {
+  const NOUS_API = "https://inference-api.nousresearch.com/v1/chat/completions";
+  const MODEL = "meituan/longcat-2.0:free";
+
+  // Read API key from Cloudflare env (set via wrangler secret put NOUS_API_KEY)
+  const env = getCFEnv();
+  const apiKey = env?.NOUS_API_KEY || "";
+
+  const payload = {
+    model: MODEL,
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+    ],
+    max_tokens: 500,
+    temperature: 0.7,
+  };
+
+  try {
+    const response = await fetch(NOUS_API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`LLM API error: ${response.status}`);
+    }
+
+    const data = await response.json() as any;
+    return data.choices?.[0]?.content || data.choices?.[0]?.message?.content || "I apologize, I'm having trouble processing your request right now.";
+  } catch (err) {
+    console.error("LLM call failed:", err);
+    return "I apologize, the analysis service is temporarily unavailable. Please try again shortly.";
+  }
+}

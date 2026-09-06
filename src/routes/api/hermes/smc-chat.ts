@@ -116,6 +116,10 @@ async function callHermesLLM(systemPrompt: string, messages: Array<{ role: strin
   const NOUS_API = "https://inference-api.nousresearch.com/v1/chat/completions";
   const MODEL = "meituan/longcat-2.0:free";
 
+  // Read API key from Cloudflare env (set via wrangler secret put NOUS_API_KEY)
+  const env = getCFEnv();
+  const apiKey = env?.NOUS_API_KEY || "";
+
   const payload = {
     model: MODEL,
     messages: [
@@ -129,7 +133,10 @@ async function callHermesLLM(systemPrompt: string, messages: Array<{ role: strin
   try {
     const response = await fetch(NOUS_API, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
+      },
       body: JSON.stringify(payload),
     });
 
