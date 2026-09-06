@@ -1747,7 +1747,10 @@ function fmt(val: unknown, decimals = 5): string {
             </Card>
           )}
 
-          {/* Pine Script */}
+          {/* SMC Strategy Configuration */}
+      <SmcStrategyConfig />
+
+      {/* Pine Script */}
           <Card title="Export to TradingView (Pine Script)">
             <p className="text-[12px] text-muted-foreground mb-3">
               Generates the exact channel, order blocks, retests and entry/SL/TP shown in
