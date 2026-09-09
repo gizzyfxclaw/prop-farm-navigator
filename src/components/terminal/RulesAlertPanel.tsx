@@ -25,7 +25,7 @@ interface LiveRuleState {
   rule: Rule;
   status: "ok" | "warning" | "critical" | "info";
   message: string;
-  countdown?: string | undefined; // live countdown if applicable
+  countdown?: string | undefined;
 }
 
 interface NewsEvent {
@@ -89,6 +89,7 @@ const RULES: Rule[] = [
     category: "execution",
     text: "Check Live MT5 tab before trading",
     detail: "Confirms MetaApi/VPS online. Must show live balance.",
+    critical: true,
   },
   {
     id: "signs",
@@ -102,6 +103,27 @@ const RULES: Rule[] = [
     category: "journal",
     text: "Clear bad Journal data immediately",
     detail: "If Exness P&L is positive for a Prop Win, click 'Clear all' and start fresh.",
+  },
+  {
+    id: "daily-cap-lock",
+    category: "compliance",
+    text: "Daily Cap Lock — Already Won Today",
+    detail: "You won a trade today. Do not trade again until tomorrow to avoid exceeding the daily profit cap.",
+    critical: true,
+  },
+  {
+    id: "margin-call",
+    category: "risk",
+    text: "Exness Buffer Depleted — Deposit Required",
+    detail: "Exness balance is too low to safely execute the next trade. Deposit to unlock execution.",
+    critical: true,
+  },
+  {
+    id: "critical-legs",
+    category: "risk",
+    text: "Critical Legs — Near Blowout",
+    detail: "Prop account has 2 or fewer legs left. Exness target is at maximum capacity. Trade with extreme caution.",
+    critical: true,
   },
 ];
 
@@ -135,8 +157,9 @@ function formatCountdown(totalSeconds: number): string {
 
 export function RulesAlertPanel() {
   const r = useEngine();
-  const { engine, journal } = useStore();
+  const { engine, journal, accounts } = useStore();
   const recovery = computeRecovery(r, journal);
+  const selectedAccount = accounts.find((a) => a.id === engine.selectedAccountId);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState(true);
   const [tick, setTick] = useState(0);
@@ -253,6 +276,17 @@ export function RulesAlertPanel() {
     // Bad trade data
     const badTrade = journal.find((t) => t.result === "WIN" && t.exPnl > 0);
 
+    // Daily cap lock — check if won today
+    const today = new Date().toISOString().slice(0, 10);
+    const wonToday = journal.some((t) => t.date === today && t.result === "WIN");
+    const dailyCapLocked = wonToday && selectedAccount?.dailyProfitCap != null;
+
+    // Margin call lock
+    const marginCallLocked = recovery.bufferDepleted;
+
+    // Critical legs warning
+    const criticalLegs = recovery.adjustedRemainingLosses <= 2 && recovery.adjustedRemainingLosses > 0;
+
     const result: LiveRuleState[] = [
       // 1. Daily Profit Cap
       {
@@ -261,6 +295,15 @@ export function RulesAlertPanel() {
         message: r.riskCapped
           ? `Risk capped → $${r.cappedPropRisk.toFixed(2)} (reward $${(r.cappedPropRisk * r.rr).toFixed(2)})`
           : `Reward $${r.propWinPerTrade.toFixed(2)} — under $100 cap`,
+      },
+
+      // 1b. Daily Cap Lock (already won today)
+      {
+        rule: RULES[10]!,
+        status: dailyCapLocked ? "critical" as const : "ok" as const,
+        message: dailyCapLocked
+          ? `You won a trade today. Do not trade again until tomorrow to avoid exceeding the $${selectedAccount?.dailyProfitCap} daily profit cap.`
+          : "No win today — daily cap available",
       },
 
       // 2. Session — expanded windows with green/yellow/red
@@ -339,17 +382,17 @@ export function RulesAlertPanel() {
           : `WARNING: SL ${r.propSlPips} not in rotation! Use ${slOptions.join(", ")}`,
       },
 
-      // 7. Exness FIRST
+      // 7. Exness FIRST — reads from Daily Briefing checklist
       {
         rule: RULES[6]!,
-        status: "info",
+        status: localStorage.getItem("gizzyfx.checklist.exnessFirst") === "true" ? "ok" : "info",
         message: "Manual check — always Exness first, wait for green, then Prop",
       },
 
-      // 8. MT5 check
+      // 8. MT5 check — reads from Daily Briefing checklist
       {
         rule: RULES[7]!,
-        status: "info",
+        status: localStorage.getItem("gizzyfx.checklist.mt5Check") === "true" ? "ok" : "info",
         message: "Check Live MT5 tab shows balance before trading",
       },
 
@@ -362,13 +405,22 @@ export function RulesAlertPanel() {
           : "P&L signs correct in all journal entries",
       },
 
-      // 10. Bad data
+      // 10. Margin call lock
       {
-        rule: RULES[9]!,
-        status: badTrade ? "critical" : "ok",
-        message: badTrade
-          ? "Bad trade data detected! Click 'Clear all' in Journal."
-          : "No bad data detected",
+        rule: RULES[11]!,
+        status: marginCallLocked ? "critical" as const : "ok" as const,
+        message: marginCallLocked
+          ? `Exness buffer too low — deposit $${recovery.depositNeeded.toFixed(2)} to unlock execution`
+          : "Exness buffer sufficient",
+      },
+
+      // 11. Critical legs warning
+      {
+        rule: RULES[12]!,
+        status: criticalLegs ? "critical" as const : "ok" as const,
+        message: criticalLegs
+          ? `Prop account near blowout — ${recovery.adjustedRemainingLosses} legs left. Exness target at maximum capacity.`
+          : `${recovery.adjustedRemainingLosses} legs remaining — safe`,
       },
     ];
     return result;

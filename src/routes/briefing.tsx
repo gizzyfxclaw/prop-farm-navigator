@@ -124,6 +124,20 @@ function DailyBriefingPage() {
       item.label === label ? { ...item, checked: !item.checked } : item
     );
     saveCurrentItems(next);
+
+    // Bridge to RulesAlertPanel: save checked state for execution rules
+    const exnessFirstItem = next.find((i) =>
+      i.label.startsWith("Exness FIRST → Prop SECOND")
+    );
+    if (exnessFirstItem) {
+      localStorage.setItem("gizzyfx.checklist.exnessFirst", String(exnessFirstItem.checked));
+    }
+    const mt5CheckItem = next.find((i) =>
+      i.label.startsWith("Check Live MT5 tab before trading")
+    );
+    if (mt5CheckItem) {
+      localStorage.setItem("gizzyfx.checklist.mt5Check", String(mt5CheckItem.checked));
+    }
   };
 
   // Add new item
