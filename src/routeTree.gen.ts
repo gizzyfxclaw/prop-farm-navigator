@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as BacktestRouteImport } from './routes/backtest'
+import { Route as BriefingRouteImport } from './routes/briefing'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as ConsoleRouteImport } from './routes/console'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as HermesRouteImport } from './routes/hermes'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as LiveRouteImport } from './routes/live'
@@ -29,6 +31,9 @@ import { Route as ApiOhlcvRouteImport } from './routes/api/ohlcv'
 import { Route as ApiSmcRouteImport } from './routes/api/smc'
 import { Route as ApiSmcAnalyzeRouteImport } from './routes/api/smc-analyze'
 import { Route as ApiSmcMigrateRouteImport } from './routes/api/smc-migrate'
+import { Route as ApiSmcMigrateChatRouteImport } from './routes/api/smc-migrate-chat'
+import { Route as ApiSmcStrategyConfigRouteImport } from './routes/api/smc-strategy-config'
+import { Route as ApiStrategiesRouteImport } from './routes/api/strategies'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
 import { Route as ApiHermesAnalysisRouteImport } from './routes/api/hermes/analysis'
@@ -38,12 +43,18 @@ import { Route as ApiHermesJournalRouteImport } from './routes/api/hermes/journa
 import { Route as ApiHermesKnowledgeRouteImport } from './routes/api/hermes/knowledge'
 import { Route as ApiHermesNotesRouteImport } from './routes/api/hermes/notes'
 import { Route as ApiHermesOutcomesRouteImport } from './routes/api/hermes/outcomes'
+import { Route as ApiHermesPineScriptAnalysisRouteImport } from './routes/api/hermes/pine-script-analysis'
 import { Route as ApiHermesRequestsRouteImport } from './routes/api/hermes/requests'
 import { Route as ApiHermesSetupsRouteImport } from './routes/api/hermes/setups'
+import { Route as ApiHermesSmcChatRouteImport } from './routes/api/hermes/smc-chat'
 import { Route as ApiHermesSmcScreenshotsRouteImport } from './routes/api/hermes/smc-screenshots'
 import { Route as ApiHermesSmcStatusRouteImport } from './routes/api/hermes/smc-status'
+import { Route as ApiHermesSmcUpgradeChatRouteImport } from './routes/api/hermes/smc-upgrade-chat'
+import { Route as ApiHermesSmcUpgradeConfigRouteImport } from './routes/api/hermes/smc-upgrade-config'
+import { Route as ApiHermesStrategyAnalysisRouteImport } from './routes/api/hermes/strategy-analysis'
 import { Route as ApiHermesStrategyRulesRouteImport } from './routes/api/hermes/strategy-rules'
 import { Route as ApiHermesUnderstandingRouteImport } from './routes/api/hermes/understanding'
+import { Route as ApiHermesUserStrategiesRouteImport } from './routes/api/hermes/user-strategies'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -60,6 +71,11 @@ const BacktestRoute = BacktestRouteImport.update({
   path: '/backtest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BriefingRoute = BriefingRouteImport.update({
+  id: '/briefing',
+  path: '/briefing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CalendarRoute = CalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -68,6 +84,11 @@ const CalendarRoute = CalendarRouteImport.update({
 const ConsoleRoute = ConsoleRouteImport.update({
   id: '/console',
   path: '/console',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HermesRoute = HermesRouteImport.update({
@@ -145,6 +166,21 @@ const ApiSmcMigrateRoute = ApiSmcMigrateRouteImport.update({
   path: '/api/smc-migrate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSmcMigrateChatRoute = ApiSmcMigrateChatRouteImport.update({
+  id: '/api/smc-migrate-chat',
+  path: '/api/smc-migrate-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSmcStrategyConfigRoute = ApiSmcStrategyConfigRouteImport.update({
+  id: '/api/smc-strategy-config',
+  path: '/api/smc-strategy-config',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStrategiesRoute = ApiStrategiesRouteImport.update({
+  id: '/api/strategies',
+  path: '/api/strategies',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHermesDebugRoute = ApiHermesDebugRouteImport.update({
   id: '/api/hermes/_debug',
   path: '/api/hermes',
@@ -191,6 +227,12 @@ const ApiHermesOutcomesRoute = ApiHermesOutcomesRouteImport.update({
   path: '/api/hermes/outcomes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesPineScriptAnalysisRoute =
+  ApiHermesPineScriptAnalysisRouteImport.update({
+    id: '/api/hermes/pine-script-analysis',
+    path: '/api/hermes/pine-script-analysis',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiHermesRequestsRoute = ApiHermesRequestsRouteImport.update({
   id: '/api/hermes/requests',
   path: '/api/hermes/requests',
@@ -199,6 +241,11 @@ const ApiHermesRequestsRoute = ApiHermesRequestsRouteImport.update({
 const ApiHermesSetupsRoute = ApiHermesSetupsRouteImport.update({
   id: '/api/hermes/setups',
   path: '/api/hermes/setups',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHermesSmcChatRoute = ApiHermesSmcChatRouteImport.update({
+  id: '/api/hermes/smc-chat',
+  path: '/api/hermes/smc-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHermesSmcScreenshotsRoute = ApiHermesSmcScreenshotsRouteImport.update({
@@ -211,6 +258,23 @@ const ApiHermesSmcStatusRoute = ApiHermesSmcStatusRouteImport.update({
   path: '/api/hermes/smc-status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesSmcUpgradeChatRoute = ApiHermesSmcUpgradeChatRouteImport.update({
+  id: '/api/hermes/smc-upgrade-chat',
+  path: '/api/hermes/smc-upgrade-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHermesSmcUpgradeConfigRoute =
+  ApiHermesSmcUpgradeConfigRouteImport.update({
+    id: '/api/hermes/smc-upgrade-config',
+    path: '/api/hermes/smc-upgrade-config',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiHermesStrategyAnalysisRoute =
+  ApiHermesStrategyAnalysisRouteImport.update({
+    id: '/api/hermes/strategy-analysis',
+    path: '/api/hermes/strategy-analysis',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiHermesStrategyRulesRoute = ApiHermesStrategyRulesRouteImport.update({
   id: '/api/hermes/strategy-rules',
   path: '/api/hermes/strategy-rules',
@@ -221,13 +285,20 @@ const ApiHermesUnderstandingRoute = ApiHermesUnderstandingRouteImport.update({
   path: '/api/hermes/understanding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesUserStrategiesRoute = ApiHermesUserStrategiesRouteImport.update({
+  id: '/api/hermes/user-strategies',
+  path: '/api/hermes/user-strategies',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
   '/backtest': typeof BacktestRoute
+  '/briefing': typeof BriefingRoute
   '/calendar': typeof CalendarRoute
   '/console': typeof ConsoleRoute
+  '/help': typeof HelpRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
@@ -243,6 +314,9 @@ export interface FileRoutesByFullPath {
   '/api/smc': typeof ApiSmcRoute
   '/api/smc-analyze': typeof ApiSmcAnalyzeRoute
   '/api/smc-migrate': typeof ApiSmcMigrateRoute
+  '/api/smc-migrate-chat': typeof ApiSmcMigrateChatRoute
+  '/api/smc-strategy-config': typeof ApiSmcStrategyConfigRoute
+  '/api/strategies': typeof ApiStrategiesRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -252,19 +326,27 @@ export interface FileRoutesByFullPath {
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
   '/api/hermes/outcomes': typeof ApiHermesOutcomesRoute
+  '/api/hermes/pine-script-analysis': typeof ApiHermesPineScriptAnalysisRoute
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
+  '/api/hermes/smc-chat': typeof ApiHermesSmcChatRoute
   '/api/hermes/smc-screenshots': typeof ApiHermesSmcScreenshotsRoute
   '/api/hermes/smc-status': typeof ApiHermesSmcStatusRoute
+  '/api/hermes/smc-upgrade-chat': typeof ApiHermesSmcUpgradeChatRoute
+  '/api/hermes/smc-upgrade-config': typeof ApiHermesSmcUpgradeConfigRoute
+  '/api/hermes/strategy-analysis': typeof ApiHermesStrategyAnalysisRoute
   '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
   '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
+  '/api/hermes/user-strategies': typeof ApiHermesUserStrategiesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
   '/backtest': typeof BacktestRoute
+  '/briefing': typeof BriefingRoute
   '/calendar': typeof CalendarRoute
   '/console': typeof ConsoleRoute
+  '/help': typeof HelpRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
@@ -280,6 +362,9 @@ export interface FileRoutesByTo {
   '/api/smc': typeof ApiSmcRoute
   '/api/smc-analyze': typeof ApiSmcAnalyzeRoute
   '/api/smc-migrate': typeof ApiSmcMigrateRoute
+  '/api/smc-migrate-chat': typeof ApiSmcMigrateChatRoute
+  '/api/smc-strategy-config': typeof ApiSmcStrategyConfigRoute
+  '/api/strategies': typeof ApiStrategiesRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -289,20 +374,28 @@ export interface FileRoutesByTo {
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
   '/api/hermes/outcomes': typeof ApiHermesOutcomesRoute
+  '/api/hermes/pine-script-analysis': typeof ApiHermesPineScriptAnalysisRoute
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
+  '/api/hermes/smc-chat': typeof ApiHermesSmcChatRoute
   '/api/hermes/smc-screenshots': typeof ApiHermesSmcScreenshotsRoute
   '/api/hermes/smc-status': typeof ApiHermesSmcStatusRoute
+  '/api/hermes/smc-upgrade-chat': typeof ApiHermesSmcUpgradeChatRoute
+  '/api/hermes/smc-upgrade-config': typeof ApiHermesSmcUpgradeConfigRoute
+  '/api/hermes/strategy-analysis': typeof ApiHermesStrategyAnalysisRoute
   '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
   '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
+  '/api/hermes/user-strategies': typeof ApiHermesUserStrategiesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
   '/backtest': typeof BacktestRoute
+  '/briefing': typeof BriefingRoute
   '/calendar': typeof CalendarRoute
   '/console': typeof ConsoleRoute
+  '/help': typeof HelpRoute
   '/hermes': typeof HermesRoute
   '/journal': typeof JournalRoute
   '/live': typeof LiveRoute
@@ -318,6 +411,9 @@ export interface FileRoutesById {
   '/api/smc': typeof ApiSmcRoute
   '/api/smc-analyze': typeof ApiSmcAnalyzeRoute
   '/api/smc-migrate': typeof ApiSmcMigrateRoute
+  '/api/smc-migrate-chat': typeof ApiSmcMigrateChatRoute
+  '/api/smc-strategy-config': typeof ApiSmcStrategyConfigRoute
+  '/api/strategies': typeof ApiStrategiesRoute
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -327,12 +423,18 @@ export interface FileRoutesById {
   '/api/hermes/knowledge': typeof ApiHermesKnowledgeRoute
   '/api/hermes/notes': typeof ApiHermesNotesRoute
   '/api/hermes/outcomes': typeof ApiHermesOutcomesRoute
+  '/api/hermes/pine-script-analysis': typeof ApiHermesPineScriptAnalysisRoute
   '/api/hermes/requests': typeof ApiHermesRequestsRoute
   '/api/hermes/setups': typeof ApiHermesSetupsRoute
+  '/api/hermes/smc-chat': typeof ApiHermesSmcChatRoute
   '/api/hermes/smc-screenshots': typeof ApiHermesSmcScreenshotsRoute
   '/api/hermes/smc-status': typeof ApiHermesSmcStatusRoute
+  '/api/hermes/smc-upgrade-chat': typeof ApiHermesSmcUpgradeChatRoute
+  '/api/hermes/smc-upgrade-config': typeof ApiHermesSmcUpgradeConfigRoute
+  '/api/hermes/strategy-analysis': typeof ApiHermesStrategyAnalysisRoute
   '/api/hermes/strategy-rules': typeof ApiHermesStrategyRulesRoute
   '/api/hermes/understanding': typeof ApiHermesUnderstandingRoute
+  '/api/hermes/user-strategies': typeof ApiHermesUserStrategiesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -340,8 +442,10 @@ export interface FileRouteTypes {
     | '/'
     | '/accounts'
     | '/backtest'
+    | '/briefing'
     | '/calendar'
     | '/console'
+    | '/help'
     | '/hermes'
     | '/journal'
     | '/live'
@@ -357,6 +461,9 @@ export interface FileRouteTypes {
     | '/api/smc'
     | '/api/smc-analyze'
     | '/api/smc-migrate'
+    | '/api/smc-migrate-chat'
+    | '/api/smc-strategy-config'
+    | '/api/strategies'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -366,19 +473,27 @@ export interface FileRouteTypes {
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
     | '/api/hermes/outcomes'
+    | '/api/hermes/pine-script-analysis'
     | '/api/hermes/requests'
     | '/api/hermes/setups'
+    | '/api/hermes/smc-chat'
     | '/api/hermes/smc-screenshots'
     | '/api/hermes/smc-status'
+    | '/api/hermes/smc-upgrade-chat'
+    | '/api/hermes/smc-upgrade-config'
+    | '/api/hermes/strategy-analysis'
     | '/api/hermes/strategy-rules'
     | '/api/hermes/understanding'
+    | '/api/hermes/user-strategies'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/accounts'
     | '/backtest'
+    | '/briefing'
     | '/calendar'
     | '/console'
+    | '/help'
     | '/hermes'
     | '/journal'
     | '/live'
@@ -394,6 +509,9 @@ export interface FileRouteTypes {
     | '/api/smc'
     | '/api/smc-analyze'
     | '/api/smc-migrate'
+    | '/api/smc-migrate-chat'
+    | '/api/smc-strategy-config'
+    | '/api/strategies'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -403,19 +521,27 @@ export interface FileRouteTypes {
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
     | '/api/hermes/outcomes'
+    | '/api/hermes/pine-script-analysis'
     | '/api/hermes/requests'
     | '/api/hermes/setups'
+    | '/api/hermes/smc-chat'
     | '/api/hermes/smc-screenshots'
     | '/api/hermes/smc-status'
+    | '/api/hermes/smc-upgrade-chat'
+    | '/api/hermes/smc-upgrade-config'
+    | '/api/hermes/strategy-analysis'
     | '/api/hermes/strategy-rules'
     | '/api/hermes/understanding'
+    | '/api/hermes/user-strategies'
   id:
     | '__root__'
     | '/'
     | '/accounts'
     | '/backtest'
+    | '/briefing'
     | '/calendar'
     | '/console'
+    | '/help'
     | '/hermes'
     | '/journal'
     | '/live'
@@ -431,6 +557,9 @@ export interface FileRouteTypes {
     | '/api/smc'
     | '/api/smc-analyze'
     | '/api/smc-migrate'
+    | '/api/smc-migrate-chat'
+    | '/api/smc-strategy-config'
+    | '/api/strategies'
     | '/api/hermes/_debug'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -440,20 +569,28 @@ export interface FileRouteTypes {
     | '/api/hermes/knowledge'
     | '/api/hermes/notes'
     | '/api/hermes/outcomes'
+    | '/api/hermes/pine-script-analysis'
     | '/api/hermes/requests'
     | '/api/hermes/setups'
+    | '/api/hermes/smc-chat'
     | '/api/hermes/smc-screenshots'
     | '/api/hermes/smc-status'
+    | '/api/hermes/smc-upgrade-chat'
+    | '/api/hermes/smc-upgrade-config'
+    | '/api/hermes/strategy-analysis'
     | '/api/hermes/strategy-rules'
     | '/api/hermes/understanding'
+    | '/api/hermes/user-strategies'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountsRoute: typeof AccountsRoute
   BacktestRoute: typeof BacktestRoute
+  BriefingRoute: typeof BriefingRoute
   CalendarRoute: typeof CalendarRoute
   ConsoleRoute: typeof ConsoleRoute
+  HelpRoute: typeof HelpRoute
   HermesRoute: typeof HermesRoute
   JournalRoute: typeof JournalRoute
   LiveRoute: typeof LiveRoute
@@ -469,6 +606,9 @@ export interface RootRouteChildren {
   ApiSmcRoute: typeof ApiSmcRoute
   ApiSmcAnalyzeRoute: typeof ApiSmcAnalyzeRoute
   ApiSmcMigrateRoute: typeof ApiSmcMigrateRoute
+  ApiSmcMigrateChatRoute: typeof ApiSmcMigrateChatRoute
+  ApiSmcStrategyConfigRoute: typeof ApiSmcStrategyConfigRoute
+  ApiStrategiesRoute: typeof ApiStrategiesRoute
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
   ApiHermesAnalysisRoute: typeof ApiHermesAnalysisRoute
@@ -478,12 +618,18 @@ export interface RootRouteChildren {
   ApiHermesKnowledgeRoute: typeof ApiHermesKnowledgeRoute
   ApiHermesNotesRoute: typeof ApiHermesNotesRoute
   ApiHermesOutcomesRoute: typeof ApiHermesOutcomesRoute
+  ApiHermesPineScriptAnalysisRoute: typeof ApiHermesPineScriptAnalysisRoute
   ApiHermesRequestsRoute: typeof ApiHermesRequestsRoute
   ApiHermesSetupsRoute: typeof ApiHermesSetupsRoute
+  ApiHermesSmcChatRoute: typeof ApiHermesSmcChatRoute
   ApiHermesSmcScreenshotsRoute: typeof ApiHermesSmcScreenshotsRoute
   ApiHermesSmcStatusRoute: typeof ApiHermesSmcStatusRoute
+  ApiHermesSmcUpgradeChatRoute: typeof ApiHermesSmcUpgradeChatRoute
+  ApiHermesSmcUpgradeConfigRoute: typeof ApiHermesSmcUpgradeConfigRoute
+  ApiHermesStrategyAnalysisRoute: typeof ApiHermesStrategyAnalysisRoute
   ApiHermesStrategyRulesRoute: typeof ApiHermesStrategyRulesRoute
   ApiHermesUnderstandingRoute: typeof ApiHermesUnderstandingRoute
+  ApiHermesUserStrategiesRoute: typeof ApiHermesUserStrategiesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -509,6 +655,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BacktestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/briefing': {
+      id: '/briefing'
+      path: '/briefing'
+      fullPath: '/briefing'
+      preLoaderRoute: typeof BriefingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/calendar': {
       id: '/calendar'
       path: '/calendar'
@@ -521,6 +674,13 @@ declare module '@tanstack/react-router' {
       path: '/console'
       fullPath: '/console'
       preLoaderRoute: typeof ConsoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hermes': {
@@ -628,6 +788,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSmcMigrateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/smc-migrate-chat': {
+      id: '/api/smc-migrate-chat'
+      path: '/api/smc-migrate-chat'
+      fullPath: '/api/smc-migrate-chat'
+      preLoaderRoute: typeof ApiSmcMigrateChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/smc-strategy-config': {
+      id: '/api/smc-strategy-config'
+      path: '/api/smc-strategy-config'
+      fullPath: '/api/smc-strategy-config'
+      preLoaderRoute: typeof ApiSmcStrategyConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/strategies': {
+      id: '/api/strategies'
+      path: '/api/strategies'
+      fullPath: '/api/strategies'
+      preLoaderRoute: typeof ApiStrategiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/_debug': {
       id: '/api/hermes/_debug'
       path: '/api/hermes'
@@ -691,6 +872,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHermesOutcomesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/pine-script-analysis': {
+      id: '/api/hermes/pine-script-analysis'
+      path: '/api/hermes/pine-script-analysis'
+      fullPath: '/api/hermes/pine-script-analysis'
+      preLoaderRoute: typeof ApiHermesPineScriptAnalysisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/requests': {
       id: '/api/hermes/requests'
       path: '/api/hermes/requests'
@@ -703,6 +891,13 @@ declare module '@tanstack/react-router' {
       path: '/api/hermes/setups'
       fullPath: '/api/hermes/setups'
       preLoaderRoute: typeof ApiHermesSetupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/smc-chat': {
+      id: '/api/hermes/smc-chat'
+      path: '/api/hermes/smc-chat'
+      fullPath: '/api/hermes/smc-chat'
+      preLoaderRoute: typeof ApiHermesSmcChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/hermes/smc-screenshots': {
@@ -719,6 +914,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHermesSmcStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/smc-upgrade-chat': {
+      id: '/api/hermes/smc-upgrade-chat'
+      path: '/api/hermes/smc-upgrade-chat'
+      fullPath: '/api/hermes/smc-upgrade-chat'
+      preLoaderRoute: typeof ApiHermesSmcUpgradeChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/smc-upgrade-config': {
+      id: '/api/hermes/smc-upgrade-config'
+      path: '/api/hermes/smc-upgrade-config'
+      fullPath: '/api/hermes/smc-upgrade-config'
+      preLoaderRoute: typeof ApiHermesSmcUpgradeConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hermes/strategy-analysis': {
+      id: '/api/hermes/strategy-analysis'
+      path: '/api/hermes/strategy-analysis'
+      fullPath: '/api/hermes/strategy-analysis'
+      preLoaderRoute: typeof ApiHermesStrategyAnalysisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/strategy-rules': {
       id: '/api/hermes/strategy-rules'
       path: '/api/hermes/strategy-rules'
@@ -733,6 +949,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHermesUnderstandingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/user-strategies': {
+      id: '/api/hermes/user-strategies'
+      path: '/api/hermes/user-strategies'
+      fullPath: '/api/hermes/user-strategies'
+      preLoaderRoute: typeof ApiHermesUserStrategiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -740,8 +963,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountsRoute: AccountsRoute,
   BacktestRoute: BacktestRoute,
+  BriefingRoute: BriefingRoute,
   CalendarRoute: CalendarRoute,
   ConsoleRoute: ConsoleRoute,
+  HelpRoute: HelpRoute,
   HermesRoute: HermesRoute,
   JournalRoute: JournalRoute,
   LiveRoute: LiveRoute,
@@ -757,6 +982,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSmcRoute: ApiSmcRoute,
   ApiSmcAnalyzeRoute: ApiSmcAnalyzeRoute,
   ApiSmcMigrateRoute: ApiSmcMigrateRoute,
+  ApiSmcMigrateChatRoute: ApiSmcMigrateChatRoute,
+  ApiSmcStrategyConfigRoute: ApiSmcStrategyConfigRoute,
+  ApiStrategiesRoute: ApiStrategiesRoute,
   ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
   ApiHermesAnalysisRoute: ApiHermesAnalysisRoute,
@@ -766,12 +994,18 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHermesKnowledgeRoute: ApiHermesKnowledgeRoute,
   ApiHermesNotesRoute: ApiHermesNotesRoute,
   ApiHermesOutcomesRoute: ApiHermesOutcomesRoute,
+  ApiHermesPineScriptAnalysisRoute: ApiHermesPineScriptAnalysisRoute,
   ApiHermesRequestsRoute: ApiHermesRequestsRoute,
   ApiHermesSetupsRoute: ApiHermesSetupsRoute,
+  ApiHermesSmcChatRoute: ApiHermesSmcChatRoute,
   ApiHermesSmcScreenshotsRoute: ApiHermesSmcScreenshotsRoute,
   ApiHermesSmcStatusRoute: ApiHermesSmcStatusRoute,
+  ApiHermesSmcUpgradeChatRoute: ApiHermesSmcUpgradeChatRoute,
+  ApiHermesSmcUpgradeConfigRoute: ApiHermesSmcUpgradeConfigRoute,
+  ApiHermesStrategyAnalysisRoute: ApiHermesStrategyAnalysisRoute,
   ApiHermesStrategyRulesRoute: ApiHermesStrategyRulesRoute,
   ApiHermesUnderstandingRoute: ApiHermesUnderstandingRoute,
+  ApiHermesUserStrategiesRoute: ApiHermesUserStrategiesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
