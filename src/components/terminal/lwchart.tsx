@@ -268,7 +268,7 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
       layout: {
         background: { color: t.bg },
         textColor: t.text,
-        fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+        fontFamily: "'Times New Roman', Times, serif",
         fontSize: 11,
         attributionLogo: false,
       },
