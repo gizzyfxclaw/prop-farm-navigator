@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getCFEnv } from "@/lib/cloudflare-env";
 import { pairSpec } from "@/lib/engine/pairs";
 import { summarizeSMC } from "@/lib/smc-engine";
+import { fetchBarsWithRetry, type Bar } from "@/lib/tvremix";
 
 /**
  * Live TradingView Analysis endpoint.
@@ -9,54 +10,6 @@ import { summarizeSMC } from "@/lib/smc-engine";
  * Returns full SMC summary + raw bars for client-side charting.
  * Used by Hermes for on-demand chart analysis with live TradingView screenshots.
  */
-
-interface Bar {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-}
-
-const TVREMIX_URL = "https://tvremix.xyz/api/mcp/v1";
-const TV_INTERVAL: Record<string, string> = {
-  "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m",
-  "1h": "1h", "4h": "4h", "1d": "1D", "1w": "1W",
-};
-
-async function fetchBars(apiKey: string, pair: string, interval: string, count: number): Promise<Bar[] | null> {
-  const tvInterval = TV_INTERVAL[interval] ?? "1h";
-  let res: Response;
-  try {
-    res = await fetch(TVREMIX_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0", id: 1, method: "tools/call",
-        params: { name: "get_ohlcv", arguments: { symbol: `OANDA:${pair}`, interval: tvInterval, count } },
-      }),
-    });
-  } catch {
-    return null;
-  }
-  if (!res.ok) return null;
-  let json: any;
-  try {
-    json = await res.json();
-  } catch {
-    return null;
-  }
-  if (json.error || json.result?.isError) return null;
-  const raw = json.result?.structuredContent?.bars;
-  if (!Array.isArray(raw)) return null;
-  return raw
-    .filter((b: any) => b.t != null && b.o != null && b.h != null && b.l != null && b.c != null)
-    .map((b: any) => ({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c }));
-}
 
 function calcATR(bars: Bar[], period = 14): number {
   if (bars.length < period + 1) return 0.001;
@@ -199,7 +152,7 @@ async function computeAlignment(apiKey: string, pair: string, currentTf: string,
 
   for (const tf of tfs) {
     if (tf === currentTf) continue;
-    const bars = await fetchBars(apiKey, pair, tf, 200);
+    const bars = await fetchBarsWithRetry(apiKey, pair, tf, 200);
     if (!bars || bars.length < 20) continue;
     const { highs, lows } = findSwings(bars, 5);
     let bias = "neutral";
@@ -345,7 +298,7 @@ function generateDebate(
   channel: Channel,
   breakoutConfirmed5m: boolean,
   nearbyConflict: boolean,
-  alignment: { biasByTf: Record<string, string>; aligned: boolean },
+  alignment: { biasByTf: Record<string, string>; aligned: boolean; agreeCount: number; totalCount: number },
 ): DebateResult {
   const isLong = channel.direction === "long";
   const points: any[] = [];
@@ -423,38 +376,108 @@ export const Route = createFileRoute("/api/smc-analyze")({
           return Response.json({ error: "TVREMIX_API_KEY not configured" }, { status: 503 });
         }
 
-        const bars = await fetchBars(apiKey, pair, interval, count);
+        // Check cache first
+        const env = getCFEnv();
+        const cacheKey = `${pair}-${interval}-${count}`;
+        const now = new Date().toISOString();
+        
+        if (env?.DB) {
+          try {
+            const cached = await env.DB.prepare(
+              "SELECT result FROM smc_analysis_cache WHERE id = ? AND expires_at > ?"
+            ).bind(cacheKey, now).first() as { result?: string } | null;
+            
+            if (cached?.result) {
+              return Response.json(JSON.parse(cached.result), { headers: { "Cache-Control": "public, max-age=60", "X-Cache": "HIT" } });
+            }
+          } catch {
+            // Cache miss or error - continue to fetch
+          }
+        }
+
+        const bars = await fetchBarsWithRetry(apiKey, pair, interval, count);
         if (!bars || bars.length === 0) {
           return Response.json({ error: "no data from upstream" }, { status: 502 });
         }
 
         const atr = calcATR(bars, 14);
-        const structure = summarizeSMC(bars);
+        const smcResult = summarizeSMC(bars);
         const channel = detectChannel(bars, atr);
 
         // 5M confirmation is always checked on the true 5-minute chart,
         // regardless of which timeframe the channel was drawn on — reuse
         // `bars` when the request already IS 5m to avoid a redundant fetch.
-        const bars5m = interval === "5m" ? bars : await fetchBars(apiKey, pair, "5m", 200);
+        const bars5m = interval === "5m" ? bars : await fetchBarsWithRetry(apiKey, pair, "5m", 200);
         const breakoutConfirmed5m = checkBreakoutConfirmed(bars5m, channel.breakoutBoundary, channel.direction);
 
         const channelBias: Bias = channel.direction === "long" ? "bullish" : channel.direction === "short" ? "bearish" : "neutral";
         const alignment = await computeAlignment(apiKey, pair, interval, channelBias);
+        
+        const includeBars = url.searchParams.get("include_bars") === "true";
 
-        const levels = buildStrategyLevels(channel, structure.orderBlocks, bars[bars.length - 1]!.close, atr, pair, breakoutConfirmed5m);
-        const debate = generateDebate(channel, breakoutConfirmed5m, levels.nearbyConflict, alignment);
+        const requestedCount = count;
+        const actualCount = bars.length;
+        const wasRetried = actualCount < requestedCount;
 
-        return Response.json({
-          structure,
-          channel,
+        // Generate debate and levels for frontend
+        const nearbyConflict = hasNearbyConflict(smcResult.orderBlocks, channel.breakoutBoundary, channel.direction, atr);
+        const debate = generateDebate(channel, breakoutConfirmed5m, nearbyConflict, alignment);
+        const levels = buildStrategyLevels(channel, smcResult.orderBlocks, bars[bars.length - 1]!.close, atr, pair, breakoutConfirmed5m);
+
+        // Flatten structure for frontend compatibility
+        // Frontend expects: structure.bias, structure.bos, structure.orderBlocks, etc.
+        // summarizeSMC returns: { ok, structure: { bias, bos, ... }, orderBlocks, ... }
+        const structureForFrontend = {
+          bias: smcResult.structure.bias,
+          bos: smcResult.structure.bos,
+          choch: smcResult.structure.choch,
+          swings: smcResult.structure.swings,
+          orderBlocks: smcResult.orderBlocks.map(ob => ({
+            low: ob.low,
+            high: ob.high,
+            kind: ob.kind,
+            impulseMag: ob.impulseMag,
+            invalidated: ob.invalidated,
+            invalidatedIdx: ob.invalidatedIdx,
+            time: bars[ob.idx]?.time,
+          })),
+          fvgs: smcResult.fvgs,
+          sweeps: smcResult.sweeps,
+          zone: smcResult.zone,
+          summary: smcResult.summary,
+          lastSwingHigh: smcResult.structure.swings.filter(s => s.kind === 'high').slice(-1)[0]?.price ?? 0,
+          lastSwingLow: smcResult.structure.swings.filter(s => s.kind === 'low').slice(-1)[0]?.price ?? 0,
+          highs: smcResult.structure.swings.filter(s => s.kind === 'high').length,
+          lows: smcResult.structure.swings.filter(s => s.kind === 'low').length,
+        };
+
+        const response = {
+          structure: structureForFrontend,
           debate,
           levels,
+          channel,
+          ...(includeBars ? { bars } : { barCount: actualCount }),
+          actualBarCount: actualCount,
+          wasRetried,
           timeframeAlignment: alignment,
           pair,
           interval,
-          barCount: bars.length,
           lastPrice: bars[bars.length - 1]!.close,
-        }, { headers: { "Cache-Control": "public, max-age=60" } });
+        };
+
+        // Store in cache (30 minute TTL)
+        if (env?.DB) {
+          try {
+            const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+            await env.DB.prepare(
+              "INSERT OR REPLACE INTO smc_analysis_cache (id, pair, interval, requested_count, result, expires_at) VALUES (?, ?, ?, ?, ?, ?)"
+            ).bind(cacheKey, pair, interval, count, JSON.stringify(response), expiresAt).run();
+          } catch {
+            // Ignore cache errors
+          }
+        }
+
+        return Response.json(response, { headers: { "Cache-Control": "public, max-age=60", "X-Cache": "MISS" } });
       },
     },
   },

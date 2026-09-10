@@ -113,6 +113,18 @@ export interface RecoveryState {
 
   /** Active phase the recovery is for. */
   phase: 1 | 2;
+
+  // ── Dynamic Exness Re-Prop (prop slippage handling) ────────────────────
+  /** Total prop slippage accrued (prop lost more than propRiskUsd per trade) */
+  totalPropSlippage: number;
+  /** Re-paced Exness target when prop slippage reduces remaining legs */
+  rePacedExnessTarget: number;
+  /** Remaining losses adjusted for prop slippage */
+  adjustedRemainingLosses: number;
+  /** Remaining fee to recover */
+  recoveryShortfall: number;
+  /** Effective base target (re-paced if prop slippage, otherwise base) */
+  effectiveBaseTarget: number;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -200,24 +212,31 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
   const actualExnessPnl     = totalExnessWins - totalExnessLosses;
   const actualExnessBalance = r.actualExnessBalance;
 
-  // ── PART 4: Targeted Slippage Martingale accumulator ────────────────────
-  //
-  // Walk every closed trade in chronological order. For each one:
-  //   - Find the engine's expected Exness P&L (based on the trade's result
-  //     and the R:R recorded in `details`; fall back to the current rr).
-  //   - On a prop LOSS (Exness expected to win):
-  //       * if actual exness < expected → debt grows by (expected − actual)
-  //       * if actual exness > expected → debt shrinks by (actual − expected),
-  //         floored at 0
-  //   - On a prop WIN (Exness expected to lose):
-  //       * if |actual| > |expected| (broker charged more slip) → debt grows
-  //         by the difference
-  //       * else (exness beat the script) → no debt change
-  //
-  // The first time Exness wins AFTER debt is open, debt is wiped entirely
-  // (the bump was applied to the target the previous leg aimed for, and the
-  // bump was collected — the next trade goes back to base). Subsequent
-  // Exness wins without prior debt simply don't add to the accumulator.
+  // ── PART 4: Dynamic Exness Re-Prop (Prop slippage handling) ─────────────
+  // When prop loses MORE than propRiskUsd (slippage), the account blows faster.
+  // We cannot change prop lot size (consistency rules), so we must increase
+  // the Exness Win Target to recover the remaining fee over fewer legs.
+  const propRiskPerTrade = r.lossesToBlow > 0 ? r.maxDdUsd / r.lossesToBlow : r.propWinPerTrade;
+  const totalPropSlippage = closed
+    .filter((t) => t.result === "LOSS" && Math.abs(t.propPnl) > propRiskPerTrade)
+    .reduce((s, t) => s + (Math.abs(t.propPnl) - propRiskPerTrade), 0);
+
+  // Actual remaining legs after prop slippage consumes extra drawdown
+  const adjustedRemainingLosses = remainingDrawdown <= 0
+    ? 0
+    : Math.max(0, Math.floor(remainingDrawdown / propRiskPerTrade));
+
+  // Recovery shortfall: what's left of the fee to recover
+  const recoveryShortfall = Math.max(0, r.propFee - totalExnessWins);
+
+  // Re-paced target: spread remaining fee over remaining legs (avoid divide-by-zero)
+  const rePacedExnessTarget = adjustedRemainingLosses > 0
+    ? recoveryShortfall / adjustedRemainingLosses
+    : recoveryShortfall; // If 0 legs left, must win entire shortfall on next trade
+
+  // ── PART 5: Targeted Slippage Martingale accumulator ────────────────────
+  // (Exness-side slippage — broker charges more than expected)
+  // Walk every closed trade in chronological order.
   let slippageDebt = 0;
   let totalSlippageAccrued = 0;
   for (const t of closed) {
@@ -276,16 +295,20 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     }
   }
 
-  // ── PART 5: Apply martingale bump to the active base target ─────────────
+  // ── PART 6: Apply martingale bump to the active base target ─────────────
   // Use the PHASE chain's base target — r.exnessWinTarget may already be
   // overridden by a prior recovery pass, which would double-count the debt.
   const activeChain = r.phase === 1 ? r.phase1 : r.phase2;
   const baseExnessWinTarget = Math.max(0, activeChain.exnessWinTarget);
-  const newExnessWinTarget  = baseExnessWinTarget + slippageDebt;
+  
+  // Use re-paced target if prop slippage occurred, otherwise use base
+  const effectiveBaseTarget = totalPropSlippage > 0 ? rePacedExnessTarget : baseExnessWinTarget;
+  
+  const newExnessWinTarget  = effectiveBaseTarget + slippageDebt;
   const newExnessLossTarget = newExnessWinTarget * r.rr;
-  const adjustmentNeeded    = slippageDebt > 0.005; // half-pip dust threshold
+  const adjustmentNeeded    = slippageDebt > 0.005 || totalPropSlippage > 0;
 
-  // ── PART 6: Dynamic capital needed for the bump ─────────────────────────
+  // ── PART 7: Dynamic capital needed for the bump ─────────────────────────
   // The martingale raises the Exness risk per trade, so the buffered
   // Exness capital must rise with it. winsToPass is unchanged.
   const pureDynamicCapital     = newExnessLossTarget * r.winsToPass;
@@ -317,9 +340,7 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     loggedWins,
     loggedLosses,
     remainingWins,
-    remainingLosses: remainingDrawdown <= 0
-      ? 0
-      : Math.max(0, Math.floor(remainingDrawdown / (r.lossesToBlow > 0 ? r.maxDdUsd / r.lossesToBlow : r.propWinPerTrade))),
+    remainingLosses: adjustedRemainingLosses,
     totalPropProfitLogged,
     totalPropLossLogged,
     remainingPropTarget,
@@ -343,5 +364,11 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     bufferDepleted,
     depositNeeded,
     phase: r.phase,
+    // New fields for prop slippage tracking
+    totalPropSlippage,
+    rePacedExnessTarget,
+    adjustedRemainingLosses,
+    recoveryShortfall,
+    effectiveBaseTarget,
   };
 }

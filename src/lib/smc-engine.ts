@@ -38,6 +38,8 @@ interface OrderBlock {
   kind: 'bullish' | 'bearish';
   idx: number;
   impulseMag: number;
+  invalidated: boolean;
+  invalidatedIdx: number | null;
 }
 
 interface FVG {
@@ -213,6 +215,8 @@ export function findOrderBlocks(bars: Bar[], impulseMult = 1.5, maxAge = 60): Or
         kind: 'bullish',
         idx: i,
         impulseMag: (futureMax - candle.close) / a,
+        invalidated: false,
+        invalidatedIdx: null,
       });
     } else if (bullishCandle && (candle.close - futureMin) >= impulseMult * a) {
       obs.push({
@@ -221,9 +225,31 @@ export function findOrderBlocks(bars: Bar[], impulseMult = 1.5, maxAge = 60): Or
         kind: 'bearish',
         idx: i,
         impulseMag: (candle.close - futureMin) / a,
+        invalidated: false,
+        invalidatedIdx: null,
       });
     }
   }
+
+  // Check for invalidation: price closes through far side
+  // Bullish OB (support at low): invalidated when price closes below low
+  // Bearish OB (resistance at high): invalidated when price closes above high
+  for (const ob of obs) {
+    const farSide = ob.kind === 'bullish' ? ob.low : ob.high;
+    for (let k = ob.idx + 1; k < n; k++) {
+      if (ob.kind === 'bullish' && bars[k].close < farSide) {
+        ob.invalidated = true;
+        ob.invalidatedIdx = k;
+        break;
+      }
+      if (ob.kind === 'bearish' && bars[k].close > farSide) {
+        ob.invalidated = true;
+        ob.invalidatedIdx = k;
+        break;
+      }
+    }
+  }
+
   return obs.slice(-10);
 }
 

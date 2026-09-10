@@ -23,6 +23,11 @@ const setupInput = z.object({
   order_type: z.enum(["MARKET", "BUY_LIMIT", "BUY_STOP", "SELL_LIMIT", "SELL_STOP"]).optional(),
 });
 
+const setupPatchInput = z.object({
+  id: z.string(),
+  rationale: z.string(),
+});
+
 export const Route = createFileRoute("/api/hermes/setups")({
   server: {
     handlers: {
@@ -76,6 +81,24 @@ export const Route = createFileRoute("/api/hermes/setups")({
           .run();
 
         return Response.json({ id }, { status: 201 });
+      },
+
+      PATCH: async ({ request }) => {
+        const authErr = await requireHermesAuth(request);
+        if (authErr) return authErr;
+
+        const env = getCFEnv();
+        if (!env) return new Response("Service unavailable", { status: 503 });
+
+        const body = setupPatchInput.parse(await request.json());
+
+        await env.DB.prepare(
+          "UPDATE hermes_setups SET rationale = ? WHERE id = ?",
+        )
+          .bind(body.rationale, body.id)
+          .run();
+
+        return Response.json({ ok: true });
       },
     },
   },

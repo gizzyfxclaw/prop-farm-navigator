@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AlertOctagon, AlertTriangle, ExternalLink, Lock, RotateCw, ShieldAlert, Wallet } from "lucide-react";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { ActualExnessBalance } from "@/components/terminal/ActualExnessBalance";
 import { RulesAlertPanel } from "@/components/terminal/RulesAlertPanel";
@@ -15,6 +16,7 @@ import { useNotifications } from "@/lib/notifications";
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
 import { placePendingOrder } from "@/lib/metaapi.functions";
 import { marketStatus } from "@/lib/market-hours";
+import { useRiskSentinel, useGreenCheckRequired } from "@/components/terminal/GlobalRiskSentinel";
 import { computeRecovery } from "@/lib/recovery";
 import { useSelectedAccount, useStore } from "@/lib/store";
 import { useEngine } from "@/lib/useEngine";
@@ -84,6 +86,26 @@ function EnginePage() {
     setEngine({ entryPrice: Number(livePrice.price.toFixed(dec)) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [livePrice.price, livePrice.updatedAt]);
+
+  // ── DAILY CAP LOCK ──────────────────────────────────────────────────────
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const wonToday = journal.some((t) => t.date === today && t.result === "WIN");
+  const dailyCapLocked = wonToday && selectedAccount.dailyProfitCap != null;
+
+  // ── MARGIN CALL LOCK ────────────────────────────────────────────────────
+  const marginCallLocked = recovery.bufferDepleted;
+
+  // ── CRITICAL LEGS WARNING ──────────────────────────────────────────────
+  const criticalLegs = recovery.adjustedRemainingLosses <= 2;
+
+  // ── Use the same risk analysis as Coach (GlobalRiskSentinel) ─────────
+  const sentinel = useRiskSentinel();
+  const greenCheck = useGreenCheckRequired();
+  const engineBlocked = sentinel.currentLevel === "red" || sentinel.currentLevel === "amber";
+
+  // Combined execution lock (uses same data as Coach)
+  const executionLocked = dailyCapLocked || marginCallLocked || r.verdict.level === "red" || !market.open || engineBlocked;
 
   const live = livePrice.price != null
     ? { price: livePrice.price, label: `${symbol} bid ${livePrice.bid} / ask ${livePrice.ask}` }
@@ -168,9 +190,10 @@ function EnginePage() {
       text: `${legLabel} order placed — MT5 ticket ${res.data.orderId || "n/a"}. ${summary}`,
     });
     const now = new Date();
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     addTrade({
       id: `${now.getTime()}`,
-      date: now.toISOString().slice(0, 10),
+      date: localDate,
       time: now.toTimeString().slice(0, 8),
       pair: engine.pair,
       dir: engine.direction,
@@ -346,7 +369,7 @@ function EnginePage() {
                   const ddUsd = (a.size * (a.ddPct ?? 6)) / 100;
                   return (
                     <option key={a.id} value={a.id}>
-                      {a.firm} — Target ${targetUsd.toLocaleString()} · DD ${ddUsd.toLocaleString()} · {a.ddType}
+                      {a.firm} — Target ${targetUsd.toLocaleString()} · DD ${ddUsd.toLocaleString()} · {a.ddType}{a.dailyProfitCap != null ? ` · Cap $${a.dailyProfitCap}/day` : ' · No cap'}
                     </option>
                   );
                 })}
@@ -389,6 +412,9 @@ function EnginePage() {
                 </div>
                 {r.riskCapped && (
                   <Badge tone="amber">Daily cap active — risk reduced to {money(r.cappedPropRisk)}</Badge>
+                )}
+                {selectedAccount.dailyProfitCap != null && !r.riskCapped && (
+                  <Badge tone="neutral">Daily cap: ${selectedAccount.dailyProfitCap}/day</Badge>
                 )}
               </div>
             </div>
@@ -571,6 +597,13 @@ function EnginePage() {
             {recovery.adjustmentNeeded && (
               <Row label="Slippage debt (martingale bump)" value={money(recovery.slippageDebt, true)} tone="accent" />
             )}
+            {recovery.totalPropSlippage > 0 && (
+              <div className="mt-2 rounded border border-amber-500/50 bg-amber-500/10 p-2 text-[10px] text-amber-400">
+                Prop slippage detected: <strong>{money(recovery.totalPropSlippage)}</strong> beyond expected risk. 
+                Remaining legs reduced from {r.lossesToBlow} to <strong>{recovery.adjustedRemainingLosses}</strong>. 
+                Exness target re-paced from {money(recovery.baseExnessWinTarget)} to <strong>{money(recovery.rePacedExnessTarget)}</strong> to recover remaining {money(recovery.recoveryShortfall)} over {recovery.adjustedRemainingLosses} legs.
+              </div>
+            )}
             <Row
               label={recovery.adjustmentNeeded ? "Next Exness target" : "Exness reward (prop loses)"}
               value={money(recovery.newExnessWinTarget, true)}
@@ -645,12 +678,6 @@ function EnginePage() {
           </Alert>
         )}
 
-        {recovery.bufferDepleted && !recovery.challengePassed && (
-          <Alert level="red" title="CRITICAL: Exness Buffer Depleted">
-            Current Exness balance ({money(recovery.actualExnessBalance)}) is below what's needed to finish the remaining {recovery.remainingWins} prop win(s). Deposit <strong>{money(recovery.depositNeeded)}</strong> to maintain the zero-loss loop.
-          </Alert>
-        )}
-
         {recovery.adjustmentNeeded && !recovery.challengePassed && (
           <Alert level="amber" title="Martingale bump active">
             Slippage debt <strong>{money(recovery.slippageDebt)}</strong> is added to the next Exness win target ({money(recovery.baseExnessWinTarget)} → {money(recovery.newExnessWinTarget, true)}). Lot size and Exness fuel are already adjusted. The very next Exness win (prop loss) will wipe the debt and revert the target to {money(recovery.baseExnessWinTarget)}.
@@ -668,11 +695,18 @@ function EnginePage() {
             {market.open ? "Market closes" : "Market reopens"} {market.changesIn} — {market.changesAt.toUTCString().slice(0, 22)} UTC.
           </p>
         </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <Button onClick={() => void onExecute("exness")} disabled={busy !== null || r.verdict.level === "red" || !market.open}>
+        {/* ── Green Check Status ─────────────────────────────────── */}
+        <div className={`mt-3 rounded border p-2 text-[10px] ${greenCheck.canTrade ? "border-success/30 bg-success/5" : "border-warning/40 bg-warning/10"}`}>
+          <span className={greenCheck.canTrade ? "text-success" : "text-warning"}>
+            {greenCheck.canTrade ? "✓ " : "⚠ "}{greenCheck.reason}
+          </span>
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <Button onClick={() => void onExecute("exness")} disabled={busy !== null || executionLocked}>
             {busy === "trade" ? "Placing…" : `Execute Exness ${r.exnessDirection} ${r.exnessLots.toFixed(2)}`}
           </Button>
-          <Button variant="ghost" onClick={() => void onExecute("prop")} disabled={busy !== null || r.verdict.level === "red" || !market.open || !meta.propAccountId} title={meta.propAccountId ? "Place the prop leg of the hedge" : "Add your prop firm's MetaApi account ID in Settings to place this leg"}>
+          <Button variant="ghost" onClick={() => void onExecute("prop")} disabled={busy !== null || executionLocked || !meta.propAccountId} title={meta.propAccountId ? "Place the prop leg of the hedge" : "Add your prop firm's MetaApi account ID in Settings to place this leg"}>
             {busy === "trade-prop" ? "Placing…" : `Execute prop ${r.propDirection} ${r.propLots.toFixed(2)}`}
           </Button>
         </div>

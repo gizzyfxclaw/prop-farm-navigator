@@ -158,6 +158,11 @@ export default {
         url.pathname === "/api/news" ||
         url.pathname === "/calendar" ||
         url.pathname === "/news" ||
+        // Strategy endpoints (public for strategy exploration)
+        url.pathname.startsWith("/api/strategies") ||
+        url.pathname.startsWith("/api/hermes/user-strategies") ||
+        url.pathname.startsWith("/api/hermes/strategy-analysis") ||
+        url.pathname.startsWith("/api/hermes/pine-script-analysis") ||
         // SMC analysis endpoint (public for the SMC page)
         url.pathname.startsWith("/api/smc");
 

@@ -5,6 +5,7 @@ import { useStore } from "@/lib/store";
 import { computeRecovery } from "@/lib/recovery";
 import { marketStatus } from "@/lib/market-hours";
 import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
+import { classifyHazard } from "@/lib/news-hazard";
 import {
   CheckCircle2, AlertTriangle, XCircle, Info, Clock, Shield, ShieldAlert,
   ShieldCheck, ShieldX, Activity, TrendingUp, Zap, Radio, CircleDot,
@@ -107,7 +108,7 @@ const RULES: Rule[] = [
   {
     id: "daily-cap-lock",
     category: "compliance",
-    text: "Daily Cap Lock — Already Won Today",
+    text: "Daily Cap Lock",
     detail: "You won a trade today. Do not trade again until tomorrow to avoid exceeding the daily profit cap.",
     critical: true,
   },
@@ -252,34 +253,36 @@ export function RulesAlertPanel() {
       ? slOptions[(currentSlIndex + 1) % slOptions.length]
       : slOptions[Math.floor(Math.random() * slOptions.length)];
 
-    // News analysis
-    const highEvents = newsEvents.filter((e) => e.impact === "high");
-    const medEvents = newsEvents.filter((e) => e.impact === "medium");
+    // News analysis — uses shared classifyHazard logic (same as Calendar)
+    const classifiedEvents = newsEvents.map((e) => ({
+      ...e,
+      secsUntil: e.datetime - nowSec,
+      hazardLevel: classifyHazard(e.datetime - nowSec, e.impact),
+    }));
 
-    // Find nearest HIGH event (future only)
-    const futureHigh = highEvents
-      .map((e) => ({ ...e, secsUntil: e.datetime - nowSec }))
-      .filter((e) => e.secsUntil > -1800) // include events up to 30min ago (still in danger zone AFTER event)
-      .sort((a, b) => Math.abs(a.secsUntil) - Math.abs(b.secsUntil));
+    const newsCritical = classifiedEvents.filter((e) => e.hazardLevel === "critical");
+    const newsWarning = classifiedEvents.filter((e) => e.hazardLevel === "warning");
+    const newsCaution = classifiedEvents.filter((e) => e.hazardLevel === "caution");
 
-    const nearestHigh = futureHigh[0];
-    const highWithin30min = futureHigh.filter((e) => Math.abs(e.secsUntil) <= 1800);
-    const highWithin2h = futureHigh.filter((e) => e.secsUntil > 0 && e.secsUntil <= 7200);
-    const highWithin3h = futureHigh.filter((e) => e.secsUntil > 0 && e.secsUntil <= 10800);
+    const nearestHigh = classifiedEvents
+      .filter((e) => e.impact === "high" && e.secsUntil > -1800)
+      .sort((a, b) => Math.abs(a.secsUntil) - Math.abs(b.secsUntil))[0];
 
-    // Find nearest MEDIUM event
-    const futureMed = medEvents
-      .map((e) => ({ ...e, secsUntil: e.datetime - nowSec }))
-      .filter((e) => e.secsUntil > -900)
-      .sort((a, b) => Math.abs(a.secsUntil) - Math.abs(b.secsUntil));
+    // Backward-compatible aliases
+    const highWithin30min = newsCritical;
+    const highWithin2h = newsWarning;
+    const highWithin3h = newsCaution;
 
     // Bad trade data
     const badTrade = journal.find((t) => t.result === "WIN" && t.exPnl > 0);
 
-    // Daily cap lock — check if won today
-    const today = new Date().toISOString().slice(0, 10);
-    const wonToday = journal.some((t) => t.date === today && t.result === "WIN");
+    // Daily cap lock — check if won today (use local date for accuracy)
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const todayTrades = journal.filter((t) => t.date === today && t.result !== "OPEN");
+    const wonToday = todayTrades.some((t) => t.result === "WIN");
     const dailyCapLocked = wonToday && selectedAccount?.dailyProfitCap != null;
+    const hasTradesToday = todayTrades.length > 0;
 
     // Margin call lock
     const marginCallLocked = recovery.bufferDepleted;
@@ -297,13 +300,15 @@ export function RulesAlertPanel() {
           : `Reward $${r.propWinPerTrade.toFixed(2)} — under $100 cap`,
       },
 
-      // 1b. Daily Cap Lock (already won today)
+      // 1b. Daily Cap Lock — only green if all other conditions are also met
       {
         rule: RULES[10]!,
-        status: dailyCapLocked ? "critical" as const : "ok" as const,
+        status: dailyCapLocked ? "critical" as const : hasTradesToday ? "ok" as const : "info" as const,
         message: dailyCapLocked
           ? `You won a trade today. Do not trade again until tomorrow to avoid exceeding the $${selectedAccount?.dailyProfitCap} daily profit cap.`
-          : "No win today — daily cap available",
+          : hasTradesToday
+            ? "You traded today but haven't won — you are clear to trade"
+            : "No trades yet today — you are clear to trade",
       },
 
       // 2. Session — expanded windows with green/yellow/red
@@ -441,18 +446,19 @@ export function RulesAlertPanel() {
   const warningCount = liveRules.filter((r) => r.status === "warning").length;
   const okCount = liveRules.filter((r) => r.status === "ok").length;
 
-  // ── Master verdict ──
+  // ── Master verdict — driven by the WORST rule status ──
+  // If ANY rule is critical → DO NOT TRADE
+  // If ANY rule is warning → CAUTION
+  // Otherwise → CLEAR TO TRADE
   const sessionRule = liveRules.find((r) => r.rule.id === "session");
-  const newsRule = liveRules.find((r) => r.rule.id === "news");
-  const newsGapRule = liveRules.find((r) => r.rule.id === "news-gap");
   const inTradingWindow = sessionRule?.status === "ok";
-  const newsBlocked = newsRule?.status === "critical";
-  const newsWarning = newsGapRule?.status === "warning";
+  const hasCritical = criticalCount > 0;
+  const hasWarning = warningCount > 0;
 
   type Verdict = "GO" | "WAIT_NEWS" | "WAIT_SESSION" | "CAUTION";
-  const verdict: Verdict = newsBlocked ? "WAIT_NEWS"
+  const verdict: Verdict = hasCritical ? "WAIT_NEWS"
     : !inTradingWindow ? "WAIT_SESSION"
-    : newsWarning ? "CAUTION"
+    : hasWarning ? "CAUTION"
     : "GO";
 
   const verdictConfig = {

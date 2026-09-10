@@ -36,6 +36,7 @@ const blank = (): PropAccount => ({
   ddPct: 6,
   ddType: "Static",
   splitPct: 80,
+  dailyProfitCap: 100,
 });
 
 function AccountsPage() {
@@ -104,6 +105,36 @@ function AccountsPage() {
           <Field label="Profit split (%)">
             <TextInput type="number" value={draft.splitPct} onChange={(e) => patch({ splitPct: Number(e.target.value) })} />
           </Field>
+          <Field label="Daily profit cap" hint="Optional — leave blank for no cap">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1 text-[10px] cursor-pointer" style={{ color: 'oklch(var(--gz-mut))' }}>
+                <input
+                  type="checkbox"
+                  checked={draft.dailyProfitCap != null}
+                  onChange={(e) => {
+                    const updated = { ...draft };
+                    if (e.target.checked) {
+                      updated.dailyProfitCap = 100;
+                    } else {
+                      delete updated.dailyProfitCap;
+                    }
+                    setDraft(updated);
+                  }}
+                />
+                Enable cap
+              </label>
+              {draft.dailyProfitCap != null && (
+                <TextInput
+                  type="number"
+                  step="1"
+                  value={draft.dailyProfitCap}
+                  onChange={(e) => patch({ dailyProfitCap: Number(e.target.value) })}
+                  placeholder="$100"
+                  className="flex-1"
+                />
+              )}
+            </div>
+          </Field>
           <div className="flex items-end gap-2">
             <ActionButton onClick={submit}>
               <Save size={12} />
@@ -157,6 +188,7 @@ function AccountsPage() {
             { label: "Max DD", align: "right" },
             { label: "DD type" },
             { label: "Split", align: "right" },
+            { label: "Daily cap", align: "right" },
             { label: "" },
           ]}
         >
@@ -182,6 +214,9 @@ function AccountsPage() {
                   </span>
                 </td>
                 <td className="num">{a.splitPct}%</td>
+                <td className="num" style={{ color: a.dailyProfitCap != null ? "oklch(var(--gz-pos))" : "oklch(var(--gz-mut))" }}>
+                  {a.dailyProfitCap != null ? `$${a.dailyProfitCap}` : "—"}
+                </td>
                 <td>
                   <div className="flex justify-end gap-1.5">
                     <Button

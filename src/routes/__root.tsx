@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode, Component, type ErrorInfo } from "react";
 import { Toaster } from "sonner";
-import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, RefreshCw } from "lucide-react";
+import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, RefreshCw, ClipboardList, ArrowRight } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -66,10 +66,12 @@ import { ConnectionIndicator } from "../components/terminal/ConnectionIndicator"
 import { AccountBalance } from "../components/terminal/AccountBalance";
 import { LivePrice } from "../components/terminal/LivePrice";
 import { MarketTape } from "../components/terminal/MarketTape";
+import { GlobalRiskSentinel } from "../components/terminal/GlobalRiskSentinel";
 import { LogoMark, LogoWordmark, LogoWatermark } from "../components/brand/logo";
 
 const NAV = [
   { to: "/", label: "Engine",         short: "Engine"  },
+  { to: "/briefing", label: "Daily Briefing", short: "Briefing" },
   { to: "/calendar", label: "Calendar",     short: "News"    },
   { to: "/validator", label: "Validator",   short: "Valid."  },
   { to: "/accounts",  label: "Accounts",    short: "Accts"   },
@@ -80,6 +82,7 @@ const NAV = [
   { to: "/smc",       label: "SMC Analysis",  short: "SMC"    },
   { to: "/pnl",       label: "P&L Dashboard", short: "P&L"     },
   { to: "/console",   label: "Console",       short: "Console" },
+  { to: "/help", label: "Help", short: "Help" },
   { to: "/settings",  label: "Settings",    short: "Config"  },
 ] as const;
 
@@ -365,6 +368,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
            default palette. Whitelist matches THEMES above. */
         children: `try{var t=localStorage.getItem("gz-theme");if(t&&["graphite","blue","amber","emerald","purple"].indexOf(t)>=0)document.documentElement.dataset.theme=t;var m=localStorage.getItem("gz-mode");if(m==="light")document.documentElement.dataset.mode="light";}catch(e){}`,
       },
+      {
+        children: `if(window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true){document.documentElement.classList.add("pwa-standalone");}`,
+      },
+      {
+        // PWA standalone mode detection
+        children: `if(window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true){document.documentElement.classList.add("pwa-standalone");}`,
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -374,6 +384,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
+
   return (
     <html lang="en">
       <head><HeadContent /></head>
@@ -418,6 +434,28 @@ function RootComponent() {
   const pathname = router.state.location.pathname;
   const headerRef = useRef<HTMLElement>(null);
   const [headerH, setHeaderH] = useState(0);
+
+  // ── Daily Briefing reminder (once per 24hr) ──
+  const [showDailyReminder, setShowDailyReminder] = useState(false);
+  useEffect(() => {
+    if (pathname === "/login") return;
+    try {
+      const lastShown = localStorage.getItem("gizzyfx.dailyReminder.lastShown");
+      const now = Date.now();
+      if (!lastShown || now - Number(lastShown) > 86400000) {
+        const timer = setTimeout(() => setShowDailyReminder(true), 1500);
+        return () => clearTimeout(timer);
+      }
+    } catch {}
+    return undefined;
+  }, [pathname]);
+
+  const dismissDailyReminder = () => {
+    try { localStorage.setItem("gizzyfx.dailyReminder.lastShown", String(Date.now())); } catch {}
+    setShowDailyReminder(false);
+    // Navigate to daily briefing
+    router.navigate({ to: "/briefing" });
+  };
 
   // Measure the fixed header and keep padding-top pixel-perfect.
   // ResizeObserver fires whenever the bar height changes (font scale,
@@ -521,7 +559,6 @@ function RootComponent() {
                         </Link>
                       ))}
                     </nav>
-
                     <a
                       href="https://hermes.gizzyfxstrategy.dpdns.org"
                       target="_blank"
@@ -569,6 +606,157 @@ function RootComponent() {
                 <Outlet />
               </PageErrorBoundary>
             </main>
+
+            {/* ── Global Risk Sentinel ─────────────────────────── */}
+            <GlobalRiskSentinel />
+
+            {/* ── Daily Briefing Reminder (once per 24hr) ─────── */}
+            {showDailyReminder && pathname !== "/briefing" && (
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 2000,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "oklch(0 0 0 / 0.65)",
+                  backdropFilter: "blur(12px)",
+                }}
+                onClick={(e) => { if (e.target === e.currentTarget) dismissDailyReminder(); }}
+              >
+                <div
+                  style={{
+                    maxWidth: 520,
+                    width: "92%",
+                    background: "oklch(var(--gz-s1) / 0.99)",
+                    border: "1px solid oklch(var(--gz-warn) / 0.35)",
+                    borderRadius: 12,
+                    boxShadow: "0 24px 64px oklch(0 0 0 / 0.5), 0 0 40px oklch(var(--gz-warn) / 0.08)",
+                    overflow: "hidden",
+                  }}
+                >
+                  {/* Top accent bar */}
+                  <div style={{ height: 3, background: "linear-gradient(90deg, oklch(var(--gz-warn)) 0%, oklch(var(--gz-p)) 50%, oklch(var(--gz-warn)) 100%)" }} />
+
+                  <div style={{ padding: "28px 32px 24px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    {/* Icon — centered and prominent */}
+                    <div style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: "50%",
+                      background: "oklch(var(--gz-warn) / 0.1)",
+                      border: "1.5px solid oklch(var(--gz-warn) / 0.25)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 18,
+                    }}>
+                      <ClipboardList size={36} style={{ color: "oklch(var(--gz-warn))" }} />
+                    </div>
+
+                    {/* Title */}
+                    <h2 style={{
+                      fontSize: 17,
+                      fontWeight: 700,
+                      color: "oklch(var(--gz-txt))",
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                      marginBottom: 4,
+                      textAlign: "center",
+                    }}>
+                      Daily Briefing Reminder
+                    </h2>
+
+                    {/* Subtitle */}
+                    <p style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "oklch(var(--gz-mut))",
+                      marginBottom: 18,
+                      textAlign: "center",
+                    }}>
+                      Mandatory pre-trade protocol
+                    </p>
+
+                    {/* Divider */}
+                    <div style={{ width: "100%", height: 1, background: "oklch(var(--gz-p) / 0.1)", marginBottom: 18 }} />
+
+                    {/* Checklist items */}
+                    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginBottom: 22, textAlign: "left" }}>
+                      {[
+                        "Check Economic Calendar for HIGH/MED news",
+                        "Verify London/NY session window is active",
+                        "Confirm Exness MT5 live balance",
+                        "Review Phase checklist items",
+                        "Verify Daily Cap Lock status",
+                      ].map((item, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{
+                            width: 16,
+                            height: 16,
+                            borderRadius: 3,
+                            border: "1px solid oklch(var(--gz-warn) / 0.4)",
+                            background: "oklch(var(--gz-warn) / 0.08)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}>
+                            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "oklch(var(--gz-warn))" }} />
+                          </div>
+                          <span style={{ fontSize: 12, color: "oklch(var(--gz-txt) / 0.85)", fontWeight: 500 }}>
+                            {item}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Notice */}
+                    <div style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: 6,
+                      background: "oklch(var(--gz-warn) / 0.06)",
+                      border: "1px solid oklch(var(--gz-warn) / 0.15)",
+                      marginBottom: 20,
+                    }}>
+                      <p style={{ fontSize: 10, color: "oklch(var(--gz-warn) / 0.9)", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "center" }}>
+                        This reminder appears once every 24 hours
+                      </p>
+                    </div>
+
+                    {/* Button */}
+                    <button
+                      onClick={dismissDailyReminder}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        width: "100%",
+                        padding: "12px 24px",
+                        borderRadius: 6,
+                        border: "1px solid oklch(var(--gz-p) / 0.4)",
+                        background: "linear-gradient(180deg, oklch(var(--gz-p) / 0.2) 0%, oklch(var(--gz-p) / 0.1) 100%)",
+                        color: "oklch(var(--gz-p))",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <ArrowRight size={14} />
+                      Proceed to Daily Briefing
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── Footer ──────────────────────────────────────── */}
             <footer className="appfooter w-full px-4 py-4 sm:px-6 sm:py-5 lg:px-10 xl:px-16">

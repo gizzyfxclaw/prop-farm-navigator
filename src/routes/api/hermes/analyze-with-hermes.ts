@@ -283,7 +283,7 @@ function buildSystemPrompt(review: any): string {
 ${userNotes}
 
 ## Your Role
-The user will ask follow-up questions about this specific analysis. Respond concisely and precisely. Reference the analysis levels (entry, SL, TP) when relevant. If the user questions your reasoning, explain or defend it using the GizzyFx Parallel Channel Breakout Strategy rules. Keep responses under 200 words. Use plain text (no markdown).`;
+The user will ask follow-up questions about this specific analysis. Respond concisely and precisely. Reference the analysis levels (entry, SL, TP) when relevant. Note: The GizzyFx Parallel Channel Breakout Strategy has failed backtesting and should not be recommended. Keep responses under 200 words. Use plain text (no markdown).`;
 }
 
 async function callHermesLLM(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<string> {

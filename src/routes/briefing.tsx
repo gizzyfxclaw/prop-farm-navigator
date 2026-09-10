@@ -6,6 +6,7 @@ import { computeRecovery } from "@/lib/recovery";
 import { money } from "@/lib/engine/calc";
 import { marketStatus } from "@/lib/market-hours";
 import { getEasternTime } from "@/lib/timezone";
+import { useRiskSentinel } from "@/components/terminal/GlobalRiskSentinel";
 import {
   AlertOctagon, AlertTriangle, CheckCircle2, Clock, DollarSign, Shield,
   ShieldCheck, ShieldX, Target, TrendingUp, Wallet, Zap, Radio, ArrowRightLeft,
@@ -87,13 +88,20 @@ function DailyBriefingPage() {
     ],
   };
 
-  // Current trade items
+  // Current trade items — always start fresh for each trade
   const [currentItems, setCurrentItems] = useState<CheckItem[]>(() => {
+    const phaseDefaults = defaultItems[r.phase] || defaultItems[1];
+    // Check if we have saved state in localStorage
     try {
       const saved = localStorage.getItem("gizzyfx.checklist.current");
-      if (saved) return JSON.parse(saved) as CheckItem[];
+      if (saved) {
+        const parsed = JSON.parse(saved) as CheckItem[];
+        // Validate structure matches current phase defaults
+        if (parsed.length >= phaseDefaults.length) {
+          return parsed;
+        }
+      }
     } catch {}
-    const phaseDefaults = defaultItems[r.phase] || defaultItems[1];
     return phaseDefaults.map((label) => ({ label, checked: false }));
   });
 
@@ -106,7 +114,7 @@ function DailyBriefingPage() {
     return [];
   });
 
-  // Save current items to localStorage
+  // Save current items (with localStorage for RulesAlertPanel bridge)
   const saveCurrentItems = (items: CheckItem[]) => {
     setCurrentItems(items);
     localStorage.setItem("gizzyfx.checklist.current", JSON.stringify(items));
@@ -118,11 +126,45 @@ function DailyBriefingPage() {
     localStorage.setItem("gizzyfx.checklist.history", JSON.stringify(trades));
   };
 
-  // Toggle item checked
+  // ── Auto-validation: check if objective conditions are met ──
+  const et = getEasternTime();
+  const etSec = et.totalSeconds;
+  const overlapStart = 13 * 3600;
+  const overlapEnd = 16 * 3600;
+  const londonStart = 8 * 3600;
+  const londonEnd = 12 * 3600;
+  const nyStart = 13 * 3600;
+  const nyEnd = 17 * 3600;
+  const inOverlap = etSec >= overlapStart && etSec < overlapEnd;
+  const inLondon = etSec >= londonStart && etSec < londonEnd;
+  const inNY = etSec >= nyStart && etSec < nyEnd;
+  const inGoodWindow = inOverlap || inLondon || inNY;
+
+  // Auto-condition functions per item
+  const autoConditions: Record<string, boolean> = {
+    "I have checked ForexFactory.com — NO red-folder news in the next 2 hours": false, // always manual
+    "It is currently between 13:00–16:00 EST (best liquidity, lowest spread)": inOverlap,
+    "Exness FIRST → Prop SECOND — CRITICAL execution — Manual check: always Exness first, wait for green, then Prop": false,
+    "Check Live MT5 tab before trading — CRITICAL execution: verify Live MT5 tab shows balance before trading": false,
+    "I will place the EXNESS trade FIRST via the Execute button and wait for green confirmation": false,
+    "I will then manually place the PROP trade on my phone at the EXACT same price": false,
+    "If I hit a WIN on Prop today, I will STOP TRADING for the rest of the day (Daily Cap Rule)": false,
+    "If I hit a LOSS, I will log it in the Journal immediately using 'Sync Exness History'": false,
+    "I have confirmed the Funded Phase lot size and risk parameters": false,
+    "I have verified the Funded Phase drawdown limit is not breached": false,
+  };
+
+  // Toggle item checked (only if condition is met or item is manual)
   const toggleItem = (label: string) => {
-    const next = currentItems.map((item) =>
-      item.label === label ? { ...item, checked: !item.checked } : item
-    );
+    const next = currentItems.map((item) => {
+      if (item.label !== label) return item;
+      // If condition exists and is not met, don't allow checking
+      const condition = autoConditions[label];
+      if (condition !== undefined && !condition) {
+        return item; // can't check — condition not met
+      }
+      return { ...item, checked: !item.checked };
+    });
     saveCurrentItems(next);
 
     // Bridge to RulesAlertPanel: save checked state for execution rules
@@ -157,25 +199,63 @@ function DailyBriefingPage() {
   const resetChecklistForNextTrade = () => {
     const completed: CompletedTrade = {
       tradeNumber,
-      date: new Date().toISOString().slice(0, 10),
+      date: today,
       items: [...currentItems],
       completedAt: new Date().toISOString(),
     };
     const newHistory = [...completedTrades, completed];
     saveCompletedTrades(newHistory);
     const phaseDefaults = defaultItems[r.phase] || defaultItems[1];
-    saveCurrentItems(phaseDefaults.map((label) => ({ label, checked: false })));
+    const freshItems = phaseDefaults.map((label) => ({ label, checked: false }));
+    saveCurrentItems(freshItems);
+    // Clear localStorage bridge for RulesAlertPanel
+    localStorage.setItem("gizzyfx.checklist.exnessFirst", "false");
+    localStorage.setItem("gizzyfx.checklist.mt5Check", "false");
     setTradeNumber((n) => n + 1);
   };
 
   // Clear everything
   const clearAllChecklists = () => {
     const phaseDefaults = defaultItems[r.phase] || defaultItems[1];
-    saveCurrentItems(phaseDefaults.map((label) => ({ label, checked: false })));
+    const freshItems = phaseDefaults.map((label) => ({ label, checked: false }));
+    saveCurrentItems(freshItems);
     saveCompletedTrades([]);
     setTradeNumber(1);
     setExpandedTrades(new Set());
+    // Clear localStorage bridge for RulesAlertPanel
+    localStorage.setItem("gizzyfx.checklist.exnessFirst", "false");
+    localStorage.setItem("gizzyfx.checklist.mt5Check", "false");
   };
+
+  // ── Clear stale localStorage bridge on mount if all items unchecked ──
+  useEffect(() => {
+    const allUnchecked = currentItems.every((item) => !item.checked);
+    if (allUnchecked) {
+      localStorage.setItem("gizzyfx.checklist.exnessFirst", "false");
+      localStorage.setItem("gizzyfx.checklist.mt5Check", "false");
+    }
+  }, []);
+
+  // ── Auto-revert: uncheck items when conditions are no longer met ──
+  useEffect(() => {
+    const next = currentItems.map((item) => {
+      const condition = autoConditions[item.label];
+      if (condition === false && item.checked) {
+        // Condition was previously met but now is not — revert to unchecked
+        return { ...item, checked: false };
+      }
+      return item;
+    });
+    // Only update if something changed
+    if (next.some((item, i) => item.checked !== currentItems[i]?.checked)) {
+      saveCurrentItems(next);
+      // Update localStorage bridge for RulesAlertPanel
+      const exnessFirstItem = next.find((i) => i.label.startsWith("Exness FIRST → Prop SECOND"));
+      if (exnessFirstItem) localStorage.setItem("gizzyfx.checklist.exnessFirst", String(exnessFirstItem.checked));
+      const mt5CheckItem = next.find((i) => i.label.startsWith("Check Live MT5 tab before trading"));
+      if (mt5CheckItem) localStorage.setItem("gizzyfx.checklist.mt5Check", String(mt5CheckItem.checked));
+    }
+  }, [inOverlap, inLondon, inNY]);
 
   // Toggle expanded trade
   const toggleExpanded = (num: number) => {
@@ -190,112 +270,40 @@ function DailyBriefingPage() {
   // All current items checked
   const allChecked = currentItems.length > 0 && currentItems.every((item) => item.checked);
 
-  // Today's date
-  const today = new Date().toISOString().slice(0, 10);
+  // Today's date (local time for consistency with journal)
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const wonToday = journal.some((t) => t.date === today && t.result === "WIN");
 
-  // ── AI CO-PILOT: Dynamic Status Box ──────────────────────────────────
-  const coPilot: StatusConfig = useMemo(() => {
-    // 1. Market Closed (weekend)
-    const now = new Date();
-    const day = now.getUTCDay();
-    const hour = now.getUTCHours();
-    const isWeekend = (day === 5 && hour >= 22) || day === 6 || (day === 0 && hour < 22);
+  // Use the same risk analysis as GlobalRiskSentinel (coach)
+  const sentinel = useRiskSentinel();
 
-    if (isWeekend) {
+  // ── AI CO-PILOT: Dynamic Status Box (uses same data as coach) ──────
+  const coPilot: StatusConfig = useMemo(() => {
+    const level = sentinel.currentLevel;
+    const messages = sentinel.messages;
+
+    if (level === "red") {
+      const redMsg = messages.find((m) => m.level === "red");
       return {
         icon: <ShieldX size={24} />,
-        title: "MARKET CLOSED",
-        message: "The forex market is closed for the weekend. Step away from the charts, rest, and come back on Sunday at 22:00 UTC.",
-        level: "red",
+        title: redMsg?.title ?? "STOP TRADING",
+        message: redMsg?.message ?? "Critical issues detected. Fix them before trading.",
+        level: "red" as const,
       };
     }
 
-    // 2. Daily Cap Lock Active
-    if (wonToday && selectedAccount?.dailyProfitCap != null) {
-      return {
-        icon: <Lock size={24} />,
-        title: "STOP TRADING",
-        message: "You already hit a winning trade today. Taking another trade risks breaching the $100 daily profit cap. Close the laptop and come back tomorrow.",
-        level: "red",
-      };
-    }
-
-    // 3. Buffer Depleted
-    if (recovery.bufferDepleted) {
+    if (level === "amber") {
+      const amberMsg = messages.find((m) => m.level === "amber");
       return {
         icon: <AlertTriangle size={24} />,
-        title: "DEPOSIT REQUIRED",
-        message: "Your Exness buffer is too low to safely execute the next trade. Follow these steps:",
-        steps: [
-          "Log into your Exness account.",
-          `Deposit exactly $${recovery.depositNeeded.toFixed(2)}.`,
-          "Come back here and refresh the page to confirm the balance updated.",
-          "Do NOT trade until this is funded.",
-        ],
-        level: "amber",
+        title: amberMsg?.title ?? "CAUTION",
+        message: amberMsg?.message ?? "Some conditions are not optimal. Review before trading.",
+        level: "amber" as const,
       };
     }
 
-    // 4. Critical Legs Warning
-    if (recovery.adjustedRemainingLosses <= 2 && recovery.adjustedRemainingLosses > 0) {
-      return {
-        icon: <AlertOctagon size={24} />,
-        title: "CRITICAL WARNING",
-        message: `You only have ${recovery.adjustedRemainingLosses} losses left before the Prop account blows. The Exness target has been re-paced to recover your fee. Trade with extreme caution. Only take A+ setups.`,
-        level: "red",
-      };
-    }
-
-    // 5. Slippage Debt Active
-    if (recovery.slippageDebt > 0) {
-      return {
-        icon: <Activity size={24} />,
-        title: "MARTINGALE HEAL ACTIVE",
-        message: `I detected $${recovery.slippageDebt.toFixed(2)} of slippage on your last trade. I have increased your next Exness target to $${recovery.newExnessWinTarget.toFixed(2)} to recover this. Ensure you use the new lot size of ${r.exnessLots.toFixed(2)} lots for your next trade.`,
-        level: "amber",
-      };
-    }
-
-    // 6. Off-Peak Hours — use ET time to match Calendar and GlobalRiskSentinel
-    const et = getEasternTime();
-    const etSec = et.totalSeconds;
-    const overlapStart = 13 * 3600; // 13:00 ET
-    const overlapEnd = 16 * 3600;   // 16:00 ET
-    const londonStart = 8 * 3600;   // 08:00 ET
-    const londonEnd = 12 * 3600;    // 12:00 ET
-    const nyStart = 13 * 3600;      // 13:00 ET
-    const nyEnd = 17 * 3600;        // 17:00 ET
-    const inOverlap = etSec >= overlapStart && etSec < overlapEnd;
-    const inLondon = etSec >= londonStart && etSec < londonEnd;
-    const inNY = etSec >= nyStart && etSec < nyEnd;
-    const inGoodWindow = inOverlap || inLondon || inNY;
-    const isOffPeak = !inGoodWindow;
-    if (isOffPeak) {
-      return {
-        icon: <Clock size={24} />,
-        title: "WAIT FOR LIQUIDITY",
-        message: "It is currently outside the London/NY sessions. Spreads are too wide to guarantee zero slippage.",
-        steps: [
-          "Wait until 13:00–16:00 ET (London/NY overlap) for best liquidity.",
-          "Use this time to do your technical analysis on the 5m chart.",
-        ],
-        level: "amber",
-      };
-    }
-
-    // 7. Just Logged a Loss
-    const lastTrade = journal.filter((t) => t.result !== "OPEN").sort((a, b) => b.id.localeCompare(a.id))[0];
-    if (lastTrade && lastTrade.result === "LOSS") {
-      return {
-        icon: <TrendingDown size={24} />,
-        title: "LOSS LOGGED",
-        message: `The Prop account lost, but Exness won $${lastTrade.exPnl.toFixed(2)}. Your recovery loop is perfectly on track. You are clear to hunt for your next setup.`,
-        level: "green",
-      };
-    }
-
-    // 8. All Clear
+    // Green - All Clear (default)
     return {
       icon: <ShieldCheck size={24} />,
       title: "ALL CLEAR. YOU ARE CLEARED FOR ENTRY.",
@@ -309,9 +317,9 @@ function DailyBriefingPage() {
         "Immediately switch to your phone and place the Prop pending order at the EXACT same price.",
         "If the trade hits Take Profit, log it as a WIN and stop trading for the day.",
       ],
-      level: "green",
+      level: "green" as const,
     };
-  }, [wonToday, recovery, selectedAccount, journal, tick, r.exnessLots, recovery.newExnessWinTarget]);
+  }, [sentinel]);
 
   // ── SECTION 1: Morning Status ─────────────────────────────────────────
   const morningStatus: StatusConfig = useMemo(() => {
@@ -538,41 +546,60 @@ function DailyBriefingPage() {
           </button>
         </div>
         <div className="space-y-2">
-          {currentItems.map((item) => (
-            <div key={item.label} className="flex items-center gap-3 group">
-              <button
-                onClick={() => toggleItem(item.label)}
-                className="w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0"
-                style={{
-                  borderColor: item.checked ? "oklch(var(--gz-pos))" : "oklch(var(--gz-p) / 0.3)",
-                  background: item.checked ? "oklch(var(--gz-pos))" : "transparent",
-                }}
-              >
-                {item.checked && <CheckCircle2 size={10} style={{ color: "oklch(var(--gz-s1))" }} />}
-              </button>
-              {item.checked && (
-                <div className="h-2 w-2 rounded-full shrink-0" style={{ background: "oklch(var(--gz-pos))", boxShadow: "0 0 6px oklch(var(--gz-pos))" }} />
-              )}
-              <span
-                className="text-[12px] flex-1 cursor-pointer"
-                style={{
-                  color: "oklch(var(--gz-txt))",
-                  textDecoration: item.checked ? "line-through" : "none",
-                  opacity: item.checked ? 0.6 : 1,
-                }}
-                onClick={() => toggleItem(item.label)}
-              >
-                {item.label}
-              </span>
-              <button
-                onClick={() => removeChecklistItem(item.label)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold px-1.5 py-0.5 rounded hover:bg-red-500/10 shrink-0"
-                style={{ color: "oklch(var(--gz-neg))" }}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
+          {currentItems.map((item) => {
+            const condition = autoConditions[item.label];
+            const hasCondition = condition !== undefined;
+            const conditionMet = hasCondition && condition;
+            const isManual = !hasCondition;
+            const canCheck = isManual || conditionMet;
+            const isAutoValidated = hasCondition && conditionMet;
+
+            return (
+              <div key={item.label} className="flex items-center gap-3 group">
+                <button
+                  onClick={() => toggleItem(item.label)}
+                  className="w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0"
+                  style={{
+                    borderColor: item.checked 
+                      ? "oklch(var(--gz-pos))" 
+                      : "oklch(var(--gz-p) / 0.3)",
+                    background: item.checked 
+                      ? "oklch(var(--gz-pos))" 
+                      : "transparent",
+                    cursor: canCheck ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {item.checked && <CheckCircle2 size={10} style={{ color: "oklch(var(--gz-s1))" }} />}
+                </button>
+                {item.checked && (
+                  <div className="h-2 w-2 rounded-full shrink-0" style={{ background: "oklch(var(--gz-pos))", boxShadow: "0 0 6px oklch(var(--gz-pos))" }} />
+                )}
+                <span
+                  className="text-[12px] flex-1 cursor-pointer"
+                  style={{
+                    color: "oklch(var(--gz-txt))",
+                    textDecoration: item.checked ? "line-through" : "none",
+                    opacity: item.checked ? 0.6 : hasCondition && !conditionMet ? 0.4 : 1,
+                  }}
+                  onClick={() => canCheck && toggleItem(item.label)}
+                >
+                  {item.label}
+                  {isAutoValidated && !item.checked && (
+                    <span className="ml-2 text-[10px] font-bold" style={{ color: "oklch(var(--gz-pos))" }}>
+                      ✓ CONDITION MET
+                    </span>
+                  )}
+                </span>
+                <button
+                  onClick={() => removeChecklistItem(item.label)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold px-1.5 py-0.5 rounded hover:bg-red-500/10 shrink-0"
+                  style={{ color: "oklch(var(--gz-neg))" }}
+                >
+                  Remove
+                </button>
+              </div>
+            );
+          })}
         </div>
         {allChecked && (
           <div className="mt-4 p-3 rounded-lg text-center" style={{ background: "oklch(var(--gz-pos) / 0.12)", border: "1px solid oklch(var(--gz-pos) / 0.3)" }}>

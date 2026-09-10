@@ -324,9 +324,10 @@ function LivePage() {
                   function addToJournal() {
                     const now = new Date();
                     const closeTime = d.time ? new Date(d.time) : now;
+                    const localDate = `${closeTime.getFullYear()}-${String(closeTime.getMonth() + 1).padStart(2, "0")}-${String(closeTime.getDate()).padStart(2, "0")}`;
                     addTrade({
                       id: `deal-${d.id}-${Date.now()}`,
-                      date: closeTime.toISOString().slice(0, 10),
+                      date: localDate,
                       time: closeTime.toTimeString().slice(0, 8),
                       pair,
                       dir: inferDirection(d.type),

@@ -193,3 +193,9 @@ table tbody tr:hover td { background: oklch(var(--gz-p) / 0.05); }
 .mirror-ticket { width: 100%; }
 .risk-per-trade { width: 100%; }
 .brand-watermark { }
+
+/* PWA Install Button Animation */
+@keyframes pwa-pulse {
+  0%, 100% { box-shadow: 0 0 8px oklch(var(--gz-p) / 0.2); }
+  50% { box-shadow: 0 0 16px oklch(var(--gz-p) / 0.4); }
+}

@@ -87,7 +87,10 @@ function useLiveOpenPnl(
 function JournalPage() {
   const { journal, addTrade, updateTrade, deleteTrade, clearJournal, engine, meta, setEngine } = useStore();
   const { result: r, recovery } = useEngineWithRecovery();
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
   const [pair, setPair] = useState<string>(engine.pair);
   const [dir, setDir] = useState<Direction>(engine.direction);
   const [actualPropPnl, setActualPropPnl] = useState("");
@@ -124,9 +127,11 @@ function JournalPage() {
     const exPnl = actualExPnl !== "" ? Number(actualExPnl) : derived.exPnl;
     const netPnl = propPnl + exPnl;
     const now = new Date();
+    // Use local date for consistency with daily cap check
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     addTrade({
       id: `${now.getTime()}`,
-      date,
+      date: localDate,
       time: now.toTimeString().slice(0, 8),
       pair,
       dir,
@@ -186,7 +191,8 @@ function JournalPage() {
         swap: newDeal.swap,
       });
       const closeTime = newDeal.time ? new Date(newDeal.time) : new Date();
-      setDate(closeTime.toISOString().slice(0, 10));
+      const syncDate = `${closeTime.getFullYear()}-${String(closeTime.getMonth() + 1).padStart(2, "0")}-${String(closeTime.getDate()).padStart(2, "0")}`;
+      setDate(syncDate);
       setActualExPnl(netD.toFixed(2));
       toast.success(`Synced deal ${newDeal.id} — net ${money(netD, true)}. Did the Prop win or lose?`);
       setLastSync(new Date().toLocaleTimeString());
@@ -202,9 +208,11 @@ function JournalPage() {
     const propPnl = derived.propPnl;
     const exPnl = netD;
     const closeTime = pendingDeal.time ? new Date(pendingDeal.time) : new Date();
+    // Use local date for consistency with daily cap check
+    const localDate = `${closeTime.getFullYear()}-${String(closeTime.getMonth() + 1).padStart(2, "0")}-${String(closeTime.getDate()).padStart(2, "0")}`;
     addTrade({
       id: `deal-${pendingDeal.id}-${Date.now()}`,
-      date: closeTime.toISOString().slice(0, 10),
+      date: localDate,
       time: closeTime.toTimeString().slice(0, 8),
       pair: pendingDeal.symbol.replace(new RegExp(`${meta.exnessSymbolSuffix ?? ""}$`), "").toUpperCase(),
       dir: pendingDeal.type.includes("BUY") ? "LONG" : "SHORT",
@@ -287,6 +295,30 @@ function JournalPage() {
   const grossLoss = Math.abs(closed.filter((t) => t.netPnl < 0).reduce((s, t) => s + t.netPnl, 0));
   const winRate = closed.length ? (wins.length / closed.length) * 100 : 0;
   const profitFactor = grossLoss > 0 ? gross / grossLoss : gross > 0 ? Infinity : 0;
+
+  // ── DATA VALIDATION: Check P&L signs ─────────────────────────────────────
+  // If Prop WON, Exness should LOSE (negative P&L)
+  // If Prop LOSES, Exness should WIN (positive P&L)
+  const [dataValidationError, setDataValidationError] = useState<string | null>(null);
+  
+  function validateAndLog(result: "WIN" | "LOSS") {
+    const exPnlNum = actualExPnl !== "" ? Number(actualExPnl) : null;
+    
+    // Validate: Prop WIN → Exness should LOSE (negative)
+    if (result === "WIN" && exPnlNum !== null && exPnlNum > 0) {
+      setDataValidationError("❌ DATA ERROR: If Prop WON, Exness P&L MUST be negative. Please check your numbers.");
+      return;
+    }
+    
+    // Validate: Prop LOSS → Exness should WIN (positive)
+    if (result === "LOSS" && exPnlNum !== null && exPnlNum < 0) {
+      setDataValidationError("❌ DATA ERROR: If Prop LOST, Exness P&L MUST be positive. Please check your numbers.");
+      return;
+    }
+    
+    setDataValidationError(null);
+    log(result);
+  }
 
   const moneyLost = recovery.totalMoneyLost;
   const fuelExhausted = recovery.exnessFuelExhausted;
@@ -408,10 +440,16 @@ function JournalPage() {
             </Select>
           </Field>
           <div className="flex items-end gap-2">
-            <Button variant="success" onClick={() => log("WIN")}>Log win</Button>
-            <Button variant="danger" onClick={() => log("LOSS")}>Log loss</Button>
+            <Button variant="success" onClick={() => validateAndLog("WIN")}>Log win</Button>
+            <Button variant="danger" onClick={() => validateAndLog("LOSS")}>Log loss</Button>
           </div>
         </div>
+
+        {dataValidationError && (
+          <div className="mt-3 rounded border border-red-500/50 bg-red-500/10 p-2 text-[10px] text-red-400">
+            {dataValidationError}
+          </div>
+        )}
 
         {/* Auto-Sync section */}
         <div className="mt-4 rounded border border-border bg-muted/30 p-3">

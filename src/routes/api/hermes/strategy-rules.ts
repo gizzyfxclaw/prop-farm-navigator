@@ -3,18 +3,6 @@ import { z } from "zod";
 import { getCFEnv } from "@/lib/cloudflare-env";
 import { requireHermesAuth } from "@/lib/hermes-auth";
 
-/**
- * Structured strategy definitions — the codified counterpart to the
- * free-text `knowledge_docs`. Two flavors, both selectable from the same
- * backtest picker:
- *  - Mechanical (sma_cross/ema_cross/rsi/breakout): entry_params holds
- *    numeric indicator settings, run entirely by the deterministic engine
- *    (run_deterministic_backtest) — no LLM in the simulation.
- *  - custom: entry_params is unused; `custom_rules` holds a free-text
- *    description Hermes reads and applies judgment-per-trade against real
- *    tvremix history — real data, but not a mechanical simulation, so
- *    results still come back approximate/non-deterministic.
- */
 const ruleInput = z
   .object({
     knowledge_doc_id: z.string().optional(),
@@ -87,6 +75,27 @@ export const Route = createFileRoute("/api/hermes/strategy-rules")({
           .run();
 
         return Response.json({ id }, { status: 201 });
+      },
+
+      PATCH: async ({ request }) => {
+        const authErr = await requireHermesAuth(request);
+        if (authErr) return authErr;
+
+        const env = getCFEnv();
+        if (!env) return new Response("Service unavailable", { status: 503 });
+
+        const body = await request.json() as { id?: string; active?: boolean; title?: string; custom_rules?: string };
+        if (!body.id || body.active === undefined) {
+          return Response.json({ error: "id and active required" }, { status: 400 });
+        }
+
+        await env.DB.prepare(
+          "UPDATE strategy_rules SET active = ?, title = ?, custom_rules = ? WHERE id = ?",
+        )
+          .bind(body.active ? 1 : 0, body.title ?? null, body.custom_rules ?? null, body.id)
+          .run();
+
+        return Response.json({ ok: true });
       },
     },
   },

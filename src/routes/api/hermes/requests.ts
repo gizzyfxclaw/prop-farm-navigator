@@ -11,7 +11,8 @@ import { requireHermesAuth } from "@/lib/hermes-auth";
  */
 const patchInput = z.object({
   id: z.string(),
-  status: z.enum(["pending", "fulfilled"]),
+  status: z.enum(["pending", "fulfilled", "failed"]),
+  note: z.string().optional(),
 });
 
 export const Route = createFileRoute("/api/hermes/requests")({
@@ -49,9 +50,9 @@ export const Route = createFileRoute("/api/hermes/requests")({
 
         const body = patchInput.parse(await request.json());
         await env.DB.prepare(
-          "UPDATE hermes_requests SET status = ?, fulfilled_at = CASE WHEN ? = 'fulfilled' THEN datetime('now') ELSE fulfilled_at END WHERE id = ?",
+          "UPDATE hermes_requests SET status = ?, note = ?, fulfilled_at = CASE WHEN ? = 'fulfilled' THEN datetime('now') ELSE fulfilled_at END WHERE id = ?",
         )
-          .bind(body.status, body.status, body.id)
+          .bind(body.status, body.note ?? null, body.status, body.id)
           .run();
 
         return Response.json({ ok: true });

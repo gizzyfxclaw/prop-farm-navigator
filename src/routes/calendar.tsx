@@ -46,19 +46,7 @@ const TICK_MS = 1_000;          // re-calculate everything every 1 second
 
 /* ── Pure helpers (no state) ──────────────────────────────────── */
 
-function classifyHazard(
-  seconds: number,
-  impact: "high" | "medium" | "low",
-): "critical" | "warning" | "caution" | "safe" {
-  if (seconds < 0) return "safe"; // past event
-  const min = seconds / 60;
-  if (impact === "high" && min <= 30) return "critical";
-  if (impact === "high" && min <= 120) return "warning";
-  if (impact === "high" && min <= 180) return "caution";
-  if (impact === "medium" && min <= 30) return "warning";
-  if (impact === "medium" && min <= 120) return "caution";
-  return "safe";
-}
+import { classifyHazard } from "@/lib/news-hazard";
 
 /** Pretty countdown: "12m 34s", "2h 05m 12s", "45m ago", "NOW" */
 function formatCountdown(totalSeconds: number): string {

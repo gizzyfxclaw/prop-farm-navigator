@@ -13,6 +13,8 @@ import { WinRateBadge } from "@/components/terminal/WinRateBadge";
 import { buildSmcDrawings, type DrawableLevels, type SmcChannel } from "@/lib/smc-drawings";
 import { generateSnapshotPineScript } from "@/lib/pine-snapshot-generator";
 import SmcStrategyConfig from "@/components/terminal/SmcStrategyConfig";
+import { StrategyBuilder } from "@/components/terminal/StrategyBuilder";
+import { PineScriptInterpreter } from "@/components/terminal/PineScriptInterpreter";
 
 export const Route = createFileRoute("/smc")({
   head: () => ({ meta: [{ title: "SMC Analysis — GizzyFx" }] }),
@@ -87,6 +89,8 @@ interface AnalysisData {
   pair: string;
   interval: string;
   barCount: number;
+  actualBarCount?: number;
+  wasRetried?: boolean;
   lastPrice: number;
 }
 
@@ -243,7 +247,7 @@ function ChatWithGizzyFxCoPilot({ reviewId }: { reviewId: string }) {
       </div>
       <div className="max-h-[200px] overflow-y-auto space-y-2 mb-2 pr-1">
         {chatMessages.length === 0 && (
-          <p className="text-[11px] text-muted-foreground italic">Ask Hermes about this analysis...</p>
+          <p className="text-[11px] text-muted-foreground italic">Ask GizzyFx Co-Pilot about this analysis...</p>
         )}
         {chatMessages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -259,7 +263,7 @@ function ChatWithGizzyFxCoPilot({ reviewId }: { reviewId: string }) {
         {chatLoading && (
           <div className="flex justify-start">
             <div className="bg-white/5 rounded-lg px-3 py-1.5 text-[12px] text-muted-foreground">
-              <span className="inline-block animate-pulse">Hermes is typing...</span>
+              <span className="inline-block animate-pulse">GizzyFx Co-Pilot is typing...</span>
             </div>
           </div>
         )}
@@ -406,12 +410,14 @@ function GizzyFxCoPilotAnalyzingCard({ submittedAt, reviewId }: { submittedAt: n
       position: "relative",
       overflow: "hidden",
     }}>
+      {/* Scanning line animation */}
       <div style={{
         position: "absolute", top: 0, left: "-100%", right: 0, height: 2,
         background: "linear-gradient(90deg, transparent, oklch(0.65 0.2 280), transparent)",
         animation: "hz-scan 2.4s linear infinite",
       }} />
 
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
         <div style={{ position: "relative", width: 40, height: 40, flexShrink: 0 }}>
           <div style={{
@@ -446,6 +452,7 @@ function GizzyFxCoPilotAnalyzingCard({ submittedAt, reviewId }: { submittedAt: n
         </div>
       </div>
 
+      {/* Progress bar */}
       <div style={{ background: "oklch(0.18 0.04 280)", borderRadius: 4, height: 5, marginBottom: 14, overflow: "hidden" }}>
         <div style={{
           height: "100%", borderRadius: 4,
@@ -456,6 +463,7 @@ function GizzyFxCoPilotAnalyzingCard({ submittedAt, reviewId }: { submittedAt: n
         }} />
       </div>
 
+      {/* Phase steps */}
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         {ANALYSIS_PHASES.map((p, i) => {
           const isDone   = i < phaseIdx;
@@ -586,7 +594,7 @@ function AnalysisChart({
   return (
     <div>
       <p className="text-[12px] text-muted-foreground mb-2 flex items-center gap-1">
-        <TrendingUp size={11} /> Hermes's Marked-Up Chart — trend, order blocks &amp; entry/SL/TP drawn from the actual analysis
+        <TrendingUp size={11} /> GizzyFx Co-Pilot's Marked-Up Chart — trend, order blocks &amp; entry/SL/TP drawn from the actual analysis
       </p>
       <LWChart bars={bars} drawings={drawings} height={height} loading={loading} pair={pair} />
     </div>
@@ -889,7 +897,7 @@ function SMCPage() {
       setPollingSubmittedAt(Date.now());
       await loadReviews();
     } catch {
-      alert("Failed to submit to Hermes. Please try again.");
+      alert("Failed to submit to GizzyFx Co-Pilot. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -906,7 +914,7 @@ function SMCPage() {
   };
 
   const deleteAll = async () => {
-    if (!confirm("Delete all Hermes analysis history? This cannot be undone.")) return;
+    if (!confirm("Delete all GizzyFx Co-Pilot analysis history? This cannot be undone.")) return;
     try {
       await fetch("/api/hermes/analyze-with-hermes?all=true", { method: "DELETE" });
       setReviews([]);
@@ -1241,7 +1249,7 @@ function fmt(val: unknown, decimals = 5): string {
             <>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: "oklch(0.55 0.15 145)", display: "inline-block" }} />
               <span style={{ color: "oklch(0.65 0.08 280)" }}>
-                Hermes ready — submit "Ask Hermes AI" and result arrives within 5 min
+                GizzyFx Co-Pilot ready — submit "Ask GizzyFx Co-Pilot" and result arrives within 5 min
               </span>
               <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 11 }}>
                 {countdown > 0 && (
@@ -1297,22 +1305,26 @@ function fmt(val: unknown, decimals = 5): string {
               style={{ background: "oklch(0.55 0.18 280)", color: "#fff" }}
             >
               <Bot size={12} />
-              Ask Hermes AI
+              Ask GizzyFx Co-Pilot
             </Button>
           </div>
         </div>
       </Card>
 
+      {/* ── Strategy Selection (above Ask GizzyFx Co-Pilot) ──────────── */}
+      <StrategyBuilder />
+      <PineScriptInterpreter />
+
       {/* ── Hermes Submission Panel ─────────────────────────────────── */}
       {showHermesPanel && (
-        <Card title="Ask Hermes — AI Chart Review" accent="primary">
+        <Card title="Ask GizzyFx Co-Pilot — AI Chart Review" accent="primary">
           <div className="space-y-4">
             <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
               <p className="text-[12px] text-primary font-bold mb-1 flex items-center gap-1">
                 <Activity size={11} /> How it works
               </p>
               <p className="text-[12px] text-muted-foreground">
-                Hermes reads the live SMC data, your notes, and your chart image.
+                GizzyFx Co-Pilot reads the live SMC data, your notes, and your chart image.
                 It then applies the GizzyFx Channel Breakout Strategy and reports back
                 with a verdict, entry/SL/TP levels, and accuracy grade — all saved here.
               </p>
@@ -1352,13 +1364,18 @@ function fmt(val: unknown, decimals = 5): string {
 
             {data && (
               <div className="rounded-md border border-white/10 bg-white/[0.02] p-3">
-                <p className="text-[12px] text-muted-foreground mb-1">SMC data Hermes will analyze:</p>
+                <p className="text-[12px] text-muted-foreground mb-1">SMC data GizzyFx Co-Pilot will analyze:</p>
                 <p className="text-[13px] text-foreground">
                   <span className="capitalize font-bold">{data.structure.bias}</span> bias ·{" "}
                   {data.structure.bos ? `BOS ${data.structure.bos}` : "No BOS"} ·{" "}
                   {data.structure.orderBlocks.length} order blocks · Last price{" "}
                   <span className="font-mono">{data.lastPrice?.toFixed(5) ?? "—"}</span>
                 </p>
+                {data.wasRetried && (
+                  <p className="text-[11px] text-amber-400 mt-1">
+                    ⚠️ Analysis based on {data.actualBarCount} bars (reduced due to upstream data limits)
+                  </p>
+                )}
               </div>
             )}
 
@@ -1370,7 +1387,7 @@ function fmt(val: unknown, decimals = 5): string {
                 style={{ background: "oklch(0.55 0.18 280)", color: "#fff" }}
               >
                 <Sparkles size={12} />
-                {submitting ? "Sending to Hermes…" : "Submit for Analysis"}
+                {submitting ? "Sending to GizzyFx Co-Pilot…" : "Submit for Analysis"}
               </Button>
               <Button variant="ghost" onClick={() => setShowHermesPanel(false)}>
                 Cancel
@@ -1395,7 +1412,7 @@ function fmt(val: unknown, decimals = 5): string {
 
       {/* ── Fulfilled Reviews Feed ───────────────────────────────────── */}
       {fulfilledReviews.length > 0 && (
-        <Card title={`Hermes Analysis History (${fulfilledReviews.length})`}>
+        <Card title={`GizzyFx Co-Pilot Analysis History (${fulfilledReviews.length})`}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-[12px] text-muted-foreground">Click a row to expand feedback</span>
             <div className="flex items-center gap-2">
@@ -1482,7 +1499,7 @@ function fmt(val: unknown, decimals = 5): string {
                       {r.feedback && (
                         <div>
                           <p className="text-[12px] text-muted-foreground mb-1 flex items-center gap-1">
-                            <MessageSquare size={11} /> Hermes Feedback
+                            <MessageSquare size={11} /> GizzyFx Co-Pilot Feedback
                           </p>
                           <div className="rounded-md border border-white/10 bg-background p-3">
                             <p className="text-[13px] text-foreground whitespace-pre-wrap leading-relaxed">{r.feedback}</p>
@@ -1557,11 +1574,11 @@ function fmt(val: unknown, decimals = 5): string {
                         </div>
                       )}
 
-                      {/* Chat with Hermes about this analysis */}
+                      {/* Chat with GizzyFx Co-Pilot about this analysis */}
                       {r.status === "fulfilled" && r.feedback && (
                         <div>
                           <p className="text-[12px] text-muted-foreground mb-1 flex items-center gap-1">
-                            <MessageSquare size={11} /> Discuss with Hermes
+                            <MessageSquare size={11} /> Discuss with GizzyFx Co-Pilot
                           </p>
                           <div className="rounded-md border border-purple-500/20 bg-purple-500/5 p-3">
                             <ChatWithGizzyFxCoPilot reviewId={r.id} />
@@ -1602,7 +1619,7 @@ function fmt(val: unknown, decimals = 5): string {
       {data && !loading && (
         <>
           {/* Hermes's marked-up chart — trend, order blocks, entry/SL/TP */}
-          <Card title="Hermes's Marked-Up Chart">
+          <Card title="GizzyFx Co-Pilot's Marked-Up Chart">
             <AnalysisChart
               pair={pair}
               timeframe={timeframe}
@@ -1618,27 +1635,6 @@ function fmt(val: unknown, decimals = 5): string {
               height={400}
             />
           </Card>
-
-          {/* Channel / retest / 5M confirmation — the actual GizzyFx strategy gate */}
-          {data.channel && (
-            <Card title="Parallel Channel Breakout Check" accent={data.channel.type !== "none" && (data.levels.retestCount ?? 0) >= 2 ? "pos" : "neg"}>
-              <div className="flex items-center gap-3 flex-wrap">
-                <Badge tone={data.channel.type === "none" ? "neutral" : "amber"}>
-                  {data.channel.type === "none" ? "NO CHANNEL" : data.channel.type.toUpperCase()}
-                </Badge>
-                <Badge tone={(data.levels.retestCount ?? 0) >= 2 ? "green" : "red"}>
-                  {data.levels.retestCount ?? 0} RETEST{(data.levels.retestCount ?? 0) === 1 ? "" : "S"}
-                </Badge>
-                <Badge tone={data.levels.breakoutConfirmed5m ? "green" : "neutral"}>
-                  {data.levels.breakoutConfirmed5m ? "5M BREAKOUT CONFIRMED" : "5M NOT YET CONFIRMED"}
-                </Badge>
-                {data.levels.nearbyConflict && <Badge tone="amber">CONFLICTING LEVEL NEAR TARGET</Badge>}
-              </div>
-              {data.levels.reason && (
-                <p className="mt-2 text-[12px] text-muted-foreground">{data.levels.reason}</p>
-              )}
-            </Card>
-          )}
 
           {/* Multi-timeframe trend alignment — Daily down to 5M should agree */}
           {data.timeframeAlignment && (

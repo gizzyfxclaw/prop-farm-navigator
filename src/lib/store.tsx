@@ -273,24 +273,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         storage.write(KEYS.journal, serverJournal);
       }
       if (serverSettings.accounts && serverSettings.accounts.length > 0) {
-        // Migrate stale presets from server-stored accounts too.
+        // localStorage (localAccounts) is fresher than KV — merge KV first, then local wins
         const fresh = defaultAccounts();
         const freshIds = new Set(fresh.map((a) => a.id));
         const customFromServer = serverSettings.accounts.filter((a: PropAccount) => !freshIds.has(a.id));
-        const mergedAccounts: PropAccount[] = [...fresh, ...customFromServer];
+        // Preserve localStorage accounts (they have fresher state than server)
+        const localCustom = localAccounts.filter((a) => !freshIds.has(a.id));
+        const mergedAccounts: PropAccount[] = [...fresh, ...localCustom, ...customFromServer];
         setAccounts(mergedAccounts);
         storage.write(KEYS.accounts, mergedAccounts);
       }
       if (serverSettings.engine) {
         setEngineState((prev) => {
-          const next = { ...prev, ...serverSettings.engine };
+          // localStorage (prev) is always fresher than KV server data
+          // because localStorage writes are synchronous, KV writes are fire-and-forget
+          const next = { ...serverSettings.engine, ...prev };
           storage.write(KEYS.engine, next);
           return next;
         });
       }
       if (serverSettings.meta) {
         setMetaState((prev) => {
-          const next = { ...prev, ...serverSettings.meta };
+          // localStorage (prev) is always fresher than KV server data
+          const next = { ...serverSettings.meta, ...prev };
           storage.write(KEYS.meta, next);
           return next;
         });
