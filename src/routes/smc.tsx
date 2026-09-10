@@ -5,7 +5,7 @@ import {
   Upload, Camera, Sparkles, CheckCircle2, XCircle, MessageSquare,
   RefreshCw, Clock, Activity, ChevronDown, ChevronUp, Trash2,
   Globe, Monitor, TrendingUp as IndicatorIcon, Image, Search, Scale, FileCheck,
-  Loader, CheckCheck, Cpu,
+  Loader, CheckCheck, Cpu, Layers, Settings2,
 } from "lucide-react";
 import { Badge, Button, Card } from "@/components/terminal/ui";
 import { LWChart, type OHLCBar } from "@/components/terminal/lwchart";
@@ -14,6 +14,7 @@ import { buildSmcDrawings, type DrawableLevels, type SmcChannel } from "@/lib/sm
 import { generateSnapshotPineScript } from "@/lib/pine-snapshot-generator";
 import SmcStrategyConfig from "@/components/terminal/SmcStrategyConfig";
 import { StrategyBuilder } from "@/components/terminal/StrategyBuilder";
+import { StrategySelector } from "@/components/terminal/StrategySelector";
 import { PineScriptInterpreter } from "@/components/terminal/PineScriptInterpreter";
 
 export const Route = createFileRoute("/smc")({
@@ -105,6 +106,7 @@ interface HermesReview {
   verdict: "match" | "diverge" | "partial" | "neutral" | null;
   feedback: string | null;
   strategy_notes: string | null;
+  strategy: string | null;
   entry: number | null;
   stop_loss: number | null;
   take_profit_1: number | null;
@@ -651,6 +653,7 @@ function SMCPage() {
   const [timeframe, setTimeframe] = useState<TF>(saved.timeframe as TF ?? "1h");
   const [loading, setLoading]     = useState(false);
   const [data, setData]           = useState<AnalysisData | null>(saved.data);
+  const [strategy, setStrategy]   = useState("channel-breakout");
   const [fetchedAt, setFetchedAt] = useState<number | null>(saved.fetchedAt);
   const [error, setError]         = useState<string | null>(null);
   const [showPine, setShowPine]   = useState(false);
@@ -1312,7 +1315,7 @@ function fmt(val: unknown, decimals = 5): string {
       </Card>
 
       {/* ── Strategy Selection (above Ask GizzyFx Co-Pilot) ──────────── */}
-      <StrategyBuilder />
+      <StrategySelector value={strategy} onChange={setStrategy} disabled={loading} />
       <PineScriptInterpreter />
 
       {/* ── Hermes Submission Panel ─────────────────────────────────── */}
@@ -1325,9 +1328,16 @@ function fmt(val: unknown, decimals = 5): string {
               </p>
               <p className="text-[12px] text-muted-foreground">
                 GizzyFx Co-Pilot reads the live SMC data, your notes, and your chart image.
-                It then applies the GizzyFx Channel Breakout Strategy and reports back
+                It then applies the selected strategy and reports back
                 with a verdict, entry/SL/TP levels, and accuracy grade — all saved here.
               </p>
+            </div>
+
+            <div className="flex items-center gap-3 p-2 rounded-md" style={{ background: "oklch(var(--gz-p) / 0.05)", border: "1px solid oklch(var(--gz-p) / 0.1)" }}>
+              <Scale size={12} style={{ color: "oklch(var(--gz-p))" }} />
+              <span className="text-[11px] font-semibold" style={{ color: "oklch(var(--gz-p))" }}>
+                Strategy: {strategy === "channel-breakout" ? "GizzyFx Channel Breakout" : strategy === "asia-sweep-reversals" ? "Asia Sweep Reversals" : strategy === "pdh-l-fvg" ? "PDH/L FVG" : strategy === "trend-continuation" ? "Trend Continuation" : strategy === "london-breakout" ? "London Breakout" : strategy === "ema-9-vwap" ? "EMA 9 + VWAP" : strategy}
+              </span>
             </div>
 
             <div>
@@ -1510,7 +1520,12 @@ function fmt(val: unknown, decimals = 5): string {
                       {/* Strategy notes */}
                       {r.strategy_notes && (
                         <div>
-                          <p className="text-[12px] text-muted-foreground mb-1">Strategy Analysis</p>
+                          <p className="text-[12px] text-muted-foreground mb-1">
+                            Strategy Analysis
+                            <span className="ml-2 text-[10px] font-mono uppercase" style={{ color: "oklch(var(--gz-p))" }}>
+                              {r.strategy || "channel-breakout"}
+                            </span>
+                          </p>
                           <div className="rounded-md border border-white/10 bg-background p-3">
                             <p className="text-[13px] text-foreground whitespace-pre-wrap leading-relaxed">{r.strategy_notes}</p>
                           </div>
@@ -1676,7 +1691,7 @@ function fmt(val: unknown, decimals = 5): string {
           {/* Trading Levels */}
           {data.levels && data.levels.direction !== "neutral" && (
             <Card title="Trading Levels" accent={data.levels.direction === "long" ? "pos" : "neg"}>
-              <div className="flex items-center gap-4 mb-4 flex-wrap">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
                 <Badge tone={verdictColor === "green" ? "green" : verdictColor === "red" ? "red" : "amber"}>
                   <Target size={12} />
                   {data.debate?.finalVerdict?.replace("_", " ") || "ANALYZING"}
@@ -1684,6 +1699,9 @@ function fmt(val: unknown, decimals = 5): string {
                 <Badge tone={data.levels.direction === "long" ? "green" : "red"}>
                   {data.levels.orderType?.replace("_", " ") || "MARKET"}
                 </Badge>
+                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: "oklch(var(--gz-mut))" }}>
+                  Strategy: {strategy === "channel-breakout" ? "Channel Breakout" : strategy === "asia-sweep-reversals" ? "Asia Sweep" : strategy === "pdh-l-fvg" ? "PDH/L FVG" : strategy === "trend-continuation" ? "Trend Continuation" : strategy === "london-breakout" ? "London Breakout" : strategy === "ema-9-vwap" ? "EMA 9 + VWAP" : strategy}
+                </span>
                 <span className="text-[13px] text-muted-foreground">
                   Confidence: {((data.debate?.confidence ?? 0) * 100).toFixed(0)}% · SL: {data.levels.slPips} pips
                 </span>
