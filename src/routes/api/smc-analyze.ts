@@ -369,6 +369,7 @@ export const Route = createFileRoute("/api/smc-analyze")({
         const url = new URL(request.url);
         const pair = (url.searchParams.get("pair") ?? "EURUSD").toUpperCase().replace("/", "");
         const interval = url.searchParams.get("interval") ?? "1h";
+        const strategy = url.searchParams.get("strategy") ?? "channel-breakout";
         const count = Math.min(parseInt(url.searchParams.get("limit") ?? "500", 10) || 500, 5000);
 
         const apiKey = getCFEnv()?.TVREMIX_API_KEY;
@@ -378,7 +379,7 @@ export const Route = createFileRoute("/api/smc-analyze")({
 
         // Check cache first
         const env = getCFEnv();
-        const cacheKey = `${pair}-${interval}-${count}`;
+        const cacheKey = `${pair}-${interval}-${strategy}-${count}`;
         const now = new Date().toISOString();
         
         if (env?.DB) {
@@ -451,11 +452,19 @@ export const Route = createFileRoute("/api/smc-analyze")({
           lows: smcResult.structure.swings.filter(s => s.kind === 'low').length,
         };
 
+        const strategyInfo = {
+          id: strategy,
+          name: strategy === "channel-breakout" ? "GizzyFx Channel Breakout" : strategy === "asia-sweep-reversals" ? "Asia Sweep Reversals" : strategy === "pdh-l-fvg" ? "PDH/L FVG" : strategy === "trend-continuation" ? "Trend Continuation" : strategy === "london-breakout" ? "London Breakout" : strategy === "ema-9-vwap" ? "EMA 9 + VWAP" : strategy,
+          family: strategy === "channel-breakout" || strategy === "asia-sweep-reversals" || strategy === "pdh-l-fvg" ? "SMC/ICT" : strategy === "trend-continuation" || strategy === "ema-9-vwap" ? "Trend" : strategy === "london-breakout" ? "Session" : "SMC",
+          description: strategy === "channel-breakout" ? "Parallel channel breakout with retest confirmation" : strategy === "asia-sweep-reversals" ? "Asia session range sweep + CHoCH entry" : strategy === "pdh-l-fvg" ? "Previous Day High/Low Fair Value Gap" : strategy === "trend-continuation" ? "Breakout entries in trend direction" : strategy === "london-breakout" ? "London session breakout with momentum" : strategy === "ema-9-vwap" ? "EMA 9 + VWAP with ATR Trailing Stop" : "",
+        };
+
         const response = {
           structure: structureForFrontend,
           debate,
           levels,
           channel,
+          strategy: strategyInfo,
           ...(includeBars ? { bars } : { barCount: actualCount }),
           actualBarCount: actualCount,
           wasRetried,

@@ -92,6 +92,12 @@ interface AnalysisData {
   barCount: number;
   actualBarCount?: number;
   wasRetried?: boolean;
+  strategy: {
+    id: string;
+    name: string;
+    family: string;
+    description: string;
+  };
   lastPrice: number;
 }
 
@@ -711,7 +717,7 @@ function SMCPage() {
     setShowPine(false);
 
     try {
-      const res = await fetch(`/api/smc-analyze?pair=${pair}&interval=${timeframe}&limit=500`);
+      const res = await fetch(`/api/smc-analyze?pair=${pair}&interval=${timeframe}&limit=500&strategy=${strategy}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as any).error || `HTTP ${res.status}`);
@@ -725,7 +731,7 @@ function SMCPage() {
     } finally {
       setLoading(false);
     }
-  }, [pair, timeframe]);
+  }, [pair, timeframe, strategy]);
 
   /* ── Load all reviews (includes fulfilled ones) ─────────────────── */
   const loadReviews = useCallback(async (quiet = false) => {
@@ -888,6 +894,7 @@ function SMCPage() {
           user_notes: userNotes || undefined,
           user_image: userImage || undefined,
           timeframe,
+          strategy,
         }),
       });
       if (!res.ok) throw new Error("Failed to submit");
@@ -1700,7 +1707,7 @@ function fmt(val: unknown, decimals = 5): string {
                   {data.levels.orderType?.replace("_", " ") || "MARKET"}
                 </Badge>
                 <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: "oklch(var(--gz-mut))" }}>
-                  Strategy: {strategy === "channel-breakout" ? "Channel Breakout" : strategy === "asia-sweep-reversals" ? "Asia Sweep" : strategy === "pdh-l-fvg" ? "PDH/L FVG" : strategy === "trend-continuation" ? "Trend Continuation" : strategy === "london-breakout" ? "London Breakout" : strategy === "ema-9-vwap" ? "EMA 9 + VWAP" : strategy}
+                  Strategy: {data.strategy?.name || "Channel Breakout"}
                 </span>
                 <span className="text-[13px] text-muted-foreground">
                   Confidence: {((data.debate?.confidence ?? 0) * 100).toFixed(0)}% · SL: {data.levels.slPips} pips

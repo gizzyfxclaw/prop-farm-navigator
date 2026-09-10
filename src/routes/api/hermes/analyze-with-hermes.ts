@@ -21,6 +21,7 @@ const submitInput = z.object({
   user_notes: z.string().optional(),
   user_image: z.string().optional(), // base64 data URL
   timeframe: z.string().default("1h"),
+  strategy: z.string().default("channel-breakout"),
 });
 
 const feedbackInput = z.object({
@@ -56,8 +57,8 @@ export const Route = createFileRoute("/api/hermes/analyze-with-hermes")({
 
         await env.DB.prepare(
           `INSERT INTO hermes_smc_reviews 
-           (id, pair, timeframe, smc_data, user_notes, user_image, status, created_at) 
-           VALUES (?, ?, ?, ?, ?, ?, 'pending', strftime('%Y-%m-%dT%H:%M:%SZ','now'))`
+           (id, pair, timeframe, smc_data, user_notes, user_image, status, strategy, created_at) 
+           VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, strftime('%Y-%m-%dT%H:%M:%SZ','now'))`
         )
           .bind(
             id,
@@ -66,6 +67,7 @@ export const Route = createFileRoute("/api/hermes/analyze-with-hermes")({
             JSON.stringify(body.smc_data),
             body.user_notes ?? null,
             body.user_image ?? null,
+            body.strategy ?? "channel-breakout",
           )
           .run();
 
@@ -253,6 +255,7 @@ export const RouteChat = createFileRoute("/api/hermes/smc-chat")({
 function buildSystemPrompt(review: any): string {
   const pair = review.pair;
   const tf = review.timeframe;
+  const strategy = review.strategy || "channel-breakout";
   const feedback = review.feedback || "No analysis available yet.";
   const strategyNotes = review.strategy_notes || "";
   const verdict = review.verdict || "neutral";
