@@ -16,6 +16,7 @@ import SmcStrategyConfig from "@/components/terminal/SmcStrategyConfig";
 import { StrategyBuilder } from "@/components/terminal/StrategyBuilder";
 import { StrategySelector } from "@/components/terminal/StrategySelector";
 import { PineScriptInterpreter } from "@/components/terminal/PineScriptInterpreter";
+import { StrategyPineScript, getStrategyPineScript } from "@/components/terminal/StrategyPineScript";
 
 export const Route = createFileRoute("/smc")({
   head: () => ({ meta: [{ title: "SMC Analysis — GizzyFx" }] }),
@@ -1323,6 +1324,24 @@ function fmt(val: unknown, decimals = 5): string {
 
       {/* ── Strategy Selection (above Ask GizzyFx Co-Pilot) ──────────── */}
       <StrategySelector value={strategy} onChange={setStrategy} disabled={loading} />
+
+      {/* ── Strategy Pine Script (editable, per strategy) ───────────── */}
+      <Card title="Strategy Pine Script" accent="primary">
+        <StrategyPineScript
+          pair={pair}
+          timeframe={timeframe}
+          strategy={strategy}
+          onApply={(code) => {
+            // Store customized code for potential backend use
+            try { localStorage.setItem("gizzyfx.strategyPineCode", code); } catch {}
+          }}
+          onAnalyze={() => {
+            // Trigger re-analysis with current strategy
+            load();
+          }}
+        />
+      </Card>
+
       <PineScriptInterpreter />
 
       {/* ── Hermes Submission Panel ─────────────────────────────────── */}
