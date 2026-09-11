@@ -91,12 +91,10 @@ function DailyBriefingPage() {
   // Current trade items — always start fresh for each trade
   const [currentItems, setCurrentItems] = useState<CheckItem[]>(() => {
     const phaseDefaults = defaultItems[r.phase] || defaultItems[1];
-    // Check if we have saved state in localStorage
     try {
-      const saved = localStorage.getItem("gizzyfx.checklist.current");
+      const saved = localStorage.getItem(`gizzyfx.checklist.current.${r.phase}`);
       if (saved) {
         const parsed = JSON.parse(saved) as CheckItem[];
-        // Validate structure matches current phase defaults
         if (parsed.length >= phaseDefaults.length) {
           return parsed;
         }
@@ -114,10 +112,10 @@ function DailyBriefingPage() {
     return [];
   });
 
-  // Save current items (with localStorage for RulesAlertPanel bridge)
+  // Save current items
   const saveCurrentItems = (items: CheckItem[]) => {
     setCurrentItems(items);
-    localStorage.setItem("gizzyfx.checklist.current", JSON.stringify(items));
+    localStorage.setItem(`gizzyfx.checklist.current.${r.phase}`, JSON.stringify(items));
   };
 
   // Save completed trades to localStorage
@@ -140,29 +138,24 @@ function DailyBriefingPage() {
   const inNY = etSec >= nyStart && etSec < nyEnd;
   const inGoodWindow = inOverlap || inLondon || inNY;
 
-  // Auto-condition functions per item
-  const autoConditions: Record<string, boolean> = {
-    "I have checked ForexFactory.com — NO red-folder news in the next 2 hours": false, // always manual
-    "It is currently between 13:00–16:00 EST (best liquidity, lowest spread)": inOverlap,
-    "Exness FIRST → Prop SECOND — CRITICAL execution — Manual check: always Exness first, wait for green, then Prop": false,
-    "Check Live MT5 tab before trading — CRITICAL execution: verify Live MT5 tab shows balance before trading": false,
-    "I will place the EXNESS trade FIRST via the Execute button and wait for green confirmation": false,
-    "I will then manually place the PROP trade on my phone at the EXACT same price": false,
-    "If I hit a WIN on Prop today, I will STOP TRADING for the rest of the day (Daily Cap Rule)": false,
-    "If I hit a LOSS, I will log it in the Journal immediately using 'Sync Exness History'": false,
-    "I have confirmed the Funded Phase lot size and risk parameters": false,
-    "I have verified the Funded Phase drawdown limit is not breached": false,
+  // Auto-condition checks — these show indicators but DON'T block checking
+  const getAutoCondition = (label: string): { hasCondition: boolean; met: boolean } => {
+    if (label.includes("13:00–16:00 EST")) {
+      return { hasCondition: true, met: inOverlap };
+    }
+    if (label.includes("London session")) {
+      return { hasCondition: true, met: inLondon };
+    }
+    if (label.includes("between 13:00")) {
+      return { hasCondition: true, met: inGoodWindow };
+    }
+    return { hasCondition: false, met: false };
   };
 
-  // Toggle item checked (only if condition is met or item is manual)
-  const toggleItem = (label: string) => {
-    const next = currentItems.map((item) => {
-      if (item.label !== label) return item;
-      // If condition exists and is not met, don't allow checking
-      const condition = autoConditions[label];
-      if (condition !== undefined && !condition) {
-        return item; // can't check — condition not met
-      }
+  // Toggle item checked — all items can be toggled freely
+  const toggleItem = (index: number) => {
+    const next = currentItems.map((item, i) => {
+      if (i !== index) return item;
       return { ...item, checked: !item.checked };
     });
     saveCurrentItems(next);
@@ -190,8 +183,8 @@ function DailyBriefingPage() {
   };
 
   // Remove item
-  const removeChecklistItem = (label: string) => {
-    const next = currentItems.filter((item) => item.label !== label);
+  const removeChecklistItem = (index: number) => {
+    const next = currentItems.filter((_, i) => i !== index);
     saveCurrentItems(next);
   };
 
@@ -208,7 +201,6 @@ function DailyBriefingPage() {
     const phaseDefaults = defaultItems[r.phase] || defaultItems[1];
     const freshItems = phaseDefaults.map((label) => ({ label, checked: false }));
     saveCurrentItems(freshItems);
-    // Clear localStorage bridge for RulesAlertPanel
     localStorage.setItem("gizzyfx.checklist.exnessFirst", "false");
     localStorage.setItem("gizzyfx.checklist.mt5Check", "false");
     setTradeNumber((n) => n + 1);
@@ -222,7 +214,6 @@ function DailyBriefingPage() {
     saveCompletedTrades([]);
     setTradeNumber(1);
     setExpandedTrades(new Set());
-    // Clear localStorage bridge for RulesAlertPanel
     localStorage.setItem("gizzyfx.checklist.exnessFirst", "false");
     localStorage.setItem("gizzyfx.checklist.mt5Check", "false");
   };
@@ -235,27 +226,6 @@ function DailyBriefingPage() {
       localStorage.setItem("gizzyfx.checklist.mt5Check", "false");
     }
   }, []);
-
-  // ── Auto-revert: uncheck items when conditions are no longer met ──
-  useEffect(() => {
-    const next = currentItems.map((item) => {
-      const condition = autoConditions[item.label];
-      if (condition === false && item.checked) {
-        // Condition was previously met but now is not — revert to unchecked
-        return { ...item, checked: false };
-      }
-      return item;
-    });
-    // Only update if something changed
-    if (next.some((item, i) => item.checked !== currentItems[i]?.checked)) {
-      saveCurrentItems(next);
-      // Update localStorage bridge for RulesAlertPanel
-      const exnessFirstItem = next.find((i) => i.label.startsWith("Exness FIRST → Prop SECOND"));
-      if (exnessFirstItem) localStorage.setItem("gizzyfx.checklist.exnessFirst", String(exnessFirstItem.checked));
-      const mt5CheckItem = next.find((i) => i.label.startsWith("Check Live MT5 tab before trading"));
-      if (mt5CheckItem) localStorage.setItem("gizzyfx.checklist.mt5Check", String(mt5CheckItem.checked));
-    }
-  }, [inOverlap, inLondon, inNY]);
 
   // Toggle expanded trade
   const toggleExpanded = (num: number) => {
@@ -546,18 +516,15 @@ function DailyBriefingPage() {
           </button>
         </div>
         <div className="space-y-2">
-          {currentItems.map((item) => {
-            const condition = autoConditions[item.label];
-            const hasCondition = condition !== undefined;
-            const conditionMet = hasCondition && condition;
-            const isManual = !hasCondition;
-            const canCheck = isManual || conditionMet;
-            const isAutoValidated = hasCondition && conditionMet;
+          {currentItems.map((item, index) => {
+            const autoInfo = getAutoCondition(item.label);
+            const hasCondition = autoInfo.hasCondition;
+            const conditionMet = autoInfo.met;
 
             return (
-              <div key={item.label} className="flex items-center gap-3 group">
+              <div key={`${item.label}-${index}`} className="flex items-center gap-3 group">
                 <button
-                  onClick={() => toggleItem(item.label)}
+                  onClick={() => toggleItem(index)}
                   className="w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0"
                   style={{
                     borderColor: item.checked 
@@ -566,7 +533,7 @@ function DailyBriefingPage() {
                     background: item.checked 
                       ? "oklch(var(--gz-pos))" 
                       : "transparent",
-                    cursor: canCheck ? "pointer" : "not-allowed",
+                    cursor: "pointer",
                   }}
                 >
                   {item.checked && <CheckCircle2 size={10} style={{ color: "oklch(var(--gz-s1))" }} />}
@@ -579,19 +546,19 @@ function DailyBriefingPage() {
                   style={{
                     color: "oklch(var(--gz-txt))",
                     textDecoration: item.checked ? "line-through" : "none",
-                    opacity: item.checked ? 0.6 : hasCondition && !conditionMet ? 0.4 : 1,
+                    opacity: item.checked ? 0.6 : 1,
                   }}
-                  onClick={() => canCheck && toggleItem(item.label)}
+                  onClick={() => toggleItem(index)}
                 >
                   {item.label}
-                  {isAutoValidated && !item.checked && (
+                  {hasCondition && conditionMet && (
                     <span className="ml-2 text-[10px] font-bold" style={{ color: "oklch(var(--gz-pos))" }}>
-                      ✓ CONDITION MET
+                      ✓ AUTO
                     </span>
                   )}
                 </span>
                 <button
-                  onClick={() => removeChecklistItem(item.label)}
+                  onClick={() => removeChecklistItem(index)}
                   className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold px-1.5 py-0.5 rounded hover:bg-red-500/10 shrink-0"
                   style={{ color: "oklch(var(--gz-neg))" }}
                 >
