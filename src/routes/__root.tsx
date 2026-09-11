@@ -421,14 +421,20 @@ function Clock() {
 function MobileNav() {
   const [mounted, setMounted] = useState(false);
   const [openPanel, setOpenPanel] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
 
   // Only render portal on client-side (document is not available during SSR)
   useEffect(() => {
     setMounted(true);
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
-  if (!mounted) return null;
+  // Don't show bottom toolbar on desktop
+  if (!mounted || !isMobile) return null;
 
   const isActive = (to: string) =>
     to === "/" ? pathname === "/" : pathname.startsWith(to);
@@ -553,6 +559,14 @@ function RootComponent() {
   const pathname = router.state.location.pathname;
   const headerRef = useRef<HTMLElement>(null);
   const [headerH, setHeaderH] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // ── Daily Briefing reminder (once per 24hr) ──
   const [showDailyReminder, setShowDailyReminder] = useState(false);
@@ -728,7 +742,7 @@ function RootComponent() {
               style={{
                 minWidth: 0,
                 paddingTop: headerH > 0 ? `calc(${headerH}px + 12px)` : "calc(var(--cmdbar-h) + 12px)",
-                paddingBottom: "120px",
+                paddingBottom: isMobile ? "120px" : "16px",
               }}
             >
               <PageErrorBoundary>
