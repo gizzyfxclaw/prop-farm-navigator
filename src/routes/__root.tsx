@@ -644,20 +644,19 @@ function RootComponent() {
 
               {/* Row 2 — identity, navigation, controls */}
               <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
-                <div className="flex items-center justify-between gap-4 py-2">
-                  <div className="flex items-center gap-5 min-w-0">
+                <div className="flex items-center justify-between gap-2 sm:gap-4 py-2">
+                  {/* Left: Logo + Nav */}
+                  <div className="flex items-center gap-2 sm:gap-5 min-w-0 overflow-hidden">
                     <Link
                       to="/"
                       className="flex items-center select-none flex-shrink-0"
                       aria-label="GizzyFx home"
                     >
-                      {/* Full clean GizzyFX brand logo — single image, no duplication */}
                       <img
                         src="/gizzyfx-nav2.png"
                         alt="GizzyFX"
+                        className="h-8 sm:h-11 w-auto"
                         style={{
-                          height: 44,
-                          width: "auto",
                           objectFit: "contain",
                           display: "block",
                           filter: "drop-shadow(0 0 8px rgba(0,200,100,0.35))",
@@ -694,19 +693,21 @@ function RootComponent() {
                     </a>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Right: Controls */}
+                  <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
                     <Clock />
-                    <span className="vdivider hidden sm:block" style={{ height: 16 }} />
+                    <span className="vdivider hidden sm:block" style={{ height: 14 }} />
                     <NotificationBell />
+                    <span className="vdivider hidden sm:block" style={{ height: 14 }} />
                     <ModeToggle />
                     <ThemeSwitcher />
                     <button
                       onClick={handleLogout}
-                      className="btn btn-danger fx-press"
+                      className="btn btn-danger fx-press !px-2 sm:!px-3"
                       title="Sign out"
                     >
                       <LogOut size={14} />
-                      Sign Out
+                      <span className="hidden sm:inline ml-1.5">Sign Out</span>
                     </button>
                   </div>
                 </div>
