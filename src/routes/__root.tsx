@@ -695,21 +695,18 @@ function RootComponent() {
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="hidden lg:flex items-center gap-2">
-                      <Clock />
-                      <span className="vdivider hidden sm:block" style={{ height: 16 }} />
-                      <NotificationBell />
-                      <ModeToggle />
-                      <ThemeSwitcher />
-                    </div>
-                    <MobileNav />
+                    <Clock />
+                    <span className="vdivider hidden sm:block" style={{ height: 16 }} />
+                    <NotificationBell />
+                    <ModeToggle />
+                    <ThemeSwitcher />
                     <button
                       onClick={handleLogout}
                       className="btn btn-danger fx-press"
                       title="Sign out"
                     >
-                      <LogOut size={12} />
-                      <span className="hidden sm:inline">Sign Out</span>
+                      <LogOut size={14} />
+                      Sign Out
                     </button>
                   </div>
                 </div>
@@ -718,6 +715,9 @@ function RootComponent() {
               {/* Row 3 — live quote tape */}
               <MarketTape />
             </header>
+
+            {/* Mobile navigation bar (outside header to escape stacking context) */}
+            <MobileNav />
 
             {/* ── Page content ─────────────────────────────────── */}
             <main
