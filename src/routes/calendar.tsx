@@ -8,6 +8,7 @@ import {
 import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
 import { Badge, Button, CockpitHeader } from "@/components/terminal/ui";
 import { LiveDot } from "@/components/terminal/anim";
+import { analyzeNewsEvent } from "@/lib/news-analyzer";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -163,8 +164,6 @@ function CalendarPage() {
     await new Promise(resolve => setTimeout(resolve, 300));
     
     try {
-      // Use the professional news analyzer
-      const { analyzeNewsEvent } = await import("@/lib/news-analyzer");
       const result = analyzeNewsEvent({
         event_name: ev.event,
         currency: ev.currency,
