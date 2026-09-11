@@ -424,117 +424,112 @@ function MobileNav() {
 
   const handleNavigate = (to: string) => {
     setOpenPanel(null);
-    router.navigate({ to });
+    setTimeout(() => router.navigate({ to }), 50);
   };
 
   const isActive = (to: string) =>
     to === "/" ? pathname === "/" : pathname.startsWith(to);
 
-  // Popover menu definitions
   const toolsItems = [
-    { to: "/backtest", label: "Backtest", icon: <BarChart3 size={16} /> },
-    { to: "/pnl", label: "P&L Dashboard", icon: <Zap size={16} /> },
-    { to: "/console", label: "Console", icon: <Terminal size={16} /> },
-    { to: "/journal", label: "Journal", icon: <BookOpen size={16} /> },
-    { to: "/live", label: "Live MT5", icon: <Activity size={16} /> },
-    { to: "/accounts", label: "Accounts", icon: <Users size={16} /> },
+    { to: "/backtest", label: "Backtest", icon: <BarChart3 size={18} /> },
+    { to: "/pnl", label: "P&L Dashboard", icon: <Zap size={18} /> },
+    { to: "/console", label: "Console", icon: <Terminal size={18} /> },
+    { to: "/journal", label: "Journal", icon: <BookOpen size={18} /> },
+    { to: "/live", label: "Live MT5", icon: <Activity size={18} /> },
+    { to: "/accounts", label: "Accounts", icon: <Users size={18} /> },
   ];
 
   const moreItems = [
-    { to: "/calendar", label: "Calendar", icon: <Calendar size={16} /> },
-    { to: "/validator", label: "Validator", icon: <ShieldCheck size={16} /> },
-    { to: "/hermes", label: "Trading Agent", icon: <Bot size={16} /> },
-    { to: "/help", label: "Help", icon: <HelpCircle size={16} /> },
-    { to: "/settings", label: "Settings", icon: <Settings size={16} /> },
-    { to: "/hermes", label: "Agent Console", icon: <ExternalLink size={16} />, external: true },
+    { to: "/calendar", label: "Calendar", icon: <Calendar size={18} /> },
+    { to: "/validator", label: "Validator", icon: <ShieldCheck size={18} /> },
+    { to: "/hermes", label: "Trading Agent", icon: <Bot size={18} /> },
+    { to: "/help", label: "Help", icon: <HelpCircle size={18} /> },
+    { to: "/settings", label: "Settings", icon: <Settings size={18} /> },
+    { to: "__logout", label: "Sign Out", icon: <LogOut size={18} />, logout: true },
   ];
 
   const primaryTabs = [
-    { to: "/", label: "Home", icon: <LayoutDashboard size={20} />, id: "home" },
-    { to: "/smc", label: "SMC", icon: <TrendingUp size={20} />, id: "smc" },
-    { to: "#tools", label: "Tools", icon: <Zap size={20} />, id: "tools" },
-    { to: "/briefing", label: "Brief", icon: <ClipboardList size={20} />, id: "briefing" },
-    { to: "#more", label: "More", icon: <Menu size={20} />, id: "more" },
+    { to: "/", label: "Home", icon: <LayoutDashboard size={22} />, id: "home" },
+    { to: "/smc", label: "SMC", icon: <TrendingUp size={22} />, id: "smc" },
+    { to: "#tools", label: "Tools", icon: <Zap size={22} />, id: "#tools" },
+    { to: "/briefing", label: "Brief", icon: <ClipboardList size={22} />, id: "briefing" },
+    { to: "#more", label: "More", icon: <Menu size={22} />, id: "#more" },
   ];
-
-  const currentPanel = openPanel;
 
   return (
     <>
-      {/* ── Popover Panels (bottom sheets) ── */}
-      {currentPanel && (
+      {/* ── Popover Panels ── */}
+      {openPanel && (
         <>
           <div
-            className="fixed inset-0 z-[998]"
-            style={{ background: "oklch(0 0 0 / 0.6)", backdropFilter: "blur(2px)" }}
+            className="fixed inset-0"
+            style={{ background: "oklch(0 0 0 / 0.65)", zIndex: 1001 }}
             onClick={() => setOpenPanel(null)}
           />
           <div
-            className="fixed bottom-[72px] left-3 right-3 z-[1000] rounded-2xl overflow-hidden"
-            style={{
-              background: "oklch(var(--gz-s1) / 0.98)",
-              border: "1px solid oklch(var(--gz-p) / 0.2)",
-              boxShadow: "0 -8px 32px oklch(0 0 0 / 0.5)",
-              backdropFilter: "blur(20px)",
-            }}
+            className="fixed inset-x-0 bottom-0"
+            style={{ zIndex: 1002 }}
           >
-            {/* Panel Header */}
             <div
-              className="flex items-center justify-between px-4 py-3"
-              style={{ borderBottom: "1px solid oklch(var(--gz-p) / 0.1)" }}
+              className="mx-3 mb-3 rounded-2xl overflow-hidden"
+              style={{
+                background: "oklch(var(--gz-s1))",
+                border: "1px solid oklch(var(--gz-p) / 0.2)",
+                boxShadow: "0 24px 64px oklch(0 0 0 / 0.6)",
+              }}
             >
-              <span
-                className="text-[11px] font-bold uppercase tracking-widest"
-                style={{ color: "oklch(var(--gz-p))" }}
+              {/* Panel Header */}
+              <div
+                className="flex items-center justify-between px-5 py-4"
+                style={{ borderBottom: "1px solid oklch(var(--gz-p) / 0.15)" }}
               >
-                {currentPanel === "tools" ? "Trading Tools" : "More Options"}
-              </span>
-              <button
-                onClick={() => setOpenPanel(null)}
-                className="p-1 rounded-md"
-                style={{ color: "oklch(var(--gz-mut))" }}
-              >
-                <X size={14} />
-              </button>
-            </div>
-            {/* Panel Items */}
-            <div className="py-2 max-h-[50vh] overflow-y-auto">
-              {(currentPanel === "tools" ? toolsItems : moreItems).map((item) => (
-                <button
-                  key={item.to}
-                  onClick={() => {
-                    if ("external" in item && item.external) {
-                      window.open("https://hermes.gizzyfxstrategy.dpdns.org", "_blank", "noreferrer");
-                    } else {
-                      handleNavigate(item.to);
-                    }
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
-                  style={{
-                    background: isActive(item.to) ? "oklch(var(--gz-p) / 0.1)" : "transparent",
-                    color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-txt))",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive(item.to)) e.currentTarget.style.background = "oklch(var(--gz-p) / 0.05)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive(item.to)) e.currentTarget.style.background = "transparent";
-                  }}
+                <span
+                  className="text-[13px] font-bold uppercase tracking-widest"
+                  style={{ color: "oklch(var(--gz-p))" }}
                 >
-                  <span style={{ color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>
-                    {item.icon}
-                  </span>
-                  <span className="text-[13px] font-medium flex-1">{item.label}</span>
-                  {isActive(item.to) && (
-                    <span
-                      className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
-                      style={{ background: "oklch(var(--gz-p) / 0.15)", color: "oklch(var(--gz-p))" }}
-                    >
-                      Active
-                    </span>
-                  )}
+                  {openPanel === "tools" ? "Trading Tools" : "More Options"}
+                </span>
+                <button
+                  onClick={() => setOpenPanel(null)}
+                  className="p-2 rounded-lg"
+                  style={{ color: "oklch(var(--gz-mut))", background: "oklch(var(--gz-s2))" }}
+                >
+                  <X size={16} />
                 </button>
-              ))}
+              </div>
+              {/* Panel Items */}
+              <div className="py-3 max-h-[60vh] overflow-y-auto">
+                {(openPanel === "tools" ? toolsItems : moreItems).map((item) => (
+                  <button
+                    key={item.to}
+                    onClick={() => {
+                      if (item.to === "__logout") {
+                        handleLogout();
+                      } else {
+                        handleNavigate(item.to);
+                      }
+                    }}
+                    className="w-full flex items-center gap-4 px-5 py-4 text-left active:bg-white/5"
+                    style={{
+                      background: isActive(item.to) ? "oklch(var(--gz-p) / 0.12)" : "transparent",
+                      color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-txt))",
+                    }}
+                  >
+                    <span style={{ color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>
+                      {item.icon}
+                    </span>
+                    <span className="text-[14px] font-semibold flex-1">{item.label}</span>
+                    {isActive(item.to) && (
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded"
+                        style={{ background: "oklch(var(--gz-p) / 0.2)", color: "oklch(var(--gz-p))" }}
+                      >
+                        Active
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </>
@@ -542,15 +537,15 @@ function MobileNav() {
 
       {/* ── Fixed Bottom Toolbar ── */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-[997] lg:hidden"
+        className="fixed bottom-0 left-0 right-0 lg:hidden"
         style={{
-          background: "oklch(var(--gz-s1) / 0.97)",
+          background: "oklch(var(--gz-s1))",
           borderTop: "1px solid oklch(var(--gz-p) / 0.15)",
-          backdropFilter: "blur(20px)",
-          boxShadow: "0 -4px 20px oklch(0 0 0 / 0.3)",
+          boxShadow: "0 -4px 20px oklch(0 0 0 / 0.4)",
+          zIndex: 997,
         }}
       >
-        <div className="flex items-center justify-around px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="flex items-center justify-around px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {primaryTabs.map((tab) => {
             const isPanelOpen = openPanel === tab.id.slice(1);
             const itemIsActive = tab.to === "/" ? pathname === "/" : pathname.startsWith(tab.to);
@@ -564,13 +559,12 @@ function MobileNav() {
                     handleNavigate(tab.to);
                   }
                 }}
-                className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition-all min-w-[56px]"
+                className="flex flex-col items-center justify-center gap-1.5 py-2 px-4 rounded-xl min-w-[60px] active:bg-white/5"
                 style={{
                   background: isPanelOpen ? "oklch(var(--gz-p) / 0.1)" : "transparent",
                 }}
               >
                 <span
-                  className="transition-colors"
                   style={{
                     color: itemIsActive || isPanelOpen ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))",
                   }}
@@ -578,7 +572,7 @@ function MobileNav() {
                   {tab.icon}
                 </span>
                 <span
-                  className="text-[10px] font-semibold uppercase tracking-wider transition-colors"
+                  className="text-[10px] font-bold uppercase tracking-wider"
                   style={{
                     color: itemIsActive || isPanelOpen ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))",
                   }}
