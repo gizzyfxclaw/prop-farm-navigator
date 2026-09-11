@@ -10,7 +10,7 @@ import {
 import { useEffect, useRef, useState, type ReactNode, Component, type ErrorInfo } from "react";
 import { createPortal } from "react-dom";
 import { Toaster } from "sonner";
-import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, RefreshCw, ClipboardList, ArrowRight, Menu, X, LayoutDashboard, Calendar, ShieldCheck, Users, BookOpen, Activity, Bot, BarChart3, TrendingUp, Terminal, HelpCircle, Settings, Zap } from "lucide-react";
+import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, RefreshCw, ClipboardList, ArrowRight, Menu, X, LayoutDashboard, Calendar, ShieldCheck, Wallet, BookOpen, Radio, Bot, BarChart3, Layers, PieChart, Terminal, HelpCircle, Settings, Wrench } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -71,20 +71,20 @@ import { GlobalRiskSentinel } from "../components/terminal/GlobalRiskSentinel";
 import { LogoMark, LogoWordmark, LogoWatermark } from "../components/brand/logo";
 
 const NAV = [
-  { to: "/", label: "Engine",         short: "Engine",  icon: <LayoutDashboard size={16} /> },
-  { to: "/briefing", label: "Daily Briefing", short: "Briefing", icon: <ClipboardList size={16} /> },
-  { to: "/calendar", label: "Calendar",     short: "News",    icon: <Calendar size={16} /> },
-  { to: "/validator", label: "Validator",   short: "Valid.",  icon: <ShieldCheck size={16} /> },
-  { to: "/accounts",  label: "Accounts",    short: "Accts",   icon: <Users size={16} /> },
-  { to: "/journal",   label: "Journal",     short: "Journal", icon: <BookOpen size={16} /> },
-  { to: "/live",      label: "Live MT5",    short: "MT5",     icon: <Activity size={16} /> },
-  { to: "/hermes",    label: "Trading Agent", short: "Agent",  icon: <Bot size={16} /> },
-  { to: "/backtest",  label: "Backtest",      short: "BT",    icon: <BarChart3 size={16} /> },
-  { to: "/smc",       label: "SMC Analysis",  short: "SMC",   icon: <TrendingUp size={16} /> },
-  { to: "/pnl",       label: "P&L Dashboard", short: "P&L",   icon: <Zap size={16} /> },
-  { to: "/console",   label: "Console",       short: "Console", icon: <Terminal size={16} /> },
-  { to: "/help", label: "Help", short: "Help", icon: <HelpCircle size={16} /> },
-  { to: "/settings",  label: "Settings",    short: "Config", icon: <Settings size={16} /> },
+  { to: "/", label: "Engine",         icon: <LayoutDashboard size={16} /> },
+  { to: "/briefing", label: "Daily Briefing", icon: <ClipboardList size={16} /> },
+  { to: "/calendar", label: "Calendar",     icon: <Calendar size={16} /> },
+  { to: "/validator", label: "Validator",   icon: <ShieldCheck size={16} /> },
+  { to: "/accounts",  label: "Accounts",    icon: <Wallet size={16} /> },
+  { to: "/journal",   label: "Journal",     icon: <BookOpen size={16} /> },
+  { to: "/live",      label: "Live MT5",    icon: <Radio size={16} /> },
+  { to: "/hermes",    label: "Trading Agent", icon: <Bot size={16} /> },
+  { to: "/backtest",  label: "Backtest",      icon: <BarChart3 size={16} /> },
+  { to: "/smc",       label: "SMC Analysis",  icon: <Layers size={16} /> },
+  { to: "/pnl",       label: "P&L Dashboard", icon: <PieChart size={16} /> },
+  { to: "/console",   label: "Console",       icon: <Terminal size={16} /> },
+  { to: "/help", label: "Help", icon: <HelpCircle size={16} /> },
+  { to: "/settings",  label: "Settings",    icon: <Settings size={16} /> },
 ] as const;
 
 /* ── Theme switcher ─────────────────────────────────────────────── */
@@ -435,11 +435,11 @@ function MobileNav() {
 
   const toolsItems = [
     { to: "/backtest", label: "Backtest", icon: <BarChart3 size={20} /> },
-    { to: "/pnl", label: "P&L Dashboard", icon: <Zap size={20} /> },
+    { to: "/pnl", label: "P&L Dashboard", icon: <PieChart size={20} /> },
     { to: "/console", label: "Console", icon: <Terminal size={20} /> },
     { to: "/journal", label: "Journal", icon: <BookOpen size={20} /> },
-    { to: "/live", label: "Live MT5", icon: <Activity size={20} /> },
-    { to: "/accounts", label: "Accounts", icon: <Users size={20} /> },
+    { to: "/live", label: "Live MT5", icon: <Radio size={20} /> },
+    { to: "/accounts", label: "Accounts", icon: <Wallet size={20} /> },
   ];
 
   const moreItems = [
@@ -452,8 +452,8 @@ function MobileNav() {
 
   const primaryTabs = [
     { to: "/", label: "Home", icon: <LayoutDashboard size={22} />, action: "home" },
-    { to: "/smc", label: "SMC", icon: <TrendingUp size={22} />, action: "smc" },
-    { to: "tools", label: "Tools", icon: <Zap size={22} />, action: "tools" },
+    { to: "/smc", label: "SMC", icon: <Layers size={22} />, action: "smc" },
+    { to: "tools", label: "Tools", icon: <Wrench size={22} />, action: "tools" },
     { to: "/briefing", label: "Brief", icon: <ClipboardList size={22} />, action: "briefing" },
     { to: "more", label: "More", icon: <Menu size={22} />, action: "more" },
   ];
