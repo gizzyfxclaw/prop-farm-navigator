@@ -153,28 +153,26 @@ function CalendarPage() {
     }
   }, []);
 
-  // Fetch Hermes analysis for a high-impact event
+  // Fetch Hermes analysis for a high-impact event (uses local professional analyzer)
   const fetchHermesAnalysis = useCallback(async (ev: RawEvent) => {
-    if (analyzingEvents.has(ev.id)) return;
+    if (analyzingEvents.has(ev.id) || hermesAnalyses[ev.id]) return;
     setAnalyzingEvents((prev) => new Set(prev).add(ev.id));
     setHermesAnalyses((prev) => ({ ...prev, [ev.id]: "loading" }));
+    
+    // Simulate brief loading for UX
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     try {
-      const res = await fetch("/api/hermes/analyze-news", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_id: ev.id,
-          event_name: ev.event,
-          currency: ev.currency,
-          impact: ev.impact,
-          forecast: ev.forecast,
-          previous: ev.previous,
-        }),
+      // Use the professional news analyzer
+      const { analyzeNewsEvent } = await import("@/lib/news-analyzer");
+      const result = analyzeNewsEvent({
+        event_name: ev.event,
+        currency: ev.currency,
+        impact: ev.impact,
+        forecast: ev.forecast,
+        previous: ev.previous,
       });
-      if (res.ok) {
-        const data = await res.json();
-        setHermesAnalyses((prev) => ({ ...prev, [ev.id]: data }));
-      }
+      setHermesAnalyses((prev) => ({ ...prev, [ev.id]: result }));
     } catch {
       // fail silently
     } finally {
@@ -184,7 +182,7 @@ function CalendarPage() {
         return next;
       });
     }
-  }, [analyzingEvents]);
+  }, [analyzingEvents, hermesAnalyses]);
 
   useEffect(() => {
     fetchEvents();
