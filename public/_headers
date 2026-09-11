@@ -1,0 +1,20 @@
+/
+  cache-control: no-cache
+
+/assets/*.html
+  cache-control: no-cache
+
+/assets/*.css
+  cache-control: public, max-age=3600
+
+/assets/*
+  cache-control: public, max-age=3600
+
+/sw.js
+  cache-control: no-cache
+
+/manifest.webmanifest
+  cache-control: public, max-age=86400
+
+/favicon*
+  cache-control: public, max-age=86400
