@@ -15,114 +15,89 @@ import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, Refresh
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
-/* ── Error Boundary ─────────────────────────────────────────────── */
-class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.state = { error: null };
-  }
-  static getDerivedStateFromError(error: Error) { return { error }; }
-  override componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[GizzyFx] Page render error:", error, info);
-  }
-  override render() {
-    if (this.state.error) {
-      return (
-        <div style={{
-          margin: "2rem auto", maxWidth: 480, padding: "2rem",
-          border: "1px solid oklch(0.55 0.18 10 / 0.3)",
-          borderRadius: 12, background: "oklch(0.12 0.04 10)",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <AlertTriangle size={18} color="oklch(0.65 0.18 10)" />
-            <span style={{ fontWeight: 700, fontSize: 15, color: "oklch(0.85 0.05 10)" }}>
-              Page Error
-            </span>
-          </div>
-          <p style={{ fontSize: 13, color: "oklch(0.60 0.05 10)", marginBottom: 16 }}>
-            {this.state.error.message}
-          </p>
-          <button
-            onClick={() => this.setState({ error: null })}
-            style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 16px",
-              borderRadius: 6, border: "1px solid oklch(0.40 0.10 10 / 0.5)",
-              background: "oklch(0.20 0.06 10)", color: "oklch(0.80 0.05 10)",
-              cursor: "pointer", fontSize: 13,
-            }}
-          >
-            <RefreshCw size={13} /> Try again
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-import { StoreProvider } from "../lib/store";
-import { NotificationProvider } from "../lib/notifications";
-import { NotificationBell } from "../components/terminal/NotificationBell";
-import { MarketStatus } from "../components/terminal/MarketStatus";
-import { ConnectionIndicator } from "../components/terminal/ConnectionIndicator";
-import { AccountBalance } from "../components/terminal/AccountBalance";
-import { LivePrice } from "../components/terminal/LivePrice";
-import { MarketTape } from "../components/terminal/MarketTape";
-import { GlobalRiskSentinel } from "../components/terminal/GlobalRiskSentinel";
-import { LogoMark, LogoWordmark } from "../components/brand/logo";
+/* ── Nav items ──────────────────────────────────────────────────── */
 
 const NAV = [
-  { to: "/", label: "Engine",         icon: <LayoutDashboard size={16} /> },
-  { to: "/briefing", label: "Daily Briefing", icon: <ClipboardList size={16} /> },
-  { to: "/calendar", label: "Calendar",     icon: <Calendar size={16} /> },
-  { to: "/validator", label: "Validator",   icon: <ShieldCheck size={16} /> },
-  { to: "/accounts",  label: "Accounts",    icon: <Wallet size={16} /> },
-  { to: "/journal",   label: "Journal",     icon: <BookOpen size={16} /> },
-  { to: "/live",      label: "Live MT5",    icon: <Radio size={16} /> },
-  { to: "/hermes",    label: "Trading Agent", icon: <Bot size={16} /> },
-  { to: "/backtest",  label: "Backtest",      icon: <BarChart3 size={16} /> },
-  { to: "/smc",       label: "SMC Analysis",  icon: <Layers size={16} /> },
-  { to: "/pnl",       label: "P&L Dashboard", icon: <PieChart size={16} /> },
-  { to: "/console",   label: "Console",       icon: <Terminal size={16} /> },
-  { to: "/help", label: "Help", icon: <HelpCircle size={16} /> },
-  { to: "/settings",  label: "Settings",    icon: <Settings size={16} /> },
+  { to: "/",                label: "Engine",          icon: <LayoutDashboard size={16} /> },
+  { to: "/briefing",        label: "Daily Briefing",  icon: <ClipboardList size={16} /> },
+  { to: "/calendar",        label: "Calendar",        icon: <Calendar size={16} /> },
+  { to: "/validator",       label: "Validator",       icon: <ShieldCheck size={16} /> },
+  { to: "/accounts",        label: "Accounts",        icon: <Wallet size={16} /> },
+  { to: "/journal",         label: "Journal",         icon: <BookOpen size={16} /> },
+  { to: "/live",            label: "Live MT5",       icon: <Radio size={16} /> },
+  { to: "/hermes",          label: "Trading Agent",  icon: <Bot size={16} /> },
+  { to: "/backtest",        label: "Backtest",        icon: <BarChart3 size={16} /> },
+  { to: "/smc",             label: "SMC Analysis",   icon: <Layers size={16} /> },
+  { to: "/pnl",             label: "P&L Dashboard",  icon: <PieChart size={16} /> },
+  { to: "/console",         label: "Console",        icon: <Terminal size={16} /> },
+  { to: "/help",            label: "Help",           icon: <HelpCircle size={16} /> },
+  { to: "/settings",        label: "Settings",       icon: <Settings size={16} /> },
 ] as const;
 
-/* ── Theme switcher ─────────────────────────────────────────────── */
+const primary = "cyan";
+
 const THEMES = [
-  { id: "cyan",     label: "Terminal",  color: "oklch(0.800 0.135 196)" },
-  { id: "graphite", label: "Graphite",  color: "oklch(0.860 0.010 250)" },
-  { id: "blue",     label: "Desk Blue", color: "oklch(0.678 0.185 256)" },
-  { id: "amber",    label: "Amber",     color: "oklch(0.815 0.150 75)"  },
-  { id: "emerald",  label: "Emerald",   color: "oklch(0.775 0.155 158)" },
-  { id: "purple",   label: "Violet",    color: "oklch(0.735 0.170 296)" },
-] as const;
+  { id: primary, label: "Cyan Terminal", color: "oklch(0.800 0.135 196)" },
+  { id: "graphite", label: "Graphite", color: "oklch(0.860 0.010 250)" },
+  { id: "blue", label: "Institutional Blue", color: "oklch(0.678 0.185 256)" },
+  { id: "amber", label: "Amber", color: "oklch(0.815 0.150 75)" },
+  { id: "emerald", label: "Emerald", color: "oklch(0.775 0.155 158)" },
+  { id: "purple", label: "Purple", color: "oklch(0.735 0.170 296)" },
+];
 
-type ThemeId = typeof THEMES[number]["id"];
-const THEME_IDS: ThemeId[] = ["cyan", "graphite", "blue", "amber", "emerald", "purple"];
+const THEME_IDS = THEMES.map((t) => t.id);
 
-function applyTheme(id: ThemeId) {
-  if (id === "cyan") {
-    delete document.documentElement.dataset["theme"];
-  } else {
-    document.documentElement.dataset["theme"] = id;
-  }
-}
+/* ── Theme helpers ───────────────────────────────────────────────── */
 
-/* ── Light / Dark mode toggle ──────────────────────────────────── */
-
+type ThemeId = (typeof THEME_IDS)[number];
 type Mode = "dark" | "light";
 
+function applyTheme(id: ThemeId) {
+  try { document.documentElement.dataset.theme = id; } catch {}
+}
+
 function applyMode(mode: Mode) {
-  if (mode === "light") {
-    document.documentElement.dataset["mode"] = "light";
-  } else {
-    delete document.documentElement.dataset["mode"];
-  }
-  // Sync to Hermes WebUI localStorage key so the skin matches when navigating there
   try {
-    localStorage.setItem("hermes-theme", mode === "light" ? "light" : "dark");
+    document.documentElement.dataset.mode = mode === "light" ? "light" : "dark";
+    const root = document.documentElement;
+    if (mode === "light") root.style.colorScheme = "light";
+    else root.style.colorScheme = "dark";
   } catch {}
 }
+
+/* ── Route ──────────────────────────────────────────────────────── */
+
+export const Route = createRootRouteWithContext<{
+  queryClient: QueryClient;
+}>()({
+  head: () => ({
+    meta: [
+      { title: "GizzyFx — Institutional Trading Terminal" },
+      { name: "description", content: "Institutional-grade forex trading terminal" },
+    ],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
+    ],
+    scripts: [
+      {
+        children: `try{var t=localStorage.getItem("gz-theme");if(t&&["cyan","graphite","blue","amber","emerald","purple"].indexOf(t)>=0)document.documentElement.dataset.theme=t;var m=localStorage.getItem("gz-mode");if(m==="light")document.documentElement.dataset.mode="light";}catch(e){}`,
+      },
+    ],
+  }),
+  shellComponent: RootShell,
+  component: RootComponent,
+  notFoundComponent: NotFoundComponent,
+  errorComponent: ErrorComponent,
+});
+
+/* ── RootShell ──────────────────────────────────────────────────── */
+
+function RootShell({ children }: { children: ReactNode }) {
+  return children;
+}
+
+/* ── ModeToggle ─────────────────────────────────────────────────── */
 
 function ModeToggle() {
   const [mode, setMode] = useState<Mode>("dark");
@@ -154,26 +129,21 @@ function ModeToggle() {
       className="fx-press"
       style={{
         display: "flex", alignItems: "center", justifyContent: "center",
-        width: 28, height: 26,
-        background: isLight ? "oklch(var(--gz-p) / 0.12)" : "oklch(var(--gz-s2) / 0.7)",
-        border: `1px solid ${isLight ? "oklch(var(--gz-p) / 0.35)" : "oklch(var(--gz-p) / 0.16)"}`,
-        borderRadius: 2, cursor: "pointer", minHeight: 26,
-        transition: "all 0.18s ease",
+        width: 28, height: 28,
+        background: "oklch(var(--gz-s2) / 0.7)",
+        border: "1px solid oklch(var(--gz-p) / 0.16)",
+        borderRadius: 2, cursor: "pointer",
       }}
     >
-      {isLight ? (
-        <Moon size={13} style={{ color: "oklch(var(--gz-p))" }} />
-      ) : (
-        <Sun size={13} style={{ color: "oklch(var(--gz-mut))" }} />
-      )}
+      {isLight ? <Moon size={14} style={{ color: "oklch(var(--gz-p))" }} /> : <Sun size={14} style={{ color: "oklch(var(--gz-mut))" }} />}
     </button>
   );
 }
 
-/* ── Colour palette / theme switcher ─────────────────────────────── */
+/* ── ThemeSwitcher ──────────────────────────────────────────────── */
 
 function ThemeSwitcher() {
-  const [theme, setTheme] = useState<ThemeId>("cyan");
+  const [theme, setTheme] = useState<ThemeId>(primary);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -193,7 +163,7 @@ function ThemeSwitcher() {
     setOpen(false);
   }
 
-  const active = THEMES.find((t) => t.id === theme) ?? THEMES[0];
+  const active = THEMES.find((t) => t.id === theme) ?? THEMES[0]!;
 
   return (
     <div style={{ position: "relative" }}>
@@ -259,139 +229,19 @@ function ThemeSwitcher() {
   );
 }
 
-/* ── Institutional backdrop — grid, mesh, vignette, grain ───────── */
+/* ── Backdrop ───────────────────────────────────────────────────── */
+
 function Backdrop() {
   return (
-    <div className="backdrop" aria-hidden>
-      <div className="backdrop-mesh fx-mesh" />
+    <div className="backdrop" style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
       <div className="backdrop-grid" />
-      <div className="backdrop-grid-major" />
-      <div className="backdrop-sweep fx-h-sweep" />
+      <div className="backdrop-mesh" />
       <div className="backdrop-vignette" />
-      <div className="backdrop-grain" />
     </div>
   );
 }
 
-/* ── (removed) glow orbs & particle field ────────────────────────
-   Both were startup-aesthetic decoration and cost real frames on the
-   user's phone. The institutional Backdrop above replaces them with
-   a chart grid, a low-chroma mesh, a vignette and film grain — all
-   composited, no per-particle DOM nodes.
-   ───────────────────────────────────────────────────────────────── */
-
-function NotFoundComponent() {
-  return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ position: "relative", zIndex: 1 }}>
-      <div className="panel fx-rise" style={{ maxWidth: 420, width: "100%" }}>
-        <div className="panel-head"><h2 className="panel-head-title">Route not found</h2></div>
-        <div className="panel-body text-center">
-          <p className="font-mono font-bold" style={{ fontSize: 56, lineHeight: 1, color: "oklch(var(--gz-p))" }}>404</p>
-          <p className="mt-3 text-[12px]" style={{ color: "oklch(var(--gz-mut))" }}>
-            No workspace is mapped to this path.
-          </p>
-          <Link to="/" className="btn btn-primary btn-sweep mt-5 inline-flex">Return to Engine</Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
-  const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
-
-  return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ position: "relative", zIndex: 1 }}>
-      <div className="panel panel-neg fx-rise" style={{ maxWidth: 480, width: "100%" }}>
-        <div className="panel-head"><h2 className="panel-head-title">Render fault</h2></div>
-        <div className="panel-body">
-          <div className="alert alert-red">
-            <p className="alert-title">This page didn't load</p>
-            <p className="alert-body">{error.message || "An unexpected error occurred while rendering."}</p>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={() => { router.invalidate(); reset(); }} className="btn btn-primary btn-sweep">
-              Retry
-            </button>
-            <a href="/" className="btn btn-ghost">Return to Engine</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { name: "theme-color", content: "#0a0c12" },
-      { name: "mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-title", content: "GizzyFx" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "application-name", content: "GizzyFx" },
-      { name: "msapplication-TileColor", content: "#0a0c12" },
-      { name: "msapplication-TileImage", content: "/favicon-192.png" },
-      { title: "GizzyFx — Institutional Prop Farming Terminal" },
-      { name: "description", content: "Dual-account hedge calculator, prop firm validator and MetaApi Cloud execution terminal for prop farming." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
-      { rel: "icon", type: "image/png", sizes: "16x16",  href: "/favicon-16.png" },
-      { rel: "icon", type: "image/png", sizes: "32x32",  href: "/favicon-32.png" },
-      { rel: "icon", type: "image/png", sizes: "48x48",  href: "/favicon-48.png" },
-      { rel: "icon", type: "image/png", sizes: "64x64",  href: "/favicon-64.png" },
-      { rel: "icon", type: "image/png", sizes: "128x128", href: "/favicon-128.png" },
-      { rel: "icon", type: "image/png", sizes: "192x192", href: "/favicon-192.png" },
-      { rel: "icon", type: "image/png", sizes: "256x256", href: "/favicon-256.png" },
-      { rel: "icon", type: "image/png", sizes: "512x512", href: "/favicon-512.png" },
-      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
-      { rel: "manifest", href: "/manifest.webmanifest" },
-    ],
-    scripts: [
-      {
-        /* Apply saved theme before first paint to prevent a flash of the
-           default palette. Whitelist matches THEMES above. */
-        children: `try{var t=localStorage.getItem("gz-theme");if(t&&["graphite","blue","amber","emerald","purple"].indexOf(t)>=0)document.documentElement.dataset.theme=t;var m=localStorage.getItem("gz-mode");if(m==="light")document.documentElement.dataset.mode="light";}catch(e){}`,
-      },
-      {
-        children: `if(window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true){document.documentElement.classList.add("pwa-standalone");}`,
-      },
-      {
-        // PWA standalone mode detection
-        children: `if(window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true){document.documentElement.classList.add("pwa-standalone");}`,
-      },
-    ],
-  }),
-  shellComponent: RootShell,
-  component: RootComponent,
-  notFoundComponent: NotFoundComponent,
-  errorComponent: ErrorComponent,
-});
-
-function RootShell({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
-  }, []);
-
-  return (
-    <html lang="en">
-      <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
-    </html>
-  );
-}
+/* ── Clock ──────────────────────────────────────────────────────── */
 
 function Clock() {
   const [now, setNow] = useState<string>("--:--:--");
@@ -407,10 +257,7 @@ function Clock() {
   return (
     <div className="flex items-center gap-1.5" title="Local time — West Africa Time (UTC+1)">
       <span className="fx-live-dot" style={{ color: "oklch(var(--gz-h))", width: 5, height: 5 }} />
-      <span
-        className="font-mono text-[11px] font-semibold"
-        style={{ color: "oklch(var(--gz-txt) / 0.85)", letterSpacing: "0.04em" }}
-      >
+      <span className="font-mono text-[11px] font-semibold" style={{ color: "oklch(var(--gz-txt) / 0.85)", letterSpacing: "0.04em" }}>
         {now}
       </span>
       <span className="font-mono text-[9px]" style={{ color: "oklch(var(--gz-mut))" }}>WAT</span>
@@ -418,13 +265,49 @@ function Clock() {
   );
 }
 
+/* ── NotificationBell ───────────────────────────────────────────── */
+
+function NotificationBell() {
+  const [unread, setUnread] = useState(0);
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        title="Notifications"
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 28, height: 28, position: "relative",
+          background: "oklch(var(--gz-s2) / 0.7)",
+          border: "1px solid oklch(var(--gz-p) / 0.16)",
+          borderRadius: 2, cursor: "pointer",
+        }}
+      >
+        <AlertTriangle size={14} style={{ color: "oklch(var(--gz-mut))" }} />
+        {unread > 0 && (
+          <span style={{
+            position: "absolute", top: -4, right: -4,
+            background: "oklch(var(--gz-neg))", color: "#fff",
+            fontSize: 8, fontWeight: 700, borderRadius: "50%",
+            width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {unread}
+          </span>
+        )}
+      </button>
+    </div>
+  );
+}
+
+/* ── MobileNav ──────────────────────────────────────────────────── */
+
 function MobileNav() {
   const [mounted, setMounted] = useState(false);
   const [openPanel, setOpenPanel] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
 
-  // Only render portal on client-side (document is not available during SSR)
   useEffect(() => {
     setMounted(true);
     const check = () => setIsMobile(window.innerWidth < 1024);
@@ -433,7 +316,6 @@ function MobileNav() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Don't show bottom toolbar on desktop
   if (!mounted || !isMobile) return null;
 
   const isActive = (to: string) =>
@@ -469,17 +351,12 @@ function MobileNav() {
       {/* Popover Panel */}
       {openPanel && (
         <div style={{ position: "fixed", inset: 0, zIndex: 99999 }}>
-          <div
-            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }}
-            onClick={() => setOpenPanel(null)}
-          />
-          <div
-            style={{
-              position: "absolute", bottom: 0, left: 0, right: 0,
-              background: "oklch(var(--gz-s1))", borderTopLeftRadius: 20, borderTopRightRadius: 20,
-              border: "1px solid oklch(var(--gz-p) / 0.2)", boxShadow: "0 -12px 48px rgba(0,0,0,0.5)", overflow: "hidden",
-            }}
-          >
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} onClick={() => setOpenPanel(null)} />
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            background: "oklch(var(--gz-s1))", borderTopLeftRadius: 20, borderTopRightRadius: 20,
+            border: "1px solid oklch(var(--gz-p) / 0.2)", boxShadow: "0 -12px 48px rgba(0,0,0,0.5)", overflow: "hidden",
+          }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid oklch(var(--gz-p) / 0.15)" }}>
               <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "oklch(var(--gz-p))" }}>
                 {openPanel === "tools" ? "Trading Tools" : "More Options"}
@@ -502,9 +379,6 @@ function MobileNav() {
                 >
                   <span style={{ color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>{item.icon}</span>
                   <span style={{ flex: 1 }}>{item.label}</span>
-                  {isActive(item.to) && (
-                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "3px 8px", borderRadius: 4, background: "oklch(var(--gz-p) / 0.2)", color: "oklch(var(--gz-p))" }}>Active</span>
-                  )}
                 </button>
               ))}
               <button
@@ -548,10 +422,14 @@ function MobileNav() {
   );
 }
 
+/* ── handleLogout ──────────────────────────────────────────────── */
+
 async function handleLogout() {
   await fetch("/api/auth/logout", { method: "POST", redirect: "manual" });
   window.location.href = "/login";
 }
+
+/* ── RootComponent ──────────────────────────────────────────────── */
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -561,14 +439,7 @@ function RootComponent() {
   const [headerH, setHeaderH] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 1024);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  // ── Daily Briefing reminder (once per 24hr) ──
+  // Daily Briefing reminder (once per 24hr)
   const [showDailyReminder, setShowDailyReminder] = useState(false);
   useEffect(() => {
     if (pathname === "/login") return;
@@ -586,353 +457,226 @@ function RootComponent() {
   const dismissDailyReminder = () => {
     try { localStorage.setItem("gizzyfx.dailyReminder.lastShown", String(Date.now())); } catch {}
     setShowDailyReminder(false);
-    // Navigate to daily briefing
     router.navigate({ to: "/briefing" });
   };
 
-  // Measure the fixed header and keep padding-top pixel-perfect.
-  // ResizeObserver fires whenever the bar height changes (font scale,
-  // tape loading, market-status toggling) so the content is never hidden.
+  // Measure header height
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
-      setHeaderH(el.getBoundingClientRect().height);
-    });
+    const ro = new ResizeObserver(() => setHeaderH(el.getBoundingClientRect().height));
     ro.observe(el);
     setHeaderH(el.getBoundingClientRect().height);
     return () => ro.disconnect();
   }, []);
 
+  // Mobile detection
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   if (pathname === "/login") {
     return (
       <QueryClientProvider client={queryClient}>
-        <StoreProvider>
-          <Outlet />
-          <Toaster
-            theme="system"
-            position="top-center"
-            toastOptions={{
-              style: {
-                background: "oklch(var(--gz-s2) / 0.96)",
-                border: "1px solid oklch(var(--gz-p) / 0.28)",
-                color: "oklch(var(--gz-txt))",
-                boxShadow: "0 0 24px oklch(var(--gz-p) / 0.18)",
-                backdropFilter: "blur(16px)",
-              },
-            }}
-          />
-        </StoreProvider>
+        <Outlet />
+        <Toaster theme="system" position="top-center" />
       </QueryClientProvider>
     );
   }
 
-  // Mobile nav only shown when authenticated (not on login)
-  const isAuthenticated = pathname !== "/login";
-
   return (
     <QueryClientProvider client={queryClient}>
-      <NotificationProvider>
-        <StoreProvider>
-          <Backdrop />
+      <StoreProvider>
+        <Backdrop />
 
-          <div className="relative min-h-screen w-full" style={{ zIndex: 1 }}>
-            {/* ── Command bar ──────────────────────────────────────── */}
-            <header ref={headerRef} className="cmdbar">
-              {/* Row 1 — instrument status strip */}
-              <div className="cmdbar-status hidden sm:block">
-                <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
-                  <div className="flex items-center justify-between gap-4 py-1">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <MarketStatus />
-                      <span className="vdivider" style={{ height: 12 }} />
-                      <ConnectionIndicator />
-                      <span className="vdivider" style={{ height: 12 }} />
-                      <LivePrice />
-                    </div>
-                    <AccountBalance />
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 2 — identity, navigation, controls */}
+        <div className="relative min-h-screen w-full" style={{ zIndex: 1 }}>
+          {/* Command bar */}
+          <header ref={headerRef} className="cmdbar">
+            {/* Row 1 — instrument status strip */}
+            <div className="cmdbar-status hidden sm:block">
               <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
-                <div className="flex items-center justify-between gap-2 sm:gap-4 py-2">
-                  {/* Left: Logo + Nav */}
-                  <div className="flex items-center gap-2 sm:gap-5 min-w-0 overflow-hidden">
-                    <Link
-                      to="/"
-                      className="flex items-center select-none flex-shrink-0"
-                      aria-label="GizzyFx home"
-                    >
-                      <img
-                        src="/gizzyfx-nav2.png"
-                        alt="GizzyFX"
-                        className="h-8 sm:h-11 w-auto"
-                        style={{
-                          objectFit: "contain",
-                          display: "block",
-                          filter: "drop-shadow(0 0 8px rgba(0,200,100,0.35))",
-                        }}
-                      />
-                    </Link>
-
-                    <nav
-                      className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-institutional"
-                      style={{ maxWidth: "62vw" }}
-                    >
-                      {NAV.map((item) => (
-                        <Link
-                          key={item.to}
-                          to={item.to}
-                          activeOptions={{ exact: item.to === "/" }}
-                          className="navtab"
-                          activeProps={{ className: "navtab navtab-active" }}
-                        >
-                          {item.icon}
-                          {item.label}
-                        </Link>
-                      ))}
-                    </nav>
-                    <a
-                      href="https://hermes.gizzyfxstrategy.dpdns.org"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-ghost btn-sweep hidden xl:inline-flex flex-shrink-0"
-                      title="Open the Trading Agent console in a new tab"
-                    >
-                      <ExternalLink size={12} />
-                      Agent Console
-                    </a>
+                <div className="flex items-center justify-between gap-4 py-1">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <MarketStatus />
+                    <span className="vdivider" style={{ height: 12 }} />
+                    <ConnectionIndicator />
+                    <span className="vdivider" style={{ height: 12 }} />
+                    <LivePrice />
                   </div>
-
-                  {/* Right: Controls */}
-                  <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-                    <div className="hidden sm:flex items-center gap-2">
-                      <Clock />
-                      <span className="vdivider" style={{ height: 14 }} />
-                      <NotificationBell />
-                    </div>
-                    <div className="flex-shrink-0"><ModeToggle /></div>
-                    <div className="flex-shrink-0"><ThemeSwitcher /></div>
-                    <button
-                      onClick={handleLogout}
-                      className="btn btn-danger fx-press flex-shrink-0 !px-1.5 sm:!px-3"
-                      title="Sign out"
-                      style={{ height: 28, minWidth: 28, padding: "0 6px" }}
-                    >
-                      <LogOut size={14} />
-                      <span className="hidden sm:inline ml-1.5">Sign Out</span>
-                    </button>
-                  </div>
+                  <AccountBalance />
                 </div>
               </div>
+            </div>
 
-              {/* Row 3 — live quote tape */}
-              <MarketTape />
-            </header>
+            {/* Row 2 — identity, navigation, controls */}
+            <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
+              <div className="flex items-center justify-between gap-2 sm:gap-4 py-2">
+                <div className="flex items-center gap-2 sm:gap-5 min-w-0 overflow-hidden">
+                  <Link to="/" className="flex items-center select-none flex-shrink-0" aria-label="GizzyFx home">
+                    <img src="/gizzyfx-nav2.png" alt="GizzyFX" className="h-8 sm:h-11 w-auto" style={{ objectFit: "contain", display: "block", filter: "drop-shadow(0 0 8px rgba(0,200,100,0.35))" }} />
+                  </Link>
 
-            {/* Mobile navigation bar (outside header to escape stacking context) */}
-            <MobileNav />
+                  <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-institutional" style={{ maxWidth: "62vw" }}>
+                    {NAV.map((item) => (
+                      <Link key={item.to} to={item.to} activeOptions={{ exact: item.to === "/" }} className="navtab" activeProps={{ className: "navtab navtab-active" }}>
+                        {item.icon}
+                        {item.label}
+                      </Link>
+                    ))}
+                  </nav>
+                  <a href="https://hermes.gizzyfxstrategy.dpdns.org" target="_blank" rel="noreferrer" className="btn btn-ghost btn-sweep hidden xl:inline-flex flex-shrink-0" title="Open the Trading Agent console in a new tab">
+                    <ExternalLink size={12} />
+                    Agent Console
+                  </a>
+                </div>
 
-            {/* ── Page content ─────────────────────────────────── */}
-            <main
-              key={pathname}
-              className="fx-stagger w-full flex-1 px-4 sm:px-6 lg:px-10 xl:px-16"
-              style={{
-                minWidth: 0,
-                paddingTop: headerH > 0 ? `calc(${headerH}px + 12px)` : "calc(var(--cmdbar-h) + 12px)",
-                paddingBottom: isMobile ? "120px" : "16px",
-              }}
-            >
-              <PageErrorBoundary>
-                <Outlet />
-              </PageErrorBoundary>
-            </main>
-
-            {/* ── Global Risk Sentinel ─────────────────────────── */}
-            <GlobalRiskSentinel />
-
-            {/* ── Daily Briefing Reminder (once per 24hr) ─────── */}
-            {showDailyReminder && pathname !== "/briefing" && (
-              <div
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 2000,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "oklch(0 0 0 / 0.65)",
-                  backdropFilter: "blur(12px)",
-                }}
-                onClick={(e) => { if (e.target === e.currentTarget) dismissDailyReminder(); }}
-              >
-                <div
-                  style={{
-                    maxWidth: 520,
-                    width: "92%",
-                    background: "oklch(var(--gz-s1) / 0.99)",
-                    border: "1px solid oklch(var(--gz-warn) / 0.35)",
-                    borderRadius: 12,
-                    boxShadow: "0 24px 64px oklch(0 0 0 / 0.5), 0 0 40px oklch(var(--gz-warn) / 0.08)",
-                    overflow: "hidden",
-                  }}
-                >
-                  {/* Top accent bar */}
-                  <div style={{ height: 3, background: "linear-gradient(90deg, oklch(var(--gz-warn)) 0%, oklch(var(--gz-p)) 50%, oklch(var(--gz-warn)) 100%)" }} />
-
-                  <div style={{ padding: "28px 32px 24px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    {/* Icon — centered and prominent */}
-                    <div style={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: "50%",
-                      background: "oklch(var(--gz-warn) / 0.1)",
-                      border: "1.5px solid oklch(var(--gz-warn) / 0.25)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginBottom: 18,
-                    }}>
-                      <ClipboardList size={36} style={{ color: "oklch(var(--gz-warn))" }} />
-                    </div>
-
-                    {/* Title */}
-                    <h2 style={{
-                      fontSize: 17,
-                      fontWeight: 700,
-                      color: "oklch(var(--gz-txt))",
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                      marginBottom: 4,
-                      textAlign: "center",
-                    }}>
-                      Daily Briefing Reminder
-                    </h2>
-
-                    {/* Subtitle */}
-                    <p style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "oklch(var(--gz-mut))",
-                      marginBottom: 18,
-                      textAlign: "center",
-                    }}>
-                      Mandatory pre-trade protocol
-                    </p>
-
-                    {/* Divider */}
-                    <div style={{ width: "100%", height: 1, background: "oklch(var(--gz-p) / 0.1)", marginBottom: 18 }} />
-
-                    {/* Checklist items */}
-                    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginBottom: 22, textAlign: "left" }}>
-                      {[
-                        "Check Economic Calendar for HIGH/MED news",
-                        "Verify London/NY session window is active",
-                        "Confirm Exness MT5 live balance",
-                        "Review Phase checklist items",
-                        "Verify Daily Cap Lock status",
-                      ].map((item, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{
-                            width: 16,
-                            height: 16,
-                            borderRadius: 3,
-                            border: "1px solid oklch(var(--gz-warn) / 0.4)",
-                            background: "oklch(var(--gz-warn) / 0.08)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}>
-                            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "oklch(var(--gz-warn))" }} />
-                          </div>
-                          <span style={{ fontSize: 12, color: "oklch(var(--gz-txt) / 0.85)", fontWeight: 500 }}>
-                            {item}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Notice */}
-                    <div style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: 6,
-                      background: "oklch(var(--gz-warn) / 0.06)",
-                      border: "1px solid oklch(var(--gz-warn) / 0.15)",
-                      marginBottom: 20,
-                    }}>
-                      <p style={{ fontSize: 10, color: "oklch(var(--gz-warn) / 0.9)", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "center" }}>
-                        This reminder appears once every 24 hours
-                      </p>
-                    </div>
-
-                    {/* Button */}
-                    <button
-                      onClick={dismissDailyReminder}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        width: "100%",
-                        padding: "12px 24px",
-                        borderRadius: 6,
-                        border: "1px solid oklch(var(--gz-p) / 0.4)",
-                        background: "linear-gradient(180deg, oklch(var(--gz-p) / 0.2) 0%, oklch(var(--gz-p) / 0.1) 100%)",
-                        color: "oklch(var(--gz-p))",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      <ArrowRight size={14} />
-                      Proceed to Daily Briefing
-                    </button>
+                <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Clock />
+                    <NotificationBell />
                   </div>
+                  <ModeToggle />
+                  <ThemeSwitcher />
+                  <button onClick={handleLogout} className="btn btn-danger fx-press flex-shrink-0 !px-1.5 sm:!px-3" title="Sign out" style={{ height: 28, minWidth: 28, padding: "0 6px" }}>
+                    <LogOut size={14} />
+                    <span className="hidden sm:inline ml-1.5">Sign Out</span>
+                  </button>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* ── Footer ──────────────────────────────────────── */}
-            <footer className="appfooter w-full px-4 py-4 sm:px-6 sm:py-5 lg:px-10 xl:px-16">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.85)" }}>
-                  <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>GIZZYFX</span>
-                  {" · Institutional terminal — hedge engine, validator & MetaApi execution."}
-                </p>
-                <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.85)" }}>
-                  Educational use · Trade at your own risk.
-                </p>
-              </div>
-            </footer>
-          </div>
+            {/* Row 3 — live quote tape */}
+            <MarketTape />
+          </header>
 
-          <Toaster
-            theme="system"
-            position="top-center"
-            toastOptions={{
-              style: {
-                background: "oklch(var(--gz-s2) / 0.97)",
-                border: "1px solid oklch(var(--gz-p) / 0.24)",
-                color: "oklch(var(--gz-txt))",
-                borderRadius: 3,
-                fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                boxShadow: "var(--gz-e3)",
-                backdropFilter: "blur(16px)",
-              },
+          {/* Mobile navigation bar */}
+          <MobileNav />
+
+          {/* Page content */}
+          <main
+            key={pathname}
+            className="fx-stagger w-full flex-1 px-4 sm:px-6 lg:px-10 xl:px-16"
+            style={{
+              minWidth: 0,
+              paddingTop: headerH > 0 ? `calc(${headerH}px + 12px)` : "calc(var(--cmdbar-h) + 12px)",
+              paddingBottom: isMobile ? "120px" : "16px",
             }}
-          />
-        </StoreProvider>
-      </NotificationProvider>
+          >
+            <PageErrorBoundary>
+              <Outlet />
+            </PageErrorBoundary>
+          </main>
+
+          {/* Global Risk Sentinel */}
+          <GlobalRiskSentinel />
+
+          {/* Daily Briefing Reminder (once per 24hr) */}
+          {showDailyReminder && pathname !== "/briefing" && (
+            <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", background: "oklch(0 0 0 / 0.65)", backdropFilter: "blur(12px)" }} onClick={(e) => { if (e.target === e.currentTarget) dismissDailyReminder(); }}>
+              <div style={{ maxWidth: 520, width: "92%", background: "oklch(var(--gz-s1) / 0.99)", border: "1px solid oklch(var(--gz-warn) / 0.35)", borderRadius: 12, boxShadow: "0 24px 64px oklch(0 0 0 / 0.5)", overflow: "hidden" }}>
+                <div style={{ height: 3, background: "linear-gradient(90deg, oklch(var(--gz-warn)) 0%, oklch(var(--gz-p)) 50%, oklch(var(--gz-warn)) 100%)" }} />
+                <div style={{ padding: "28px 32px 24px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ width: 80, height: 80, borderRadius: "50%", background: "oklch(var(--gz-warn) / 0.1)", border: "1.5px solid oklch(var(--gz-warn) / 0.25)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
+                    <ClipboardList size={36} style={{ color: "oklch(var(--gz-warn))" }} />
+                  </div>
+                  <h2 style={{ fontSize: 17, fontWeight: 700, color: "oklch(var(--gz-txt))", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 4, textAlign: "center" }}>
+                    Daily Briefing Reminder
+                  </h2>
+                  <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "oklch(var(--gz-mut))", marginBottom: 18, textAlign: "center" }}>
+                    Mandatory pre-trade protocol
+                  </p>
+                  <div style={{ width: "100%", height: 1, background: "oklch(var(--gz-p) / 0.1)", marginBottom: 18 }} />
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginBottom: 22, textAlign: "left" }}>
+                    {[
+                      "Check Economic Calendar for HIGH/MED news",
+                      "Verify London/NY session window is active",
+                      "Confirm Exness MT5 live balance",
+                      "Review Phase checklist items",
+                      "Verify Daily Cap Lock status",
+                    ].map((item, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 3, border: "1px solid oklch(var(--gz-warn) / 0.4)", background: "oklch(var(--gz-warn) / 0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "oklch(var(--gz-warn))" }} />
+                        </div>
+                        <span style={{ fontSize: 12, color: "oklch(var(--gz-txt) / 0.85)", fontWeight: 500 }}>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ width: "100%", padding: "10px 14px", borderRadius: 6, background: "oklch(var(--gz-warn) / 0.06)", border: "1px solid oklch(var(--gz-warn) / 0.15)", marginBottom: 20 }}>
+                    <p style={{ fontSize: 10, color: "oklch(var(--gz-warn) / 0.9)", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "center" }}>
+                      This reminder appears once every 24 hours
+                    </p>
+                  </div>
+                  <button onClick={dismissDailyReminder} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "12px 24px", borderRadius: 6, border: "1px solid oklch(var(--gz-p) / 0.4)", background: "linear-gradient(180deg, oklch(var(--gz-p) / 0.2) 0%, oklch(var(--gz-p) / 0.1) 100%)", color: "oklch(var(--gz-p))", fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.15s ease" }}>
+                    <ArrowRight size={14} />
+                    Proceed to Daily Briefing
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <footer className="appfooter w-full px-4 py-4 sm:px-6 sm:py-5 lg:px-10 xl:px-16">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.85)" }}>
+                <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>GIZZYFX</span>
+                {" · Institutional terminal — hedge engine, validator & MetaApi execution."}
+              </p>
+              <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut) / 0.85)" }}>
+                Educational use · Trade at your own risk.
+              </p>
+            </div>
+          </footer>
+        </div>
+
+        <Toaster theme="system" position="top-center" />
+      </StoreProvider>
     </QueryClientProvider>
   );
+}
+
+/* ── NotFoundComponent / ErrorComponent / PageErrorBoundary ──────── */
+
+function NotFoundComponent() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold mb-4" style={{ color: "oklch(var(--gz-p))" }}>404</h1>
+        <p className="text-muted-foreground">Page not found.</p>
+      </div>
+    </div>
+  );
+}
+
+class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    reportLovableError(error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4" style={{ color: "oklch(var(--gz-neg))" }}>
+              Page Error
+            </h1>
+            <p className="text-muted-foreground mb-4">{this.state.error.message}</p>
+            <button onClick={() => window.location.reload()} className="btn btn-primary">
+              <RefreshCw size={12} />
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
