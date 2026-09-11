@@ -131,6 +131,20 @@
     flex-direction: column;
     margin: 0;
     padding: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Mobile-specific: prevent content from being hidden behind fixed bottom bar */
+  @media (max-width: 1023px) {
+    .relative.min-h-screen {
+      padding-bottom: 0;
+    }
+    
+    /* Ensure the main content area doesn't get cut off */
+    main.fx-stagger {
+      padding-bottom: 120px !important;
+    }
   }
 
   /* Numeric inputs: no spinners, monospaced, right-aligned like a blotter. */

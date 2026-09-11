@@ -29,6 +29,11 @@
   .dgrid tbody td { padding: 4px 6px; }
 
   .tape-item { padding: 5px 10px; }
+
+  /* Fix bottom toolbar blocking content */
+  main.fx-stagger { padding-bottom: 140px !important; }
+  .cmdbar { position: fixed !important; top: 0; left: 0; right: 0; z-index: 996; }
+  .relative.min-h-screen { padding-top: var(--cmdbar-h, 120px); }
 }
 
 /* ─── PHONE / SMALL TABLET ─────────────────────────────────────────────── */
@@ -57,6 +62,10 @@
   .input-group, .action-buttons { flex-direction: column; width: 100%; }
   .action-buttons button, .action-buttons .btn { width: 100%; }
   .backdrop-grid { background-size: 40px 40px, 40px 40px; }
+
+  /* Fix bottom toolbar blocking content */
+  main.fx-stagger { padding-bottom: 140px !important; }
+  .cmdbar { position: fixed !important; top: 0; left: 0; right: 0; z-index: 996; }
 }
 
 /* ─── DESKTOP MODE / TABLET (the user's actual viewing condition) ──────── */

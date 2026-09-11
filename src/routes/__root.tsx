@@ -774,11 +774,11 @@ function RootComponent() {
             {/* ── Page content ─────────────────────────────────── */}
             <main
               key={pathname}
-              className="fx-stagger w-full flex-1 px-4 pb-8 sm:px-6 lg:px-10 xl:px-16"
+              className="fx-stagger w-full flex-1 px-4 sm:px-6 lg:px-10 xl:px-16"
               style={{
                 minWidth: 0,
                 paddingTop: headerH > 0 ? `calc(${headerH}px + 12px)` : "calc(var(--cmdbar-h) + 12px)",
-                paddingBottom: "calc(88px + env(safe-area-inset-bottom))",
+                paddingBottom: "120px",
               }}
             >
               <PageErrorBoundary>
