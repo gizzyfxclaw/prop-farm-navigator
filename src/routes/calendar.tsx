@@ -8,7 +8,6 @@ import {
 import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
 import { Badge, Button, CockpitHeader } from "@/components/terminal/ui";
 import { LiveDot } from "@/components/terminal/anim";
-import { analyzeNewsEvent } from "@/lib/news-analyzer";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -137,7 +136,7 @@ function CalendarPage() {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const res = await fetch("/api/events?days=7", { cache: "no-store" });
+      const res = await fetch("/api/events?days=7");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const items: RawEvent[] = (data.events || [])
@@ -164,6 +163,8 @@ function CalendarPage() {
     await new Promise(resolve => setTimeout(resolve, 300));
     
     try {
+      // Use the professional news analyzer
+      const { analyzeNewsEvent } = await import("@/lib/news-analyzer");
       const result = analyzeNewsEvent({
         event_name: ev.event,
         currency: ev.currency,
@@ -187,19 +188,9 @@ function CalendarPage() {
     fetchEvents();
     const apiFetcher = setInterval(fetchEvents, API_REFRESH_MS);
     const ticker = setInterval(() => setTick((t) => t + 1), TICK_MS);
-    
-    // Refresh immediately when page becomes visible
-    const handleVisibility = () => {
-      if (!document.hidden) fetchEvents();
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", handleVisibility);
-    
     return () => {
       clearInterval(apiFetcher);
       clearInterval(ticker);
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", handleVisibility);
     };
   }, [fetchEvents]);
 
