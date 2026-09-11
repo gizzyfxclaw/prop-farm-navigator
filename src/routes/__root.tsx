@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode, Component, type ErrorInfo } from "react";
 import { Toaster } from "sonner";
-import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, RefreshCw, ClipboardList, ArrowRight } from "lucide-react";
+import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, RefreshCw, ClipboardList, ArrowRight, Menu, X, LayoutDashboard, Calendar, ShieldCheck, Users, BookOpen, Activity, Bot, BarChart3, TrendingUp, Terminal, HelpCircle, Settings, Zap } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -70,20 +70,20 @@ import { GlobalRiskSentinel } from "../components/terminal/GlobalRiskSentinel";
 import { LogoMark, LogoWordmark, LogoWatermark } from "../components/brand/logo";
 
 const NAV = [
-  { to: "/", label: "Engine",         short: "Engine"  },
-  { to: "/briefing", label: "Daily Briefing", short: "Briefing" },
-  { to: "/calendar", label: "Calendar",     short: "News"    },
-  { to: "/validator", label: "Validator",   short: "Valid."  },
-  { to: "/accounts",  label: "Accounts",    short: "Accts"   },
-  { to: "/journal",   label: "Journal",     short: "Journal" },
-  { to: "/live",      label: "Live MT5",    short: "MT5"     },
-  { to: "/hermes",    label: "Trading Agent", short: "Agent" },
-  { to: "/backtest",  label: "Backtest",      short: "BT"     },
-  { to: "/smc",       label: "SMC Analysis",  short: "SMC"    },
-  { to: "/pnl",       label: "P&L Dashboard", short: "P&L"     },
-  { to: "/console",   label: "Console",       short: "Console" },
-  { to: "/help", label: "Help", short: "Help" },
-  { to: "/settings",  label: "Settings",    short: "Config"  },
+  { to: "/", label: "Engine",         short: "Engine",  icon: <LayoutDashboard size={16} /> },
+  { to: "/briefing", label: "Daily Briefing", short: "Briefing", icon: <ClipboardList size={16} /> },
+  { to: "/calendar", label: "Calendar",     short: "News",    icon: <Calendar size={16} /> },
+  { to: "/validator", label: "Validator",   short: "Valid.",  icon: <ShieldCheck size={16} /> },
+  { to: "/accounts",  label: "Accounts",    short: "Accts",   icon: <Users size={16} /> },
+  { to: "/journal",   label: "Journal",     short: "Journal", icon: <BookOpen size={16} /> },
+  { to: "/live",      label: "Live MT5",    short: "MT5",     icon: <Activity size={16} /> },
+  { to: "/hermes",    label: "Trading Agent", short: "Agent",  icon: <Bot size={16} /> },
+  { to: "/backtest",  label: "Backtest",      short: "BT",    icon: <BarChart3 size={16} /> },
+  { to: "/smc",       label: "SMC Analysis",  short: "SMC",   icon: <TrendingUp size={16} /> },
+  { to: "/pnl",       label: "P&L Dashboard", short: "P&L",   icon: <Zap size={16} /> },
+  { to: "/console",   label: "Console",       short: "Console", icon: <Terminal size={16} /> },
+  { to: "/help", label: "Help", short: "Help", icon: <HelpCircle size={16} /> },
+  { to: "/settings",  label: "Settings",    short: "Config", icon: <Settings size={16} /> },
 ] as const;
 
 /* ── Theme switcher ─────────────────────────────────────────────── */
@@ -417,6 +417,129 @@ function Clock() {
   );
 }
 
+function MobileNav() {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const pathname = router.state.location.pathname;
+
+  const handleNavigate = (to: string) => {
+    setOpen(false);
+    router.navigate({ to });
+  };
+
+  return (
+    <>
+      {/* Hamburger Button */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="lg:hidden p-2 rounded-lg transition-colors"
+        style={{
+          background: "oklch(var(--gz-p) / 0.1)",
+          border: "1px solid oklch(var(--gz-p) / 0.2)",
+          color: "oklch(var(--gz-txt))",
+        }}
+        aria-label="Toggle menu"
+      >
+        {open ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {/* Overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[999]"
+          style={{ background: "oklch(0 0 0 / 0.7)", backdropFilter: "blur(4px)" }}
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* Dropdown Panel */}
+      <div
+        className="fixed top-0 right-0 h-full z-[1000] transition-transform duration-300 ease-in-out"
+        style={{
+          width: 280,
+          maxWidth: "85vw",
+          background: "oklch(var(--gz-s1) / 0.98)",
+          borderLeft: "1px solid oklch(var(--gz-p) / 0.15)",
+          backdropFilter: "blur(16px)",
+          transform: open ? "translateX(0)" : "translateX(100%)",
+          boxShadow: open ? "-8px 0 32px oklch(0 0 0 / 0.4)" : "none",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between p-4"
+          style={{ borderBottom: "1px solid oklch(var(--gz-p) / 0.1)" }}
+        >
+          <span
+            className="text-[12px] font-bold uppercase tracking-wider"
+            style={{ color: "oklch(var(--gz-p))" }}
+          >
+            Navigation
+          </span>
+          <button
+            onClick={() => setOpen(false)}
+            className="p-1.5 rounded-md transition-colors hover:bg-white/5"
+            style={{ color: "oklch(var(--gz-mut))" }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Menu Items */}
+        <div className="py-2 overflow-y-auto" style={{ maxHeight: "calc(100vh - 180px)" }}>
+          {NAV.map((item) => {
+            const isActive = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+            return (
+              <button
+                key={item.to}
+                onClick={() => handleNavigate(item.to)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
+                style={{
+                  background: isActive ? "oklch(var(--gz-p) / 0.1)" : "transparent",
+                  color: isActive ? "oklch(var(--gz-p))" : "oklch(var(--gz-txt))",
+                  borderLeft: isActive ? "3px solid oklch(var(--gz-p))" : "3px solid transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.background = "oklch(var(--gz-p) / 0.05)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <span style={{ color: isActive ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>
+                  {item.icon}
+                </span>
+                <span className="text-[13px] font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div
+          className="absolute bottom-0 left-0 right-0 p-4"
+          style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.1)" }}
+        >
+          <button
+            onClick={() => { setOpen(false); handleLogout(); }}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg transition-colors"
+            style={{
+              background: "oklch(var(--gz-neg) / 0.1)",
+              border: "1px solid oklch(var(--gz-neg) / 0.2)",
+              color: "oklch(var(--gz-neg))",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            <LogOut size={14} />
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 async function handleLogout() {
   await fetch("/api/auth/logout", { method: "POST", redirect: "manual" });
   window.location.href = "/login";
@@ -488,6 +611,9 @@ function RootComponent() {
     );
   }
 
+  // Mobile nav only shown when authenticated (not on login)
+  const isAuthenticated = pathname !== "/login";
+
   return (
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
@@ -538,7 +664,7 @@ function RootComponent() {
                     </Link>
 
                     <nav
-                      className="flex items-center gap-0.5 overflow-x-auto scrollbar-institutional"
+                      className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-institutional"
                       style={{ maxWidth: "62vw" }}
                     >
                       {NAV.map((item) => (
@@ -549,6 +675,7 @@ function RootComponent() {
                           className="navtab"
                           activeProps={{ className: "navtab navtab-active" }}
                         >
+                          {item.icon}
                           {item.label}
                         </Link>
                       ))}
@@ -557,7 +684,7 @@ function RootComponent() {
                       href="https://hermes.gizzyfxstrategy.dpdns.org"
                       target="_blank"
                       rel="noreferrer"
-                      className="btn btn-ghost btn-sweep hidden lg:inline-flex flex-shrink-0"
+                      className="btn btn-ghost btn-sweep hidden xl:inline-flex flex-shrink-0"
                       title="Open the Trading Agent console in a new tab"
                     >
                       <ExternalLink size={12} />
@@ -566,11 +693,14 @@ function RootComponent() {
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Clock />
-                    <span className="vdivider hidden sm:block" style={{ height: 16 }} />
-                    <NotificationBell />
-                    <ModeToggle />
-                    <ThemeSwitcher />
+                    <div className="hidden lg:flex items-center gap-2">
+                      <Clock />
+                      <span className="vdivider hidden sm:block" style={{ height: 16 }} />
+                      <NotificationBell />
+                      <ModeToggle />
+                      <ThemeSwitcher />
+                    </div>
+                    <MobileNav />
                     <button
                       onClick={handleLogout}
                       className="btn btn-danger fx-press"
