@@ -337,6 +337,14 @@ export function GlobalRiskSentinel() {
     setDismissed((prev) => new Set(prev).add(id));
   };
 
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   if (!active) return null;
 
   const visibleMessages = analysis.messages.filter((m) => !dismissed.has(m.id));
@@ -350,6 +358,45 @@ export function GlobalRiskSentinel() {
   };
 
   const colors = levelColors[level];
+
+  // Mobile: compact floating badge at top-right
+  if (isMobile) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 8,
+          right: 8,
+          zIndex: 99998,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 10px",
+          borderRadius: 8,
+          background: "oklch(var(--gz-s1) / 0.95)",
+          backdropFilter: "blur(8px)",
+          border: `1.5px solid ${colors.border}`,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+          cursor: "pointer",
+        }}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div style={{ position: "relative" }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: colors.dot }} />
+          <div className="animate-ping" style={{ position: "absolute", inset: 0, width: 8, height: 8, borderRadius: "50%", background: colors.dot, opacity: 0.3 }} />
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: colors.text }}>
+          {level === "red" ? "STOP" : level === "amber" ? "CAUTION" : "COACH"}
+        </span>
+        <span style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", padding: "2px 6px", borderRadius: 4, background: requireGreen ? "oklch(var(--gz-pos) / 0.15)" : "oklch(var(--gz-mut) / 0.1)", color: requireGreen ? "oklch(var(--gz-pos))" : "oklch(var(--gz-mut))" }}>
+          {requireGreen ? "STRICT" : "RELAXED"}
+        </span>
+        {expanded ? <ChevronUp size={12} style={{ color: "oklch(var(--gz-mut))" }} /> : <ChevronDown size={12} style={{ color: "oklch(var(--gz-mut))" }} />}
+      </div>
+    );
+  }
+
+  // Desktop: original bottom-right panel
 
   return (
     <div
