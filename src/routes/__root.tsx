@@ -68,7 +68,7 @@ import { AccountBalance } from "../components/terminal/AccountBalance";
 import { LivePrice } from "../components/terminal/LivePrice";
 import { MarketTape } from "../components/terminal/MarketTape";
 import { GlobalRiskSentinel } from "../components/terminal/GlobalRiskSentinel";
-import { LogoMark, LogoWordmark, LogoWatermark } from "../components/brand/logo";
+import { LogoMark, LogoWordmark } from "../components/brand/logo";
 
 const NAV = [
   { to: "/", label: "Engine",         icon: <LayoutDashboard size={16} /> },
@@ -621,7 +621,6 @@ function RootComponent() {
       <NotificationProvider>
         <StoreProvider>
           <Backdrop />
-          <LogoWatermark />
 
           <div className="relative min-h-screen w-full" style={{ zIndex: 1 }}>
             {/* ── Command bar ──────────────────────────────────────── */}
