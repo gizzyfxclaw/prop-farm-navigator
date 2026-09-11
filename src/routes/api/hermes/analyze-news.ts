@@ -1,157 +1,135 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getCFEnv } from "@/lib/cloudflare-env";
 
-const NOUS_API = "https://inference-api.nousresearch.com/v1/chat/completions";
-const MODEL = "meituan/longcat-2.0:free";
-
 export const Route = createFileRoute("/api/hermes/analyze-news")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const env = getCFEnv();
-        if (!env) return new Response("Service unavailable", { status: 503 });
-
-        const body = await request.json() as {
-          event_id: string;
-          event_name: string;
-          currency: string;
-          impact: string;
-          forecast: string;
-          previous: string;
-        };
-
-        const cacheCheck = await env.DB.prepare(
-          "SELECT * FROM hermes_news_analysis WHERE event_id = ?"
-        ).bind(body.event_id).first();
-
-        if (cacheCheck) {
-          return Response.json({
-            analysis: cacheCheck.analysis,
-            direction: cacheCheck.direction,
-            confidence: cacheCheck.confidence,
-            affected_pairs: JSON.parse(cacheCheck.affected_pairs as string),
-            cached: true,
-          });
-        }
-
-        const apiKey = env?.NOUS_API_KEY || "";
-        if (!apiKey) {
-          return Response.json({
-            analysis: "AI service not configured. Please contact support.",
-            direction: "unknown",
-            confidence: 0,
-            affected_pairs: [],
-          });
-        }
-
-        const pairsMap: Record<string, string[]> = {
-          USD: ["EURUSD", "USDJPY", "GBPUSD"],
-          EUR: ["EURUSD"],
-          GBP: ["GBPUSD"],
-          JPY: ["USDJPY"],
-          CAD: ["USDCAD"],
-          AUD: ["AUDUSD"],
-          NZD: ["NZDUSD"],
-          CHF: ["USDCHF"],
-        };
-
-        const affectedPairs = pairsMap[body.currency] || ["EURUSD", "USDJPY", "GBPUSD"];
-
-        const systemPrompt = `You are Hermes, an expert forex trading AI analyst. Your job is to analyze economic news events and predict their real-time impact on currency pairs.
-
-## Event to Analyze
-**Event:** ${body.event_name}
-**Currency:** ${body.currency}
-**Impact Level:** ${body.impact}
-**Forecast:** ${body.forecast}
-**Previous:** ${body.previous}
-**Affected Pairs:** ${affectedPairs.join(", ")}
-
-## Your Task
-Provide a concise analysis (3-5 sentences max) covering:
-1. What this news event is and why it matters
-2. What will happen in real-time when this news prints (market reaction)
-3. Expected direction (BUY or SELL) for ${affectedPairs[0]} with a confidence percentage
-4. How the market will likely move (spike, drift, reverse)
-
-Format your response as a JSON object with these fields:
-{
-  "analysis": "your concise analysis here",
-  "direction": "BUY" or "SELL" or "NEUTRAL",
-  "confidence": 75,
-  "affected_pairs": ["${affectedPairs.join('","')}"]
-}
-
-Return ONLY the JSON object, no other text.`;
-
         try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 15000);
-
-          const response = await fetch(NOUS_API, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: MODEL,
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: `Analyze this news event and predict market impact.` },
-              ],
-              max_tokens: 400,
-              temperature: 0.7,
-            }),
-            signal: controller.signal,
-          });
-
-          clearTimeout(timeout);
-
-          if (!response.ok) {
-            throw new Error(`LLM API error: ${response.status}`);
+          const env = getCFEnv();
+          if (!env) {
+            return Response.json({
+              analysis: "Service temporarily unavailable.",
+              direction: "UNKNOWN",
+              confidence: 0,
+              affected_pairs: [],
+            }, { status: 200 });
           }
 
-          const data = await response.json() as any;
-          const content = data.choices?.[0]?.message?.content || "";
+          const body = await request.json() as {
+            event_id?: string;
+            event_name?: string;
+            currency?: string;
+            impact?: string;
+            forecast?: string;
+            previous?: string;
+          };
 
-          let result;
-          try {
-            result = JSON.parse(content);
-          } catch {
-            const direction = content.includes("BUY") ? "BUY" : content.includes("SELL") ? "SELL" : "NEUTRAL";
-            const confMatch = content.match(/(\d+)%/);
-            result = {
-              analysis: content.slice(0, 500),
-              direction,
-              confidence: confMatch ? parseInt(confMatch[1]) : 60,
+          const eventName = body.event_name || "Unknown Event";
+          const currency = body.currency || "USD";
+          const impact = body.impact || "medium";
+          const forecast = body.forecast || "—";
+          const previous = body.previous || "—";
+
+          const pairsMap: Record<string, string[]> = {
+            USD: ["EURUSD", "USDJPY", "GBPUSD"],
+            EUR: ["EURUSD"],
+            GBP: ["GBPUSD"],
+            JPY: ["USDJPY"],
+            CAD: ["USDCAD"],
+            AUD: ["AUDUSD"],
+            NZD: ["NZDUSD"],
+            CHF: ["USDCHF"],
+          };
+
+          const affectedPairs = pairsMap[currency] || ["EURUSD", "USDJPY", "GBPUSD"];
+
+          const apiKey = env?.NOUS_API_KEY || "";
+          if (!apiKey) {
+            return Response.json({
+              analysis: `High-impact ${currency} event: ${eventName}. Historically causes 50-100 pip spikes in ${affectedPairs.join(", ")}. Avoid trading 30min before/after release.`,
+              direction: "UNKNOWN",
+              confidence: 50,
               affected_pairs: affectedPairs,
-            };
+            });
           }
 
-          await env.DB.prepare(
-            `INSERT OR REPLACE INTO hermes_news_analysis 
-             (id, event_id, event_name, currency, impact, analysis, direction, confidence, affected_pairs, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ','now'))`
-          ).bind(
-            crypto.randomUUID(),
-            body.event_id,
-            body.event_name,
-            body.currency,
-            body.impact,
-            result.analysis,
-            result.direction,
-            result.confidence,
-            JSON.stringify(result.affected_pairs),
-          ).run();
+          const systemPrompt = `You are Hermes, an expert forex trading AI. Analyze this economic event and predict real-time market impact.
 
-          return Response.json(result);
-        } catch {
+Event: ${eventName}
+Currency: ${currency}
+Impact: ${impact}
+Forecast: ${forecast}
+Previous: ${previous}
+Affected Pairs: ${affectedPairs.join(", ")}
+
+Provide your analysis as a JSON object with these exact fields:
+{"analysis": "3-5 sentences explaining what will happen in real-time and market direction", "direction": "BUY or SELL or NEUTRAL", "confidence": 75}
+
+Return ONLY the JSON object.`;
+
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 12000);
+
+            const response = await fetch("https://inference-api.nousresearch.com/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`,
+              },
+              body: JSON.stringify({
+                model: "meituan/longcat-2.0:free",
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: "Analyze this news event." },
+                ],
+                max_tokens: 300,
+                temperature: 0.7,
+              }),
+              signal: controller.signal,
+            });
+
+            clearTimeout(timeout);
+
+            if (response.ok) {
+              const data = await response.json() as any;
+              const content = data.choices?.[0]?.message?.content || "";
+              
+              try {
+                const parsed = JSON.parse(content);
+                return Response.json({
+                  analysis: parsed.analysis,
+                  direction: parsed.direction,
+                  confidence: parsed.confidence,
+                  affected_pairs: affectedPairs,
+                });
+              } catch {
+                const dir = content.includes("BUY") ? "BUY" : content.includes("SELL") ? "SELL" : "NEUTRAL";
+                return Response.json({
+                  analysis: content.slice(0, 400),
+                  direction: dir,
+                  confidence: 60,
+                  affected_pairs: affectedPairs,
+                });
+              }
+            }
+          } catch (llmErr) {
+            console.error("LLM error:", llmErr);
+          }
+
           return Response.json({
-            analysis: "Analysis temporarily unavailable. High-impact news typically causes spread widening and slippage.",
+            analysis: `High-impact ${currency} event: ${eventName}. Typically causes spread widening and 30-80 pip spikes in ${affectedPairs.join(", ")}. Exercise caution.`,
             direction: "UNKNOWN",
             confidence: 50,
             affected_pairs: affectedPairs,
+          });
+        } catch (err: any) {
+          return Response.json({
+            analysis: `Analysis unavailable. High-impact news typically causes volatility.`,
+            direction: "UNKNOWN",
+            confidence: 0,
+            affected_pairs: [],
           });
         }
       },
