@@ -37,6 +37,7 @@ import { Route as ApiStrategiesRouteImport } from './routes/api/strategies'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
 import { Route as ApiHermesAnalysisRouteImport } from './routes/api/hermes/analysis'
+import { Route as ApiHermesAnalyzeNewsRouteImport } from './routes/api/hermes/analyze-news'
 import { Route as ApiHermesAnalyzeWithHermesRouteImport } from './routes/api/hermes/analyze-with-hermes'
 import { Route as ApiHermesBacktestsRouteImport } from './routes/api/hermes/backtests'
 import { Route as ApiHermesJournalRouteImport } from './routes/api/hermes/journal'
@@ -196,6 +197,11 @@ const ApiHermesAnalysisRoute = ApiHermesAnalysisRouteImport.update({
   path: '/api/hermes/analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHermesAnalyzeNewsRoute = ApiHermesAnalyzeNewsRouteImport.update({
+  id: '/api/hermes/analyze-news',
+  path: '/api/hermes/analyze-news',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHermesAnalyzeWithHermesRoute =
   ApiHermesAnalyzeWithHermesRouteImport.update({
     id: '/api/hermes/analyze-with-hermes',
@@ -320,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
+  '/api/hermes/analyze-news': typeof ApiHermesAnalyzeNewsRoute
   '/api/hermes/analyze-with-hermes': typeof ApiHermesAnalyzeWithHermesRoute
   '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
@@ -368,6 +375,7 @@ export interface FileRoutesByTo {
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
+  '/api/hermes/analyze-news': typeof ApiHermesAnalyzeNewsRoute
   '/api/hermes/analyze-with-hermes': typeof ApiHermesAnalyzeWithHermesRoute
   '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
@@ -417,6 +425,7 @@ export interface FileRoutesById {
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
+  '/api/hermes/analyze-news': typeof ApiHermesAnalyzeNewsRoute
   '/api/hermes/analyze-with-hermes': typeof ApiHermesAnalyzeWithHermesRoute
   '/api/hermes/backtests': typeof ApiHermesBacktestsRoute
   '/api/hermes/journal': typeof ApiHermesJournalRoute
@@ -467,6 +476,7 @@ export interface FileRouteTypes {
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
+    | '/api/hermes/analyze-news'
     | '/api/hermes/analyze-with-hermes'
     | '/api/hermes/backtests'
     | '/api/hermes/journal'
@@ -515,6 +525,7 @@ export interface FileRouteTypes {
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
+    | '/api/hermes/analyze-news'
     | '/api/hermes/analyze-with-hermes'
     | '/api/hermes/backtests'
     | '/api/hermes/journal'
@@ -563,6 +574,7 @@ export interface FileRouteTypes {
     | '/api/hermes/_debug'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
+    | '/api/hermes/analyze-news'
     | '/api/hermes/analyze-with-hermes'
     | '/api/hermes/backtests'
     | '/api/hermes/journal'
@@ -612,6 +624,7 @@ export interface RootRouteChildren {
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
   ApiHermesAnalysisRoute: typeof ApiHermesAnalysisRoute
+  ApiHermesAnalyzeNewsRoute: typeof ApiHermesAnalyzeNewsRoute
   ApiHermesAnalyzeWithHermesRoute: typeof ApiHermesAnalyzeWithHermesRoute
   ApiHermesBacktestsRoute: typeof ApiHermesBacktestsRoute
   ApiHermesJournalRoute: typeof ApiHermesJournalRoute
@@ -830,6 +843,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHermesAnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hermes/analyze-news': {
+      id: '/api/hermes/analyze-news'
+      path: '/api/hermes/analyze-news'
+      fullPath: '/api/hermes/analyze-news'
+      preLoaderRoute: typeof ApiHermesAnalyzeNewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/analyze-with-hermes': {
       id: '/api/hermes/analyze-with-hermes'
       path: '/api/hermes/analyze-with-hermes'
@@ -988,6 +1008,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
   ApiHermesAnalysisRoute: ApiHermesAnalysisRoute,
+  ApiHermesAnalyzeNewsRoute: ApiHermesAnalyzeNewsRoute,
   ApiHermesAnalyzeWithHermesRoute: ApiHermesAnalyzeWithHermesRoute,
   ApiHermesBacktestsRoute: ApiHermesBacktestsRoute,
   ApiHermesJournalRoute: ApiHermesJournalRoute,

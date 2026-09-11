@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   ShieldX, ShieldAlert, ShieldCheck, XCircle, AlertTriangle, CheckCircle2,
-  MinusCircle, Clock, Activity, Radio, RefreshCcw,
+  MinusCircle, Clock, Activity, Radio, RefreshCcw, Bot, TrendingUp, TrendingDown,
+  Minus,
 } from "lucide-react";
 import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
 import { Badge, Button, CockpitHeader } from "@/components/terminal/ui";
@@ -20,8 +21,16 @@ interface RawEvent {
   actual: string;
   forecast: string;
   previous: string;
-  datetime: number; // unix seconds
+  datetime: number;
   pairs: string[];
+}
+
+interface HermesAnalysis {
+  analysis: string;
+  direction: "BUY" | "SELL" | "NEUTRAL" | "UNKNOWN";
+  confidence: number;
+  affected_pairs: string[];
+  cached?: boolean;
 }
 
 interface SessionOverlap {
@@ -41,14 +50,13 @@ const SESSIONS = [
   { label: "Sydney/Tokyo", start: "19:00", end: "04:00" },
 ];
 
-const API_REFRESH_MS = 120_000; // re-fetch from API every 2 min
-const TICK_MS = 1_000;          // re-calculate everything every 1 second
-
-/* ── Pure helpers (no state) ──────────────────────────────────── */
+const API_REFRESH_MS = 120_000;
+const TICK_MS = 1_000;
 
 import { classifyHazard } from "@/lib/news-hazard";
 
-/** Pretty countdown: "12m 34s", "2h 05m 12s", "45m ago", "NOW" */
+/* ── Pure helpers ─────────────────────────────────────────────── */
+
 function formatCountdown(totalSeconds: number): string {
   if (totalSeconds < -60) {
     const ago = Math.abs(totalSeconds);
@@ -67,7 +75,6 @@ function formatCountdown(totalSeconds: number): string {
   return `${s}s`;
 }
 
-/** Session countdown — same format but no "ago" (sessions always wrap around) */
 function formatSessionCountdown(totalSeconds: number): string {
   if (totalSeconds <= 0) return "LIVE";
   const h = Math.floor(totalSeconds / 3600);
@@ -78,25 +85,19 @@ function formatSessionCountdown(totalSeconds: number): string {
   return `${s}s`;
 }
 
-// getEasternTime imported from @/lib/timezone
-
 function computeSessions(): SessionOverlap[] {
   const { totalSeconds: etSec } = getEasternTime();
-
   return SESSIONS.map((s) => {
     const [sh, sm] = s.start.split(":").map(Number);
     const [eh, em] = s.end.split(":").map(Number);
     const startSec = sh! * 3600 + sm! * 60;
     const endSec = eh! * 3600 + em! * 60;
-
     let active: boolean;
     if (startSec < endSec) {
       active = etSec >= startSec && etSec < endSec;
     } else {
-      // wraps midnight (e.g. Sydney/Tokyo 19:00–04:00)
       active = etSec >= startSec || etSec < endSec;
     }
-
     let secondsUntil = 0;
     if (!active) {
       if (etSec < startSec) {
@@ -124,17 +125,15 @@ export const Route = createFileRoute("/calendar")({
 /* ── Component ────────────────────────────────────────────────── */
 
 function CalendarPage() {
-  // Raw events from the API (unix timestamps — stable across ticks)
   const rawEventsRef = useRef<RawEvent[]>([]);
   const [rawEvents, setRawEvents] = useState<RawEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<string | null>(null);
-
-  // Tick counter — increments every second to force re-render
   const [tick, setTick] = useState(0);
+  const [hermesAnalyses, setHermesAnalyses] = useState<Record<string, HermesAnalysis | "loading">>({});
+  const [analyzingEvents, setAnalyzingEvents] = useState<Set<string>>(new Set());
 
-  // ── Fetch from API ──
   const fetchEvents = useCallback(async () => {
     try {
       const res = await fetch("/api/events?days=7");
@@ -154,23 +153,49 @@ function CalendarPage() {
     }
   }, []);
 
-  // ── Effects ──
+  // Fetch Hermes analysis for a high-impact event
+  const fetchHermesAnalysis = useCallback(async (ev: RawEvent) => {
+    if (analyzingEvents.has(ev.id)) return;
+    setAnalyzingEvents((prev) => new Set(prev).add(ev.id));
+    setHermesAnalyses((prev) => ({ ...prev, [ev.id]: "loading" }));
+    try {
+      const res = await fetch("/api/hermes/analyze-news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: ev.id,
+          event_name: ev.event,
+          currency: ev.currency,
+          impact: ev.impact,
+          forecast: ev.forecast,
+          previous: ev.previous,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHermesAnalyses((prev) => ({ ...prev, [ev.id]: data }));
+      }
+    } catch {
+      // fail silently
+    } finally {
+      setAnalyzingEvents((prev) => {
+        const next = new Set(prev);
+        next.delete(ev.id);
+        return next;
+      });
+    }
+  }, [analyzingEvents]);
+
   useEffect(() => {
     fetchEvents();
-
-    // API refresh every 2 minutes
     const apiFetcher = setInterval(fetchEvents, API_REFRESH_MS);
-
-    // Real-time tick every 1 second
     const ticker = setInterval(() => setTick((t) => t + 1), TICK_MS);
-
     return () => {
       clearInterval(apiFetcher);
       clearInterval(ticker);
     };
   }, [fetchEvents]);
 
-  // ── Derived state — recalculated every tick (every second) ──
   const nowSec = Math.floor(Date.now() / 1000);
 
   const liveEvents = useMemo(() => {
@@ -185,6 +210,18 @@ function CalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawEvents, tick]);
 
+  // Auto-fetch Hermes analysis for high-impact events within 3 hours
+  useEffect(() => {
+    const upcomingHigh = liveEvents.filter(
+      (e) => e.impact === "high" && e.secondsUntil > 0 && e.secondsUntil < 10800
+    );
+    for (const ev of upcomingHigh) {
+      if (!hermesAnalyses[ev.id] && !analyzingEvents.has(ev.id)) {
+        fetchHermesAnalysis(ev);
+      }
+    }
+  }, [liveEvents, tick]);
+
   const sessions = useMemo(() => computeSessions(), [tick]);
 
   const liveClock = useMemo(() => {
@@ -194,7 +231,6 @@ function CalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick]);
 
-  // ── Counts ──
   const critical = liveEvents.filter((e) => e.hazardLevel === "critical");
   const warning = liveEvents.filter((e) => e.hazardLevel === "warning");
   const caution = liveEvents.filter((e) => e.hazardLevel === "caution");
@@ -202,9 +238,12 @@ function CalendarPage() {
 
   const tradingBlocked = critical.length > 0 || warning.length > 0;
   const tradingCaution = caution.length > 0 && !tradingBlocked;
-
-  // Next event countdown for the header
   const nextEvent = liveEvents.find((e) => e.secondsUntil > 0);
+
+  // Events with Hermes analysis
+  const eventsWithAnalysis = liveEvents.filter(
+    (e) => hermesAnalyses[e.id] && hermesAnalyses[e.id] !== "loading"
+  );
 
   return (
     <div className="engine-cockpit">
@@ -239,12 +278,122 @@ function CalendarPage() {
         }
       />
 
+      {/* ── HERMES AI NEWS ANALYSIS ──────────────────────────────── */}
+      {eventsWithAnalysis.length > 0 && (
+        <div className="panel" style={{ padding: 0, borderColor: "oklch(var(--gz-p) / 0.25)" }}>
+          <div className="panel-head" style={{ background: "oklch(var(--gz-p) / 0.05)" }}>
+            <h2 className="panel-head-title">
+              <Bot size={14} style={{ color: "oklch(var(--gz-p))" }} />
+              Hermes AI Analysis
+            </h2>
+            <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
+              Real-time market impact prediction
+            </span>
+          </div>
+          <div className="space-y-3 p-4">
+            {eventsWithAnalysis.map((ev) => {
+              const analysis = hermesAnalyses[ev.id] as HermesAnalysis;
+              const dirColor =
+                analysis.direction === "BUY" ? "oklch(var(--gz-pos))" :
+                analysis.direction === "SELL" ? "oklch(var(--gz-neg))" :
+                "oklch(var(--gz-mut))";
+              const DirIcon =
+                analysis.direction === "BUY" ? TrendingUp :
+                analysis.direction === "SELL" ? TrendingDown :
+                Minus;
+              return (
+                <div
+                  key={ev.id}
+                  className="rounded-lg p-4"
+                  style={{
+                    background: "oklch(var(--gz-s2))",
+                    border: `1px solid ${ev.impact === "high" ? "oklch(var(--gz-neg) / 0.2)" : "oklch(var(--gz-p) / 0.1)"}`,
+                  }}
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`badge ${ev.impact === "high" ? "badge-danger" : ev.impact === "medium" ? "badge-warning" : "badge-neutral"}`}>
+                        {ev.impact.toUpperCase()}
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "oklch(var(--gz-txt))" }}>
+                        {ev.event}
+                      </span>
+                      <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
+                        {ev.currency}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[11px] tabular-nums" style={{ color: "oklch(var(--gz-mut))" }}>
+                        {formatCountdown(ev.secondsUntil)}
+                      </span>
+                      <span
+                        className="font-mono text-[11px] font-bold px-2 py-0.5 rounded"
+                        style={{ background: `${dirColor}20`, color: dirColor, border: `1px solid ${dirColor}40` }}
+                      >
+                        {ev.forecast !== "—" ? `F: ${ev.forecast}` : ""}
+                        {ev.previous !== "—" ? ` · P: ${ev.previous}` : ""}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Direction + Confidence */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                      style={{ background: `${dirColor}15`, border: `1px solid ${dirColor}30` }}
+                    >
+                      <DirIcon size={16} style={{ color: dirColor }} />
+                      <span style={{ fontSize: 14, fontWeight: 800, color: dirColor, letterSpacing: "0.05em" }}>
+                        {analysis.direction}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span style={{ fontSize: 11, color: "oklch(var(--gz-mut))" }}>Confidence</span>
+                      <div
+                        className="h-2 rounded-full overflow-hidden"
+                        style={{ width: 80, background: "oklch(var(--gz-s3))" }}
+                      >
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${analysis.confidence}%`,
+                            background: analysis.confidence >= 70 ? "oklch(var(--gz-pos))" :
+                                        analysis.confidence >= 50 ? "oklch(var(--gz-warn))" :
+                                        "oklch(var(--gz-neg))",
+                          }}
+                        />
+                      </div>
+                      <span
+                        className="font-mono text-[12px] font-bold tabular-nums"
+                        style={{ color: dirColor }}
+                      >
+                        {analysis.confidence}%
+                      </span>
+                    </div>
+                    <div className="flex gap-1">
+                      {analysis.affected_pairs.map((p) => (
+                        <span key={p} className="badge badge-neutral" style={{ fontSize: 9, padding: "1px 5px" }}>
+                          {p}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Analysis text */}
+                  <p style={{ fontSize: 12, lineHeight: 1.6, color: "oklch(var(--gz-txt) / 0.9)" }}>
+                    {analysis.analysis}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* TRADING SAFETY BANNER */}
       {tradingBlocked ? (
-        <div
-          className="alert alert-red fx-alert-breathe"
-          style={{ textAlign: "center", padding: "1.25rem" }}
-        >
+        <div className="alert alert-red fx-alert-breathe" style={{ textAlign: "center", padding: "1.25rem" }}>
           <p className="alert-title" style={{ justifyContent: "center", fontSize: 16 }}>
             <ShieldX size={18} /> DO NOT TRADE NOW
           </p>
@@ -294,7 +443,7 @@ function CalendarPage() {
         </div>
       )}
 
-      {/* SESSION OVERLAP — real-time */}
+      {/* SESSION OVERLAP */}
       <div className="panel" style={{ padding: "0.8rem" }}>
         <div className="flex items-center justify-between mb-3">
           <p className="section-label">Market Sessions (WAT / ET)</p>
@@ -339,7 +488,7 @@ function CalendarPage() {
         </div>
       </div>
 
-      {/* ALERT SUMMARY — semantic colours */}
+      {/* ALERT SUMMARY */}
       <div className="wgrid-4">
         {[
           { count: critical.length, label: "Critical", sub: "<30min HIGH", tone: "badge-danger",   border: "oklch(var(--gz-neg) / 0.30)", bg: "oklch(var(--gz-neg) / 0.08)" },
@@ -355,7 +504,7 @@ function CalendarPage() {
         ))}
       </div>
 
-      {/* EVENTS TABLE — real-time countdowns */}
+      {/* EVENTS TABLE */}
       <div className="panel" style={{ padding: 0 }}>
         <div className="panel-head">
           <h2 className="panel-head-title">Upcoming Events</h2>
@@ -388,6 +537,7 @@ function CalendarPage() {
                   <th>Pairs</th>
                   <th style={{ textAlign: "right" }}>Countdown</th>
                   <th>Hazard</th>
+                  <th>Hermes</th>
                 </tr>
               </thead>
               <tbody>
@@ -401,6 +551,7 @@ function CalendarPage() {
                     ev.hazardLevel === "critical" ? "oklch(var(--gz-neg))" :
                     ev.hazardLevel === "warning"  ? "oklch(var(--gz-warn))" :
                     "oklch(var(--gz-p))";
+                  const hermes = hermesAnalyses[ev.id];
                   return (
                     <tr key={ev.id} style={{ background: rowBg, opacity: isPast ? 0.52 : 1 }}>
                       <td className="font-mono tabular-nums whitespace-nowrap">
@@ -439,6 +590,38 @@ function CalendarPage() {
                            isPast ? "PASSED" : "SAFE"}
                         </span>
                       </td>
+                      <td>
+                        {hermes && hermes !== "loading" ? (
+                          <div className="flex items-center gap-1">
+                            {(() => {
+                              const a = hermes as HermesAnalysis;
+                              const dc = a.direction === "BUY" ? "oklch(var(--gz-pos))" : a.direction === "SELL" ? "oklch(var(--gz-neg))" : "oklch(var(--gz-mut))";
+                              return (
+                                <>
+                                  <span className="font-mono text-[10px] font-bold" style={{ color: dc }}>
+                                    {a.direction}
+                                  </span>
+                                  <span className="font-mono text-[9px]" style={{ color: "oklch(var(--gz-mut))" }}>
+                                    {a.confidence}%
+                                  </span>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        ) : analyzingEvents.has(ev.id) ? (
+                          <span className="text-[9px] mono-cap" style={{ color: "oklch(var(--gz-p))" }}>…</span>
+                        ) : ev.impact === "high" && ev.secondsUntil > 0 && ev.secondsUntil < 10800 ? (
+                          <button
+                            onClick={() => fetchHermesAnalysis(ev)}
+                            className="text-[9px] mono-cap font-bold cursor-pointer hover:underline"
+                            style={{ color: "oklch(var(--gz-p))", background: "none", border: "none", padding: 0 }}
+                          >
+                            analyze
+                          </button>
+                        ) : (
+                          <span className="text-[9px]" style={{ color: "oklch(var(--gz-mut) / 0.4)" }}>—</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -462,4 +645,3 @@ function CalendarPage() {
     </div>
   );
 }
-
