@@ -422,159 +422,240 @@ function MobileNav() {
   const router = useRouter();
   const pathname = router.state.location.pathname;
 
-  const handleNavigate = (to: string) => {
+  const goTo = (path: string) => {
     setOpenPanel(null);
-    setTimeout(() => router.navigate({ to }), 50);
+    window.location.href = path;
   };
 
   const isActive = (to: string) =>
     to === "/" ? pathname === "/" : pathname.startsWith(to);
 
   const toolsItems = [
-    { to: "/backtest", label: "Backtest", icon: <BarChart3 size={18} /> },
-    { to: "/pnl", label: "P&L Dashboard", icon: <Zap size={18} /> },
-    { to: "/console", label: "Console", icon: <Terminal size={18} /> },
-    { to: "/journal", label: "Journal", icon: <BookOpen size={18} /> },
-    { to: "/live", label: "Live MT5", icon: <Activity size={18} /> },
-    { to: "/accounts", label: "Accounts", icon: <Users size={18} /> },
+    { to: "/backtest", label: "Backtest", icon: <BarChart3 size={20} /> },
+    { to: "/pnl", label: "P&L Dashboard", icon: <Zap size={20} /> },
+    { to: "/console", label: "Console", icon: <Terminal size={20} /> },
+    { to: "/journal", label: "Journal", icon: <BookOpen size={20} /> },
+    { to: "/live", label: "Live MT5", icon: <Activity size={20} /> },
+    { to: "/accounts", label: "Accounts", icon: <Users size={20} /> },
   ];
 
   const moreItems = [
-    { to: "/calendar", label: "Calendar", icon: <Calendar size={18} /> },
-    { to: "/validator", label: "Validator", icon: <ShieldCheck size={18} /> },
-    { to: "/hermes", label: "Trading Agent", icon: <Bot size={18} /> },
-    { to: "/help", label: "Help", icon: <HelpCircle size={18} /> },
-    { to: "/settings", label: "Settings", icon: <Settings size={18} /> },
-    { to: "__logout", label: "Sign Out", icon: <LogOut size={18} />, logout: true },
+    { to: "/calendar", label: "Calendar", icon: <Calendar size={20} /> },
+    { to: "/validator", label: "Validator", icon: <ShieldCheck size={20} /> },
+    { to: "/hermes", label: "Trading Agent", icon: <Bot size={20} /> },
+    { to: "/help", label: "Help", icon: <HelpCircle size={20} /> },
+    { to: "/settings", label: "Settings", icon: <Settings size={20} /> },
   ];
 
   const primaryTabs = [
-    { to: "/", label: "Home", icon: <LayoutDashboard size={22} />, id: "home" },
-    { to: "/smc", label: "SMC", icon: <TrendingUp size={22} />, id: "smc" },
-    { to: "#tools", label: "Tools", icon: <Zap size={22} />, id: "#tools" },
-    { to: "/briefing", label: "Brief", icon: <ClipboardList size={22} />, id: "briefing" },
-    { to: "#more", label: "More", icon: <Menu size={22} />, id: "#more" },
+    { to: "/", label: "Home", icon: <LayoutDashboard size={22} />, action: "home" },
+    { to: "/smc", label: "SMC", icon: <TrendingUp size={22} />, action: "smc" },
+    { to: "tools", label: "Tools", icon: <Zap size={22} />, action: "tools" },
+    { to: "/briefing", label: "Brief", icon: <ClipboardList size={22} />, action: "briefing" },
+    { to: "more", label: "More", icon: <Menu size={22} />, action: "more" },
   ];
 
   return (
-    <>
-      {/* ── Popover Panels ── */}
+    <div className="mobile-nav-root" style={{ display: "contents" }}>
+      {/* Popover Panel */}
       {openPanel && (
-        <>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 99999,
+          }}
+        >
+          {/* Overlay */}
           <div
-            className="fixed inset-0"
-            style={{ background: "oklch(0 0 0 / 0.65)", zIndex: 1001 }}
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0,0,0,0.7)",
+            }}
             onClick={() => setOpenPanel(null)}
           />
+          {/* Panel */}
           <div
-            className="fixed inset-x-0 bottom-0"
-            style={{ zIndex: 1002 }}
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: "oklch(var(--gz-s1))",
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              border: "1px solid oklch(var(--gz-p) / 0.2)",
+              boxShadow: "0 -12px 48px rgba(0,0,0,0.5)",
+              overflow: "hidden",
+            }}
           >
+            {/* Panel Header */}
             <div
-              className="mx-3 mb-3 rounded-2xl overflow-hidden"
               style={{
-                background: "oklch(var(--gz-s1))",
-                border: "1px solid oklch(var(--gz-p) / 0.2)",
-                boxShadow: "0 24px 64px oklch(0 0 0 / 0.6)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 20px",
+                borderBottom: "1px solid oklch(var(--gz-p) / 0.15)",
               }}
             >
-              {/* Panel Header */}
-              <div
-                className="flex items-center justify-between px-5 py-4"
-                style={{ borderBottom: "1px solid oklch(var(--gz-p) / 0.15)" }}
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  color: "oklch(var(--gz-p))",
+                }}
               >
-                <span
-                  className="text-[13px] font-bold uppercase tracking-widest"
-                  style={{ color: "oklch(var(--gz-p))" }}
-                >
-                  {openPanel === "tools" ? "Trading Tools" : "More Options"}
-                </span>
+                {openPanel === "tools" ? "Trading Tools" : "More Options"}
+              </span>
+              <button
+                onClick={() => setOpenPanel(null)}
+                style={{
+                  padding: 8,
+                  borderRadius: 8,
+                  border: "none",
+                  background: "oklch(var(--gz-s2))",
+                  color: "oklch(var(--gz-mut))",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {/* Panel Items */}
+            <div style={{ padding: "12px 0", maxHeight: "50vh", overflowY: "auto" }}>
+              {(openPanel === "tools" ? toolsItems : moreItems).map((item) => (
                 <button
-                  onClick={() => setOpenPanel(null)}
-                  className="p-2 rounded-lg"
-                  style={{ color: "oklch(var(--gz-mut))", background: "oklch(var(--gz-s2))" }}
+                  key={item.to}
+                  onClick={() => goTo(item.to)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                    width: "100%",
+                    padding: "14px 20px",
+                    border: "none",
+                    background: isActive(item.to) ? "oklch(var(--gz-p) / 0.12)" : "transparent",
+                    color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-txt))",
+                    fontSize: 15,
+                    fontWeight: 600,
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
                 >
-                  <X size={16} />
-                </button>
-              </div>
-              {/* Panel Items */}
-              <div className="py-3 max-h-[60vh] overflow-y-auto">
-                {(openPanel === "tools" ? toolsItems : moreItems).map((item) => (
-                  <button
-                    key={item.to}
-                    onClick={() => {
-                      if (item.to === "__logout") {
-                        handleLogout();
-                      } else {
-                        handleNavigate(item.to);
-                      }
-                    }}
-                    className="w-full flex items-center gap-4 px-5 py-4 text-left active:bg-white/5"
-                    style={{
-                      background: isActive(item.to) ? "oklch(var(--gz-p) / 0.12)" : "transparent",
-                      color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-txt))",
-                    }}
-                  >
-                    <span style={{ color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>
-                      {item.icon}
+                  <span style={{ color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>
+                    {item.icon}
+                  </span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {isActive(item.to) && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        padding: "3px 8px",
+                        borderRadius: 4,
+                        background: "oklch(var(--gz-p) / 0.2)",
+                        color: "oklch(var(--gz-p))",
+                      }}
+                    >
+                      Active
                     </span>
-                    <span className="text-[14px] font-semibold flex-1">{item.label}</span>
-                    {isActive(item.to) && (
-                      <span
-                        className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded"
-                        style={{ background: "oklch(var(--gz-p) / 0.2)", color: "oklch(var(--gz-p))" }}
-                      >
-                        Active
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
+                  )}
+                </button>
+              ))}
+              {/* Sign Out Button */}
+              <button
+                onClick={() => { setOpenPanel(null); handleLogout(); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  width: "100%",
+                  padding: "14px 20px",
+                  border: "none",
+                  borderTop: "1px solid oklch(var(--gz-p) / 0.1)",
+                  background: "oklch(var(--gz-neg) / 0.05)",
+                  color: "oklch(var(--gz-neg))",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  textAlign: "left",
+                  cursor: "pointer",
+                  marginTop: 8,
+                }}
+              >
+                <LogOut size={20} />
+                <span style={{ flex: 1 }}>Sign Out</span>
+              </button>
             </div>
           </div>
-        </>
+        </div>
       )}
 
-      {/* ── Fixed Bottom Toolbar ── */}
+      {/* Fixed Bottom Toolbar */}
       <div
-        className="fixed bottom-0 left-0 right-0 lg:hidden"
         style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 996,
           background: "oklch(var(--gz-s1))",
           borderTop: "1px solid oklch(var(--gz-p) / 0.15)",
-          boxShadow: "0 -4px 20px oklch(0 0 0 / 0.4)",
-          zIndex: 997,
+          boxShadow: "0 -4px 20px rgba(0,0,0,0.4)",
         }}
       >
-        <div className="flex items-center justify-around px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-around",
+            padding: "8px 4px",
+            paddingBottom: "max(8px, env(safe-area-inset-bottom))",
+          }}
+        >
           {primaryTabs.map((tab) => {
-            const isPanelOpen = openPanel === tab.id.slice(1);
             const itemIsActive = tab.to === "/" ? pathname === "/" : pathname.startsWith(tab.to);
             return (
               <button
-                key={tab.id}
+                key={tab.action}
                 onClick={() => {
-                  if (tab.to.startsWith("#")) {
-                    setOpenPanel(openPanel === tab.id.slice(1) ? null : tab.id.slice(1));
+                  if (tab.action === "tools" || tab.action === "more") {
+                    setOpenPanel(openPanel === tab.action ? null : tab.action);
                   } else {
-                    handleNavigate(tab.to);
+                    goTo(tab.to);
                   }
                 }}
-                className="flex flex-col items-center justify-center gap-1.5 py-2 px-4 rounded-xl min-w-[60px] active:bg-white/5"
                 style={{
-                  background: isPanelOpen ? "oklch(var(--gz-p) / 0.1)" : "transparent",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "8px 12px",
+                  border: "none",
+                  borderRadius: 12,
+                  background: openPanel === tab.action ? "oklch(var(--gz-p) / 0.1)" : "transparent",
+                  cursor: "pointer",
+                  minWidth: 60,
                 }}
               >
-                <span
-                  style={{
-                    color: itemIsActive || isPanelOpen ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))",
-                  }}
-                >
+                <span style={{ color: itemIsActive || openPanel === tab.action ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>
                   {tab.icon}
                 </span>
                 <span
-                  className="text-[10px] font-bold uppercase tracking-wider"
                   style={{
-                    color: itemIsActive || isPanelOpen ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: itemIsActive || openPanel === tab.action ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))",
                   }}
                 >
                   {tab.label}
@@ -584,7 +665,7 @@ function MobileNav() {
           })}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
