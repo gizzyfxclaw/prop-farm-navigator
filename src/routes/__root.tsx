@@ -695,16 +695,18 @@ function RootComponent() {
 
                   {/* Right: Controls */}
                   <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-                    <Clock />
-                    <span className="vdivider hidden sm:block" style={{ height: 14 }} />
-                    <NotificationBell />
-                    <span className="vdivider hidden sm:block" style={{ height: 14 }} />
-                    <ModeToggle />
-                    <ThemeSwitcher />
+                    <div className="hidden sm:flex items-center gap-2">
+                      <Clock />
+                      <span className="vdivider" style={{ height: 14 }} />
+                      <NotificationBell />
+                    </div>
+                    <div className="flex-shrink-0"><ModeToggle /></div>
+                    <div className="flex-shrink-0"><ThemeSwitcher /></div>
                     <button
                       onClick={handleLogout}
-                      className="btn btn-danger fx-press !px-2 sm:!px-3"
+                      className="btn btn-danger fx-press flex-shrink-0 !px-1.5 sm:!px-3"
                       title="Sign out"
+                      style={{ height: 28, minWidth: 28, padding: "0 6px" }}
                     >
                       <LogOut size={14} />
                       <span className="hidden sm:inline ml-1.5">Sign Out</span>
