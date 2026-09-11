@@ -418,122 +418,176 @@ function Clock() {
 }
 
 function MobileNav() {
-  const [open, setOpen] = useState(false);
+  const [openPanel, setOpenPanel] = useState<string | null>(null);
   const router = useRouter();
   const pathname = router.state.location.pathname;
 
   const handleNavigate = (to: string) => {
-    setOpen(false);
+    setOpenPanel(null);
     router.navigate({ to });
   };
 
+  const isActive = (to: string) =>
+    to === "/" ? pathname === "/" : pathname.startsWith(to);
+
+  // Popover menu definitions
+  const toolsItems = [
+    { to: "/backtest", label: "Backtest", icon: <BarChart3 size={16} /> },
+    { to: "/pnl", label: "P&L Dashboard", icon: <Zap size={16} /> },
+    { to: "/console", label: "Console", icon: <Terminal size={16} /> },
+    { to: "/journal", label: "Journal", icon: <BookOpen size={16} /> },
+    { to: "/live", label: "Live MT5", icon: <Activity size={16} /> },
+    { to: "/accounts", label: "Accounts", icon: <Users size={16} /> },
+  ];
+
+  const moreItems = [
+    { to: "/calendar", label: "Calendar", icon: <Calendar size={16} /> },
+    { to: "/validator", label: "Validator", icon: <ShieldCheck size={16} /> },
+    { to: "/hermes", label: "Trading Agent", icon: <Bot size={16} /> },
+    { to: "/help", label: "Help", icon: <HelpCircle size={16} /> },
+    { to: "/settings", label: "Settings", icon: <Settings size={16} /> },
+    { to: "/hermes", label: "Agent Console", icon: <ExternalLink size={16} />, external: true },
+  ];
+
+  const primaryTabs = [
+    { to: "/", label: "Home", icon: <LayoutDashboard size={20} />, id: "home" },
+    { to: "/smc", label: "SMC", icon: <TrendingUp size={20} />, id: "smc" },
+    { to: "#tools", label: "Tools", icon: <Zap size={20} />, id: "tools" },
+    { to: "/briefing", label: "Brief", icon: <ClipboardList size={20} />, id: "briefing" },
+    { to: "#more", label: "More", icon: <Menu size={20} />, id: "more" },
+  ];
+
+  const currentPanel = openPanel;
+
   return (
     <>
-      {/* Hamburger Button */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="lg:hidden p-2 rounded-lg transition-colors"
-        style={{
-          background: "oklch(var(--gz-p) / 0.1)",
-          border: "1px solid oklch(var(--gz-p) / 0.2)",
-          color: "oklch(var(--gz-txt))",
-        }}
-        aria-label="Toggle menu"
-      >
-        {open ? <X size={20} /> : <Menu size={20} />}
-      </button>
-
-      {/* Overlay */}
-      {open && (
-        <div
-          className="fixed inset-0 z-[999]"
-          style={{ background: "oklch(0 0 0 / 0.7)", backdropFilter: "blur(4px)" }}
-          onClick={() => setOpen(false)}
-        />
+      {/* ── Popover Panels (bottom sheets) ── */}
+      {currentPanel && (
+        <>
+          <div
+            className="fixed inset-0 z-[998]"
+            style={{ background: "oklch(0 0 0 / 0.6)", backdropFilter: "blur(2px)" }}
+            onClick={() => setOpenPanel(null)}
+          />
+          <div
+            className="fixed bottom-[72px] left-3 right-3 z-[1000] rounded-2xl overflow-hidden"
+            style={{
+              background: "oklch(var(--gz-s1) / 0.98)",
+              border: "1px solid oklch(var(--gz-p) / 0.2)",
+              boxShadow: "0 -8px 32px oklch(0 0 0 / 0.5)",
+              backdropFilter: "blur(20px)",
+            }}
+          >
+            {/* Panel Header */}
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{ borderBottom: "1px solid oklch(var(--gz-p) / 0.1)" }}
+            >
+              <span
+                className="text-[11px] font-bold uppercase tracking-widest"
+                style={{ color: "oklch(var(--gz-p))" }}
+              >
+                {currentPanel === "tools" ? "Trading Tools" : "More Options"}
+              </span>
+              <button
+                onClick={() => setOpenPanel(null)}
+                className="p-1 rounded-md"
+                style={{ color: "oklch(var(--gz-mut))" }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {/* Panel Items */}
+            <div className="py-2 max-h-[50vh] overflow-y-auto">
+              {(currentPanel === "tools" ? toolsItems : moreItems).map((item) => (
+                <button
+                  key={item.to}
+                  onClick={() => {
+                    if ("external" in item && item.external) {
+                      window.open("https://hermes.gizzyfxstrategy.dpdns.org", "_blank", "noreferrer");
+                    } else {
+                      handleNavigate(item.to);
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
+                  style={{
+                    background: isActive(item.to) ? "oklch(var(--gz-p) / 0.1)" : "transparent",
+                    color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-txt))",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive(item.to)) e.currentTarget.style.background = "oklch(var(--gz-p) / 0.05)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive(item.to)) e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  <span style={{ color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>
+                    {item.icon}
+                  </span>
+                  <span className="text-[13px] font-medium flex-1">{item.label}</span>
+                  {isActive(item.to) && (
+                    <span
+                      className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+                      style={{ background: "oklch(var(--gz-p) / 0.15)", color: "oklch(var(--gz-p))" }}
+                    >
+                      Active
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Dropdown Panel */}
+      {/* ── Fixed Bottom Toolbar ── */}
       <div
-        className="fixed top-0 right-0 h-full z-[1000] transition-transform duration-300 ease-in-out"
+        className="fixed bottom-0 left-0 right-0 z-[997] lg:hidden"
         style={{
-          width: 280,
-          maxWidth: "85vw",
-          background: "oklch(var(--gz-s1) / 0.98)",
-          borderLeft: "1px solid oklch(var(--gz-p) / 0.15)",
-          backdropFilter: "blur(16px)",
-          transform: open ? "translateX(0)" : "translateX(100%)",
-          boxShadow: open ? "-8px 0 32px oklch(0 0 0 / 0.4)" : "none",
+          background: "oklch(var(--gz-s1) / 0.97)",
+          borderTop: "1px solid oklch(var(--gz-p) / 0.15)",
+          backdropFilter: "blur(20px)",
+          boxShadow: "0 -4px 20px oklch(0 0 0 / 0.3)",
         }}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between p-4"
-          style={{ borderBottom: "1px solid oklch(var(--gz-p) / 0.1)" }}
-        >
-          <span
-            className="text-[12px] font-bold uppercase tracking-wider"
-            style={{ color: "oklch(var(--gz-p))" }}
-          >
-            Navigation
-          </span>
-          <button
-            onClick={() => setOpen(false)}
-            className="p-1.5 rounded-md transition-colors hover:bg-white/5"
-            style={{ color: "oklch(var(--gz-mut))" }}
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Menu Items */}
-        <div className="py-2 overflow-y-auto" style={{ maxHeight: "calc(100vh - 180px)" }}>
-          {NAV.map((item) => {
-            const isActive = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+        <div className="flex items-center justify-around px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          {primaryTabs.map((tab) => {
+            const isPanelOpen = openPanel === tab.id.slice(1);
+            const itemIsActive = tab.to === "/" ? pathname === "/" : pathname.startsWith(tab.to);
             return (
               <button
-                key={item.to}
-                onClick={() => handleNavigate(item.to)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
+                key={tab.id}
+                onClick={() => {
+                  if (tab.to.startsWith("#")) {
+                    setOpenPanel(openPanel === tab.id.slice(1) ? null : tab.id.slice(1));
+                  } else {
+                    handleNavigate(tab.to);
+                  }
+                }}
+                className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition-all min-w-[56px]"
                 style={{
-                  background: isActive ? "oklch(var(--gz-p) / 0.1)" : "transparent",
-                  color: isActive ? "oklch(var(--gz-p))" : "oklch(var(--gz-txt))",
-                  borderLeft: isActive ? "3px solid oklch(var(--gz-p))" : "3px solid transparent",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) e.currentTarget.style.background = "oklch(var(--gz-p) / 0.05)";
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) e.currentTarget.style.background = "transparent";
+                  background: isPanelOpen ? "oklch(var(--gz-p) / 0.1)" : "transparent",
                 }}
               >
-                <span style={{ color: isActive ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>
-                  {item.icon}
+                <span
+                  className="transition-colors"
+                  style={{
+                    color: itemIsActive || isPanelOpen ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))",
+                  }}
+                >
+                  {tab.icon}
                 </span>
-                <span className="text-[13px] font-medium">{item.label}</span>
+                <span
+                  className="text-[10px] font-semibold uppercase tracking-wider transition-colors"
+                  style={{
+                    color: itemIsActive || isPanelOpen ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))",
+                  }}
+                >
+                  {tab.label}
+                </span>
               </button>
             );
           })}
-        </div>
-
-        {/* Footer */}
-        <div
-          className="absolute bottom-0 left-0 right-0 p-4"
-          style={{ borderTop: "1px solid oklch(var(--gz-p) / 0.1)" }}
-        >
-          <button
-            onClick={() => { setOpen(false); handleLogout(); }}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg transition-colors"
-            style={{
-              background: "oklch(var(--gz-neg) / 0.1)",
-              border: "1px solid oklch(var(--gz-neg) / 0.2)",
-              color: "oklch(var(--gz-neg))",
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            <LogOut size={14} />
-            Sign Out
-          </button>
         </div>
       </div>
     </>
@@ -724,6 +778,7 @@ function RootComponent() {
               style={{
                 minWidth: 0,
                 paddingTop: headerH > 0 ? `calc(${headerH}px + 12px)` : "calc(var(--cmdbar-h) + 12px)",
+                paddingBottom: "calc(88px + env(safe-area-inset-bottom))",
               }}
             >
               <PageErrorBoundary>
