@@ -359,15 +359,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     scripts: [
       {
-        /* Apply saved theme before first paint to prevent a flash of the
-           default palette. Whitelist matches THEMES above. */
+        children: `(function(){
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(reg){ if(reg.active && reg.active.scriptURL && reg.active.scriptURL.indexOf('gizzyfxstrategy') >= 0){ reg.unregister(); } });
+    });
+  }
+  if('caches' in window){
+    caches.keys().then(function(keys){ keys.forEach(function(k){ if(k !== 'gizzyfx-v9') caches.delete(k); }); });
+  }
+})();`,
+      },
+      {
         children: `try{var t=localStorage.getItem("gz-theme");if(t&&["graphite","blue","amber","emerald","purple"].indexOf(t)>=0)document.documentElement.dataset.theme=t;var m=localStorage.getItem("gz-mode");if(m==="light")document.documentElement.dataset.mode="light";}catch(e){}`,
       },
       {
         children: `if(window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true){document.documentElement.classList.add("pwa-standalone");}`,
       },
       {
-        // PWA standalone mode detection
         children: `if(window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true){document.documentElement.classList.add("pwa-standalone");}`,
       },
     ],
