@@ -419,8 +419,16 @@ function Clock() {
 }
 
 function MobileNav() {
+  const [mounted, setMounted] = useState(false);
   const [openPanel, setOpenPanel] = useState<string | null>(null);
-  const pathname = window.location.pathname;
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
+
+  // Only render portal on client-side (document is not available during SSR)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
 
   const isActive = (to: string) =>
     to === "/" ? pathname === "/" : pathname.startsWith(to);
