@@ -173,7 +173,7 @@ export function RulesAlertPanel() {
   // ── Fetch calendar events for news rules ──
   const fetchNews = useCallback(async () => {
     try {
-      const res = await fetch("/api/events?days=7");
+      const res = await fetch("/api/events?days=7", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       setNewsEvents(

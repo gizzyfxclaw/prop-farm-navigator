@@ -137,7 +137,7 @@ function CalendarPage() {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const res = await fetch("/api/events?days=7");
+      const res = await fetch("/api/events?days=7", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const items: RawEvent[] = (data.events || [])
