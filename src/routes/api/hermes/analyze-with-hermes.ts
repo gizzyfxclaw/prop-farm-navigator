@@ -17,7 +17,7 @@ import { getCFEnv } from "@/lib/cloudflare-env";
 
 const submitInput = z.object({
   pair: z.string(),
-  smc_data: z.record(z.any()),
+  smc_data: z.record(z.any()).optional().default({}),
   user_notes: z.string().optional(),
   user_image: z.string().optional(), // base64 data URL
   timeframe: z.string().default("1h"),
@@ -52,24 +52,34 @@ export const Route = createFileRoute("/api/hermes/analyze-with-hermes")({
         const env = getCFEnv();
         if (!env) return new Response("Service unavailable", { status: 503 });
 
-        const body = submitInput.parse(await request.json());
+        let body: z.infer<typeof submitInput>;
+        try {
+          body = submitInput.parse(await request.json());
+        } catch (zodErr: any) {
+          return Response.json({ error: "Invalid request body", details: zodErr.message }, { status: 400 });
+        }
+
         const id = crypto.randomUUID();
 
-        await env.DB.prepare(
-          `INSERT INTO hermes_smc_reviews 
-           (id, pair, timeframe, smc_data, user_notes, user_image, status, strategy, created_at) 
-           VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, strftime('%Y-%m-%dT%H:%M:%SZ','now'))`
-        )
-          .bind(
-            id,
-            body.pair,
-            body.timeframe,
-            JSON.stringify(body.smc_data),
-            body.user_notes ?? null,
-            body.user_image ?? null,
-            body.strategy ?? "channel-breakout",
+        try {
+          await env.DB.prepare(
+            `INSERT INTO hermes_smc_reviews 
+             (id, pair, timeframe, smc_data, user_notes, user_image, status, strategy, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, strftime('%Y-%m-%dT%H:%M:%SZ','now'))`
           )
-          .run();
+            .bind(
+              id,
+              body.pair,
+              body.timeframe,
+              JSON.stringify(body.smc_data ?? {}),
+              body.user_notes ?? null,
+              body.user_image ?? null,
+              body.strategy ?? "channel-breakout",
+            )
+            .run();
+        } catch (dbErr: any) {
+          return Response.json({ error: "Database error", details: dbErr.message }, { status: 500 });
+        }
 
         return Response.json({ id, status: "pending" }, { status: 201 });
       },

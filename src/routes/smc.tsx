@@ -883,7 +883,10 @@ function SMCPage() {
 
   /* ── Submit to Hermes ────────────────────────────────────────────── */
   const submitToHermes = async () => {
-    if (!data) return;
+    if (!data) {
+      alert("Please analyze a pair first before submitting to GizzyFx Co-Pilot.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch("/api/hermes/analyze-with-hermes", {
@@ -898,7 +901,10 @@ function SMCPage() {
           strategy,
         }),
       });
-      if (!res.ok) throw new Error("Failed to submit");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error || "Failed to submit");
+      }
       const json = await res.json() as { id: string };
       setUserNotes("");
       setUserImage(null);
@@ -907,8 +913,8 @@ function SMCPage() {
       setPollingId(json.id);
       setPollingSubmittedAt(Date.now());
       await loadReviews();
-    } catch {
-      alert("Failed to submit to GizzyFx Co-Pilot. Please try again.");
+    } catch (e: any) {
+      alert(`Failed to submit to GizzyFx Co-Pilot: ${e.message}`);
     } finally {
       setSubmitting(false);
     }
