@@ -6,10 +6,11 @@ import { computeRecovery } from "@/lib/recovery";
 import { marketStatus } from "@/lib/market-hours";
 import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
 import { classifyHazard } from "@/lib/news-hazard";
+import { analyzeNewsEvent } from "@/lib/news-analyzer";
 import {
   CheckCircle2, AlertTriangle, XCircle, Info, Clock, Shield, ShieldAlert,
-  ShieldCheck, ShieldX, Activity, TrendingUp, Zap, Radio, CircleDot,
-  ArrowRightLeft, Monitor, FileWarning, Trash2, RefreshCw,
+  ShieldCheck, ShieldX, Activity, TrendingUp, TrendingDown, Zap, Radio, CircleDot,
+  ArrowRightLeft, Monitor, FileWarning, Trash2, RefreshCw, Bot, Minus,
 } from "lucide-react";
 
 /* ── Types ────────────────────────────────────────────────────── */
@@ -33,6 +34,7 @@ interface NewsEvent {
   id: string;
   impact: "high" | "medium" | "low";
   event: string;
+  currency?: string;
   datetime: number;
   pairs: string[];
 }
@@ -165,6 +167,8 @@ export function RulesAlertPanel() {
   const [expanded, setExpanded] = useState(true);
   const [tick, setTick] = useState(0);
   const [newsEvents, setNewsEvents] = useState<NewsEvent[]>([]);
+  const [hermesAnalyses, setHermesAnalyses] = useState<Record<string, ReturnType<typeof analyzeNewsEvent>>>({});
+  const [analyzingEvents, setAnalyzingEvents] = useState<Set<string>>(new Set());
 
   // ── Fetch calendar events for news rules ──
   const fetchNews = useCallback(async () => {
@@ -446,6 +450,39 @@ export function RulesAlertPanel() {
   const warningCount = liveRules.filter((r) => r.status === "warning").length;
   const okCount = liveRules.filter((r) => r.status === "ok").length;
 
+  // ── Auto-fetch Hermes analysis for high-impact events ──
+  useEffect(() => {
+    const upcomingHigh = newsEvents.filter(
+      (e) => e.impact === "high" && e.datetime > nowSec && e.datetime - nowSec < 10800
+    );
+    for (const ev of upcomingHigh) {
+      if (!hermesAnalyses[ev.id] && !analyzingEvents.has(ev.id)) {
+        setAnalyzingEvents((prev) => new Set(prev).add(ev.id));
+        // Simulate brief loading for UX
+        setTimeout(() => {
+          try {
+            const result = analyzeNewsEvent({
+              event_name: ev.event,
+              currency: ev.pairs?.[0]?.slice(0, 3) || "USD",
+              impact: ev.impact,
+              forecast: "—",
+              previous: "—",
+            });
+            setHermesAnalyses((prev) => ({ ...prev, [ev.id]: result }));
+          } catch {
+            // fail silently
+          } finally {
+            setAnalyzingEvents((prev) => {
+              const next = new Set(prev);
+              next.delete(ev.id);
+              return next;
+            });
+          }
+        }, 300);
+      }
+    }
+  }, [newsEvents, tick]);
+
   // ── Master verdict — driven by the WORST rule status ──
   // If ANY rule is critical → DO NOT TRADE
   // If ANY rule is warning → CAUTION
@@ -593,6 +630,92 @@ export function RulesAlertPanel() {
               </div>
             </div>
           )}
+
+          {/* ── HERMES NEWS ANALYSIS ── */}
+          {(() => {
+            const eventsWithAnalysis = newsEvents
+              .filter((e) => hermesAnalyses[e.id] && e.impact === "high" && e.datetime > nowSec && e.datetime - nowSec < 10800);
+            
+            if (eventsWithAnalysis.length === 0) return null;
+            
+            return (
+              <div className="rounded-lg overflow-hidden" style={{ background: "oklch(var(--gz-p) / 0.03)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
+                <div className="px-3 py-2 flex items-center gap-2" style={{ background: "oklch(var(--gz-p) / 0.05)", borderBottom: "1px solid oklch(var(--gz-p) / 0.1)" }}>
+                  <Bot size={14} style={{ color: "oklch(var(--gz-p))" }} />
+                  <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "oklch(var(--gz-p))" }}>
+                    Hermes News Analysis
+                  </span>
+                </div>
+                <div className="p-2 space-y-2">
+                  {eventsWithAnalysis.map((ev) => {
+                    const analysis = hermesAnalyses[ev.id];
+                    if (!analysis) return null;
+                    const dirColor =
+                      analysis.direction === "BUY" ? "oklch(var(--gz-pos))" :
+                      analysis.direction === "SELL" ? "oklch(var(--gz-neg))" :
+                      "oklch(var(--gz-mut))";
+                    const DirIcon =
+                      analysis.direction === "BUY" ? TrendingUp :
+                      analysis.direction === "SELL" ? TrendingDown :
+                      Minus;
+                    return (
+                      <div
+                        key={ev.id}
+                        className="rounded p-2.5"
+                        style={{
+                          background: "oklch(var(--gz-s2))",
+                          border: `1px solid ${ev.impact === "high" ? "oklch(var(--gz-neg) / 0.2)" : "oklch(var(--gz-p) / 0.1)"}`,
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="badge badge-danger" style={{ fontSize: 8, padding: "1px 5px" }}>
+                              {ev.impact.toUpperCase()}
+                            </span>
+                            <span className="text-[11px] font-bold" style={{ color: "oklch(var(--gz-txt))" }}>
+                              {ev.event.slice(0, 30)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono text-[9px] tabular-nums" style={{ color: "oklch(var(--gz-mut))" }}>
+                              {formatCountdown(ev.datetime - nowSec)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="flex items-center gap-1 px-2 py-0.5 rounded" style={{ background: `${dirColor}15`, border: `1px solid ${dirColor}30` }}>
+                            <DirIcon size={10} style={{ color: dirColor }} />
+                            <span className="font-mono text-[10px] font-bold" style={{ color: dirColor }}>
+                              {analysis.direction}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px]" style={{ color: "oklch(var(--gz-mut))" }}>Confidence</span>
+                            <div className="h-1.5 w-12 rounded-full overflow-hidden" style={{ background: "oklch(var(--gz-s3))" }}>
+                              <div className="h-full rounded-full" style={{ width: `${analysis.confidence}%`, background: dirColor }} />
+                            </div>
+                            <span className="font-mono text-[9px] font-bold" style={{ color: dirColor }}>
+                              {analysis.confidence}%
+                            </span>
+                          </div>
+                          <div className="flex gap-0.5 ml-auto">
+                            {analysis.affected_pairs.slice(0, 3).map((p) => (
+                              <span key={p} className="badge badge-neutral" style={{ fontSize: 7, padding: "0 3px" }}>
+                                {p}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-[9px] leading-relaxed" style={{ color: "oklch(var(--gz-txt) / 0.85)" }}>
+                          {analysis.analysis}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* All rules — live status */}
           {liveRules
