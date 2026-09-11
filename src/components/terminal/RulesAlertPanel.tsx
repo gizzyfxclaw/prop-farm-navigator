@@ -502,17 +502,33 @@ export function RulesAlertPanel() {
   const hasCritical = criticalCount > 0;
   const hasWarning = warningCount > 0;
 
-  type Verdict = "GO" | "WAIT_NEWS" | "WAIT_SESSION" | "CAUTION";
-  const verdict: Verdict = hasCritical ? "WAIT_NEWS"
-    : !inTradingWindow ? "WAIT_SESSION"
-    : hasWarning ? "CAUTION"
-    : "GO";
+  // Determine which rule is critical to show the right verdict
+  const criticalRules = liveRules.filter((r) => r.status === "critical");
+  if (bufferAlert) criticalRules.push(bufferAlert);
+  
+  const hasNewsCritical = criticalRules.some((r) => r.rule.id === "news" || r.rule.id === "news-gap");
+  const hasBufferCritical = criticalRules.some((r) => r.rule.id === "margin-call" || r.rule.id === "buffer");
+  const hasDataCritical = criticalRules.some((r) => r.rule.id === "signs");
+  const hasDailyCap = criticalRules.some((r) => r.rule.id === "daily-cap-lock");
+
+  type Verdict = "GO" | "WAIT_NEWS" | "WAIT_SESSION" | "CAUTION" | "WAIT_BUFFER" | "WAIT_DATA" | "WAIT_CAP";
+  let verdict: Verdict = "GO";
+  if (hasNewsCritical) verdict = "WAIT_NEWS";
+  else if (hasBufferCritical) verdict = "WAIT_BUFFER";
+  else if (hasDataCritical) verdict = "WAIT_DATA";
+  else if (hasDailyCap) verdict = "WAIT_CAP";
+  else if (hasCritical) verdict = "WAIT_NEWS";
+  else if (!inTradingWindow) verdict = "WAIT_SESSION";
+  else if (hasWarning) verdict = "CAUTION";
 
   const verdictConfig = {
     GO: { icon: <ShieldCheck size={20} />, label: "CLEAR TO TRADE", bg: "oklch(var(--gz-pos) / 0.12)", border: "oklch(var(--gz-pos) / 0.3)", color: "oklch(var(--gz-pos))", sub: "All conditions met. Follow your entry rules." },
     CAUTION: { icon: <ShieldAlert size={20} />, label: "TRADE WITH CAUTION", bg: "oklch(var(--gz-warn) / 0.1)", border: "oklch(var(--gz-warn) / 0.25)", color: "oklch(var(--gz-warn))", sub: "News approaching. Enter only if setup is strong." },
     WAIT_NEWS: { icon: <ShieldX size={20} />, label: "DO NOT TRADE — NEWS", bg: "oklch(var(--gz-neg) / 0.12)", border: "oklch(var(--gz-neg) / 0.3)", color: "oklch(var(--gz-neg))", sub: "High-impact news within 30 minutes. Wait." },
     WAIT_SESSION: { icon: <Clock size={20} />, label: "WAIT FOR SESSION", bg: "oklch(var(--gz-warn) / 0.08)", border: "oklch(var(--gz-warn) / 0.2)", color: "oklch(var(--gz-warn))", sub: "Outside trading window. Wait for London or NY." },
+    WAIT_BUFFER: { icon: <ShieldX size={20} />, label: "DO NOT TRADE — BUFFER", bg: "oklch(var(--gz-neg) / 0.12)", border: "oklch(var(--gz-neg) / 0.3)", color: "oklch(var(--gz-neg))", sub: "Exness buffer depleted. Deposit to continue." },
+    WAIT_DATA: { icon: <ShieldX size={20} />, label: "DO NOT TRADE — DATA", bg: "oklch(var(--gz-neg) / 0.12)", border: "oklch(var(--gz-neg) / 0.3)", color: "oklch(var(--gz-neg))", sub: "Bad P&L data detected. Fix journal first." },
+    WAIT_CAP: { icon: <ShieldX size={20} />, label: "DO NOT TRADE — DAILY CAP", bg: "oklch(var(--gz-neg) / 0.12)", border: "oklch(var(--gz-neg) / 0.3)", color: "oklch(var(--gz-neg))", sub: "You won today. Stop to avoid exceeding cap." },
   };
   const v = verdictConfig[verdict];
 
