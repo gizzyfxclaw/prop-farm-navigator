@@ -238,10 +238,20 @@ function CalendarPage() {
   const tradingCaution = caution.length > 0 && !tradingBlocked;
   const nextEvent = liveEvents.find((e) => e.secondsUntil > 0);
 
-  // Events with Hermes analysis
-  const eventsWithAnalysis = liveEvents.filter(
-    (e) => hermesAnalyses[e.id] && hermesAnalyses[e.id] !== "loading"
-  );
+  // Events with Hermes analysis (show panel for ALL upcoming high-impact events)
+  const upcomingHighImpact = liveEvents
+    .filter((e) => e.impact === "high" && e.secondsUntil > 0)
+    .slice(0, 5);
+
+  // Auto-analyze first upcoming high-impact event if not done
+  useEffect(() => {
+    if (upcomingHighImpact.length > 0) {
+      const first = upcomingHighImpact[0]!;
+      if (!hermesAnalyses[first.id] && !analyzingEvents.has(first.id)) {
+        fetchHermesAnalysis(first);
+      }
+    }
+  }, [upcomingHighImpact.length]);
 
   return (
     <div className="engine-cockpit">
@@ -277,7 +287,7 @@ function CalendarPage() {
       />
 
       {/* ── HERMES AI NEWS ANALYSIS ──────────────────────────────── */}
-      {eventsWithAnalysis.length > 0 && (
+      {upcomingHighImpact.length > 0 && (
         <div className="panel" style={{ padding: 0, borderColor: "oklch(var(--gz-p) / 0.25)" }}>
           <div className="panel-head" style={{ background: "oklch(var(--gz-p) / 0.05)" }}>
             <h2 className="panel-head-title">
@@ -289,8 +299,31 @@ function CalendarPage() {
             </span>
           </div>
           <div className="space-y-3 p-4">
-            {eventsWithAnalysis.map((ev) => {
-              const analysis = hermesAnalyses[ev.id] as HermesAnalysis;
+            {upcomingHighImpact.map((ev) => {
+              const analysis = hermesAnalyses[ev.id];
+              if (analysis === "loading" || !analysis) {
+                return (
+                  <div key={ev.id} className="rounded-lg p-4" style={{ background: "oklch(var(--gz-s2) / 0.5)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="badge badge-danger">HIGH</span>
+                        <span className="text-sm font-semibold" style={{ color: "oklch(var(--gz-txt))" }}>{ev.event}</span>
+                        <span className="font-mono text-[10px] tabular-nums" style={{ color: "oklch(var(--gz-mut))" }}>{formatCountdown(ev.secondsUntil)}</span>
+                      </div>
+                      <button
+                        onClick={() => fetchHermesAnalysis(ev)}
+                        className="text-[10px] mono-cap font-bold cursor-pointer px-2 py-1 rounded"
+                        style={{ background: "oklch(var(--gz-p) / 0.1)", color: "oklch(var(--gz-p))", border: "1px solid oklch(var(--gz-p) / 0.3)" }}
+                      >
+                        Analyze Now
+                      </button>
+                    </div>
+                    <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut))" }}>
+                      Click "Analyze Now" to get market direction, confidence, and impact prediction from Hermes AI.
+                    </p>
+                  </div>
+                );
+              }
               const dirColor =
                 analysis.direction === "BUY" ? "oklch(var(--gz-pos))" :
                 analysis.direction === "SELL" ? "oklch(var(--gz-neg))" :
@@ -305,7 +338,7 @@ function CalendarPage() {
                   className="rounded-lg p-4"
                   style={{
                     background: "oklch(var(--gz-s2))",
-                    border: `1px solid ${ev.impact === "high" ? "oklch(var(--gz-neg) / 0.2)" : "oklch(var(--gz-p) / 0.1)"}`,
+                    border: `1px solid ${dirColor}20`,
                   }}
                 >
                   {/* Header */}
