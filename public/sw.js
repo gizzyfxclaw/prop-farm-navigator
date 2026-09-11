@@ -1,4 +1,4 @@
-const CACHE_NAME = "gizzyfx-v8";
+const CACHE_NAME = "gizzyfx-v9";
 const ASSETS = [
   "/",
   "/manifest.webmanifest",
@@ -18,7 +18,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -28,10 +28,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   const method = event.request.method;
 
-  // 1. Never touch non-GET requests (POST, PATCH, PUT, DELETE, OPTIONS)
+  // 1. Never touch non-GET requests
   if (method !== "GET") return;
 
-  // 2. Never intercept API/auth/cron endpoints — they must hit the server
+  // 2. Never intercept API/auth/cron endpoints
   if (
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/login") ||
@@ -41,18 +41,15 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/api/hermes/") ||
     url.pathname.startsWith("/api/smc")
   ) {
-    return; // let the browser handle it normally (no SW involvement)
+    return;
   }
 
-  // 3. For ALL navigations (SPA routes), always serve index.html from cache/network
-  //    so the SPA router can handle the route — this avoids the redirect error
+  // 3. For ALL navigations, always serve index.html
   if (event.request.mode === "navigate") {
     event.respondWith(
       caches.match("/").then((cached) => {
-        // Always try network first for navigations, fall back to cache
         return fetch(event.request)
           .then((response) => {
-            // Cache the response if it's a 200 OK page
             if (response.ok && response.type === "basic") {
               const clone = response.clone();
               caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
@@ -65,29 +62,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 4. For static assets (JS, CSS, images, fonts): cache-first, then network
+  // 4. For static assets: network first (always get fresh), fall back to cache
   if (
     url.pathname.startsWith("/assets/") ||
     url.pathname.startsWith("/favicon") ||
     url.pathname.match(/\.(?:js|css|png|jpg|jpeg|gif|svg|webp|woff2?|ttf|eot)$/)
   ) {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request)
-          .then((response) => {
-            if (response.ok && response.type === "basic") {
-              const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
-            }
-            return response;
-          })
-          .catch(() => Response.error());
-      })
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok && response.type === "basic") {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((c) => c || Response.error()))
     );
     return;
   }
-
-  // 5. For everything else (e.g., manifest, root), pass through to network
-  //    without caching — avoids the redirect error entirely
 });
