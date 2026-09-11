@@ -187,9 +187,19 @@ function CalendarPage() {
     fetchEvents();
     const apiFetcher = setInterval(fetchEvents, API_REFRESH_MS);
     const ticker = setInterval(() => setTick((t) => t + 1), TICK_MS);
+    
+    // Refresh immediately when page becomes visible
+    const handleVisibility = () => {
+      if (!document.hidden) fetchEvents();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleVisibility);
+    
     return () => {
       clearInterval(apiFetcher);
       clearInterval(ticker);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleVisibility);
     };
   }, [fetchEvents]);
 

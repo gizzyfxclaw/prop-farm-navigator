@@ -195,9 +195,19 @@ export function RulesAlertPanel() {
     fetchNews();
     const ticker = setInterval(() => setTick((t) => t + 1), TICK_MS);
     const apiFetcher = setInterval(fetchNews, API_REFRESH_MS);
+    
+    // Refresh immediately when page becomes visible
+    const handleVisibility = () => {
+      if (!document.hidden) fetchNews();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleVisibility);
+    
     return () => {
       clearInterval(ticker);
       clearInterval(apiFetcher);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleVisibility);
     };
   }, [fetchNews]);
 
