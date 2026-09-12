@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   ShieldX, ShieldAlert, ShieldCheck, XCircle, AlertTriangle, CheckCircle2,
   MinusCircle, Clock, Activity, Radio, RefreshCcw, Bot, TrendingUp, TrendingDown,
-  Minus,
+  Minus, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
 import { Badge, Button, CockpitHeader } from "@/components/terminal/ui";
@@ -133,6 +133,7 @@ function CalendarPage() {
   const [tick, setTick] = useState(0);
   const [hermesAnalyses, setHermesAnalyses] = useState<Record<string, HermesAnalysis | "loading">>({});
   const [analyzingEvents, setAnalyzingEvents] = useState<Set<string>>(new Set());
+  const [hermesExpanded, setHermesExpanded] = useState(false);
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -289,16 +290,27 @@ function CalendarPage() {
       {/* ── HERMES AI NEWS ANALYSIS ──────────────────────────────── */}
       {upcomingHighImpact.length > 0 && (
         <div className="panel" style={{ padding: 0, borderColor: "oklch(var(--gz-p) / 0.25)" }}>
-          <div className="panel-head" style={{ background: "oklch(var(--gz-p) / 0.05)" }}>
-            <h2 className="panel-head-title">
+          <div
+            className="panel-head"
+            style={{ background: "oklch(var(--gz-p) / 0.05)", cursor: "pointer" }}
+            onClick={() => setHermesExpanded(!hermesExpanded)}
+          >
+            <div className="flex items-center gap-2">
               <Bot size={14} style={{ color: "oklch(var(--gz-p))" }} />
-              Hermes AI Analysis
-            </h2>
-            <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
-              Real-time market impact prediction
-            </span>
+              <h2 className="panel-head-title">Hermes AI Analysis</h2>
+              <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
+                {upcomingHighImpact.length} event{upcomingHighImpact.length > 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
+                Real-time market impact prediction
+              </span>
+              {hermesExpanded ? <ChevronUp size={14} style={{ color: "oklch(var(--gz-p))" }} /> : <ChevronDown size={14} style={{ color: "oklch(var(--gz-p))" }} />}
+            </div>
           </div>
-          <div className="space-y-3 p-4">
+          {hermesExpanded && (
+            <div className="space-y-3 p-4">
             {upcomingHighImpact.map((ev) => {
               const analysis = hermesAnalyses[ev.id];
               if (analysis === "loading" || !analysis) {
@@ -418,7 +430,8 @@ function CalendarPage() {
                 </div>
               );
             })}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
