@@ -102,3 +102,18 @@
     border-radius: 2px;
   }
 }
+
+  /* ── Ticker tape marquee ───────────────────────────────────────── */
+  @keyframes gz-tape {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .fx-tape {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .fx-tape-track {
+    display: inline-flex;
+    animation: gz-tape var(--fx-tape-dur, 46s) linear infinite;
+  }
+  .fx-tape:hover .fx-tape-track { animation-play-state: paused; }
