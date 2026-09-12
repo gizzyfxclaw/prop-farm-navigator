@@ -30,6 +30,11 @@ interface HermesAnalysis {
   direction: "BUY" | "SELL" | "NEUTRAL" | "UNKNOWN";
   confidence: number;
   affected_pairs: string[];
+  spike_pips: string;
+  duration: string;
+  trade_setup: string;
+  avoid_strategy: string;
+  risk_factors: string;
   cached?: boolean;
 }
 
