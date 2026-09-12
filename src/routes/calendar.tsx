@@ -55,8 +55,8 @@ const SESSIONS = [
   { label: "Sydney/Tokyo", start: "19:00", end: "04:00" },
 ];
 
-const API_REFRESH_MS = 120_000;
-const TICK_MS = 1_000;
+const API_REFRESH_MS = 300_000;
+const TICK_MS = 5_000;
 
 import { classifyHazard } from "@/lib/news-hazard";
 

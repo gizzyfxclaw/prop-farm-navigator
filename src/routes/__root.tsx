@@ -259,27 +259,6 @@ function ThemeSwitcher() {
   );
 }
 
-/* ── Institutional backdrop — grid, mesh, vignette, grain ───────── */
-function Backdrop() {
-  return (
-    <div className="backdrop" aria-hidden>
-      <div className="backdrop-mesh fx-mesh" />
-      <div className="backdrop-grid" />
-      <div className="backdrop-grid-major" />
-      <div className="backdrop-sweep fx-h-sweep" />
-      <div className="backdrop-vignette" />
-      <div className="backdrop-grain" />
-    </div>
-  );
-}
-
-/* ── (removed) glow orbs & particle field ────────────────────────
-   Both were startup-aesthetic decoration and cost real frames on the
-   user's phone. The institutional Backdrop above replaces them with
-   a chart grid, a low-chroma mesh, a vignette and film grain — all
-   composited, no per-particle DOM nodes.
-   ───────────────────────────────────────────────────────────────── */
-
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4" style={{ position: "relative", zIndex: 1 }}>
@@ -410,7 +389,7 @@ function Clock() {
       setNow(wat);
     };
     tick();
-    const id = window.setInterval(tick, 1000);
+    const id = window.setInterval(tick, 10000);
     return () => window.clearInterval(id);
   }, []);
   return (
@@ -643,7 +622,6 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
         <StoreProvider>
-          <Backdrop />
 
           <div className="relative min-h-screen w-full" style={{ zIndex: 1 }}>
             {/* ── Command bar ──────────────────────────────────────── */}
