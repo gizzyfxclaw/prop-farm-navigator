@@ -186,7 +186,12 @@ function JournalPage() {
     if (netPnl > 0) analysis.push(`Net P&L positive at ${money(netPnl, true)}. The mirror loop is working.`);
     else if (netPnl < 0) analysis.push(`Net P&L negative at ${money(netPnl, true)}. Loop is leaking — review execution.`);
 
-    return { winRate, netPnl, totalPropProfit, totalPropLoss, totalExWins, totalExLosses, exnessRecoveryPct, avgWin, avgLoss, payoffRatio, slippageTrades, analysis };
+    // Data integrity check
+    const bothPositive = closed.filter((t) => t.propPnl > 0 && t.exPnl > 0).length;
+    const bothNegative = closed.filter((t) => t.propPnl < 0 && t.exPnl < 0).length;
+    const correctDirection = closed.filter((t) => (t.result === "WIN" && t.exPnl < 0) || (t.result === "LOSS" && t.exPnl > 0)).length;
+
+    return { winRate, netPnl, totalPropProfit, totalPropLoss, totalExWins, totalExLosses, exnessRecoveryPct, avgWin, avgLoss, payoffRatio, slippageTrades, analysis, bothPositive, bothNegative, correctDirection, wins, losses };
   }, [journal, recovery]);
 
   // ── Recovery timeline: narrative of each trade ──────────────────────
@@ -477,7 +482,20 @@ function JournalPage() {
                 <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.3)", border: "1px solid oklch(var(--gz-p) / 0.1)" }}>
                   <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>📋 Strategy: Inverted Mirror Hedge</p>
                   <p className="text-[10px]" style={{ color: "oklch(var(--gz-mut))" }}>
-                    Prop and Exness take opposite directions. Prop WIN pays from Exness tank, Prop LOSS refills it. Net P&L should stay positive.
+                    Prop and Exness take opposite directions. Prop WIN pays from Exness tank, Prop LOSS refills it. Net P&L should stay positive.<br/>
+                    <span style={{ color: "oklch(var(--gz-p))" }}>Data check:</span> {hermesAnalysis.correctDirection}/{hermesAnalysis.wins + hermesAnalysis.losses} trades correct direction.
+                    {hermesAnalysis.bothPositive > 0 && <span style={{ color: "oklch(var(--gz-neg))" }}> ❌ {hermesAnalysis.bothPositive} both-positive!</span>}
+                    {hermesAnalysis.bothNegative > 0 && <span style={{ color: "oklch(var(--gz-neg))" }}> ❌ {hermesAnalysis.bothNegative} both-negative!</span>}
+                    {hermesAnalysis.bothPositive === 0 && hermesAnalysis.bothNegative === 0 && <span style={{ color: "oklch(var(--gz-pos))" }}> ✅</span>}
+                  </p>
+                </div>
+                <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.3)", border: "1px solid oklch(var(--gz-p) / 0.1)" }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>⚠️ Data Integrity Check</p>
+                  <p className="text-[10px]" style={{ color: "oklch(var(--gz-mut))" }}>
+                    {hermesAnalysis.correctDirection}/{hermesAnalysis.wins + hermesAnalysis.losses} trades have correct direction (Prop WIN → Exness LOSS, Prop LOSS → Exness WIN).
+                    {hermesAnalysis.bothPositive > 0 && ` ❌ ${hermesAnalysis.bothPositive} trade(s) show BOTH positive — check your numbers.`}
+                    {hermesAnalysis.bothNegative > 0 && ` ❌ ${hermesAnalysis.bothNegative} trade(s) show BOTH negative — check your numbers.`}
+                    {hermesAnalysis.bothPositive === 0 && hermesAnalysis.bothNegative === 0 && " ✅ All trades look correct."}
                   </p>
                 </div>
               </div>
