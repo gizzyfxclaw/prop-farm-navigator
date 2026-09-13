@@ -113,14 +113,34 @@ function JournalPage() {
   } | null>(null);
   const [showTransition, setShowTransition] = useState(false);
   const [hermesOpen, setHermesOpen] = useState(false);
+  const [actualExBalanceInput, setActualExBalanceInput] = useState<string>(r.actualExnessBalance > 0 ? r.actualExnessBalance.toString() : "");
 
   const openTrades = journal.filter((t) => t.result === "OPEN");
+  const closedTrades = journal.filter((t) => t.result !== "OPEN");
   const liveMap = useLiveOpenPnl(
     openTrades,
     meta.token,
     meta.exnessAccountId,
     meta.exnessSymbolSuffix ?? "",
   );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ACCURATE EXNESS BALANCE TRACKING
+  // ═══════════════════════════════════════════════════════════════════
+  const realExnessBalance = r.actualExnessBalance;
+  const balanceEntered = realExnessBalance > 0;
+  const totalExPnlSoFar = closedTrades.reduce((s, t) => s + t.exPnl, 0);
+  const totalExWinsSoFar = closedTrades.filter((t) => t.exPnl > 0).reduce((s, t) => s + t.exPnl, 0);
+  const totalExLossesSoFar = closedTrades.filter((t) => t.exPnl < 0).reduce((s, t) => s + Math.abs(t.exPnl), 0);
+  const accurateStartingBalance = realExnessBalance > 0 ? realExnessBalance - totalExPnlSoFar : 0;
+
+  function updateRealExnessBalance() {
+    const val = parseFloat(actualExBalanceInput);
+    if (!isNaN(val) && val >= 0) {
+      setEngine({ actualExnessBalance: val });
+      toast.success(`Exness balance set to ${money(val, true)} — calculations now use real balance.`);
+    }
+  }
 
   // ── Hermes AI Journal Analysis ────────────────────────────────────
   // Understands the Inverted Mirror Hedge strategy:
@@ -130,7 +150,7 @@ function JournalPage() {
   //   Net P&L should be positive or zero for the loop to work.
   const hermesAnalysis = useMemo(() => {
     if (journal.length === 0) return null;
-    const closed = journal.filter((t) => t.result !== "OPEN");
+    const closed = closedTrades;
     if (closed.length === 0) return null;
 
     const wins = closed.filter((t) => t.result === "WIN").length;
@@ -197,22 +217,19 @@ function JournalPage() {
   }, [journal, recovery]);
 
   // ── Recovery timeline: narrative of each trade ──────────────────────
-  // Fix: start from INITIAL balance (current - sum of all exPnl) to avoid
-  // double-counting. Running balance must progress chronologically.
   const recoveryTimeline = useMemo(() => {
     const closedTrades = journal.filter((t) => t.result !== "OPEN");
-    const totalExPnlSoFar = closedTrades.reduce((s, t) => s + t.exPnl, 0);
-    const startingBalance = r.actualExnessBalance - totalExPnlSoFar;
+    const totalExPnl = closedTrades.reduce((s, t) => s + t.exPnl, 0);
+    const startingBalance = realExnessBalance > 0 ? realExnessBalance - totalExPnl : 0;
     let runningBalance = startingBalance;
     let runningPropEquity = 0;
     const trades = closedTrades.map((t, i) => {
-      const prevBalance = runningBalance;
       runningBalance += t.exPnl;
       runningPropEquity += t.propPnl;
-      return { ...t, index: i + 1, exnessBalanceBefore: prevBalance, exnessBalanceAfter: runningBalance, runningPropEquity, startingBalance };
+      return { ...t, index: i + 1, exnessBalanceBefore: runningBalance - t.exPnl, exnessBalanceAfter: runningBalance, runningPropEquity, startingBalance };
     });
     return { trades, startingBalance };
-  }, [journal, r.actualExnessBalance]);
+  }, [journal, realExnessBalance]);
 
   function log(result: "WIN" | "LOSS") {
     const derived = tradePnl(r, result === "WIN", engine.rr);
@@ -455,7 +472,7 @@ function JournalPage() {
             <h2 className="panel-head-title" style={{ fontSize: "13px", fontWeight: 600, margin: 0 }}>Hermes Journal Analysis</h2>
             {hermesAnalysis && (
               <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))", fontSize: "11px" }}>
-                {closed.length} trades analyzed
+                {closedTrades.length} trades analyzed
               </span>
             )}
           </div>
@@ -465,6 +482,41 @@ function JournalPage() {
         </div>
         {hermesOpen && (
           <div style={{ padding: "1rem" }}>
+            {!balanceEntered && (
+              <div className="rounded-lg p-3 mb-3" style={{ background: "oklch(var(--gz-neg) / 0.08)", border: "1px solid oklch(var(--gz-neg) / 0.2)" }}>
+                <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-neg))" }}>⚠️ Enter Your Real Exness Balance</p>
+                <p className="text-[10px] mb-2" style={{ color: "oklch(var(--gz-mut))" }}>
+                  The system currently uses a PROJECTED balance. For accurate fee recovery tracking, enter your actual Exness account balance.
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={actualExBalanceInput}
+                    onChange={(e) => setActualExBalanceInput(e.target.value)}
+                    placeholder="e.g. 500.00"
+                    className="w-36 rounded border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    onClick={updateRealExnessBalance}
+                    className="rounded border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-semibold text-primary hover:bg-primary/20"
+                  >
+                    Set Balance
+                  </button>
+                </div>
+              </div>
+            )}
+            {balanceEntered && (
+              <div className="rounded-lg p-3 mb-3" style={{ background: "oklch(var(--gz-s2) / 0.5)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-semibold" style={{ color: "oklch(var(--gz-p))" }}>✅ Real Exness Balance Entered</p>
+                  <span className="text-[11px] font-mono" style={{ color: "oklch(var(--gz-txt))" }}>{money(realExnessBalance, true)}</span>
+                </div>
+                <p className="text-[10px] mt-1" style={{ color: "oklch(var(--gz-mut))" }}>
+                  Starting balance: {money(accurateStartingBalance, true)} → Current: {money(realExnessBalance, true)} → Exness Net P&L: {money(totalExPnlSoFar, true)}
+                </p>
+              </div>
+            )}
             {hermesAnalysis ? (
               <div className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
