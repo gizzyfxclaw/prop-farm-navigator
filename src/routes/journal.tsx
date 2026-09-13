@@ -153,45 +153,47 @@ function JournalPage() {
       return false;
     }).length;
 
+    // ═══════════════════════════════════════════════════════════════════
+    // FEE RECOVERY ANALYSIS — The REAL metric that matters
+    // ═══════════════════════════════════════════════════════════════════
+    const propFeeNum = r.propFee;
+    const feeRecoveryPct = propFeeNum > 0 ? (totalExWins / propFeeNum) * 100 : 0;
+    const remainingFeeToRecover = Math.max(0, propFeeNum - totalExWins);
+    const exnessNetRecovery = totalExWins - totalExLosses;
+    const feeFullyRecovered = exnessNetRecovery >= propFeeNum;
+    const propLossTrades = closed.filter((t) => t.result === "LOSS");
+    const recoveredTrades = propLossTrades.filter((t) => t.exPnl > 0).length;
+    const failedRecoveryTrades = propLossTrades.filter((t) => t.exPnl <= 0).length;
+    const avgExnessRecoveryPerLoss = propLossTrades.length > 0 ? totalExWins / propLossTrades.length : 0;
+
     // Strategy flow analysis
     const analysis: string[] = [];
     
-    // Win rate assessment
-    if (winRate >= 60) analysis.push(`Strong win rate at ${winRate.toFixed(1)}%. Strategy is performing well.`);
-    else if (winRate >= 50) analysis.push(`Decent win rate at ${winRate.toFixed(1)}%. Keep executing consistently.`);
-    else analysis.push(`Win rate is ${winRate.toFixed(1)}%. Below 50% — review entry timing or reduce size.`);
+    // Fee recovery assessment (PRIMARY METRIC)
+    if (feeFullyRecovered) {
+      analysis.push(`🎉 FEE FULLY RECOVERED! Exness net (${money(exnessNetRecovery, true)}) covers the ${money(propFeeNum, true)} fee.`);
+    } else if (feeRecoveryPct >= 80) {
+      analysis.push(`Close: ${feeRecoveryPct.toFixed(0)}% of fee recovered. Only ${money(remainingFeeToRecover, true)} left.`);
+    } else if (feeRecoveryPct >= 50) {
+      analysis.push(`In progress: ${feeRecoveryPct.toFixed(0)}% of fee recovered. ${money(remainingFeeToRecover, true)} to go.`);
+    } else if (feeRecoveryPct > 0) {
+      analysis.push(`Behind: ${feeRecoveryPct.toFixed(0)}% of fee recovered. Need ${money(remainingFeeToRecover, true)} more.`);
+    } else {
+      analysis.push("No recovery yet.");
+    }
 
-    // Recovery assessment (core of the mirror hedge)
-    if (exnessRecoveryPct >= 90) analysis.push(`Excellent recovery: ${exnessRecoveryPct.toFixed(0)}% of prop losses recovered by Exness. Loop is tight.`);
-    else if (exnessRecoveryPct >= 70) analysis.push(`Good recovery: ${exnessRecoveryPct.toFixed(0)}% of prop losses recovered. Minor slippage.`);
-    else if (exnessRecoveryPct >= 50) analysis.push(`Recovery at ${exnessRecoveryPct.toFixed(0)}%. Broker slippage is eating into the loop.`);
-    else if (exnessRecoveryPct > 0) analysis.push(`Poor recovery (${exnessRecoveryPct.toFixed(0)}%). Exness is not covering prop losses — loop is leaking.`);
-    else analysis.push("No recovery data yet.");
+    if (recoveredTrades > 0) analysis.push(`${recoveredTrades}/${recoveredTrades + failedRecoveryTrades} prop-loss legs recovered.`);
+    if (failedRecoveryTrades > 0) analysis.push(`⚠️ ${failedRecoveryTrades} prop-loss leg(s) failed.`);
+    if (slippageTrades > 0) analysis.push(`${slippageTrades} trade(s) show Exness moved opposite.`);
+    if (payoffRatio >= 2) analysis.push(`Payoff ${payoffRatio.toFixed(2)} — wins outsize.`);
+    else if (payoffRatio >= 1) analysis.push(`Payoff ${payoffRatio.toFixed(2)} — adequate.`);
+    else analysis.push(`Payoff < 1 — losses outsize.`);
+    if (recovery.adjustmentNeeded) analysis.push(`Martingale: target ${money(recovery.newExnessWinTarget, true)}.`);
+    if (recovery.challengePassed) analysis.push("Challenge PASSED!");
+    if (netPnl > 0) analysis.push(`Net P&L positive ${money(netPnl, true)}.`);
+    else if (netPnl < 0) analysis.push(`Net P&L negative ${money(netPnl, true)}.`);
 
-    // Slippage detection
-    if (slippageTrades > 0) analysis.push(`${slippageTrades} trade(s) show Exness moved opposite to expected — broker slippage detected.`);
-
-    // Payoff ratio
-    if (payoffRatio >= 2) analysis.push(`Payoff ratio ${payoffRatio.toFixed(2)} — wins significantly outsize losses.`);
-    else if (payoffRatio >= 1) analysis.push(`Payoff ratio ${payoffRatio.toFixed(2)} — adequate but could improve.`);
-    else analysis.push(`Payoff ratio below 1 — losses outsize wins. Review risk.`);
-
-    // Martingale status
-    if (recovery.adjustmentNeeded) analysis.push(`Martingale active: next Exness target bumped to ${money(recovery.newExnessWinTarget, true)}.`);
-
-    // Challenge status
-    if (recovery.challengePassed) analysis.push("Challenge PASSED! Request your payout.");
-
-    // Net P&L verdict
-    if (netPnl > 0) analysis.push(`Net P&L positive at ${money(netPnl, true)}. The mirror loop is working.`);
-    else if (netPnl < 0) analysis.push(`Net P&L negative at ${money(netPnl, true)}. Loop is leaking — review execution.`);
-
-    // Data integrity check
-    const bothPositive = closed.filter((t) => t.propPnl > 0 && t.exPnl > 0).length;
-    const bothNegative = closed.filter((t) => t.propPnl < 0 && t.exPnl < 0).length;
-    const correctDirection = closed.filter((t) => (t.result === "WIN" && t.exPnl < 0) || (t.result === "LOSS" && t.exPnl > 0)).length;
-
-    return { winRate, netPnl, totalPropProfit, totalPropLoss, totalExWins, totalExLosses, exnessRecoveryPct, avgWin, avgLoss, payoffRatio, slippageTrades, analysis, bothPositive, bothNegative, correctDirection, wins, losses };
+    return { winRate, netPnl, totalPropProfit, totalPropLoss, totalExWins, totalExLosses, exnessRecoveryPct, avgWin, avgLoss, payoffRatio, slippageTrades, analysis, feeRecoveryPct, remainingFeeToRecover, exnessNetRecovery, feeFullyRecovered, recoveredTrades, failedRecoveryTrades, avgExnessRecoveryPerLoss, propFee: propFeeNum, wins, losses };
   }, [journal, recovery]);
 
   // ── Recovery timeline: narrative of each trade ──────────────────────
@@ -490,12 +492,23 @@ function JournalPage() {
                   </p>
                 </div>
                 <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.3)", border: "1px solid oklch(var(--gz-p) / 0.1)" }}>
-                  <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>⚠️ Data Integrity Check</p>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>💰 Fee Recovery Status</p>
                   <p className="text-[10px]" style={{ color: "oklch(var(--gz-mut))" }}>
-                    {hermesAnalysis.correctDirection}/{hermesAnalysis.wins + hermesAnalysis.losses} trades have correct direction (Prop WIN → Exness LOSS, Prop LOSS → Exness WIN).
-                    {hermesAnalysis.bothPositive > 0 && ` ❌ ${hermesAnalysis.bothPositive} trade(s) show BOTH positive — check your numbers.`}
-                    {hermesAnalysis.bothNegative > 0 && ` ❌ ${hermesAnalysis.bothNegative} trade(s) show BOTH negative — check your numbers.`}
-                    {hermesAnalysis.bothPositive === 0 && hermesAnalysis.bothNegative === 0 && " ✅ All trades look correct."}
+                    Prop Fee: <strong style={{ color: "oklch(var(--gz-txt))" }}>{money(hermesAnalysis.propFee, true)}</strong><br/>
+                    Exness recovered: <strong style={{ color: hermesAnalysis.feeRecoveryPct >= 100 ? "oklch(var(--gz-pos))" : hermesAnalysis.feeRecoveryPct >= 70 ? "oklch(var(--gz-p))" : "oklch(var(--gz-neg))" }}>{money(hermesAnalysis.totalExWins, true)} ({hermesAnalysis.feeRecoveryPct.toFixed(0)}%)</strong><br/>
+                    {hermesAnalysis.feeFullyRecovered ? (
+                      <span style={{ color: "oklch(var(--gz-pos))" }}>✅ Fee FULLY RECOVERED! Net profit: {money(hermesAnalysis.exnessNetRecovery - hermesAnalysis.propFee, true)}</span>
+                    ) : (
+                      <span style={{ color: "oklch(var(--gz-neg))" }}>❌ Fee NOT recovered. Still need: {money(hermesAnalysis.remainingFeeToRecover, true)}</span>
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.3)", border: "1px solid oklch(var(--gz-p) / 0.1)" }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>🔄 Recovery Per Prop Loss</p>
+                  <p className="text-[10px]" style={{ color: "oklch(var(--gz-mut))" }}>
+                    {hermesAnalysis.recoveredTrades} of {hermesAnalysis.recoveredTrades + hermesAnalysis.failedRecoveryTrades} prop-loss trades recovered.<br/>
+                    Avg recovery per loss: <strong>{money(hermesAnalysis.avgExnessRecoveryPerLoss, true)}</strong><br/>
+                    {hermesAnalysis.failedRecoveryTrades > 0 && <span style={{ color: "oklch(var(--gz-neg))" }}>⚠️ {hermesAnalysis.failedRecoveryTrades} trade(s) failed to recover (Exness lost on prop-loss leg).</span>}
                   </p>
                 </div>
               </div>
