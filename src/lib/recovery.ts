@@ -319,11 +319,11 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
 
   const challengePassed = remainingPropTarget <= 0 && loggedWins > 0;
 
-  // Buffer depletion: live balance vs what the martingale-bumped target needs
-  // for the REMAINING wins only — not the full winsToPass.
-  const remainingWins = remainingPropTarget <= 0
-    ? 0
-    : Math.max(1, Math.ceil(remainingPropTarget / r.propWinPerTrade));
+  // Simple counter logic: initialWinsToPass - loggedWins
+  // This gives the user a clear "X wins left to pass" number
+  const remainingWins = Math.max(0, r.winsToPass - loggedWins);
+  const remainingLossesSimple = Math.max(0, r.lossesToBlow - loggedLosses);
+
   const exnessNeededToFinish = newExnessLossTarget * Math.max(1, remainingWins);
   const bufferDepleted = !challengePassed && actualExnessBalance < exnessNeededToFinish;
   const depositNeeded  = bufferDepleted
@@ -340,7 +340,7 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     loggedWins,
     loggedLosses,
     remainingWins,
-    remainingLosses: adjustedRemainingLosses,
+    remainingLosses: remainingLossesSimple,
     totalPropProfitLogged,
     totalPropLossLogged,
     remainingPropTarget,

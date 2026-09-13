@@ -529,12 +529,12 @@ function JournalPage() {
         </Card>
       )}
 
-      {/* ── STATS GRID ─────────────────────────────────────────────── */}
+      {/* ── MAIN STATS GRID ───────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Closed trades" value={closed.length} />
         <Stat label="Win rate" value={`${winRate.toFixed(1)}%`} tone="text-primary" />
-        <Stat label="Net P&L" value={money(net, true)} tone={net >= 0 ? "text-success" : "text-destructive"} />
         <Stat label="Real-money net" value={money(hermesAnalysis?.realMoneyNet ?? 0, true)} tone={(hermesAnalysis?.realMoneyNet ?? 0) >= 0 ? "text-success" : "text-destructive"} />
+        <Stat label="Exness recovery" value={`${hermesAnalysis?.exnessRecoveryPct.toFixed(0) ?? "0"}%`} tone={(hermesAnalysis?.exnessRecoveryPct ?? 0) >= 100 ? "text-success" : (hermesAnalysis?.exnessRecoveryPct ?? 0) >= 70 ? "text-success" : "text-amber-400"} />
       </div>
 
       {/* ── MARTINGALE + MONEY LOST ─────────────────────────────────── */}
