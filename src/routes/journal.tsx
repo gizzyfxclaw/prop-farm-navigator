@@ -123,6 +123,11 @@ function JournalPage() {
   );
 
   // ── Hermes AI Journal Analysis ────────────────────────────────────
+  // Understands the Inverted Mirror Hedge strategy:
+  //   Prop and Exness take OPPOSITE directions on the same pair.
+  //   Prop WIN  → Exness LOSS (pay from Exness tank)
+  //   Prop LOSS → Exness WIN (refill Exness tank)
+  //   Net P&L should be positive or zero for the loop to work.
   const hermesAnalysis = useMemo(() => {
     if (journal.length === 0) return null;
     const closed = journal.filter((t) => t.result !== "OPEN");
@@ -141,39 +146,65 @@ function JournalPage() {
     const avgLoss = losses > 0 ? totalPropLoss / losses : 0;
     const payoffRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
 
+    // Count trades where Exness moved opposite to expected (slippage)
+    const slippageTrades = closed.filter((t) => {
+      if (t.result === "LOSS") return t.exPnl < 0; // Exness should win but lost
+      if (t.result === "WIN") return t.exPnl > 0;  // Exness should lose but won
+      return false;
+    }).length;
+
+    // Strategy flow analysis
     const analysis: string[] = [];
+    
+    // Win rate assessment
     if (winRate >= 60) analysis.push(`Strong win rate at ${winRate.toFixed(1)}%. Strategy is performing well.`);
     else if (winRate >= 50) analysis.push(`Decent win rate at ${winRate.toFixed(1)}%. Keep executing consistently.`);
-    else analysis.push(`Win rate is ${winRate.toFixed(1)}%. Below 50% — review entry timing or consider reducing size.`);
+    else analysis.push(`Win rate is ${winRate.toFixed(1)}%. Below 50% — review entry timing or reduce size.`);
 
-    if (exnessRecoveryPct >= 80) analysis.push(`Exness recovery is strong: ${exnessRecoveryPct.toFixed(0)}% of prop losses recovered.`);
-    else if (exnessRecoveryPct >= 60) analysis.push(`Exness recovery at ${exnessRecoveryPct.toFixed(0)}%. Monitor broker slippage.`);
-    else if (exnessRecoveryPct > 0) analysis.push(`Exness recovery is low (${exnessRecoveryPct.toFixed(0)}%). Broker slippage may be eating profits.`);
+    // Recovery assessment (core of the mirror hedge)
+    if (exnessRecoveryPct >= 90) analysis.push(`Excellent recovery: ${exnessRecoveryPct.toFixed(0)}% of prop losses recovered by Exness. Loop is tight.`);
+    else if (exnessRecoveryPct >= 70) analysis.push(`Good recovery: ${exnessRecoveryPct.toFixed(0)}% of prop losses recovered. Minor slippage.`);
+    else if (exnessRecoveryPct >= 50) analysis.push(`Recovery at ${exnessRecoveryPct.toFixed(0)}%. Broker slippage is eating into the loop.`);
+    else if (exnessRecoveryPct > 0) analysis.push(`Poor recovery (${exnessRecoveryPct.toFixed(0)}%). Exness is not covering prop losses — loop is leaking.`);
     else analysis.push("No recovery data yet.");
 
-    if (payoffRatio >= 2) analysis.push(`Good payoff ratio: ${payoffRatio.toFixed(2)}. Wins outsize losses.`);
-    else if (payoffRatio >= 1) analysis.push(`Payoff ratio: ${payoffRatio.toFixed(2)}. Consider tightening stops.`);
-    else analysis.push(`Payoff ratio below 1:0 — losses outsize wins. Review risk management.`);
+    // Slippage detection
+    if (slippageTrades > 0) analysis.push(`${slippageTrades} trade(s) show Exness moved opposite to expected — broker slippage detected.`);
 
-    if (recovery.adjustmentNeeded) analysis.push(`Martingale is active: next Exness target bumped to ${money(recovery.newExnessWinTarget, true)}.`);
+    // Payoff ratio
+    if (payoffRatio >= 2) analysis.push(`Payoff ratio ${payoffRatio.toFixed(2)} — wins significantly outsize losses.`);
+    else if (payoffRatio >= 1) analysis.push(`Payoff ratio ${payoffRatio.toFixed(2)} — adequate but could improve.`);
+    else analysis.push(`Payoff ratio below 1 — losses outsize wins. Review risk.`);
+
+    // Martingale status
+    if (recovery.adjustmentNeeded) analysis.push(`Martingale active: next Exness target bumped to ${money(recovery.newExnessWinTarget, true)}.`);
+
+    // Challenge status
     if (recovery.challengePassed) analysis.push("Challenge PASSED! Request your payout.");
-    if (netPnl > 0) analysis.push(`Net P&L is positive at ${money(netPnl, true)}. The loop is working.`);
-    else if (netPnl < 0) analysis.push(`Net P&L is negative at ${money(netPnl, true)}. Review execution.`);
 
-    return { winRate, netPnl, totalPropProfit, totalPropLoss, totalExWins, totalExLosses, exnessRecoveryPct, avgWin, avgLoss, payoffRatio, analysis };
+    // Net P&L verdict
+    if (netPnl > 0) analysis.push(`Net P&L positive at ${money(netPnl, true)}. The mirror loop is working.`);
+    else if (netPnl < 0) analysis.push(`Net P&L negative at ${money(netPnl, true)}. Loop is leaking — review execution.`);
+
+    return { winRate, netPnl, totalPropProfit, totalPropLoss, totalExWins, totalExLosses, exnessRecoveryPct, avgWin, avgLoss, payoffRatio, slippageTrades, analysis };
   }, [journal, recovery]);
 
   // ── Recovery timeline: narrative of each trade ──────────────────────
+  // Fix: start from INITIAL balance (current - sum of all exPnl) to avoid
+  // double-counting. Running balance must progress chronologically.
   const recoveryTimeline = useMemo(() => {
-    let runningBalance = r.actualExnessBalance;
+    const closedTrades = journal.filter((t) => t.result !== "OPEN");
+    const totalExPnlSoFar = closedTrades.reduce((s, t) => s + t.exPnl, 0);
+    const startingBalance = r.actualExnessBalance - totalExPnlSoFar;
+    let runningBalance = startingBalance;
     let runningPropEquity = 0;
-    const trades = journal.filter((t) => t.result !== "OPEN").map((t, i) => {
+    const trades = closedTrades.map((t, i) => {
       const prevBalance = runningBalance;
       runningBalance += t.exPnl;
       runningPropEquity += t.propPnl;
-      return { ...t, index: i + 1, exnessBalanceBefore: prevBalance, exnessBalanceAfter: runningBalance, runningPropEquity };
+      return { ...t, index: i + 1, exnessBalanceBefore: prevBalance, exnessBalanceAfter: runningBalance, runningPropEquity, startingBalance };
     });
-    return trades;
+    return { trades, startingBalance };
   }, [journal, r.actualExnessBalance]);
 
   function log(result: "WIN" | "LOSS") {
@@ -443,6 +474,12 @@ function JournalPage() {
                     ))}
                   </ul>
                 </div>
+                <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.3)", border: "1px solid oklch(var(--gz-p) / 0.1)" }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>📋 Strategy: Inverted Mirror Hedge</p>
+                  <p className="text-[10px]" style={{ color: "oklch(var(--gz-mut))" }}>
+                    Prop and Exness take opposite directions. Prop WIN pays from Exness tank, Prop LOSS refills it. Net P&L should stay positive.
+                  </p>
+                </div>
               </div>
             ) : (
               <p className="text-[13px] text-muted-foreground">Log at least one closed trade to see Hermes analysis.</p>
@@ -452,10 +489,13 @@ function JournalPage() {
       </div>
 
       {/* ── RECOVERY TIMELINE ───────────────────────────────────────── */}
-      {recoveryTimeline.length > 0 && (
+      {recoveryTimeline.trades.length > 0 && (
         <Card title="Recovery Timeline" badge={<Badge tone="blue">Step by step</Badge>}>
+          <div className="mb-3 rounded border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] text-primary">
+            Starting Exness balance: <strong>{money(recoveryTimeline.startingBalance, true)}</strong> → Current: <strong>{money(r.actualExnessBalance, true)}</strong> (after {recoveryTimeline.trades.length} trades)
+          </div>
           <div className="space-y-2">
-            {recoveryTimeline.map((t) => (
+            {recoveryTimeline.trades.map((t) => (
               <div
                 key={t.id}
                 className="flex flex-wrap items-center gap-3 rounded-lg p-3"
