@@ -114,6 +114,7 @@ function JournalPage() {
   const [showTransition, setShowTransition] = useState(false);
   const [hermesOpen, setHermesOpen] = useState(false);
   const [actualExBalanceInput, setActualExBalanceInput] = useState<string>(r.actualExnessBalance > 0 ? r.actualExnessBalance.toString() : "");
+  const [actualExLossesInput, setActualExLossesInput] = useState<string>("");
 
   const openTrades = journal.filter((t) => t.result === "OPEN");
   const closedTrades = journal.filter((t) => t.result !== "OPEN");
@@ -125,20 +126,42 @@ function JournalPage() {
   );
 
   // ═══════════════════════════════════════════════════════════════════
-  // ACCURATE EXNESS BALANCE TRACKING
+  // ACCURATE EXNESS BALANCE & LOSS TRACKING
+  // User enters ACTUAL values directly. System does NOT derive them.
   // ═══════════════════════════════════════════════════════════════════
   const realExnessBalance = r.actualExnessBalance;
   const balanceEntered = realExnessBalance > 0;
+  
+  // Exness P&L from LOGGED trades only
   const totalExPnlSoFar = closedTrades.reduce((s, t) => s + t.exPnl, 0);
   const totalExWinsSoFar = closedTrades.filter((t) => t.exPnl > 0).reduce((s, t) => s + t.exPnl, 0);
   const totalExLossesSoFar = closedTrades.filter((t) => t.exPnl < 0).reduce((s, t) => s + Math.abs(t.exPnl), 0);
-  const accurateStartingBalance = realExnessBalance > 0 ? realExnessBalance - totalExPnlSoFar : 0;
+
+  // User enters ACTUAL starting balance directly (not derived)
+  // If not entered, use a fallback but WARN the user it's not accurate
+  const [userStartingBalance, setUserStartingBalance] = useState<number | null>(null);
+  const startingBalance = userStartingBalance ?? (realExnessBalance > 0 ? realExnessBalance - totalExPnlSoFar : 0);
+
+  // Exness total loss vs recovery
+  const [userActualExLosses, setUserActualExLosses] = useState<number | null>(null);
+  const actualExnessTotalLoss = userActualExLosses ?? totalExLossesSoFar;
+  const actualExnessTotalRecovery = totalExWinsSoFar;
+  const exnessLossRecovered = actualExnessTotalRecovery >= actualExnessTotalLoss;
+  const exnessRemainingLoss = Math.max(0, actualExnessTotalLoss - actualExnessTotalRecovery);
 
   function updateRealExnessBalance() {
     const val = parseFloat(actualExBalanceInput);
     if (!isNaN(val) && val >= 0) {
       setEngine({ actualExnessBalance: val });
-      toast.success(`Exness balance set to ${money(val, true)} — calculations now use real balance.`);
+      toast.success(`Exness balance set to ${money(val, true)}`);
+    }
+  }
+
+  function updateStartingBalance() {
+    const val = parseFloat(actualExBalanceInput);
+    if (!isNaN(val) && val >= 0) {
+      setUserStartingBalance(val);
+      toast.success(`Starting balance set to ${money(val, true)}`);
     }
   }
 
@@ -220,7 +243,8 @@ function JournalPage() {
   const recoveryTimeline = useMemo(() => {
     const closedTrades = journal.filter((t) => t.result !== "OPEN");
     const totalExPnl = closedTrades.reduce((s, t) => s + t.exPnl, 0);
-    const startingBalance = realExnessBalance > 0 ? realExnessBalance - totalExPnl : 0;
+    // Use user-entered starting balance if available, otherwise derive
+    const startingBalance = userStartingBalance ?? (realExnessBalance > 0 ? realExnessBalance - totalExPnl : 0);
     let runningBalance = startingBalance;
     let runningPropEquity = 0;
     const trades = closedTrades.map((t, i) => {
@@ -229,7 +253,7 @@ function JournalPage() {
       return { ...t, index: i + 1, exnessBalanceBefore: runningBalance - t.exPnl, exnessBalanceAfter: runningBalance, runningPropEquity, startingBalance };
     });
     return { trades, startingBalance };
-  }, [journal, realExnessBalance]);
+  }, [journal, realExnessBalance, userStartingBalance]);
 
   function log(result: "WIN" | "LOSS") {
     const derived = tradePnl(r, result === "WIN", engine.rr);
@@ -482,38 +506,71 @@ function JournalPage() {
         </div>
         {hermesOpen && (
           <div style={{ padding: "1rem" }}>
-            {!balanceEntered && (
-              <div className="rounded-lg p-3 mb-3" style={{ background: "oklch(var(--gz-neg) / 0.08)", border: "1px solid oklch(var(--gz-neg) / 0.2)" }}>
-                <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-neg))" }}>⚠️ Enter Your Real Exness Balance</p>
-                <p className="text-[10px] mb-2" style={{ color: "oklch(var(--gz-mut))" }}>
-                  The system currently uses a PROJECTED balance. For accurate fee recovery tracking, enter your actual Exness account balance.
-                </p>
-                <div className="flex items-center gap-2">
+            <div className="rounded-lg p-3 mb-3" style={{ background: "oklch(var(--gz-s2) / 0.5)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
+              <p className="text-[11px] font-semibold mb-2" style={{ color: "oklch(var(--gz-p))" }}>📊 Accurate Exness Data Entry</p>
+              <p className="text-[10px] mb-2" style={{ color: "oklch(var(--gz-mut))" }}>
+                Enter your ACTUAL Exness values for accurate tracking. The system cannot derive these from logged trades alone.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground block mb-1">Starting Exness Balance ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={userStartingBalance ?? ""}
+                    onChange={(e) => setUserStartingBalance(e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="e.g. 40.00"
+                    className="w-full rounded border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground block mb-1">Current Exness Balance ($)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={actualExBalanceInput}
                     onChange={(e) => setActualExBalanceInput(e.target.value)}
-                    placeholder="e.g. 500.00"
-                    className="w-36 rounded border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder={realExnessBalance > 0 ? realExnessBalance.toString() : "e.g. 35.00"}
+                    className="w-full rounded border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground block mb-1">Total Exness Losses ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={userActualExLosses ?? ""}
+                    onChange={(e) => setUserActualExLosses(e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder={totalExLossesSoFar > 0 ? totalExLossesSoFar.toString() : "From broker history"}
+                    className="w-full rounded border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="flex items-end gap-2">
                   <button
-                    onClick={updateRealExnessBalance}
+                    onClick={() => {
+                      updateRealExnessBalance();
+                      toast.success("Values saved");
+                    }}
                     className="rounded border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-semibold text-primary hover:bg-primary/20"
                   >
-                    Set Balance
+                    Save & Recalculate
                   </button>
                 </div>
               </div>
-            )}
-            {balanceEntered && (
-              <div className="rounded-lg p-3 mb-3" style={{ background: "oklch(var(--gz-s2) / 0.5)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-semibold" style={{ color: "oklch(var(--gz-p))" }}>✅ Real Exness Balance Entered</p>
-                  <span className="text-[11px] font-mono" style={{ color: "oklch(var(--gz-txt))" }}>{money(realExnessBalance, true)}</span>
-                </div>
-                <p className="text-[10px] mt-1" style={{ color: "oklch(var(--gz-mut))" }}>
-                  Starting balance: {money(accurateStartingBalance, true)} → Current: {money(realExnessBalance, true)} → Exness Net P&L: {money(totalExPnlSoFar, true)}
+              <p className="text-[10px] mt-2" style={{ color: "oklch(var(--gz-mut))" }}>
+                Calculated: Starting {money(startingBalance, true)} → Current {money(realExnessBalance, true)} → Net P&L {money(totalExPnlSoFar, true)}
+              </p>
+              <p className="text-[10px] mt-1" style={{ color: exnessLossRecovered ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
+                {exnessLossRecovered ? "✅ Exness losses FULLY RECOVERED" : "❌ Exness losses NOT recovered"} — 
+                Total loss: {money(actualExnessTotalLoss, true)} vs Recovery: {money(actualExnessTotalRecovery, true)} — 
+                Remaining: {money(exnessRemainingLoss, true)}
+              </p>
+            </div>
+            {!balanceEntered && (
+              <div className="rounded-lg p-3 mb-3" style={{ background: "oklch(var(--gz-neg) / 0.08)", border: "1px solid oklch(var(--gz-neg) / 0.2)" }}>
+                <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-neg))" }}>⚠️ Enter Your Real Exness Values Above</p>
+                <p className="text-[10px]" style={{ color: "oklch(var(--gz-mut))" }}>
+                  Without accurate data, calculations are based on PROJECTED values. Enter your actual starting balance ($40), current balance, and total losses.
                 </p>
               </div>
             )}
