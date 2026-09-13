@@ -392,7 +392,7 @@ function JournalPage() {
     log(result);
   }
 
-  const moneyLost = recovery.totalMoneyLost;
+
   const fuelExhausted = recovery.exnessFuelExhausted;
 
   let running = 0;
@@ -574,11 +574,15 @@ function JournalPage() {
           </p>
         </Card>
 
-        <Card title="Money lost over the run" badge={<Badge tone="red">Real cash</Badge>}>
+        <Card title="Real-money cash flow" badge={<Badge tone="blue">True P&L</Badge>}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Stat label="Exness fuel exhausted" value={money(fuelExhausted)} tone={fuelExhausted > 0 ? "text-destructive" : "text-muted-foreground"} />
             <Stat label="Prop fee" value={money(recovery.propFee)} tone="text-destructive" />
-            <Stat label="Total money lost" value={money(moneyLost)} tone={moneyLost > 0 ? "text-destructive" : "text-muted-foreground"} />
+            <Stat
+              label={recovery.realMoneyNet >= 0 ? "Real-money net (profit)" : "Real-money net (lost)"}
+              value={money(recovery.realMoneyNet, true)}
+              tone={recovery.realMoneyNet >= 0 ? "text-success" : "text-destructive"}
+            />
             <Stat
               label={recovery.challengePassed ? "Net result after payout" : "Net result if passed now"}
               value={money(recovery.netResultAfterPayout, true)}
@@ -586,8 +590,8 @@ function JournalPage() {
             />
           </div>
           <p className="mt-3 text-[11px] text-muted-foreground">
-            {recovery.challengePassed ? (
-              <>Challenge passed. Of the {money(recovery.totalExnessLosses)} in gross Exness losses, {money(recovery.totalExnessWins)} was recovered by prop-loss legs — net fuel burn {money(fuelExhausted)}. Exness balance still holds {money(recovery.actualExnessBalance)} (returnable principal). Collect the payout: <strong>{money(r.propPayout, true)}</strong>.</>
+            {recovery.realMoneyNet >= 0 ? (
+              <>Zero-loss loop achieved! Exness has over-recovered the prop fee by <strong>{money(recovery.realMoneyNet, true)}</strong>. Net Exness P&L: {money(recovery.actualExnessPnl, true)} on {money(recovery.propFee)} fee.</>
             ) : (
               <>Running totals. Gross Exness losses so far: {money(recovery.totalExnessLosses)}; recovered by prop-loss legs: {money(recovery.totalExnessWins)} — net fuel burn {money(fuelExhausted)}. The Exness tank still holds {money(recovery.actualExnessBalance)}.</>
             )}

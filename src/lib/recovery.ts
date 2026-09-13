@@ -3,152 +3,55 @@ import type { JournalTrade } from "./store";
 
 /**
  * Targeted Slippage Martingale (TSM) recovery state.
- *
- * The amortized "spread-shortfall-across-remaining-legs" healing was
- * abandoned because it kept the lot size high even after the slip was
- * physically recovered. The TSM model isolates the exact slippage
- * difference per trade into an accumulator and adds it ONLY to the
- * very next Exness target:
- *
- *   nextTarget = baseTarget + slippageDebt
- *
- * The debt is wiped to 0 on the next Exness win (prop loss), and
- * grown on the next Exness loss (prop win) by exactly the amount
- * the broker charged beyond the expected loss. It can never go
- * negative.
  */
 export interface RecoveryState {
-  // ── trade counts ────────────────────────────────────────────────────────────
   loggedWins: number;
   loggedLosses: number;
-
-  // ── dynamic remaining counts (based on NET equity from start) ───────────
-  /**
-   * How many more prop WINS are still needed to reach the challenge target,
-   * measured from NET prop equity (profits − losses) — a loss that gives
-   * back prior profit must be re-earned before the target counts as reached.
-   */
   remainingWins: number;
-  /**
-   * How many full prop-risk losses the account can still absorb before the
-   * static drawdown floor, measured from STARTING equity — a loss that only
-   * gives back prior profit does NOT consume a leg.
-   */
   remainingLosses: number;
 
-  // ── prop progress ────────────────────────────────────────────────────────────
-  totalPropProfitLogged: number;   // sum of positive propPnl entries
-  totalPropLossLogged: number;     // sum of absolute negative propPnl entries
-  remainingPropTarget: number;     // targetUsd − NET equity
-  remainingDrawdown: number;       // maxDdUsd − drawdown from starting equity
+  totalPropProfitLogged: number;
+  totalPropLossLogged: number;
+  remainingPropTarget: number;
+  remainingDrawdown: number;
 
-  // ── Exness P&L tracking ─────────────────────────────────────────────────────
-  actualExnessPnl: number;         // net Exness PnL so far (wins - losses)
-  totalExnessWins: number;         // gross positive Exness earnings
-  totalExnessLosses: number;       // gross Exness losses (absolute)
-  /** bufferedExnessCapital (starting stake) + actualExnessPnl */
+  actualExnessPnl: number;
+  totalExnessWins: number;
+  totalExnessLosses: number;
   actualExnessBalance: number;
 
-  // ── Targeted Slippage Martingale ────────────────────────────────────────────
-  /**
-   * Isolated slippage debt (≥ 0). Increased by the exact amount the broker
-   * charged beyond the engine's expected Exness P&L on each trade; wiped
-   * to 0 the next time Exness wins (prop loss). Adding positive Exness
-   * overperformance brings debt down to 0 but never below.
-   */
   slippageDebt: number;
-  /**
-   * Cumulative debt added across all logged trades (monotonic — useful for
-   * diagnostics and for the "Total money lost" view). Distinct from
-   * `slippageDebt`, which is the LIVE amount still owed.
-   */
   totalSlippageAccrued: number;
-
-  /**
-   * Base Exness win target for the active phase (no debt applied). This is
-   * `r.exnessWinTarget` for the engine's currently-selected phase.
-   */
   baseExnessWinTarget: number;
-  /**
-   * The next-trade Exness win target: base + debt. Always ≥ base.
-   * Lot sizing and the Total Capital Needed both use this number, so the
-   * engine is already sized for the martingale bump BEFORE the trade fires.
-   */
   newExnessWinTarget: number;
-  /**
-   * `newExnessWinTarget * r.rr` — the Exness risk on a prop win
-   * when the martingale is active.
-   */
   newExnessLossTarget: number;
-  /**
-   * true when the martingale bump is currently in effect (debt > 0).
-   */
   adjustmentNeeded: boolean;
-
-  // ── dynamic capital (drives "Total Capital Needed") ─────────────────────────
-  /**
-   * Exness capital required to absorb the martingale: dynamic loss target
-   * × winsToPass, with the user-selected buffer applied. This replaces
-   * the static `r.requiredExnessCapital` whenever the bump is active.
-   */
   dynamicExnessCapital: number;
 
-  // ── final money summary (fills in as trades are logged) ─────────────────────
-  /** Prop challenge fee paid upfront (real cash). */
   propFee: number;
-  /** Net Exness fuel consumed so far: starting tank − current balance (≥ 0). */
   exnessFuelExhausted: number;
-  /** Total real money lost over the run: prop fee + net fuel burn. */
-  totalMoneyLost: number;
-  /** Whole-operation cash delta once the payout lands: payout + net Exness P&L − fee. */
+  realMoneyNet: number;
   netResultAfterPayout: number;
 
-  // ── edge case alerts ────────────────────────────────────────────────────────
-  /** Challenge is complete — prop target reached. */
   challengePassed: boolean;
-  /** Exness buffer has been depleted — deposit required. */
   bufferDepleted: boolean;
-  /** Amount needed to top up Exness so the loop stays funded. */
   depositNeeded: number;
 
-  /** Active phase the recovery is for. */
   phase: 1 | 2;
 
-  // ── Dynamic Exness Re-Prop (prop slippage handling) ────────────────────
-  /** Total prop slippage accrued (prop lost more than propRiskUsd per trade) */
   totalPropSlippage: number;
-  /** Re-paced Exness target when prop slippage reduces remaining legs */
   rePacedExnessTarget: number;
-  /** Remaining losses adjusted for prop slippage */
   adjustedRemainingLosses: number;
-  /** Remaining fee to recover */
   recoveryShortfall: number;
-  /** Effective base target (re-paced if prop slippage, otherwise base) */
   effectiveBaseTarget: number;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-//  Helpers — derive the engine's expected Exness P&L for one trade.
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * The Exness P&L the engine expects for a single trade:
- *   - prop loss → exness win (positive), equal to the phase's base exnessWinTarget
- *   - prop win  → exness loss (negative), equal to the phase's base exnessWinTarget * rr
- *
- * Uses the PHASE-SPECIFIC base target so that Phase 1 trades are compared
- * against Phase 1 numbers even when the engine is currently showing Phase 2.
- * Falls back to r.exnessWinTarget for trades without a stored phase.
- */
 function expectedExnessPnl(
   r: EngineResult,
   result: "WIN" | "LOSS",
   rr: number,
   trade?: JournalTrade,
 ): number {
-  // Best source: the trade stored the base target at log time.
-  // Fallback: derive from the phase stored in trade details.
-  // Last resort: use r.exnessWinTarget (current engine state).
   let baseTarget: number;
   if (trade?.details?.baseExnessWinTarget != null && trade.details.baseExnessWinTarget > 0) {
     baseTarget = trade.details.baseExnessWinTarget;
@@ -159,21 +62,15 @@ function expectedExnessPnl(
     baseTarget = r.exnessWinTarget;
   }
 
-  if (result === "LOSS") return baseTarget;                      // prop lost, exness wins
-  return -(baseTarget * rr);                                     // prop won, exness loses
+  if (result === "LOSS") return baseTarget;
+  return -(baseTarget * rr);
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-//  Main entry
-// ──────────────────────────────────────────────────────────────────────────────
 
 export function computeRecovery(r: EngineResult, journal: JournalTrade[]): RecoveryState {
   const closed = journal.filter((t) => t.result !== "OPEN");
 
   const loggedWins   = closed.filter((t) => t.result === "WIN").length;
   const loggedLosses = closed.filter((t) => t.result === "LOSS").length;
-
-  // ── PART 2: Dynamic remaining counts from ACTUAL P&L ──────────────────────
 
   const totalPropProfitLogged = closed
     .filter((t) => t.propPnl > 0)
@@ -183,25 +80,11 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     .filter((t) => t.propPnl < 0)
     .reduce((s, t) => s + Math.abs(t.propPnl), 0);
 
-  // ── NET PROP EQUITY — the only basis a prop firm actually uses ──────────
-  // Both the challenge target and the static drawdown floor are measured
-  // against NET equity from the starting balance, never gross wins/losses:
-  // a loss that only gives back prior profit neither consumes a blow-leg
-  // nor counts as progress toward the target.
   const currentEquity = totalPropProfitLogged - totalPropLossLogged;
-
-  // Profit still needed to pass: target − net equity. A give-back loss
-  // must be re-earned before the target counts as reached.
   const remainingPropTarget = Math.max(0, r.targetUsd - currentEquity);
 
-  // ── DRAWDOWN LEGS FROM STARTING EQUITY ──────────────────────────────────
-  // "Legs remaining" = how many full prop-risk losses from STARTING equity
-  // the account can still take. A prop loss that only wipes prior wins does
-  // NOT consume a drawdown leg — the prop is still at or above starting equity.
   const drawdownFromStart = Math.max(0, -currentEquity);
   const remainingDrawdown = Math.max(0, r.maxDdUsd - drawdownFromStart);
-
-  // ── PART 3: Exness P&L tracking ───────────────────────────────────────────
 
   const totalExnessWins   = closed
     .filter((t) => t.exPnl > 0)
@@ -212,117 +95,70 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
   const actualExnessPnl     = totalExnessWins - totalExnessLosses;
   const actualExnessBalance = r.actualExnessBalance;
 
-  // ── PART 4: Dynamic Exness Re-Prop (Prop slippage handling) ─────────────
-  // When prop loses MORE than propRiskUsd (slippage), the account blows faster.
-  // We cannot change prop lot size (consistency rules), so we must increase
-  // the Exness Win Target to recover the remaining fee over fewer legs.
   const propRiskPerTrade = r.lossesToBlow > 0 ? r.maxDdUsd / r.lossesToBlow : r.propWinPerTrade;
   const totalPropSlippage = closed
     .filter((t) => t.result === "LOSS" && Math.abs(t.propPnl) > propRiskPerTrade)
     .reduce((s, t) => s + (Math.abs(t.propPnl) - propRiskPerTrade), 0);
 
-  // Actual remaining legs after prop slippage consumes extra drawdown
   const adjustedRemainingLosses = remainingDrawdown <= 0
     ? 0
     : Math.max(0, Math.floor(remainingDrawdown / propRiskPerTrade));
 
-  // Recovery shortfall: what's left of the fee to recover
   const recoveryShortfall = Math.max(0, r.propFee - totalExnessWins);
 
-  // Re-paced target: spread remaining fee over remaining legs (avoid divide-by-zero)
   const rePacedExnessTarget = adjustedRemainingLosses > 0
     ? recoveryShortfall / adjustedRemainingLosses
-    : recoveryShortfall; // If 0 legs left, must win entire shortfall on next trade
+    : recoveryShortfall;
 
-  // ── PART 5: Targeted Slippage Martingale accumulator ────────────────────
-  // (Exness-side slippage — broker charges more than expected)
-  // Walk every closed trade in chronological order.
   let slippageDebt = 0;
   let totalSlippageAccrued = 0;
   for (const t of closed) {
-    // OPEN trades are filtered out above; this narrows for the helper.
     if (t.result === "OPEN") continue;
 
-    // ── PHASE-AWARE SLIPPAGE: In Phase 2, skip Phase 1 trades ──────────
-    // Phase 2's trueDeficit = fee + actualExnessLosses already includes ALL
-    // Phase 1 slippage in the base target. Counting Phase 1 slippage here
-    // would double-count it. Only accumulate slippage from the CURRENT phase.
     const tradePhase = t.details?.phase ?? r.phase;
     if (r.phase === 2 && tradePhase === 1) continue;
 
     const rr = t.details?.rr ?? 1.5;
     const expected = expectedExnessPnl(r, t.result, rr, t);
 
-    // VALIDATION: Skip trades with wrong-sign Exness P&L that would create
-    // fake slippage debt. On prop WIN, Exness should LOSE (negative P&L).
-    // On prop LOSS, Exness should WIN (positive P&L). Wrong signs indicate
-    // data entry errors, not real slippage.
-    if (t.result === "WIN" && t.exPnl > 0) {
-      // Exness P&L is positive when it should be negative — skip this trade
-      // for slippage calculation to avoid fake debt.
-      continue;
-    }
-    if (t.result === "LOSS" && t.exPnl < 0) {
-      // Exness P&L is negative when it should be positive — skip this trade
-      // for slippage calculation to avoid fake debt.
-      continue;
-    }
+    if (t.result === "WIN" && t.exPnl > 0) continue;
+    if (t.result === "LOSS" && t.exPnl < 0) continue;
 
     if (t.result === "LOSS") {
-      // Exness expected to win `expected`. Compare actual positive amount.
       if (t.exPnl >= expected) {
-        // Wipe any outstanding debt (full reset on Exness win).
         if (slippageDebt > 0) slippageDebt = 0;
-        // Overperformance (rare) does not earn negative debt; ignore.
       } else {
-        // Shortfall → debt grows by exactly the gap.
         const slip = expected - t.exPnl;
         slippageDebt += slip;
         totalSlippageAccrued += slip;
       }
     } else {
-      // WIN → Exness expected to LOSE `expected` (negative). |actual| > |expected|
-      // means the broker charged MORE than the script expected.
-      const expectedLoss = -expected; // positive number
+      const expectedLoss = -expected;
       const actualLoss   = Math.abs(t.exPnl);
       if (actualLoss > expectedLoss) {
         const slip = actualLoss - expectedLoss;
         slippageDebt += slip;
         totalSlippageAccrued += slip;
       }
-      // else: Exness came in better than script → no debt (no reward either;
-      // overperformance on the loss leg is the broker's gift, not recoverable)
     }
   }
 
-  // ── PART 6: Apply martingale bump to the active base target ─────────────
-  // Use the PHASE chain's base target — r.exnessWinTarget may already be
-  // overridden by a prior recovery pass, which would double-count the debt.
   const activeChain = r.phase === 1 ? r.phase1 : r.phase2;
   const baseExnessWinTarget = Math.max(0, activeChain.exnessWinTarget);
-  
-  // Use re-paced target if prop slippage occurred, otherwise use base
   const effectiveBaseTarget = totalPropSlippage > 0 ? rePacedExnessTarget : baseExnessWinTarget;
-  
   const newExnessWinTarget  = effectiveBaseTarget + slippageDebt;
   const newExnessLossTarget = newExnessWinTarget * r.rr;
   const adjustmentNeeded    = slippageDebt > 0.005 || totalPropSlippage > 0;
 
-  // ── PART 7: Dynamic capital needed for the bump ─────────────────────────
-  // The martingale raises the Exness risk per trade, so the buffered
-  // Exness capital must rise with it. winsToPass is unchanged.
   const pureDynamicCapital     = newExnessLossTarget * r.winsToPass;
   const bufferMultiplier       = 1 + r.bufferPct / 100;
   const dynamicExnessCapital   = pureDynamicCapital * bufferMultiplier;
 
-  // ── PART 7: Edge case alerts ─────────────────────────────────────────────
-
   const challengePassed = remainingPropTarget <= 0 && loggedWins > 0;
 
-  // Simple counter logic: initialWinsToPass - loggedWins
-  // This gives the user a clear "X wins left to pass" number
+  // Simple counter logic for clear user-facing numbers
   const remainingWins = Math.max(0, r.winsToPass - loggedWins);
-  const remainingLossesSimple = Math.max(0, r.lossesToBlow - loggedLosses);
+  const remainingLosses = Math.max(0, r.lossesToBlow - loggedLosses);
 
   const exnessNeededToFinish = newExnessLossTarget * Math.max(1, remainingWins);
   const bufferDepleted = !challengePassed && actualExnessBalance < exnessNeededToFinish;
@@ -330,17 +166,16 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     ? Math.max(0, exnessNeededToFinish - actualExnessBalance)
     : 0;
 
-  // ── PART 8: Final money summary (real cash consumed by the run) ───────────
   const propFee = r.propFee;
   const exnessFuelExhausted = Math.max(0, -actualExnessPnl);
-  const totalMoneyLost = propFee + exnessFuelExhausted;
+  const realMoneyNet = actualExnessPnl - propFee;
   const netResultAfterPayout = r.propPayout + actualExnessPnl - propFee;
 
   return {
     loggedWins,
     loggedLosses,
     remainingWins,
-    remainingLosses: remainingLossesSimple,
+    remainingLosses,
     totalPropProfitLogged,
     totalPropLossLogged,
     remainingPropTarget,
@@ -358,13 +193,12 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     dynamicExnessCapital,
     propFee,
     exnessFuelExhausted,
-    totalMoneyLost,
+    realMoneyNet,
     netResultAfterPayout,
     challengePassed,
     bufferDepleted,
     depositNeeded,
     phase: r.phase,
-    // New fields for prop slippage tracking
     totalPropSlippage,
     rePacedExnessTarget,
     adjustedRemainingLosses,
