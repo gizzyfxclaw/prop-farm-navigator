@@ -150,7 +150,9 @@ function JournalPage() {
     const totalPropLoss = closed.filter((t) => t.propPnl < 0).reduce((s, t) => s + Math.abs(t.propPnl), 0);
     const totalExWins = closed.filter((t) => t.exPnl > 0).reduce((s, t) => s + t.exPnl, 0);
     const totalExLosses = closed.filter((t) => t.exPnl < 0).reduce((s, t) => s + Math.abs(t.exPnl), 0);
-    const exnessRecoveryPct = totalPropLoss > 0 ? (totalExWins / totalPropLoss) * 100 : 0;
+    const totalExnessPnl = closed.reduce((s, t) => s + t.exPnl, 0);
+    const exnessRecoveryPct = recovery.propFee > 0 ? (totalExWins / recovery.propFee) * 100 : 0;
+    const realMoneyNet = totalExnessPnl - recovery.propFee;
     const avgWin = wins > 0 ? totalPropProfit / wins : 0;
     const avgLoss = losses > 0 ? totalPropLoss / losses : 0;
     const payoffRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
@@ -160,9 +162,10 @@ function JournalPage() {
     else if (winRate >= 50) analysis.push(`Decent win rate at ${winRate.toFixed(1)}%. Keep executing consistently.`);
     else analysis.push(`Win rate is ${winRate.toFixed(1)}%. Below 50% — review entry timing or consider reducing size.`);
 
-    if (exnessRecoveryPct >= 80) analysis.push(`Exness recovery is strong: ${exnessRecoveryPct.toFixed(0)}% of prop losses recovered.`);
-    else if (exnessRecoveryPct >= 60) analysis.push(`Exness recovery at ${exnessRecoveryPct.toFixed(0)}%. Monitor broker slippage.`);
-    else if (exnessRecoveryPct > 0) analysis.push(`Exness recovery is low (${exnessRecoveryPct.toFixed(0)}%). Broker slippage may be eating profits.`);
+    if (exnessRecoveryPct >= 100) analysis.push(`Fee fully recovered! Exness has covered the ${money(recovery.propFee)} prop fee — zero-loss loop achieved.`);
+    else if (exnessRecoveryPct >= 80) analysis.push(`Exness recovery is strong: ${exnessRecoveryPct.toFixed(0)}% of prop fee recovered.`);
+    else if (exnessRecoveryPct >= 60) analysis.push(`Exness recovery at ${exnessRecoveryPct.toFixed(0)}%. Track progress toward ${money(recovery.propFee)} fee target.`);
+    else if (exnessRecoveryPct > 0) analysis.push(`Exness recovery is low (${exnessRecoveryPct.toFixed(0)}%). Prop fee not yet covered — maintain discipline.`);
     else analysis.push("No recovery data yet.");
 
     if (payoffRatio >= 2) analysis.push(`Good payoff ratio: ${payoffRatio.toFixed(2)}. Wins outsize losses.`);
@@ -174,7 +177,7 @@ function JournalPage() {
     if (netPnl > 0) analysis.push(`Net P&L is positive at ${money(netPnl, true)}. The loop is working.`);
     else if (netPnl < 0) analysis.push(`Net P&L is negative at ${money(netPnl, true)}. Review execution.`);
 
-    return { winRate, netPnl, totalPropProfit, totalPropLoss, totalExWins, totalExLosses, exnessRecoveryPct, avgWin, avgLoss, payoffRatio, analysis };
+    return { winRate, netPnl, totalPropProfit, totalPropLoss, totalExWins, totalExLosses, exnessRecoveryPct, realMoneyNet, avgWin, avgLoss, payoffRatio, analysis };
   }, [journal, recovery]);
 
   // ── Recovery timeline: narrative of each trade ──────────────────────
@@ -446,8 +449,8 @@ function JournalPage() {
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Stat label="Win rate" value={`${hermesAnalysis.winRate.toFixed(1)}%`} tone={hermesAnalysis.winRate >= 50 ? "text-success" : "text-destructive"} />
                   <Stat label="Net P&L" value={money(hermesAnalysis.netPnl, true)} tone={hermesAnalysis.netPnl >= 0 ? "text-success" : "text-destructive"} />
-                  <Stat label="Exness recovery" value={`${hermesAnalysis.exnessRecoveryPct.toFixed(0)}%`} tone={hermesAnalysis.exnessRecoveryPct >= 70 ? "text-success" : "text-amber-400"} />
-                  <Stat label="Payoff ratio" value={hermesAnalysis.payoffRatio.toFixed(2)} tone={hermesAnalysis.payoffRatio >= 1.5 ? "text-success" : "text-amber-400"} />
+                  <Stat label="Exness recovery" value={`${hermesAnalysis.exnessRecoveryPct.toFixed(0)}%`} tone={hermesAnalysis.exnessRecoveryPct >= 100 ? "text-success" : hermesAnalysis.exnessRecoveryPct >= 70 ? "text-success" : "text-amber-400"} />
+                  <Stat label="Real-money net" value={money(hermesAnalysis.realMoneyNet, true)} tone={hermesAnalysis.realMoneyNet >= 0 ? "text-success" : "text-destructive"} />
                 </div>
                 <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.5)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
                   <p className="text-[11px] font-semibold mb-2" style={{ color: "oklch(var(--gz-p))" }}><Bot size={11} /> Hermes Assessment:</p>
@@ -531,11 +534,7 @@ function JournalPage() {
         <Stat label="Closed trades" value={closed.length} />
         <Stat label="Win rate" value={`${winRate.toFixed(1)}%`} tone="text-primary" />
         <Stat label="Net P&L" value={money(net, true)} tone={net >= 0 ? "text-success" : "text-destructive"} />
-        <Stat
-          label="Profit factor"
-          value={Number.isFinite(profitFactor) ? profitFactor.toFixed(2) : "∞"}
-          tone="text-primary"
-        />
+        <Stat label="Real-money net" value={money(hermesAnalysis?.realMoneyNet ?? 0, true)} tone={(hermesAnalysis?.realMoneyNet ?? 0) >= 0 ? "text-success" : "text-destructive"} />
       </div>
 
       {/* ── MARTINGALE + MONEY LOST ─────────────────────────────────── */}
