@@ -115,6 +115,19 @@ function JournalPage() {
   const [showTransition, setShowTransition] = useState(false);
   const [hermesOpen, setHermesOpen] = useState(false);
 
+
+  // Auto-calculate Exness values from logged trades
+  const closedTradesForExness = journal.filter((t) => t.result !== "OPEN");
+  const totalExPnlSoFar = closedTradesForExness.reduce((s, t) => s + t.exPnl, 0);
+  const totalExWinsSoFar = closedTradesForExness.filter((t) => t.exPnl > 0).reduce((s, t) => s + t.exPnl, 0);
+  const totalExLossesSoFar = closedTradesForExness.filter((t) => t.exPnl < 0).reduce((s, t) => s + Math.abs(t.exPnl), 0);
+  const firstPropLoss = closedTradesForExness.find((t) => t.result === "LOSS");
+  const initialExnessBalance = firstPropLoss ? Math.abs(firstPropLoss.exPnl) : 0;
+  const calculatedCurrentExnessBalance = initialExnessBalance + totalExPnlSoFar;
+  const exnessLossRecovered = totalExWinsSoFar >= totalExLossesSoFar;
+  const exnessRemainingLoss = Math.max(0, totalExLossesSoFar - totalExWinsSoFar);
+  const exnessLossRecoveryPct = totalExLossesSoFar > 0 ? (totalExWinsSoFar / totalExLossesSoFar) * 100 : 0;
+
   const openTrades = journal.filter((t) => t.result === "OPEN");
   const liveMap = useLiveOpenPnl(
     openTrades,
