@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   CartesianGrid,
@@ -112,6 +112,7 @@ function JournalPage() {
     swap: number;
   } | null>(null);
   const [showTransition, setShowTransition] = useState(false);
+  const [hermesOpen, setHermesOpen] = useState(false);
 
   const openTrades = journal.filter((t) => t.result === "OPEN");
   const liveMap = useLiveOpenPnl(
@@ -120,6 +121,60 @@ function JournalPage() {
     meta.exnessAccountId,
     meta.exnessSymbolSuffix ?? "",
   );
+
+  // ── Hermes AI Journal Analysis ────────────────────────────────────
+  const hermesAnalysis = useMemo(() => {
+    if (journal.length === 0) return null;
+    const closed = journal.filter((t) => t.result !== "OPEN");
+    if (closed.length === 0) return null;
+
+    const wins = closed.filter((t) => t.result === "WIN").length;
+    const losses = closed.filter((t) => t.result === "LOSS").length;
+    const winRate = closed.length > 0 ? (wins / closed.length) * 100 : 0;
+    const netPnl = closed.reduce((s, t) => s + t.netPnl, 0);
+    const totalPropProfit = closed.filter((t) => t.propPnl > 0).reduce((s, t) => s + t.propPnl, 0);
+    const totalPropLoss = closed.filter((t) => t.propPnl < 0).reduce((s, t) => s + Math.abs(t.propPnl), 0);
+    const totalExWins = closed.filter((t) => t.exPnl > 0).reduce((s, t) => s + t.exPnl, 0);
+    const totalExLosses = closed.filter((t) => t.exPnl < 0).reduce((s, t) => s + Math.abs(t.exPnl), 0);
+    const exnessRecoveryPct = totalPropLoss > 0 ? (totalExWins / totalPropLoss) * 100 : 0;
+    const avgWin = wins > 0 ? totalPropProfit / wins : 0;
+    const avgLoss = losses > 0 ? totalPropLoss / losses : 0;
+    const payoffRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
+
+    const analysis: string[] = [];
+    if (winRate >= 60) analysis.push(`Strong win rate at ${winRate.toFixed(1)}%. Strategy is performing well.`);
+    else if (winRate >= 50) analysis.push(`Decent win rate at ${winRate.toFixed(1)}%. Keep executing consistently.`);
+    else analysis.push(`Win rate is ${winRate.toFixed(1)}%. Below 50% — review entry timing or consider reducing size.`);
+
+    if (exnessRecoveryPct >= 80) analysis.push(`Exness recovery is strong: ${exnessRecoveryPct.toFixed(0)}% of prop losses recovered.`);
+    else if (exnessRecoveryPct >= 60) analysis.push(`Exness recovery at ${exnessRecoveryPct.toFixed(0)}%. Monitor broker slippage.`);
+    else if (exnessRecoveryPct > 0) analysis.push(`Exness recovery is low (${exnessRecoveryPct.toFixed(0)}%). Broker slippage may be eating profits.`);
+    else analysis.push("No recovery data yet.");
+
+    if (payoffRatio >= 2) analysis.push(`Good payoff ratio: ${payoffRatio.toFixed(2)}. Wins outsize losses.`);
+    else if (payoffRatio >= 1) analysis.push(`Payoff ratio: ${payoffRatio.toFixed(2)}. Consider tightening stops.`);
+    else analysis.push(`Payoff ratio below 1:0 — losses outsize wins. Review risk management.`);
+
+    if (recovery.adjustmentNeeded) analysis.push(`Martingale is active: next Exness target bumped to ${money(recovery.newExnessWinTarget, true)}.`);
+    if (recovery.challengePassed) analysis.push("Challenge PASSED! Request your payout.");
+    if (netPnl > 0) analysis.push(`Net P&L is positive at ${money(netPnl, true)}. The loop is working.`);
+    else if (netPnl < 0) analysis.push(`Net P&L is negative at ${money(netPnl, true)}. Review execution.`);
+
+    return { winRate, netPnl, totalPropProfit, totalPropLoss, totalExWins, totalExLosses, exnessRecoveryPct, avgWin, avgLoss, payoffRatio, analysis };
+  }, [journal, recovery]);
+
+  // ── Recovery timeline: narrative of each trade ──────────────────────
+  const recoveryTimeline = useMemo(() => {
+    let runningBalance = r.actualExnessBalance;
+    let runningPropEquity = 0;
+    const trades = journal.filter((t) => t.result !== "OPEN").map((t, i) => {
+      const prevBalance = runningBalance;
+      runningBalance += t.exPnl;
+      runningPropEquity += t.propPnl;
+      return { ...t, index: i + 1, exnessBalanceBefore: prevBalance, exnessBalanceAfter: runningBalance, runningPropEquity };
+    });
+    return trades;
+  }, [journal, r.actualExnessBalance]);
 
   function log(result: "WIN" | "LOSS") {
     const derived = tradePnl(r, result === "WIN", engine.rr);
@@ -349,6 +404,113 @@ function JournalPage() {
           <span className="cockpit-price">R:R 1:{engine.rr}</span>
         </div>
       </div>
+
+      {/* ── HERMES AI ANALYSIS ────────────────────────────────────── */}
+      <div className="panel hermes-panel" style={{ padding: 0, borderColor: "oklch(var(--gz-p) / 0.25)", marginBottom: "1.5rem" }}>
+        <div
+          className="panel-head"
+          style={{ background: "oklch(var(--gz-p) / 0.05)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.7rem 1.1rem", minHeight: "44px" }}
+          onClick={() => setHermesOpen(!hermesOpen)}
+        >
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: "14px" }}>🤖</span>
+            <h2 className="panel-head-title" style={{ fontSize: "13px", fontWeight: 600, margin: 0 }}>Hermes Journal Analysis</h2>
+            {hermesAnalysis && (
+              <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))", fontSize: "11px" }}>
+                {closed.length} trades analyzed
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize: "12px", color: "oklch(var(--gz-p))" }}>
+            {hermesOpen ? "▲" : "▼"}
+          </span>
+        </div>
+        {hermesOpen && (
+          <div style={{ padding: "1rem" }}>
+            {hermesAnalysis ? (
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Stat label="Win rate" value={`${hermesAnalysis.winRate.toFixed(1)}%`} tone={hermesAnalysis.winRate >= 50 ? "text-success" : "text-destructive"} />
+                  <Stat label="Net P&L" value={money(hermesAnalysis.netPnl, true)} tone={hermesAnalysis.netPnl >= 0 ? "text-success" : "text-destructive"} />
+                  <Stat label="Exness recovery" value={`${hermesAnalysis.exnessRecoveryPct.toFixed(0)}%`} tone={hermesAnalysis.exnessRecoveryPct >= 70 ? "text-success" : "text-amber-400"} />
+                  <Stat label="Payoff ratio" value={hermesAnalysis.payoffRatio.toFixed(2)} tone={hermesAnalysis.payoffRatio >= 1.5 ? "text-success" : "text-amber-400"} />
+                </div>
+                <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.5)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
+                  <p className="text-[11px] font-semibold mb-2" style={{ color: "oklch(var(--gz-p))" }}>🤖 Hermes Assessment:</p>
+                  <ul className="space-y-1">
+                    {hermesAnalysis.analysis.map((line, i) => (
+                      <li key={i} className="text-[11px]" style={{ color: "oklch(var(--gz-txt) / 0.85)" }}>• {line}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[13px] text-muted-foreground">Log at least one closed trade to see Hermes analysis.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── RECOVERY TIMELINE ───────────────────────────────────────── */}
+      {recoveryTimeline.length > 0 && (
+        <Card title="Recovery Timeline" badge={<Badge tone="blue">Step by step</Badge>}>
+          <div className="space-y-2">
+            {recoveryTimeline.map((t) => (
+              <div
+                key={t.id}
+                className="flex flex-wrap items-center gap-3 rounded-lg p-3"
+                style={{
+                  background: t.result === "WIN" ? "oklch(var(--gz-pos) / 0.08)" : "oklch(var(--gz-neg) / 0.08)",
+                  border: `1px solid ${t.result === "WIN" ? "oklch(var(--gz-pos) / 0.2)" : "oklch(var(--gz-neg) / 0.2)"}`,
+                }}
+              >
+                <div className="flex items-center gap-2 min-w-[80px]">
+                  <Badge tone={t.result === "WIN" ? "green" : "red"}>{t.result}</Badge>
+                  <span className="text-[10px] text-muted-foreground">#{t.index}</span>
+                </div>
+                <div className="flex items-center gap-2 min-w-[100px]">
+                  <span className="text-[11px] font-mono text-foreground">{t.pair}</span>
+                  <span className="text-[10px] mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>{t.dir}</span>
+                </div>
+                <div className="flex items-center gap-4 flex-1 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">Prop:</span>
+                    <span className="text-[11px] font-mono" style={{ color: t.propPnl >= 0 ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
+                      {money(t.propPnl, true)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">Exness:</span>
+                    <span className="text-[11px] font-mono" style={{ color: t.exPnl >= 0 ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
+                      {money(t.exPnl, true)}
+                    </span>
+                  </div>
+                  {t.result === "LOSS" && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground">Recovered:</span>
+                      <span className="text-[11px] font-mono font-semibold" style={{ color: t.exPnl > 0 ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
+                        {t.exPnl > 0 ? `✓ ${money(t.exPnl, true)}` : "✗ No recovery"}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">Exness bal:</span>
+                    <span className="text-[11px] font-mono" style={{ color: t.exnessBalanceAfter >= 0 ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
+                      {money(t.exnessBalanceAfter, true)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">Net equity:</span>
+                    <span className="text-[11px] font-mono font-semibold" style={{ color: t.runningPropEquity >= 0 ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
+                      {money(t.runningPropEquity, true)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* ── STATS GRID ─────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
