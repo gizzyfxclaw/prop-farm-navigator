@@ -140,10 +140,12 @@ function JournalPage() {
   // User enters ACTUAL starting balance directly (not derived)
   // If not entered, use a fallback but WARN the user it's not accurate
   const [userStartingBalance, setUserStartingBalance] = useState<number | null>(null);
+  const startingBalanceEntered = userStartingBalance !== null;
   const startingBalance = userStartingBalance ?? (realExnessBalance > 0 ? realExnessBalance - totalExPnlSoFar : 0);
 
   // Exness total loss vs recovery
   const [userActualExLosses, setUserActualExLosses] = useState<number | null>(null);
+  const [userStartingBalance, setUserStartingBalance] = useState<number | null>(null);
   const actualExnessTotalLoss = userActualExLosses ?? totalExLossesSoFar;
   const actualExnessTotalRecovery = totalExWinsSoFar;
   const exnessLossRecovered = actualExnessTotalRecovery >= actualExnessTotalLoss;
@@ -154,6 +156,14 @@ function JournalPage() {
     if (!isNaN(val) && val >= 0) {
       setEngine({ actualExnessBalance: val });
       toast.success(`Exness balance set to ${money(val, true)}`);
+    }
+  }
+  
+  function saveStartingBalance() {
+    const val = parseFloat(actualExBalanceInput);
+    if (!isNaN(val) && val >= 0) {
+      setUserStartingBalance(val);
+      toast.success(`Starting balance set to ${money(val, true)}`);
     }
   }
 
@@ -214,7 +224,7 @@ function JournalPage() {
     
     // Fee recovery assessment (PRIMARY METRIC)
     if (feeFullyRecovered) {
-      analysis.push(`🎉 FEE FULLY RECOVERED! Exness net (${money(exnessNetRecovery, true)}) covers the ${money(propFeeNum, true)} fee.`);
+      analysis.push(`FEE FULLY RECOVERED! Exness net (${money(exnessNetRecovery, true)}) covers the ${money(propFeeNum, true)} fee.`);
     } else if (feeRecoveryPct >= 80) {
       analysis.push(`Close: ${feeRecoveryPct.toFixed(0)}% of fee recovered. Only ${money(remainingFeeToRecover, true)} left.`);
     } else if (feeRecoveryPct >= 50) {
@@ -226,7 +236,7 @@ function JournalPage() {
     }
 
     if (recoveredTrades > 0) analysis.push(`${recoveredTrades}/${recoveredTrades + failedRecoveryTrades} prop-loss legs recovered.`);
-    if (failedRecoveryTrades > 0) analysis.push(`⚠️ ${failedRecoveryTrades} prop-loss leg(s) failed.`);
+    if (failedRecoveryTrades > 0) analysis.push(`${failedRecoveryTrades} prop-loss leg(s) failed.`);
     if (slippageTrades > 0) analysis.push(`${slippageTrades} trade(s) show Exness moved opposite.`);
     if (payoffRatio >= 2) analysis.push(`Payoff ${payoffRatio.toFixed(2)} — wins outsize.`);
     else if (payoffRatio >= 1) analysis.push(`Payoff ${payoffRatio.toFixed(2)} — adequate.`);
@@ -439,185 +449,37 @@ function JournalPage() {
     const exPnlNum = actualExPnl !== "" ? Number(actualExPnl) : null;
     
     // Validate: Prop WIN → Exness should LOSE (negative)
-    if (result === "WIN" && exPnlNum !== null && exPnlNum > 0) {
-      setDataValidationError("❌ DATA ERROR: If Prop WON, Exness P&L MUST be negative. Please check your numbers.");
-      return;
-    }
-    
-    // Validate: Prop LOSS → Exness should WIN (positive)
-    if (result === "LOSS" && exPnlNum !== null && exPnlNum < 0) {
-      setDataValidationError("❌ DATA ERROR: If Prop LOST, Exness P&L MUST be positive. Please check your numbers.");
-      return;
-    }
-    
-    setDataValidationError(null);
-    log(result);
-  }
+    if (result === "WIN" && exPnlNum !== null && exPnlN
 
-  const moneyLost = recovery.totalMoneyLost;
-  const fuelExhausted = recovery.exnessFuelExhausted;
+..
 
-  let running = 0;
-  const curve = closed.map((t, i) => {
-    running += t.netPnl;
-    return { i: i + 1, equity: Number(running.toFixed(2)) };
-  });
+... [OUTPUT TRUNCATED - 198 chars omitted out of 50,128 total] ...
 
-  const distribution = [
-    { name: "Wins", value: wins.length, fill: "var(--color-success)" },
-    { name: "Losses", value: losses.length, fill: "var(--color-destructive)" },
-  ];
-
-  return (
-    <div className="engine-cockpit">
-      {/* ── HEADER ────────────────────────────────────────────────── */}
-      <div className="cockpit-header">
-        <div className="cockpit-header-left">
-          <span className="cockpit-title">Trade Journal</span>
-          <Badge tone="blue">{journal.length} trades</Badge>
-          {openTrades.length > 0 && <Badge tone="amber">{openTrades.length} open</Badge>}
-
-        </div>
-        <div className="cockpit-header-right">
-          <span className="cockpit-pair">{pair}</span>
-          <span className="cockpit-price">R:R 1:{engine.rr}</span>
-        </div>
-      </div>
-
-      {/* ── HERMES AI ANALYSIS ────────────────────────────────────── */}
-      <div className="panel hermes-panel" style={{ padding: 0, borderColor: "oklch(var(--gz-p) / 0.25)", marginBottom: "1.5rem" }}>
-        <div
-          className="panel-head"
-          style={{ background: "oklch(var(--gz-p) / 0.05)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.7rem 1.1rem", minHeight: "44px" }}
-          onClick={() => setHermesOpen(!hermesOpen)}
-        >
-          <div className="flex items-center gap-2">
-            <span style={{ fontSize: "14px" }}>🤖</span>
-            <h2 className="panel-head-title" style={{ fontSize: "13px", fontWeight: 600, margin: 0 }}>Hermes Journal Analysis</h2>
-            {hermesAnalysis && (
-              <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))", fontSize: "11px" }}>
-                {closedTrades.length} trades analyzed
-              </span>
-            )}
-          </div>
-          <span style={{ fontSize: "12px", color: "oklch(var(--gz-p))" }}>
-            {hermesOpen ? "▲" : "▼"}
-          </span>
-        </div>
-        {hermesOpen && (
-          <div style={{ padding: "1rem" }}>
-            <div className="rounded-lg p-3 mb-3" style={{ background: "oklch(var(--gz-s2) / 0.5)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
-              <p className="text-[11px] font-semibold mb-2" style={{ color: "oklch(var(--gz-p))" }}>📊 Accurate Exness Data Entry</p>
-              <p className="text-[10px] mb-2" style={{ color: "oklch(var(--gz-mut))" }}>
-                Enter your ACTUAL Exness values for accurate tracking. The system cannot derive these from logged trades alone.
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-[10px] text-muted-foreground block mb-1">Starting Exness Balance ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={userStartingBalance ?? ""}
-                    onChange={(e) => setUserStartingBalance(e.target.value ? parseFloat(e.target.value) : null)}
-                    placeholder="e.g. 40.00"
-                    className="w-full rounded border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground block mb-1">Current Exness Balance ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={actualExBalanceInput}
-                    onChange={(e) => setActualExBalanceInput(e.target.value)}
-                    placeholder={realExnessBalance > 0 ? realExnessBalance.toString() : "e.g. 35.00"}
-                    className="w-full rounded border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground block mb-1">Total Exness Losses ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={userActualExLosses ?? ""}
-                    onChange={(e) => setUserActualExLosses(e.target.value ? parseFloat(e.target.value) : null)}
-                    placeholder={totalExLossesSoFar > 0 ? totalExLossesSoFar.toString() : "From broker history"}
-                    className="w-full rounded border border-white/10 bg-background px-2 py-1 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div className="flex items-end gap-2">
-                  <button
-                    onClick={() => {
-                      updateRealExnessBalance();
-                      toast.success("Values saved");
-                    }}
-                    className="rounded border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-semibold text-primary hover:bg-primary/20"
-                  >
-                    Save & Recalculate
-                  </button>
-                </div>
-              </div>
-              <p className="text-[10px] mt-2" style={{ color: "oklch(var(--gz-mut))" }}>
-                Calculated: Starting {money(startingBalance, true)} → Current {money(realExnessBalance, true)} → Net P&L {money(totalExPnlSoFar, true)}
-              </p>
-              <p className="text-[10px] mt-1" style={{ color: exnessLossRecovered ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
-                {exnessLossRecovered ? "✅ Exness losses FULLY RECOVERED" : "❌ Exness losses NOT recovered"} — 
-                Total loss: {money(actualExnessTotalLoss, true)} vs Recovery: {money(actualExnessTotalRecovery, true)} — 
-                Remaining: {money(exnessRemainingLoss, true)}
-              </p>
-            </div>
-            {!balanceEntered && (
-              <div className="rounded-lg p-3 mb-3" style={{ background: "oklch(var(--gz-neg) / 0.08)", border: "1px solid oklch(var(--gz-neg) / 0.2)" }}>
-                <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-neg))" }}>⚠️ Enter Your Real Exness Values Above</p>
-                <p className="text-[10px]" style={{ color: "oklch(var(--gz-mut))" }}>
-                  Without accurate data, calculations are based on PROJECTED values. Enter your actual starting balance ($40), current balance, and total losses.
-                </p>
-              </div>
-            )}
-            {hermesAnalysis ? (
-              <div className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Stat label="Win rate" value={`${hermesAnalysis.winRate.toFixed(1)}%`} tone={hermesAnalysis.winRate >= 50 ? "text-success" : "text-destructive"} />
-                  <Stat label="Net P&L" value={money(hermesAnalysis.netPnl, true)} tone={hermesAnalysis.netPnl >= 0 ? "text-success" : "text-destructive"} />
-                  <Stat label="Exness recovery" value={`${hermesAnalysis.exnessRecoveryPct.toFixed(0)}%`} tone={hermesAnalysis.exnessRecoveryPct >= 70 ? "text-success" : "text-amber-400"} />
-                  <Stat label="Payoff ratio" value={hermesAnalysis.payoffRatio.toFixed(2)} tone={hermesAnalysis.payoffRatio >= 1.5 ? "text-success" : "text-amber-400"} />
-                </div>
-                <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.5)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
-                  <p className="text-[11px] font-semibold mb-2" style={{ color: "oklch(var(--gz-p))" }}>🤖 Hermes Assessment:</p>
-                  <ul className="space-y-1">
-                    {hermesAnalysis.analysis.map((line, i) => (
-                      <li key={i} className="text-[11px]" style={{ color: "oklch(var(--gz-txt) / 0.85)" }}>• {line}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.3)", border: "1px solid oklch(var(--gz-p) / 0.1)" }}>
-                  <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>📋 Strategy: Inverted Mirror Hedge</p>
-                  <p className="text-[10px]" style={{ color: "oklch(var(--gz-mut))" }}>
-                    Prop and Exness take opposite directions. Prop WIN pays from Exness tank, Prop LOSS refills it. Net P&L should stay positive.<br/>
+ Exness take opposite directions. Prop WIN pays from Exness tank, Prop LOSS refills it. Net P&L should stay positive.<br/>
                     <span style={{ color: "oklch(var(--gz-p))" }}>Data check:</span> {hermesAnalysis.correctDirection}/{hermesAnalysis.wins + hermesAnalysis.losses} trades correct direction.
-                    {hermesAnalysis.bothPositive > 0 && <span style={{ color: "oklch(var(--gz-neg))" }}> ❌ {hermesAnalysis.bothPositive} both-positive!</span>}
-                    {hermesAnalysis.bothNegative > 0 && <span style={{ color: "oklch(var(--gz-neg))" }}> ❌ {hermesAnalysis.bothNegative} both-negative!</span>}
-                    {hermesAnalysis.bothPositive === 0 && hermesAnalysis.bothNegative === 0 && <span style={{ color: "oklch(var(--gz-pos))" }}> ✅</span>}
+                    {hermesAnalysis.bothPositive > 0 && <span style={{ color: "oklch(var(--gz-neg))" }}> <XCircle size={11} /> {hermesAnalysis.bothPositive} both-positive!</span>}
+                    {hermesAnalysis.bothNegative > 0 && <span style={{ color: "oklch(var(--gz-neg))" }}> <XCircle size={11} /> {hermesAnalysis.bothNegative} both-negative!</span>}
+                    {hermesAnalysis.bothPositive === 0 && hermesAnalysis.bothNegative === 0 && <span style={{ color: "oklch(var(--gz-pos))" }}><CheckCircle size={11} /></span>}
                   </p>
                 </div>
                 <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.3)", border: "1px solid oklch(var(--gz-p) / 0.1)" }}>
-                  <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>💰 Fee Recovery Status</p>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>Fee Recovery Status</p>
                   <p className="text-[10px]" style={{ color: "oklch(var(--gz-mut))" }}>
                     Prop Fee: <strong style={{ color: "oklch(var(--gz-txt))" }}>{money(hermesAnalysis.propFee, true)}</strong><br/>
                     Exness recovered: <strong style={{ color: hermesAnalysis.feeRecoveryPct >= 100 ? "oklch(var(--gz-pos))" : hermesAnalysis.feeRecoveryPct >= 70 ? "oklch(var(--gz-p))" : "oklch(var(--gz-neg))" }}>{money(hermesAnalysis.totalExWins, true)} ({hermesAnalysis.feeRecoveryPct.toFixed(0)}%)</strong><br/>
                     {hermesAnalysis.feeFullyRecovered ? (
-                      <span style={{ color: "oklch(var(--gz-pos))" }}>✅ Fee FULLY RECOVERED! Net profit: {money(hermesAnalysis.exnessNetRecovery - hermesAnalysis.propFee, true)}</span>
+                      <span style={{ color: "oklch(var(--gz-pos))" }}><CheckCircle size={11} /> Fee FULLY RECOVERED! Net profit: {money(hermesAnalysis.exnessNetRecovery - hermesAnalysis.propFee, true)}</span>
                     ) : (
-                      <span style={{ color: "oklch(var(--gz-neg))" }}>❌ Fee NOT recovered. Still need: {money(hermesAnalysis.remainingFeeToRecover, true)}</span>
+                      <span style={{ color: "oklch(var(--gz-neg))" }}><XCircle size={11} /> Fee NOT recovered. Still need: {money(hermesAnalysis.remainingFeeToRecover, true)}</span>
                     )}
                   </p>
                 </div>
                 <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.3)", border: "1px solid oklch(var(--gz-p) / 0.1)" }}>
-                  <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>🔄 Recovery Per Prop Loss</p>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: "oklch(var(--gz-p))" }}>Recovery Per Prop Loss</p>
                   <p className="text-[10px]" style={{ color: "oklch(var(--gz-mut))" }}>
                     {hermesAnalysis.recoveredTrades} of {hermesAnalysis.recoveredTrades + hermesAnalysis.failedRecoveryTrades} prop-loss trades recovered.<br/>
                     Avg recovery per loss: <strong>{money(hermesAnalysis.avgExnessRecoveryPerLoss, true)}</strong><br/>
-                    {hermesAnalysis.failedRecoveryTrades > 0 && <span style={{ color: "oklch(var(--gz-neg))" }}>⚠️ {hermesAnalysis.failedRecoveryTrades} trade(s) failed to recover (Exness lost on prop-loss leg).</span>}
+                    {hermesAnalysis.failedRecoveryTrades > 0 && <span style={{ color: "oklch(var(--gz-neg))" }}><AlertTriangle size={11} /> {hermesAnalysis.failedRecoveryTrades} trade(s) failed to recover (Exness lost on prop-loss leg).</span>}
                   </p>
                 </div>
               </div>
@@ -797,7 +659,7 @@ function JournalPage() {
         <div className="mt-4 rounded border border-border bg-muted/30 p-3">
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="ghost" onClick={syncExnessHistory} disabled={syncing}>
-              {syncing ? "Syncing…" : "🔄 Sync Exness History"}
+              {syncing ? "Syncing…" : "Sync Exness History"}
             </Button>
             {lastSync && <span className="text-[11px] text-muted-foreground">Last sync: {lastSync}</span>}
             {!meta.token || !meta.exnessAccountId ? (
