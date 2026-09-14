@@ -693,9 +693,22 @@ function JournalPage() {
         {/* ── RECOVERY COUNTDOWN ────────────────────────────────────── */}
         {!recovery.challengePassed && recovery.exnessWinsNeeded > 0 && (
           <div className="mt-4 rounded-lg border-2 p-4" style={{ borderColor: recovery.remainingLosses >= recovery.exnessWinsNeeded ? "oklch(var(--gz-pos) / 0.3)" : "oklch(var(--gz-neg) / 0.3)", background: recovery.remainingLosses >= recovery.exnessWinsNeeded ? "oklch(var(--gz-pos) / 0.05)" : "oklch(var(--gz-neg) / 0.05)" }}>
-            <h3 className="text-[13px] font-semibold mb-3" style={{ color: recovery.remainingLosses >= recovery.exnessWinsNeeded ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
-              {recovery.remainingLosses >= recovery.exnessWinsNeeded ? "✅ ZERO-LOSS GUARANTEED" : "🚨 RECOVERY AT RISK"}
-            </h3>
+            <div className="flex items-center gap-2 mb-3">
+              {recovery.remainingLosses >= recovery.exnessWinsNeeded ? (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: "oklch(var(--gz-pos))" }}>
+                  <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                  <path d="M5 8.5L7 10.5L11 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: "oklch(var(--gz-neg))" }}>
+                  <path d="M8 2L2 14h12L8 2z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinejoin="round"/>
+                  <path d="M8 6v4M8 11.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              )}
+              <h3 className="text-[13px] font-semibold" style={{ color: recovery.remainingLosses >= recovery.exnessWinsNeeded ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
+                {recovery.remainingLosses >= recovery.exnessWinsNeeded ? "ZERO-LOSS GUARANTEED" : "RECOVERY AT RISK"}
+              </h3>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <div className="text-[10px] text-muted-foreground mb-1">Prop Legs Remaining (Bullets)</div>
@@ -728,7 +741,7 @@ function JournalPage() {
               Challenge Passed! Request your payout. Switch to Phase 2 (Mega Shield) for the Funded Stage.
             </p>
             {r.phase === 1 && (
-              <Button variant="success" onClick={triggerPhaseTransition}>🚀 Activate Phase 2 Mega Shield</Button>
+              <Button variant="success" onClick={triggerPhaseTransition}>Activate Phase 2 Mega Shield</Button>
             )}
             {showTransition && r.phase === 2 && (
               <p className="rounded border border-success/30 bg-success/10 px-3 py-2 text-[11px] text-success">
