@@ -1,382 +1,522 @@
 /**
- * GizzyFx Mobile App - TradingView-inspired design
+ * GizzyFx Mobile Terminal — Professional TradingView Design System
  *
- * IMPORTANT: This stylesheet applies to mobile devices and tablets (max-width: 1199px).
- * Desktop design (1200px+) remains completely unchanged.
- *
- * TradingView mobile color scheme:
- * - Background: #131722 (dark navy)
- * - Card surface: #1E222D (slightly lighter navy)
- * - Active element: #2962FF (electric blue)
- * - Success: #26A69A (teal)
- * - Danger: #EF5350 (coral red)
- * - Text primary: #D1D4DC (light gray)
- * - Text secondary: #787B86 (muted gray)
- * - Border: #2A2E39 (subtle)
+ * Premium dark trading interface with institutional-grade aesthetics
+ * - TradingView's exact color system
+ * - Micro-interactions and visual hierarchy
+ * - Optimized for active traders
  */
 
 @media (max-width: 1199px) {
-  /* ── ROOT THEME OVERRIDES (Mobile only) ────────────────────────────── */
-  :root {
-    --tv-bg: #131722;
-    --tv-surface: #1E222D;
-    --tv-surface-hover: #262B38;
-    --tv-blue: #2962FF;
-    --tv-blue-hover: #1E53E5;
-    --tv-teal: #26A69A;
-    --tv-red: #EF5350;
-    --tv-yellow: #FF9800;
-    --tv-txt-primary: #D1D4DC;
-    --tv-txt-secondary: #787B86;
-    --tv-txt-muted: #5D606B;
-    --tv-border: #2A2E39;
-    --tv-divider: #363A45;
+  /* ─────────────────────────────────────────────────────────────
+     RESET & FOUNDATION
+     ───────────────────────────────────────────────────────────── */
+
+  * {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-sizing: border-box !important;
   }
 
-  /* ── FORCE DARK THEME ON MOBILE ────────────────────────────────────── */
+  html, body {
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
   body {
-    background: var(--tv-bg) !important;
-    color: var(--tv-txt-primary) !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif !important;
+    background: #0d0e11 !important;
+    color: #d1d4dc !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', 'Roboto', sans-serif !important;
     font-size: 14px !important;
+    line-height: 1.5 !important;
+    -webkit-font-smoothing: antialiased !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     HEADER & NAVIGATION
+     ───────────────────────────────────────────────────────────── */
+
+  header, .cmdbar, .engine-cockpit, .cockpit-header {
+    background: #131722 !important;
+    border-bottom: 1px solid #1a1d26 !important;
     padding: 0 !important;
     margin: 0 !important;
-  }
-
-  /* ── MOBILE APP HEADER (TradingView style) ────────────────────────── */
-  .engine-cockpit {
-    background: var(--tv-bg) !important;
-    padding: 0 !important;
-    max-width: 100% !important;
-  }
-
-  .cockpit-header {
-    background: var(--tv-surface) !important;
-    padding: 12px 16px !important;
-    border-bottom: 1px solid var(--tv-border) !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: space-between !important;
+    height: auto !important;
     position: sticky !important;
     top: 0 !important;
-    z-index: 100 !important;
+    z-index: 1000 !important;
   }
 
-  .cockpit-title {
-    font-size: 18px !important;
+  .cockpit-title, [class*="title"] {
+    color: #d1d4dc !important;
     font-weight: 600 !important;
-    color: var(--tv-txt-primary) !important;
+    font-size: 14px !important;
   }
 
-  /* ── CARDS & PANELS (TradingView style) ────────────────────────────── */
-  .panel,
-  .card {
-    background: var(--tv-surface) !important;
-    border: 1px solid var(--tv-border) !important;
-    border-radius: 8px !important;
-    margin: 8px !important;
-    padding: 16px !important;
-    box-shadow: none !important;
+  nav, .navtab, [role="navigation"] {
+    display: none !important;
   }
 
-  .panel-head {
-    background: transparent !important;
-    border-bottom: 1px solid var(--tv-divider) !important;
-    padding: 0 0 12px 0 !important;
-    margin-bottom: 12px !important;
-  }
+  /* ─────────────────────────────────────────────────────────────
+     CONTENT LAYOUT
+     ───────────────────────────────────────────────────────────── */
 
-  .panel-head-title {
-    font-size: 15px !important;
-    font-weight: 600 !important;
-    color: var(--tv-txt-primary) !important;
-  }
-
-  /* ── STATS & TILES (TradingView style) ────────────────────────────── */
-  .stat {
-    background: var(--tv-bg) !important;
-    border: 1px solid var(--tv-border) !important;
-    border-radius: 6px !important;
+  main, .fx-stagger, [role="main"] {
+    background: #0d0e11 !important;
     padding: 12px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-bottom: 80px !important;
   }
 
-  .stat-label {
-    font-size: 11px !important;
-    font-weight: 500 !important;
-    color: var(--tv-txt-secondary) !important;
+  /* ─────────────────────────────────────────────────────────────
+     CARDS & PANELS - Premium Design
+     ───────────────────────────────────────────────────────────── */
+
+  .panel, .card, [class*="panel"], [class*="card"] {
+    background: #1a1d26 !important;
+    border: 1px solid #252a34 !important;
+    border-radius: 8px !important;
+    margin: 8px 0 !important;
+    padding: 16px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+    transition: all 0.2s ease !important;
+  }
+
+  .panel:active, .card:active {
+    background: #212733 !important;
+    border-color: #2a2f3a !important;
+  }
+
+  .panel-head, [class*="panel-head"] {
+    border-bottom: 1px solid #252a34 !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 12px !important;
+  }
+
+  .panel-head-title, [class*="panel-title"] {
+    color: #d1d4dc !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
-    margin-bottom: 4px !important;
   }
 
-  .stat-value {
-    font-size: 18px !important;
+  /* ─────────────────────────────────────────────────────────────
+     STAT TILES - Institutional Style
+     ───────────────────────────────────────────────────────────── */
+
+  .stat, [class*="stat"] {
+    background: #131722 !important;
+    border: 1px solid #1a1d26 !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+
+  .stat-label, [class*="label"] {
+    color: #787b86 !important;
+    font-size: 10px !important;
     font-weight: 600 !important;
-    color: var(--tv-txt-primary) !important;
-    font-family: 'Courier New', monospace !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
   }
 
-  /* ── BUTTONS (TradingView style) ────────────────────────────────────── */
-  button,
-  .btn,
-  .button {
-    background: var(--tv-blue) !important;
-    color: white !important;
+  .stat-value, [class*="value"] {
+    color: #d1d4dc !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    font-family: 'Courier New', monospace !important;
+    letter-spacing: -0.5px !important;
+  }
+
+  /* Positive/Negative coloring */
+  .gz-pos, .text-success, [class*="positive"], [class*="success"] {
+    color: #26a69a !important;
+  }
+
+  .gz-neg, .text-destructive, [class*="negative"], [class*="destructive"] {
+    color: #ef5350 !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     BUTTONS - TradingView Style
+     ───────────────────────────────────────────────────────────── */
+
+  button, .btn, [role="button"], input[type="button"], input[type="submit"] {
+    background: #2962ff !important;
+    color: #ffffff !important;
     border: none !important;
     border-radius: 6px !important;
     padding: 10px 16px !important;
     font-size: 14px !important;
     font-weight: 600 !important;
     cursor: pointer !important;
-    transition: background 0.2s ease !important;
+    transition: all 0.15s ease !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
   }
 
-  button:hover,
-  .btn:hover {
-    background: var(--tv-blue-hover) !important;
+  button:hover, .btn:hover {
+    background: #1e53e5 !important;
+    box-shadow: 0 2px 8px rgba(41, 98, 255, 0.3) !important;
   }
 
-  button.variant-success,
-  .btn-success {
-    background: var(--tv-teal) !important;
+  button:active, .btn:active {
+    background: #1a47b5 !important;
+    transform: scale(0.98) !important;
   }
 
-  button.variant-danger,
-  .btn-danger {
-    background: var(--tv-red) !important;
+  /* Variants */
+  button.success, .btn-success, [class*="success"] {
+    background: #26a69a !important;
   }
 
-  button.variant-ghost,
-  .btn-ghost {
+  button.success:hover, .btn-success:hover {
+    background: #1f8680 !important;
+  }
+
+  button.danger, .btn-danger, [class*="danger"] {
+    background: #ef5350 !important;
+  }
+
+  button.danger:hover, .btn-danger:hover {
+    background: #d63c3c !important;
+  }
+
+  button.ghost, .btn-ghost {
     background: transparent !important;
-    border: 1px solid var(--tv-border) !important;
-    color: var(--tv-txt-primary) !important;
+    border: 1px solid #252a34 !important;
+    color: #d1d4dc !important;
   }
 
-  /* ── BADGES (TradingView style) ────────────────────────────────────── */
-  .badge {
+  button.ghost:hover, .btn-ghost:hover {
+    background: rgba(41, 98, 255, 0.08) !important;
+    border-color: #2962ff !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     BADGES - Accent Elements
+     ───────────────────────────────────────────────────────────── */
+
+  .badge, [class*="badge"] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
     padding: 4px 8px !important;
     border-radius: 4px !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.3px !important;
+    letter-spacing: 0.5px !important;
   }
 
   .badge.tone-green {
-    background: rgba(38, 166, 154, 0.15) !important;
-    color: var(--tv-teal) !important;
+    background: rgba(38, 166, 154, 0.12) !important;
+    color: #26a69a !important;
   }
 
   .badge.tone-red {
-    background: rgba(239, 83, 80, 0.15) !important;
-    color: var(--tv-red) !important;
+    background: rgba(239, 83, 80, 0.12) !important;
+    color: #ef5350 !important;
   }
 
   .badge.tone-blue {
-    background: rgba(41, 98, 255, 0.15) !important;
-    color: var(--tv-blue) !important;
+    background: rgba(41, 98, 255, 0.12) !important;
+    color: #2962ff !important;
   }
 
-  .badge.tone-amber {
-    background: rgba(255, 152, 0, 0.15) !important;
-    color: var(--tv-yellow) !important;
+  .badge.tone-yellow {
+    background: rgba(255, 152, 0, 0.12) !important;
+    color: #ff9800 !important;
   }
 
-  /* ── FORM INPUTS (TradingView style) ────────────────────────────────── */
-  input,
-  select,
-  textarea {
-    background: var(--tv-bg) !important;
-    border: 1px solid var(--tv-border) !important;
+  /* ─────────────────────────────────────────────────────────────
+     FORM CONTROLS
+     ───────────────────────────────────────────────────────────── */
+
+  input, select, textarea, [class*="input"] {
+    background: #131722 !important;
+    border: 1px solid #252a34 !important;
     border-radius: 6px !important;
-    color: var(--tv-txt-primary) !important;
+    color: #d1d4dc !important;
     padding: 10px 12px !important;
     font-size: 14px !important;
+    font-family: inherit !important;
+    transition: all 0.15s ease !important;
   }
 
-  input:focus,
-  select:focus,
-  textarea:focus {
-    border-color: var(--tv-blue) !important;
+  input:focus, select:focus, textarea:focus {
+    border-color: #2962ff !important;
+    background: #1a1d26 !important;
     outline: none !important;
+    box-shadow: 0 0 0 3px rgba(41, 98, 255, 0.1) !important;
   }
 
-  /* ── TABLES (TradingView mobile list style) ────────────────────────── */
+  input::placeholder {
+    color: #5d606b !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     TABLES - Data Display
+     ───────────────────────────────────────────────────────────── */
+
   table {
     width: 100% !important;
-    border-collapse: separate !important;
-    border-spacing: 0 4px !important;
+    border-collapse: collapse !important;
+    margin: 0 !important;
   }
 
   thead {
+    background: #1a1d26 !important;
+    border-bottom: 2px solid #252a34 !important;
     position: sticky !important;
-    top: 60px !important;
-    background: var(--tv-surface) !important;
+    top: 0 !important;
     z-index: 10 !important;
   }
 
   th {
-    background: var(--tv-surface) !important;
-    color: var(--tv-txt-secondary) !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
+    color: #787b86 !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
-    padding: 8px 12px !important;
-    text-align: left !important;
-  }
-
-  tbody tr {
-    background: var(--tv-bg) !important;
-    border: 1px solid var(--tv-border) !important;
-    border-radius: 6px !important;
-  }
-
-  td {
     padding: 12px !important;
-    color: var(--tv-txt-primary) !important;
-    font-size: 13px !important;
+    text-align: left !important;
     border: none !important;
   }
 
-  /* ── COLOR CODING (TradingView semantic colors) ────────────────────── */
-  .text-success,
-  .gz-pos {
-    color: var(--tv-teal) !important;
+  tbody tr {
+    background: #131722 !important;
+    border-bottom: 1px solid #1a1d26 !important;
+    transition: all 0.1s ease !important;
   }
 
-  .text-destructive,
-  .gz-neg {
-    color: var(--tv-red) !important;
+  tbody tr:hover {
+    background: #1a1d26 !important;
   }
 
-  .text-primary {
-    color: var(--tv-blue) !important;
+  td {
+    color: #d1d4dc !important;
+    padding: 12px !important;
+    border: none !important;
+    font-size: 13px !important;
+    font-variant-numeric: tabular-nums !important;
   }
 
-  .text-muted-foreground,
-  .gz-mut {
-    color: var(--tv-txt-secondary) !important;
+  /* ─────────────────────────────────────────────────────────────
+     ALERTS & ALERTS - Semantic Colors
+     ───────────────────────────────────────────────────────────── */
+
+  .alert, [role="alert"] {
+    border-left: 4px solid #2962ff !important;
+    background: rgba(41, 98, 255, 0.08) !important;
+    padding: 12px !important;
+    border-radius: 6px !important;
+    margin: 8px 0 !important;
   }
 
-  /* ── CHARTS (TradingView dark theme) ────────────────────────────────── */
-  svg {
-    background: transparent !important;
+  .alert.success {
+    border-left-color: #26a69a !important;
+    background: rgba(38, 166, 154, 0.08) !important;
   }
 
-  svg text {
-    fill: var(--tv-txt-secondary) !important;
-    font-size: 11px !important;
+  .alert.danger, .alert.error {
+    border-left-color: #ef5350 !important;
+    background: rgba(239, 83, 80, 0.08) !important;
   }
 
-  svg .recharts-cartesian-grid line {
-    stroke: var(--tv-border) !important;
+  .alert.warning {
+    border-left-color: #ff9800 !important;
+    background: rgba(255, 152, 0, 0.08) !important;
   }
 
-  svg .recharts-line {
-    stroke: var(--tv-blue) !important;
-    stroke-width: 2px !important;
-  }
+  /* ─────────────────────────────────────────────────────────────
+     BOTTOM NAVIGATION - Mobile Footer
+     ───────────────────────────────────────────────────────────── */
 
-  /* ── BOTTOM NAVIGATION (TradingView mobile) ────────────────────────── */
-  .mobile-nav {
+  footer, .mobile-nav, [role="navigation"] {
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    background: var(--tv-surface) !important;
-    border-top: 1px solid var(--tv-border) !important;
+    background: #131722 !important;
+    border-top: 1px solid #1a1d26 !important;
     display: flex !important;
     justify-content: space-around !important;
-    padding: 8px 0 !important;
-    z-index: 1000 !important;
+    align-items: center !important;
+    height: 70px !important;
+    padding: 0 !important;
+    z-index: 900 !important;
   }
 
-  .mobile-nav-item {
+  .mobile-nav-item, [role="menuitem"] {
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
     padding: 8px !important;
-    color: var(--tv-txt-secondary) !important;
-    font-size: 11px !important;
+    color: #5d606b !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
     text-decoration: none !important;
+    transition: all 0.15s ease !important;
+    text-align: center !important;
   }
 
-  .mobile-nav-item.active {
-    color: var(--tv-blue) !important;
+  .mobile-nav-item.active, [role="menuitem"].active {
+    color: #2962ff !important;
   }
 
-  .mobile-nav-item svg {
+  .mobile-nav-item svg, [role="menuitem"] svg {
     width: 24px !important;
     height: 24px !important;
-    margin-bottom: 4px !important;
+    stroke-width: 2 !important;
   }
 
-  /* ── RECOVERY COUNTDOWN (TradingView alert style) ──────────────────── */
-  .recovery-countdown {
-    background: var(--tv-surface) !important;
-    border: 2px solid var(--tv-blue) !important;
-    border-radius: 8px !important;
-    padding: 16px !important;
-    margin: 12px 0 !important;
+  /* ─────────────────────────────────────────────────────────────
+     CHARTS & GRAPHS - Dark Theme
+     ───────────────────────────────────────────────────────────── */
+
+  svg {
+    color: #d1d4dc !important;
   }
 
-  .recovery-countdown.at-risk {
-    border-color: var(--tv-red) !important;
+  svg text, tspan {
+    fill: #787b86 !important;
+    font-size: 10px !important;
   }
 
-  .recovery-countdown h3 {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    color: var(--tv-txt-primary) !important;
-    margin-bottom: 12px !important;
+  svg [class*="line"] {
+    stroke: #2962ff !important;
+    stroke-width: 2px !important;
   }
 
-  .recovery-countdown svg {
-    width: 20px !important;
-    height: 20px !important;
+  svg [class*="grid"] {
+    stroke: #1a1d26 !important;
+    opacity: 0.5 !important;
   }
 
-  /* ── MOBILE OPTIMIZATIONS ───────────────────────────────────────────── */
-  .grid {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
+  /* ─────────────────────────────────────────────────────────────
+     SCROLLING & OVERFLOW
+     ───────────────────────────────────────────────────────────── */
+
+  ::-webkit-scrollbar {
+    width: 6px !important;
+    height: 6px !important;
   }
 
-  /* Hide desktop-only elements on mobile */
-  @media (max-width: 1199px) {
-    .desktop-only {
-      display: none !important;
-    }
+  ::-webkit-scrollbar-track {
+    background: transparent !important;
   }
 
-  /* Add padding at bottom for mobile nav */
-  body {
-    padding-bottom: 70px !important;
+  ::-webkit-scrollbar-thumb {
+    background: #252a34 !important;
+    border-radius: 3px !important;
   }
 
-  /* ── SMOOTH SCROLLING ───────────────────────────────────────────────── */
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2a2f3a !important;
+  }
+
   * {
     -webkit-overflow-scrolling: touch !important;
   }
 
-  /* ── HIDE UNNECESSARY UI ON MOBILE ──────────────────────────────────── */
-  .cockpit-header-right {
-    font-size: 12px !important;
+  /* ─────────────────────────────────────────────────────────────
+     TEXT & TYPOGRAPHY
+     ───────────────────────────────────────────────────────────── */
+
+  h1, h2, h3, h4, h5, h6 {
+    color: #d1d4dc !important;
+    font-weight: 700 !important;
   }
 
-  /* ── TRADING VIEW BLUE ACCENT ───────────────────────────────────────── */
-  a {
-    color: var(--tv-blue) !important;
+  p, span, div {
+    color: #d1d4dc !important;
   }
 
-  a:hover {
-    color: var(--tv-blue-hover) !important;
+  a, [href] {
+    color: #2962ff !important;
+    text-decoration: none !important;
+    transition: all 0.1s ease !important;
+  }
+
+  a:hover, [href]:hover {
+    color: #1e53e5 !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     UTILITY CLASSES
+     ───────────────────────────────────────────────────────────── */
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .hidden, [hidden] {
+    display: none !important;
+  }
+
+  .text-muted, .gz-mut {
+    color: #787b86 !important;
+  }
+
+  .text-primary {
+    color: #2962ff !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     SPACING & LAYOUT
+     ───────────────────────────────────────────────────────────── */
+
+  .grid, [class*="grid"] {
+    display: grid !important;
+    grid-auto-flow: row !important;
+    gap: 8px !important;
+  }
+
+  .flex, [class*="flex"] {
+    display: flex !important;
+    gap: 8px !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     FINAL POLISH - Micro-interactions
+     ───────────────────────────────────────────────────────────── */
+
+  * {
+    transition-property: background, border, color, box-shadow !important;
+    transition-duration: 0.15s !important;
+    transition-timing-function: ease !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  /* Prevent text selection on interactive elements */
+  button, a, [role="button"], [role="menuitem"] {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+
+  /* Typography optimization */
+  body {
+    text-rendering: optimizeLegibility !important;
+    -webkit-font-feature-settings: "kern" 1 !important;
+    font-kerning: auto !important;
   }
 }
