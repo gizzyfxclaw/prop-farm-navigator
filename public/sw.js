@@ -1,4 +1,4 @@
-const CACHE_NAME = "gizzyfx-v11";
+const CACHE_NAME = "gizzyfx-v12";
 const ASSETS = [
   "/",
   "/manifest.webmanifest",

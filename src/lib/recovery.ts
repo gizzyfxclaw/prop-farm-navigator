@@ -104,7 +104,10 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     ? 0
     : Math.max(0, Math.floor(remainingDrawdown / propRiskPerTrade));
 
-  const recoveryShortfall = Math.max(0, r.propFee - totalExnessWins);
+  // Use NET retained (wins minus losses) — gross wins overstate recovery because
+  // Exness loses money on every prop win, erasing prior gains.
+  const netRetained = Math.max(0, totalExnessWins - totalExnessLosses);
+  const recoveryShortfall = Math.max(0, r.propFee - netRetained);
 
   const rePacedExnessTarget = adjustedRemainingLosses > 0
     ? recoveryShortfall / adjustedRemainingLosses

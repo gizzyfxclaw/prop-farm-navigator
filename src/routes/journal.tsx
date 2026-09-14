@@ -151,7 +151,10 @@ function JournalPage() {
     const totalExWins = closed.filter((t) => t.exPnl > 0).reduce((s, t) => s + t.exPnl, 0);
     const totalExLosses = closed.filter((t) => t.exPnl < 0).reduce((s, t) => s + Math.abs(t.exPnl), 0);
     const totalExnessPnl = closed.reduce((s, t) => s + t.exPnl, 0);
-    const exnessRecoveryPct = recovery.propFee > 0 ? (totalExWins / recovery.propFee) * 100 : 0;
+    // Net retained = gross Exness wins minus gross Exness losses (fuel burned on prop wins).
+    // Only the NET amount actually sits in the account toward recovering the prop fee.
+    const netExnessRetained = Math.max(0, totalExWins - totalExLosses);
+    const exnessRecoveryPct = recovery.propFee > 0 ? (netExnessRetained / recovery.propFee) * 100 : 0;
     const realMoneyNet = totalExnessPnl - recovery.propFee;
     const avgWin = wins > 0 ? totalPropProfit / wins : 0;
     const avgLoss = losses > 0 ? totalPropLoss / losses : 0;
@@ -162,7 +165,8 @@ function JournalPage() {
     else if (winRate >= 50) analysis.push(`Decent win rate at ${winRate.toFixed(1)}%. Keep executing consistently.`);
     else analysis.push(`Win rate is ${winRate.toFixed(1)}%. Below 50% — review entry timing or consider reducing size.`);
 
-    if (exnessRecoveryPct >= 100) analysis.push(`Fee fully recovered! Exness has covered the ${money(recovery.propFee)} prop fee — zero-loss loop achieved.`);
+    if (exnessRecoveryPct >= 100 && realMoneyNet >= 0) analysis.push(`Fee fully recovered! Exness has covered the ${money(recovery.propFee)} prop fee — zero-loss loop achieved.`);
+    else if (exnessRecoveryPct >= 100) analysis.push(`Exness gross wins cover the fee, but fuel burn leaves real-money net at ${money(realMoneyNet, true)}. Recovery: ${exnessRecoveryPct.toFixed(0)}%.`);
     else if (exnessRecoveryPct >= 80) analysis.push(`Exness recovery is strong: ${exnessRecoveryPct.toFixed(0)}% of prop fee recovered.`);
     else if (exnessRecoveryPct >= 60) analysis.push(`Exness recovery at ${exnessRecoveryPct.toFixed(0)}%. Track progress toward ${money(recovery.propFee)} fee target.`);
     else if (exnessRecoveryPct > 0) analysis.push(`Exness recovery is low (${exnessRecoveryPct.toFixed(0)}%). Prop fee not yet covered — maintain discipline.`);

@@ -218,7 +218,29 @@ describe("Targeted Slippage Martingale (TSM)", () => {
     const rec = computeRecovery(r, journal);
     expect(rec.slippageDebt).toBe(0);
     expect(rec.exnessFuelExhausted).toBeCloseTo(28.6, 6);
-    expect(rec.totalMoneyLost).toBeCloseTo(28.6 + 28.6, 6);
+    // realMoneyNet = actualExnessPnl − propFee = −28.6 − 28.6 = −57.2
+    expect(rec.realMoneyNet).toBeCloseTo(-57.2, 6);
+  });
+
+  it("recoveryShortfall uses NET retained, not gross wins (fixes overclaim bug)", () => {
+    const r = calculate(base);
+    const win = r.exnessWinTarget;       // ~4.7667
+    const exLoss = win * 2;              // ~9.5333
+    // 3 losses (Exness wins $14.30) + 3 wins (Exness loses $28.60) → net = -$14.30
+    const journal = [
+      trade("1", "LOSS", -50, win),
+      trade("2", "LOSS", -50, win),
+      trade("3", "LOSS", -50, win),
+      trade("4", "WIN", r.propWinPerTrade, -exLoss),
+      trade("5", "WIN", r.propWinPerTrade, -exLoss),
+      trade("6", "WIN", r.propWinPerTrade, -exLoss),
+    ];
+    const rec = computeRecovery(r, journal);
+    // Net retained = max(0, 14.30 − 28.60) = 0
+    // Shortfall = propFee − 0 = 28.60 (the FULL fee is still outstanding)
+    expect(rec.recoveryShortfall).toBeCloseTo(28.6, 4);
+    // Certainly not a false 50% from using gross wins
+    expect(rec.recoveryShortfall).not.toBeCloseTo(28.6 - 14.3, 4);
   });
 });
 
