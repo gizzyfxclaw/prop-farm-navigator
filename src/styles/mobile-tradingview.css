@@ -1,8 +1,8 @@
 /**
  * GizzyFx Mobile App - TradingView-inspired design
  *
- * IMPORTANT: This stylesheet ONLY applies to mobile devices (max-width: 767px).
- * Desktop design remains completely unchanged.
+ * IMPORTANT: This stylesheet applies to mobile devices and tablets (max-width: 1199px).
+ * Desktop design (1200px+) remains completely unchanged.
  *
  * TradingView mobile color scheme:
  * - Background: #131722 (dark navy)
@@ -15,7 +15,7 @@
  * - Border: #2A2E39 (subtle)
  */
 
-@media (max-width: 767px) {
+@media (max-width: 1199px) {
   /* ── ROOT THEME OVERRIDES (Mobile only) ────────────────────────────── */
   :root {
     --tv-bg: #131722;
@@ -350,7 +350,7 @@
   }
 
   /* Hide desktop-only elements on mobile */
-  @media (max-width: 767px) {
+  @media (max-width: 1199px) {
     .desktop-only {
       display: none !important;
     }
