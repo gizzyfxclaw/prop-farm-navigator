@@ -1,0 +1,382 @@
+/**
+ * GizzyFx Mobile App - TradingView-inspired design
+ *
+ * IMPORTANT: This stylesheet ONLY applies to mobile devices (max-width: 767px).
+ * Desktop design remains completely unchanged.
+ *
+ * TradingView mobile color scheme:
+ * - Background: #131722 (dark navy)
+ * - Card surface: #1E222D (slightly lighter navy)
+ * - Active element: #2962FF (electric blue)
+ * - Success: #26A69A (teal)
+ * - Danger: #EF5350 (coral red)
+ * - Text primary: #D1D4DC (light gray)
+ * - Text secondary: #787B86 (muted gray)
+ * - Border: #2A2E39 (subtle)
+ */
+
+@media (max-width: 767px) {
+  /* ── ROOT THEME OVERRIDES (Mobile only) ────────────────────────────── */
+  :root {
+    --tv-bg: #131722;
+    --tv-surface: #1E222D;
+    --tv-surface-hover: #262B38;
+    --tv-blue: #2962FF;
+    --tv-blue-hover: #1E53E5;
+    --tv-teal: #26A69A;
+    --tv-red: #EF5350;
+    --tv-yellow: #FF9800;
+    --tv-txt-primary: #D1D4DC;
+    --tv-txt-secondary: #787B86;
+    --tv-txt-muted: #5D606B;
+    --tv-border: #2A2E39;
+    --tv-divider: #363A45;
+  }
+
+  /* ── FORCE DARK THEME ON MOBILE ────────────────────────────────────── */
+  body {
+    background: var(--tv-bg) !important;
+    color: var(--tv-txt-primary) !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif !important;
+    font-size: 14px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* ── MOBILE APP HEADER (TradingView style) ────────────────────────── */
+  .engine-cockpit {
+    background: var(--tv-bg) !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .cockpit-header {
+    background: var(--tv-surface) !important;
+    padding: 12px 16px !important;
+    border-bottom: 1px solid var(--tv-border) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+  }
+
+  .cockpit-title {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    color: var(--tv-txt-primary) !important;
+  }
+
+  /* ── CARDS & PANELS (TradingView style) ────────────────────────────── */
+  .panel,
+  .card {
+    background: var(--tv-surface) !important;
+    border: 1px solid var(--tv-border) !important;
+    border-radius: 8px !important;
+    margin: 8px !important;
+    padding: 16px !important;
+    box-shadow: none !important;
+  }
+
+  .panel-head {
+    background: transparent !important;
+    border-bottom: 1px solid var(--tv-divider) !important;
+    padding: 0 0 12px 0 !important;
+    margin-bottom: 12px !important;
+  }
+
+  .panel-head-title {
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: var(--tv-txt-primary) !important;
+  }
+
+  /* ── STATS & TILES (TradingView style) ────────────────────────────── */
+  .stat {
+    background: var(--tv-bg) !important;
+    border: 1px solid var(--tv-border) !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+  }
+
+  .stat-label {
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: var(--tv-txt-secondary) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .stat-value {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    color: var(--tv-txt-primary) !important;
+    font-family: 'Courier New', monospace !important;
+  }
+
+  /* ── BUTTONS (TradingView style) ────────────────────────────────────── */
+  button,
+  .btn,
+  .button {
+    background: var(--tv-blue) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 10px 16px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: background 0.2s ease !important;
+  }
+
+  button:hover,
+  .btn:hover {
+    background: var(--tv-blue-hover) !important;
+  }
+
+  button.variant-success,
+  .btn-success {
+    background: var(--tv-teal) !important;
+  }
+
+  button.variant-danger,
+  .btn-danger {
+    background: var(--tv-red) !important;
+  }
+
+  button.variant-ghost,
+  .btn-ghost {
+    background: transparent !important;
+    border: 1px solid var(--tv-border) !important;
+    color: var(--tv-txt-primary) !important;
+  }
+
+  /* ── BADGES (TradingView style) ────────────────────────────────────── */
+  .badge {
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+  }
+
+  .badge.tone-green {
+    background: rgba(38, 166, 154, 0.15) !important;
+    color: var(--tv-teal) !important;
+  }
+
+  .badge.tone-red {
+    background: rgba(239, 83, 80, 0.15) !important;
+    color: var(--tv-red) !important;
+  }
+
+  .badge.tone-blue {
+    background: rgba(41, 98, 255, 0.15) !important;
+    color: var(--tv-blue) !important;
+  }
+
+  .badge.tone-amber {
+    background: rgba(255, 152, 0, 0.15) !important;
+    color: var(--tv-yellow) !important;
+  }
+
+  /* ── FORM INPUTS (TradingView style) ────────────────────────────────── */
+  input,
+  select,
+  textarea {
+    background: var(--tv-bg) !important;
+    border: 1px solid var(--tv-border) !important;
+    border-radius: 6px !important;
+    color: var(--tv-txt-primary) !important;
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--tv-blue) !important;
+    outline: none !important;
+  }
+
+  /* ── TABLES (TradingView mobile list style) ────────────────────────── */
+  table {
+    width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 4px !important;
+  }
+
+  thead {
+    position: sticky !important;
+    top: 60px !important;
+    background: var(--tv-surface) !important;
+    z-index: 10 !important;
+  }
+
+  th {
+    background: var(--tv-surface) !important;
+    color: var(--tv-txt-secondary) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    padding: 8px 12px !important;
+    text-align: left !important;
+  }
+
+  tbody tr {
+    background: var(--tv-bg) !important;
+    border: 1px solid var(--tv-border) !important;
+    border-radius: 6px !important;
+  }
+
+  td {
+    padding: 12px !important;
+    color: var(--tv-txt-primary) !important;
+    font-size: 13px !important;
+    border: none !important;
+  }
+
+  /* ── COLOR CODING (TradingView semantic colors) ────────────────────── */
+  .text-success,
+  .gz-pos {
+    color: var(--tv-teal) !important;
+  }
+
+  .text-destructive,
+  .gz-neg {
+    color: var(--tv-red) !important;
+  }
+
+  .text-primary {
+    color: var(--tv-blue) !important;
+  }
+
+  .text-muted-foreground,
+  .gz-mut {
+    color: var(--tv-txt-secondary) !important;
+  }
+
+  /* ── CHARTS (TradingView dark theme) ────────────────────────────────── */
+  svg {
+    background: transparent !important;
+  }
+
+  svg text {
+    fill: var(--tv-txt-secondary) !important;
+    font-size: 11px !important;
+  }
+
+  svg .recharts-cartesian-grid line {
+    stroke: var(--tv-border) !important;
+  }
+
+  svg .recharts-line {
+    stroke: var(--tv-blue) !important;
+    stroke-width: 2px !important;
+  }
+
+  /* ── BOTTOM NAVIGATION (TradingView mobile) ────────────────────────── */
+  .mobile-nav {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: var(--tv-surface) !important;
+    border-top: 1px solid var(--tv-border) !important;
+    display: flex !important;
+    justify-content: space-around !important;
+    padding: 8px 0 !important;
+    z-index: 1000 !important;
+  }
+
+  .mobile-nav-item {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 8px !important;
+    color: var(--tv-txt-secondary) !important;
+    font-size: 11px !important;
+    text-decoration: none !important;
+  }
+
+  .mobile-nav-item.active {
+    color: var(--tv-blue) !important;
+  }
+
+  .mobile-nav-item svg {
+    width: 24px !important;
+    height: 24px !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* ── RECOVERY COUNTDOWN (TradingView alert style) ──────────────────── */
+  .recovery-countdown {
+    background: var(--tv-surface) !important;
+    border: 2px solid var(--tv-blue) !important;
+    border-radius: 8px !important;
+    padding: 16px !important;
+    margin: 12px 0 !important;
+  }
+
+  .recovery-countdown.at-risk {
+    border-color: var(--tv-red) !important;
+  }
+
+  .recovery-countdown h3 {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--tv-txt-primary) !important;
+    margin-bottom: 12px !important;
+  }
+
+  .recovery-countdown svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  /* ── MOBILE OPTIMIZATIONS ───────────────────────────────────────────── */
+  .grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* Hide desktop-only elements on mobile */
+  @media (max-width: 767px) {
+    .desktop-only {
+      display: none !important;
+    }
+  }
+
+  /* Add padding at bottom for mobile nav */
+  body {
+    padding-bottom: 70px !important;
+  }
+
+  /* ── SMOOTH SCROLLING ───────────────────────────────────────────────── */
+  * {
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* ── HIDE UNNECESSARY UI ON MOBILE ──────────────────────────────────── */
+  .cockpit-header-right {
+    font-size: 12px !important;
+  }
+
+  /* ── TRADING VIEW BLUE ACCENT ───────────────────────────────────────── */
+  a {
+    color: var(--tv-blue) !important;
+  }
+
+  a:hover {
+    color: var(--tv-blue-hover) !important;
+  }
+}

@@ -13,6 +13,7 @@ import { Toaster } from "sonner";
 import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, RefreshCw, ClipboardList, ArrowRight, Menu, X, LayoutDashboard, Calendar, ShieldCheck, Wallet, BookOpen, Radio, Bot, BarChart3, Layers, PieChart, Terminal, HelpCircle, Settings, Wrench } from "lucide-react";
 
 import appCss from "../styles.css?url";
+import mobileTvCss from "../styles/mobile-tradingview.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 /* ── Error Boundary ─────────────────────────────────────────────── */
