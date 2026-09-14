@@ -325,6 +325,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "stylesheet", href: mobileTvCss },
       { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
       { rel: "icon", type: "image/png", sizes: "16x16",  href: "/favicon-16.png" },
       { rel: "icon", type: "image/png", sizes: "32x32",  href: "/favicon-32.png" },
