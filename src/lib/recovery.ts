@@ -44,6 +44,7 @@ export interface RecoveryState {
   adjustedRemainingLosses: number;
   recoveryShortfall: number;
   effectiveBaseTarget: number;
+  exnessWinsNeeded: number;
 }
 
 function expectedExnessPnl(
@@ -174,6 +175,11 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
   const realMoneyNet = actualExnessPnl - propFee;
   const netResultAfterPayout = r.propPayout + actualExnessPnl - propFee;
 
+  // Recovery Countdown: how many Exness wins are needed to fully recover the fee?
+  const exnessWinsNeeded = recoveryShortfall > 0 && newExnessWinTarget > 0
+    ? Math.ceil(recoveryShortfall / newExnessWinTarget)
+    : 0;
+
   return {
     loggedWins,
     loggedLosses,
@@ -207,5 +213,6 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     adjustedRemainingLosses,
     recoveryShortfall,
     effectiveBaseTarget,
+    exnessWinsNeeded,
   };
 }

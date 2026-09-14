@@ -145,6 +145,7 @@ function JournalPage() {
     const wins = closed.filter((t) => t.result === "WIN").length;
     const losses = closed.filter((t) => t.result === "LOSS").length;
     const winRate = closed.length > 0 ? (wins / closed.length) * 100 : 0;
+    // Net P&L = sum of actual trade P&L — do NOT add the prop payout until challenge is passed
     const netPnl = closed.reduce((s, t) => s + t.netPnl, 0);
     const totalPropProfit = closed.filter((t) => t.propPnl > 0).reduce((s, t) => s + t.propPnl, 0);
     const totalPropLoss = closed.filter((t) => t.propPnl < 0).reduce((s, t) => s + Math.abs(t.propPnl), 0);
@@ -688,6 +689,32 @@ function JournalPage() {
             tone={recovery.adjustmentNeeded ? "text-amber-400" : undefined}
           />
         </div>
+
+        {/* ── RECOVERY COUNTDOWN ────────────────────────────────────── */}
+        {!recovery.challengePassed && recovery.exnessWinsNeeded > 0 && (
+          <div className="mt-4 rounded-lg border-2 p-4" style={{ borderColor: recovery.remainingLosses >= recovery.exnessWinsNeeded ? "oklch(var(--gz-pos) / 0.3)" : "oklch(var(--gz-neg) / 0.3)", background: recovery.remainingLosses >= recovery.exnessWinsNeeded ? "oklch(var(--gz-pos) / 0.05)" : "oklch(var(--gz-neg) / 0.05)" }}>
+            <h3 className="text-[13px] font-semibold mb-3" style={{ color: recovery.remainingLosses >= recovery.exnessWinsNeeded ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))" }}>
+              {recovery.remainingLosses >= recovery.exnessWinsNeeded ? "✅ ZERO-LOSS GUARANTEED" : "🚨 RECOVERY AT RISK"}
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="text-[10px] text-muted-foreground mb-1">Prop Legs Remaining (Bullets)</div>
+                <div className="text-[18px] font-bold font-mono" style={{ color: "oklch(var(--gz-txt))" }}>{recovery.remainingLosses}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-muted-foreground mb-1">Exness Wins Needed (Heals)</div>
+                <div className="text-[18px] font-bold font-mono" style={{ color: "oklch(var(--gz-txt))" }}>{recovery.exnessWinsNeeded}</div>
+              </div>
+            </div>
+            <p className="mt-3 text-[11px]" style={{ color: "oklch(var(--gz-txt) / 0.85)" }}>
+              {recovery.remainingLosses >= recovery.exnessWinsNeeded
+                ? `You have ${recovery.remainingLosses} Prop legs left, but only need ${recovery.exnessWinsNeeded} Exness wins to fully recover your ${money(recovery.propFee)} fee.`
+                : `You only have ${recovery.remainingLosses} Prop legs left, but need ${recovery.exnessWinsNeeded} Exness wins. The account may blow before full recovery.`
+              }
+            </p>
+          </div>
+        )}
+
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-[11px] text-muted-foreground">
           <div>Prop profit logged: <span className="text-success font-mono">{money(recovery.totalPropProfitLogged, true)}</span></div>
           <div>Prop loss logged: <span className="text-destructive font-mono">{money(-recovery.totalPropLossLogged)}</span></div>
