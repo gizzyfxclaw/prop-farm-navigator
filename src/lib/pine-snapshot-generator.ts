@@ -66,10 +66,11 @@ export function generateSnapshotPineScript(
   lines.push("// Fixed price/time values — this will NOT update as new bars form.");
   lines.push("");
 
-  if (channel && channel.type !== "none" && channel.baseLine && channel.breakoutLine) {
+  const breakout = channel?.breakoutLine ?? (channel?.direction === "long" ? channel?.resistanceLine : channel?.supportLine);
+  if (channel && channel.type !== "none" && channel.baseLine && channel.baseLine.length >= 2 && breakout && breakout.length >= 2) {
     const dirHex = channel.direction === "long" ? "#22c55e" : "#ef4444";
     const [b1, b2] = channel.baseLine;
-    const [k1, k2] = channel.breakoutLine;
+    const [k1, k2] = breakout;
     drawLines.push(
       `line.new(x1=${ms(b1.time)}, y1=${b1.price}, x2=${ms(b2.time)}, y2=${b2.price}, xloc=xloc.bar_time, extend=extend.right, color=${rgb("#60a5fa")}, style=line.style_dashed, width=1)`,
     );
@@ -79,10 +80,12 @@ export function generateSnapshotPineScript(
     drawLines.push(
       `label.new(x=${ms(k2.time)}, y=${k2.price}, xloc=xloc.bar_time, text="Breakout boundary (${channel.retestCount} retest${channel.retestCount === 1 ? "" : "s"})", style=label.style_label_left, color=${rgb(dirHex)}, textcolor=color.white, size=size.small)`,
     );
-    for (const r of channel.retests.slice(-8)) {
-      drawLines.push(
-        `label.new(x=${ms(r.time)}, y=${r.price}, xloc=xloc.bar_time, text="retest", style=${channel.direction === "long" ? "label.style_label_up" : "label.style_label_down"}, color=${rgb(dirHex)}, textcolor=color.white, size=size.tiny)`,
-      );
+    for (const r of (channel.retests ?? []).slice(-8)) {
+      if (r && r.time != null) {
+        drawLines.push(
+          `label.new(x=${ms(r.time)}, y=${r.price}, xloc=xloc.bar_time, text="retest", style=${channel.direction === "long" ? "label.style_label_up" : "label.style_label_down"}, color=${rgb(dirHex)}, textcolor=color.white, size=size.tiny)`,
+        );
+      }
     }
   } else if (structure?.trendline) {
     const bias = structure.bias;

@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { Scale, ChevronDown, CheckCircle2 } from "lucide-react";
 
 export interface StrategyOption {
   id: string;
@@ -176,5 +177,3 @@ export function StrategySelector({ value, onChange, disabled }: StrategySelector
     </div>
   );
 }
-
-import { Scale, ChevronDown, CheckCircle2 } from "lucide-react";

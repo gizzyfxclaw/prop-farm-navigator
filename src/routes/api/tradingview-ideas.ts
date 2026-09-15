@@ -250,7 +250,8 @@ export const Route = createFileRoute("/api/tradingview-ideas")({
               lower.includes("sell") || lower.includes("short") || lower.includes("bearish") ? "SHORT" :
               "NEUTRAL";
 
-            const id = chartPath.split("/")[3]?.split("-")[0] || String(count);
+            const segments = chartPath.split("/").filter(Boolean);
+            const id = segments[2]?.split("-")?.[0] || segments[1]?.split("-")?.[0] || String(count);
 
             // Judge Idea Accuracy
             const evalResult = evaluateIdeaAccuracy({ title, description, direction }, tvTech);

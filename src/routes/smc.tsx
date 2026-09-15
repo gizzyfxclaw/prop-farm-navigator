@@ -10,6 +10,7 @@ import {
 import { Badge, Button, Card } from "@/components/terminal/ui";
 import { LWChart, type OHLCBar } from "@/components/terminal/lwchart";
 import { WinRateBadge } from "@/components/terminal/WinRateBadge";
+import { pairSpec } from "@/lib/engine/pairs";
 import { buildSmcDrawings, type DrawableLevels, type SmcChannel } from "@/lib/smc-drawings";
 import { generateSnapshotPineScript } from "@/lib/pine-snapshot-generator";
 import SmcStrategyConfig from "@/components/terminal/SmcStrategyConfig";
@@ -386,7 +387,7 @@ function GizzyFxCoPilotAnalyzingCard({ submittedAt, reviewId }: { submittedAt: n
   const progress = Math.min((elapsed / TOTAL_SECONDS) * 100, 99);
   const isOverdue = elapsed > TOTAL_SECONDS;
   const remaining = isOverdue ? 0 : TOTAL_SECONDS - elapsed;
-  const currentPhase = ANALYSIS_PHASES[phaseIdx] ?? ANALYSIS_PHASES[ANALYSIS_PHASES.length - 1]!;
+  const currentPhase = ANALYSIS_PHASES[Math.max(0, Math.min(ANALYSIS_PHASES.length - 1, phaseIdx))] ?? ANALYSIS_PHASES[0]!;
 
   if (reviewFulfilled) {
     return (
@@ -589,9 +590,12 @@ function AnalysisChart({
     let cancelled = false;
     setLoading(true);
     fetch(`/api/ohlcv?pair=${pair}&interval=${timeframe}&limit=300`)
-      .then((res) => res.json() as Promise<{ bars: OHLCBar[] }>)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json() as Promise<{ bars: OHLCBar[] }>;
+      })
       .then((d) => { if (!cancelled) setBars(d.bars ?? []); })
-      .catch(() => {})
+      .catch(() => { if (!cancelled) setBars([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [pair, timeframe]);
@@ -944,27 +948,30 @@ function SMCPage() {
   };
 
   /* ── Parse helper ────────────────────────────────────────────────── */
-  function parseJsonField<T>(raw: string | null, fallback: T): T {
+  function parseJsonField<T>(raw: string | null | unknown, fallback: T): T {
     if (!raw) return fallback;
-    try { return JSON.parse(raw) as T; } catch { return fallback; }
+    if (typeof raw === "object") return raw as T;
+    try { return JSON.parse(raw as string) as T; } catch { return fallback; }
   }
 
-function safeNum(val: unknown, fallback = 0): number {
-  const n = typeof val === "number" ? val : parseFloat(val as string);
-  return Number.isFinite(n) ? n : fallback;
-}
+  function safeNum(val: unknown, fallback = 0): number {
+    const n = typeof val === "number" ? val : parseFloat(val as string);
+    return Number.isFinite(n) ? n : fallback;
+  }
 
-function safeStr(val: unknown, fallback = "—"): string {
-  return val != null ? String(val) : fallback;
-}
+  function safeStr(val: unknown, fallback = "—"): string {
+    return val != null ? String(val) : fallback;
+  }
 
-function safeBool(val: unknown, fallback = false): boolean {
-  return typeof val === "boolean" ? val : fallback;
-}
+  function safeBool(val: unknown, fallback = false): boolean {
+    return typeof val === "boolean" ? val : fallback;
+  }
 
-function fmt(val: unknown, decimals = 5): string {
-  return safeNum(val).toFixed(decimals);
-}
+  function fmt(val: unknown, decimals?: number): string {
+    const spec = pairSpec(pair);
+    const dec = decimals ?? spec.decimals;
+    return safeNum(val).toFixed(dec);
+  }
 
   /* ── Helpers ─────────────────────────────────────────────────────── */
   const bias = data?.structure?.bias ?? "neutral";
@@ -1208,7 +1215,7 @@ function fmt(val: unknown, decimals = 5): string {
                   }}>
                     <div style={{
                       height: "100%",
-                      width: `${Math.min(100, (stepElapsed / parseInt(hermesStatus.stepEta)) * 100)}%`,
+                      width: `${Math.min(100, Math.max(0, (stepElapsed / (parseInt(hermesStatus.stepEta, 10) || 60)) * 100))}%`,
                       background: "linear-gradient(90deg, oklch(0.50 0.25 280), oklch(0.65 0.22 320))",
                       borderRadius: 2,
                       transition: "width 0.3s ease",
@@ -1763,10 +1770,10 @@ function fmt(val: unknown, decimals = 5): string {
               {/* All R:R Options */}
               <p className="text-[11px] text-muted-foreground mb-2">All Risk:Reward Options (TP levels)</p>
               <div className="grid gap-2 sm:grid-cols-2">
-                {data.levels.riskRewardOptions?.map((rr, i) => {
+                {(data.levels.riskRewardOptions ?? ["1:1.5", "1:2"]).map((rr, i) => {
                   const isRecommended = rr === data.levels.recommendedRR;
-                  const tp = [data.levels.takeProfit1, data.levels.takeProfit2][i];
-                  const pips = [data.levels.tp15Pips, data.levels.tp20Pips][i];
+                  const tp = [data.levels.takeProfit1, data.levels.takeProfit2][i] ?? data.levels.primaryTP;
+                  const pips = [data.levels.tp15Pips, data.levels.tp20Pips][i] ?? data.levels.primaryTPPips;
                   return (
                     <div
                       key={rr}
@@ -1808,10 +1815,10 @@ function fmt(val: unknown, decimals = 5): string {
                     BULL CASE ({((data.debate?.bullCase?.overallConfidence ?? 0) * 100).toFixed(0)}%)
                   </p>
                   <ul className="space-y-1 text-[12px]">
-                    {data.debate.bullCase.points.map((p, i) => (
+                    {(data.debate.bullCase?.points ?? []).map((p, i) => (
                       <li key={i} className="text-muted-foreground">
-                        <span className="text-foreground font-medium">{p.claim}</span>
-                        {p.evidence && <span className="text-[11px] text-muted-foreground/70"> — {p.evidence}</span>}
+                        <span className="text-foreground font-medium">{p?.claim ?? ""}</span>
+                        {p?.evidence && <span className="text-[11px] text-muted-foreground/70"> — {p.evidence}</span>}
                       </li>
                     ))}
                   </ul>
@@ -1821,10 +1828,10 @@ function fmt(val: unknown, decimals = 5): string {
                     BEAR CASE ({((data.debate?.bearCase?.overallConfidence ?? 0) * 100).toFixed(0)}%)
                   </p>
                   <ul className="space-y-1 text-[12px]">
-                    {data.debate.bearCase.points.map((p, i) => (
+                    {(data.debate.bearCase?.points ?? []).map((p, i) => (
                       <li key={i} className="text-muted-foreground">
-                        <span className="text-foreground font-medium">{p.claim}</span>
-                        {p.evidence && <span className="text-[11px] text-muted-foreground/70"> — {p.evidence}</span>}
+                        <span className="text-foreground font-medium">{p?.claim ?? ""}</span>
+                        {p?.evidence && <span className="text-[11px] text-muted-foreground/70"> — {p.evidence}</span>}
                       </li>
                     ))}
                   </ul>
@@ -1835,8 +1842,8 @@ function fmt(val: unknown, decimals = 5): string {
                   <Clock size={10} /> Debate Rounds
                 </p>
                 <div className="space-y-1 text-[11px] font-mono text-muted-foreground">
-                  {data.debate.debateRounds.map((r, i) => (
-                    <p key={i} className={r.includes("Synthesis") ? "text-foreground font-bold" : ""}>{r}</p>
+                  {(data.debate.debateRounds ?? []).map((r, i) => (
+                    <p key={i} className={typeof r === "string" && r.includes("Synthesis") ? "text-foreground font-bold" : ""}>{String(r)}</p>
                   ))}
                 </div>
               </div>

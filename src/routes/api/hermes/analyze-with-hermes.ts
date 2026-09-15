@@ -17,7 +17,7 @@ import { getCFEnv } from "@/lib/cloudflare-env";
 
 const submitInput = z.object({
   pair: z.string(),
-  smc_data: z.record(z.any()).optional().default({}),
+  smc_data: z.any().optional().default({}),
   user_notes: z.string().optional(),
   user_image: z.string().optional(), // base64 data URL
   timeframe: z.string().default("1h"),

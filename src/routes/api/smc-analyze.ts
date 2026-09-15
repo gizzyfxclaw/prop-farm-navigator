@@ -51,7 +51,9 @@ interface Channel {
   direction: "long" | "short" | "neutral";
   breakoutBoundary: number;
   retestCount: number;
+  retests: { time: number; price: number }[];
   baseLine: { time: number; price: number }[] | null;
+  breakoutLine: { time: number; price: number }[] | null;
   resistanceLine: { time: number; price: number }[] | null;
   supportLine: { time: number; price: number }[] | null;
 }
@@ -59,7 +61,7 @@ interface Channel {
 function detectChannel(bars: Bar[], atr: number): Channel {
   const { highs, lows } = findSwings(bars, 5);
   if (highs.length < 2 || lows.length < 2) {
-    return { type: "none", direction: "neutral", breakoutBoundary: 0, retestCount: 0, baseLine: null, resistanceLine: null, supportLine: null };
+    return { type: "none", direction: "neutral", breakoutBoundary: 0, retestCount: 0, retests: [], baseLine: null, breakoutLine: null, resistanceLine: null, supportLine: null };
   }
 
   const lastH = highs[highs.length - 1]!;
@@ -77,6 +79,7 @@ function detectChannel(bars: Bar[], atr: number): Channel {
   let resistanceLine: { time: number; price: number }[] | null = null;
   let supportLine: { time: number; price: number }[] | null = null;
   let baseLine: { time: number; price: number }[] | null = null;
+  let breakoutLine: { time: number; price: number }[] | null = null;
 
   if (hh && hl) {
     direction = "long";
@@ -93,6 +96,7 @@ function detectChannel(bars: Bar[], atr: number): Channel {
       { time: bars[lastH]!.time, price: lastLPrice },
     ];
     baseLine = supportLine;
+    breakoutLine = resistanceLine;
   } else if (lh && ll) {
     direction = "short";
     boundary = bars[lastL]!.low;
@@ -108,18 +112,26 @@ function detectChannel(bars: Bar[], atr: number): Channel {
       { time: bars[lastL]!.time, price: lastHPrice },
     ];
     baseLine = resistanceLine;
+    breakoutLine = supportLine;
   } else {
-    return { type: "none", direction: "neutral", breakoutBoundary: 0, retestCount: 0, baseLine: null, resistanceLine: null, supportLine: null };
+    return { type: "none", direction: "neutral", breakoutBoundary: 0, retestCount: 0, retests: [], baseLine: null, breakoutLine: null, resistanceLine: null, supportLine: null };
   }
 
-  // Count retests
+  // Count retests and capture coordinates
   let retestCount = 0;
+  const retests: { time: number; price: number }[] = [];
   const tolerance = atr * 0.5;
   for (let i = Math.max(lastH, lastL) + 1; i < bars.length - 1; i++) {
     if (direction === "long") {
-      if (Math.abs(bars[i]!.high - boundary) <= tolerance) retestCount++;
+      if (Math.abs(bars[i]!.high - boundary) <= tolerance) {
+        retestCount++;
+        retests.push({ time: bars[i]!.time, price: bars[i]!.high });
+      }
     } else {
-      if (Math.abs(bars[i]!.low - boundary) <= tolerance) retestCount++;
+      if (Math.abs(bars[i]!.low - boundary) <= tolerance) {
+        retestCount++;
+        retests.push({ time: bars[i]!.time, price: bars[i]!.low });
+      }
     }
   }
 
@@ -128,7 +140,9 @@ function detectChannel(bars: Bar[], atr: number): Channel {
     direction,
     breakoutBoundary: boundary,
     retestCount,
+    retests,
     baseLine,
+    breakoutLine,
     resistanceLine,
     supportLine,
   };
@@ -144,18 +158,27 @@ function checkBreakoutConfirmed(bars: Bar[] | null, boundary: number, direction:
   }
 }
 
-async function computeAlignment(apiKey: string, pair: string, currentTf: string, channelBias: Bias): Promise<{ biasByTf: Record<string, string>; aligned: boolean; agreeCount: number; totalCount: number }> {
-  const tfs = ["1h", "4h", "1d"];
-  const biasByTf: Record<string, string> = {};
+async function computeAlignment(apiKey: string, pair: string, currentTf: string, channelBias: Bias): Promise<{ biasByTf: Record<string, "bullish" | "bearish" | "neutral">; aligned: boolean; agreeCount: number; totalCount: number; conflictingTfs: string[]; requested: string }> {
+  const tfs = ["1d", "4h", "1h", "15m", "5m"];
+  const biasByTf: Record<string, "bullish" | "bearish" | "neutral"> = {};
+  const conflictingTfs: string[] = [];
   let agreeCount = 0;
   let totalCount = 0;
 
   for (const tf of tfs) {
-    if (tf === currentTf) continue;
+    if (tf === currentTf) {
+      biasByTf[currentTf] = channelBias;
+      totalCount++;
+      agreeCount++;
+      continue;
+    }
     const bars = await fetchBarsWithRetry(apiKey, pair, tf, 200);
-    if (!bars || bars.length < 20) continue;
+    if (!bars || bars.length < 20) {
+      biasByTf[tf] = "neutral";
+      continue;
+    }
     const { highs, lows } = findSwings(bars, 5);
-    let bias = "neutral";
+    let bias: "bullish" | "bearish" | "neutral" = "neutral";
     if (highs.length >= 2 && lows.length >= 2) {
       const lastH = highs[highs.length - 1]!;
       const prevH = highs[highs.length - 2]!;
@@ -166,14 +189,21 @@ async function computeAlignment(apiKey: string, pair: string, currentTf: string,
     }
     biasByTf[tf] = bias;
     totalCount++;
-    if (bias === channelBias) agreeCount++;
+    if (bias === channelBias) {
+      agreeCount++;
+    } else if (channelBias !== "neutral" && bias !== "neutral") {
+      conflictingTfs.push(tf);
+    }
   }
 
-  biasByTf[currentTf] = channelBias;
-  totalCount++;
-  agreeCount++;
-
-  return { biasByTf, aligned: agreeCount >= Math.ceil(totalCount * 0.6), agreeCount, totalCount };
+  return {
+    requested: currentTf,
+    biasByTf,
+    aligned: agreeCount >= Math.ceil(totalCount * 0.6),
+    agreeCount,
+    totalCount,
+    conflictingTfs,
+  };
 }
 
 function hasNearbyConflict(orderBlocks: any[], targetPrice: number, direction: string, atr: number): boolean {
@@ -196,6 +226,7 @@ interface DrawableLevels {
   takeProfit1: string;
   takeProfit2: string;
   riskReward: string;
+  riskRewardOptions: string[];
   recommendedRR: string;
   slPips: number;
   tp15Pips: number;
@@ -308,6 +339,7 @@ function buildStrategyLevels(
       takeProfit1: lastPrice.toFixed(spec.decimals),
       takeProfit2: lastPrice.toFixed(spec.decimals),
       riskReward: "1:1.5",
+      riskRewardOptions: ["1:1.5", "1:2"],
       recommendedRR: "1:1.5",
       slPips: SL_PIPS,
       tp15Pips: 0,
@@ -373,6 +405,7 @@ function buildStrategyLevels(
     takeProfit2: tp20.toFixed(spec.decimals),
     primaryTP: primaryTP.toFixed(spec.decimals),
     riskReward: recommendedRR,
+    riskRewardOptions: ["1:1.5", "1:2"],
     recommendedRR,
     slPips: SL_PIPS,
     tp15Pips: Math.round(Math.abs(tp15 - entryPrice) / spec.pipSize),

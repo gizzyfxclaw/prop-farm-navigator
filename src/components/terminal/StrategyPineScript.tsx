@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { Layers } from "lucide-react";
 import { StrategySelector } from "./StrategySelector";
 
 interface StrategyPineScriptProps {
@@ -510,5 +511,3 @@ export function StrategyPineScript({ pair, timeframe, strategy, onApply, onAnaly
     </div>
   );
 }
-
-import { Layers } from "lucide-react";

@@ -131,17 +131,18 @@ function SpeedometerGauge({
   title,
   score,
   verdict,
-  counts,
+  counts = { buy: 0, neutral: 0, sell: 0 },
 }: {
   title: string;
   score: number;
   verdict: string;
-  counts: { buy: number; neutral: number; sell: number };
+  counts?: { buy: number; neutral: number; sell: number };
 }) {
-  const clampedScore = Math.max(-1, Math.min(1, score));
+  const safeCounts = counts ?? { buy: 0, neutral: 0, sell: 0 };
+  const clampedScore = Math.max(-1, Math.min(1, score ?? 0));
   const angle = clampedScore * 80;
-  const verdictText = formatVerdict(verdict);
-  const verdictColor = getVerdictColor(verdict);
+  const verdictText = formatVerdict(verdict ?? "NEUTRAL");
+  const verdictColor = getVerdictColor(verdict ?? "NEUTRAL");
 
   return (
     <div className="flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl bg-card/60 border border-border">
@@ -229,15 +230,15 @@ function SpeedometerGauge({
       <div className="grid grid-cols-3 gap-4 text-center mt-2 pt-2 border-t border-border/40 w-full font-mono">
         <div>
           <span className="text-[10px] text-muted-foreground block font-sans uppercase">Sell</span>
-          <span className="text-sm font-bold text-destructive">{counts.sell}</span>
+          <span className="text-sm font-bold text-destructive">{safeCounts.sell}</span>
         </div>
         <div>
           <span className="text-[10px] text-muted-foreground block font-sans uppercase">Neutral</span>
-          <span className="text-sm font-bold text-muted-foreground">{counts.neutral}</span>
+          <span className="text-sm font-bold text-muted-foreground">{safeCounts.neutral}</span>
         </div>
         <div>
           <span className="text-[10px] text-muted-foreground block font-sans uppercase">Buy</span>
-          <span className="text-sm font-bold text-primary">{counts.buy}</span>
+          <span className="text-sm font-bold text-primary">{safeCounts.buy}</span>
         </div>
       </div>
     </div>
@@ -293,7 +294,10 @@ export function TradingViewTechnicalsPanel({
     setError(null);
     try {
       const res = await fetch(`/api/technicals?pair=${cleanPair}&interval=${interval}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as any).error || `HTTP ${res.status}`);
+      }
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       setData(json);
@@ -310,7 +314,9 @@ export function TradingViewTechnicalsPanel({
       const res = await fetch(`/api/tradingview-ideas?pair=${cleanPair}`);
       if (res.ok) {
         const json = await res.json();
-        setCommunityReport(json);
+        if (json && !json.error) {
+          setCommunityReport(json);
+        }
       }
     } catch {}
     finally {
@@ -507,7 +513,7 @@ export function TradingViewTechnicalsPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {data.oscillators.rows.map((r, i) => (
+                  {(data.oscillators?.rows ?? []).map((r, i) => (
                     <tr key={i} className="hover:bg-secondary/40">
                       <td className="font-medium text-foreground text-xs py-2">{r.name}</td>
                       <td className="font-mono text-xs text-right text-foreground font-semibold">
@@ -535,7 +541,7 @@ export function TradingViewTechnicalsPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {data.moving_averages.rows.map((r, i) => (
+                  {(data.moving_averages?.rows ?? []).map((r, i) => (
                     <tr key={i} className="hover:bg-secondary/40">
                       <td className="font-medium text-foreground text-xs py-2">{r.name}</td>
                       <td className="font-mono text-xs text-right text-foreground font-semibold">

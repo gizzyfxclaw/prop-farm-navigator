@@ -831,6 +831,13 @@ export interface ScorecardItem {
   explanation: string;
 }
 
+export interface WhyRationaleReport {
+  primaryDecisionReason: string;
+  macroChainOfEvents: string[];
+  whyWeightingExplanation: string;
+  institutionalFlowDriver: string;
+}
+
 export interface MasterNewsConclusion {
   pair: string;
   baseCurrency: string;
@@ -842,12 +849,42 @@ export interface MasterNewsConclusion {
   totalEventsJudged: number;
   eventScorecard: ScorecardItem[];
   synthesis: string;
+  whyRationale: WhyRationaleReport;
   tradePlaybook: {
     recommendedOrder: "BUY_STOP" | "SELL_STOP" | "BUY_LIMIT" | "SELL_LIMIT" | "MARKET" | "WAIT_FOR_CLEAR_SETUP";
     targetPips: string;
     suggestedSLPips: number;
     entryTiming: string;
     invalidation: string;
+  };
+}
+
+export interface UpcomingScenarioPlan {
+  scenarioName: string;
+  condition: string;
+  pairDirection: "BUY" | "SELL" | "NEUTRAL";
+  targetPips: string;
+  probabilityPct: number;
+  macroExplanation: string;
+  orderTrigger: string;
+}
+
+export interface UpcomingMasterForecast {
+  pair: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  preReleaseMarketBias: "BUY" | "SELL" | "NEUTRAL";
+  biasHeadline: string;
+  confidenceScore: number;
+  primaryNextEventName: string;
+  whyForecast: string;
+  macroChainReasoning: string[];
+  bullishScenario: UpcomingScenarioPlan;
+  bearishScenario: UpcomingScenarioPlan;
+  playbook: {
+    recommendedActionAheadOfNews: string;
+    safeWindow: string;
+    postReleaseReactionRule: string;
   };
 }
 
@@ -926,14 +963,46 @@ export function synthesizePairNewsConclusion(
   const bearishEvents = eventScorecard.filter(e => e.pairImpact === "BEARISH");
 
   let synthesis = "";
+  let primaryReason = "";
+  const macroChain: string[] = [];
+  let weightingExpl = "";
+  let flowDriver = "";
+
   if (relevantEvents.length === 0) {
     synthesis = `No economic calendar releases directly affecting ${baseCurrency} or ${quoteCurrency} today. Market is driven primarily by technical SMC structure and baseline session liquidity.`;
+    primaryReason = `No direct economic releases for ${baseCurrency} or ${quoteCurrency} today. Baseline technical channel rules apply.`;
+    macroChain.push("1. Economic calendar has no direct high-impact releases for this pair today.");
+    macroChain.push("2. Interbank liquidity is driven by baseline London/NY session order flow.");
+    macroChain.push("3. Smart Money Concepts order blocks and technical price action hold highest predictive weight.");
+    weightingExpl = "Technical chart structure has 100% weighting due to absence of macro catalysts.";
+    flowDriver = "Baseline institutional session trading.";
   } else if (masterDirection === "BUY") {
     synthesis = `Collective news scorecard for ${cleanPair} is BULLISH (+${netScore} net score) across ${relevantEvents.length} economic events. ${bullishEvents.map(e => e.eventName).join(", ")} provide strong macro tailwinds supporting ${cleanPair} upside.`;
+    primaryReason = `${baseCurrency} economic data outperformed expectations (or ${quoteCurrency} data softened), expanding sovereign yield spreads in favor of ${baseCurrency}.`;
+    macroChain.push(`1. Actual releases showed positive economic momentum for ${baseCurrency} (or softness in ${quoteCurrency}).`);
+    macroChain.push(`2. Interest rate expectations adjust hawkishly for ${baseCurrency}, reducing pressure for near-term rate cuts.`);
+    macroChain.push(`3. Global sovereign bond yields expand in favor of ${baseCurrency}, driving institutional asset reallocation.`);
+    macroChain.push(`4. Algorithmic execution programs trigger systematic ${cleanPair} buy orders on pullbacks.`);
+    weightingExpl = `High-impact economic data (${bullishEvents[0]?.eventName || "Key Releases"}) takes precedence over secondary surveys, generating net positive macro flow.`;
+    flowDriver = `Institutional carry and portfolio re-weighting into ${baseCurrency} assets.`;
   } else if (masterDirection === "SELL") {
     synthesis = `Collective news scorecard for ${cleanPair} is BEARISH (${netScore} net score) across ${relevantEvents.length} economic events. ${bearishEvents.map(e => e.eventName).join(", ")} generate persistent downward pressure favoring ${cleanPair} shorts.`;
+    primaryReason = `${baseCurrency} data disappointed or ${quoteCurrency} numbers beat expectations, contracting sovereign yield spreads and triggering capital outflow from ${baseCurrency}.`;
+    macroChain.push(`1. Macroeconomic data printed softer for ${baseCurrency} (or stronger for ${quoteCurrency}).`);
+    macroChain.push(`2. Central bank monetary policy expectations shift toward rate cuts / easing for ${baseCurrency}.`);
+    macroChain.push(`3. Capital rotates out of ${baseCurrency}-denominated bonds and assets into higher-yielding currencies.`);
+    macroChain.push(`4. Institutional desks and algorithmic flow aggressively distribute ${cleanPair} on all intraday rallies.`);
+    weightingExpl = `Negative surprise deltas across primary releases (${bearishEvents[0]?.eventName || "Key Releases"}) outweigh minor counter-indicators.`;
+    flowDriver = `Sovereign yield contraction and institutional liquidation of ${baseCurrency} holdings.`;
   } else {
     synthesis = `Economic news data for ${cleanPair} is mixed/balanced (${bullishEvents.length} bullish vs ${bearishEvents.length} bearish drivers). No strong one-sided macro catalyst; price action will likely mean-revert within technical boundaries.`;
+    primaryReason = `Conflicting data points offset each other (e.g. positive employment balanced by soft forward sentiment). Neither buyers nor sellers possess a dominant fundamental catalyst.`;
+    macroChain.push(`1. Competing economic reports delivered conflicting signals for ${baseCurrency} and ${quoteCurrency}.`);
+    macroChain.push(`2. Central bank rate trajectory remains data-dependent without a decisive shift.`);
+    macroChain.push(`3. Institutional market makers accumulate liquidity on both sides of the range.`);
+    macroChain.push(`4. Market will respect technical Support/Resistance and SMC Order Blocks rather than trend.`);
+    weightingExpl = `Bullish and bearish release points cancelled each other out, creating zero net fundamental bias.`;
+    flowDriver = `Two-way market making and range consolidation.`;
   }
 
   const targetPips = masterDirection !== "NEUTRAL" ? `${Math.round(35 + absScore * 0.4)}–${Math.round(55 + absScore * 0.6)} pips` : "20–30 pips (Range Play)";
@@ -949,6 +1018,12 @@ export function synthesizePairNewsConclusion(
     totalEventsJudged: relevantEvents.length,
     eventScorecard,
     synthesis,
+    whyRationale: {
+      primaryDecisionReason: primaryReason,
+      macroChainOfEvents: macroChain,
+      whyWeightingExplanation: weightingExpl,
+      institutionalFlowDriver: flowDriver,
+    },
     tradePlaybook: {
       recommendedOrder: masterDirection === "BUY" ? "BUY_STOP" : masterDirection === "SELL" ? "SELL_STOP" : "WAIT_FOR_CLEAR_SETUP",
       targetPips,
@@ -957,6 +1032,93 @@ export function synthesizePairNewsConclusion(
         ? "Allow the initial 5M–15M post-release liquidity spike to settle. Enter in the master direction on a 50% retracement into the breakout zone."
         : "Avoid trading breakouts. Fade range boundaries or wait for next major macro catalyst.",
       invalidation: "Break back across the pre-news channel boundary.",
+    },
+  };
+}
+
+export function synthesizeUpcomingPairForecast(
+  pair: string,
+  events: NewsEvent[]
+): UpcomingMasterForecast {
+  const cleanPair = pair.toUpperCase().replace(/[^A-Z]/g, "") || "EURUSD";
+  const baseCurrency = cleanPair.length >= 6 ? cleanPair.slice(0, 3) : "EUR";
+  const quoteCurrency = cleanPair.length >= 6 ? cleanPair.slice(3, 6) : "USD";
+
+  const relevantEvents = events.filter(
+    (e) => (e.currency === baseCurrency || e.currency === quoteCurrency) && (e.impact === "high" || e.impact === "medium")
+  );
+
+  const firstEvent = relevantEvents[0];
+  const eventName = firstEvent ? firstEvent.event_name : "Scheduled Economic Event";
+  const isBase = firstEvent ? firstEvent.currency === baseCurrency : true;
+
+  const fVal = firstEvent ? parseValue(firstEvent.forecast) : { num: 0, valid: false };
+  const pVal = firstEvent ? parseValue(firstEvent.previous) : { num: 0, valid: false };
+
+  let preBias: "BUY" | "SELL" | "NEUTRAL" = "NEUTRAL";
+  if (fVal.valid && pVal.valid) {
+    if (fVal.num > pVal.num) preBias = isBase ? "BUY" : "SELL";
+    else if (fVal.num < pVal.num) preBias = isBase ? "SELL" : "BUY";
+  }
+
+  const confidenceScore = firstEvent?.impact === "high" ? 85 : 75;
+
+  const whyForecast = `Upcoming ${eventName} (${firstEvent?.currency || baseCurrency}) will be the primary market catalyst. ` +
+    `Consensus expects ${firstEvent?.forecast || "steady numbers"} vs ${firstEvent?.previous || "prior"}. ` +
+    `If actual numbers beat forecast, ${firstEvent?.currency || baseCurrency} will rally sharply, moving ${cleanPair} ${isBase ? "HIGHER (BUY)" : "LOWER (SELL)"}. ` +
+    `If actual numbers miss forecast, ${firstEvent?.currency || baseCurrency} will sell off, moving ${cleanPair} ${isBase ? "LOWER (SELL)" : "HIGHER (BUY)"}.`;
+
+  const chain = [
+    `1. Market is currently positioning ahead of ${eventName} (${firstEvent?.forecast !== "—" ? `Forecast: ${firstEvent?.forecast}` : "High Impact"}).`,
+    `2. Spreads will widen 15-30 minutes prior to release as liquidity providers pull depth from the book.`,
+    `3. Release will trigger immediate algorithmic repricing of central bank interest rate probabilities.`,
+    `4. The high-probability trade occurs on the secondary 15M pullback once the initial knee-jerk wick is set.`,
+  ];
+
+  const bullishScenario: UpcomingScenarioPlan = {
+    scenarioName: isBase ? `Scenario A: ${baseCurrency} Data Beat (Bullish for ${cleanPair})` : `Scenario A: ${quoteCurrency} Data Miss (Bullish for ${cleanPair})`,
+    condition: isBase ? `${firstEvent?.currency || baseCurrency} print comes in ABOVE forecast` : `${quoteCurrency} print comes in BELOW forecast`,
+    pairDirection: "BUY",
+    targetPips: "45–75 pips",
+    probabilityPct: preBias === "BUY" ? 60 : 40,
+    macroExplanation: isBase
+      ? `Strong ${baseCurrency} data reinforces economic outperformance and yields, powering a clean ${cleanPair} breakout.`
+      : `Weak ${quoteCurrency} data triggers Dollar/Quote liquidation, lifting ${cleanPair} higher.`,
+    orderTrigger: `Wait for the first 5-minute candle to close above resistance, enter Long on pullback.`,
+  };
+
+  const bearishScenario: UpcomingScenarioPlan = {
+    scenarioName: isBase ? `Scenario B: ${baseCurrency} Data Miss (Bearish for ${cleanPair})` : `Scenario B: ${quoteCurrency} Data Beat (Bearish for ${cleanPair})`,
+    condition: isBase ? `${firstEvent?.currency || baseCurrency} print comes in BELOW forecast` : `${quoteCurrency} print comes in ABOVE forecast`,
+    pairDirection: "SELL",
+    targetPips: "45–75 pips",
+    probabilityPct: preBias === "SELL" ? 60 : 40,
+    macroExplanation: isBase
+      ? `Soft ${baseCurrency} data increases rate-cut odds and spurs capital outflows, dragging ${cleanPair} lower.`
+      : `Strong ${quoteCurrency} data boosts Dollar/Quote demand, pressing ${cleanPair} into a breakdown.`,
+    orderTrigger: `Wait for the first 5-minute candle to close below support, enter Short on pullback.`,
+  };
+
+  return {
+    pair: cleanPair,
+    baseCurrency,
+    quoteCurrency,
+    preReleaseMarketBias: preBias,
+    biasHeadline: preBias === "BUY"
+      ? `Consensus Leans Bullish for ${cleanPair} Ahead of Release`
+      : preBias === "SELL"
+      ? `Consensus Leans Bearish for ${cleanPair} Ahead of Release`
+      : `Neutral Pre-Release Positioning for ${cleanPair}`,
+    confidenceScore,
+    primaryNextEventName: eventName,
+    whyForecast,
+    macroChainReasoning: chain,
+    bullishScenario,
+    bearishScenario,
+    playbook: {
+      recommendedActionAheadOfNews: "DO NOT enter pending orders within ±30 minutes of high-impact release.",
+      safeWindow: "Wait 15 minutes post-release before entering.",
+      postReleaseReactionRule: "Trade the breakout direction confirmed by the 15M candle close.",
     },
   };
 }

@@ -26,11 +26,13 @@ export interface SmcStructure {
 export interface SmcChannel {
   type: "ascending" | "descending" | "none";
   direction: "long" | "short" | "neutral";
-  baseLine: [SmcTrendlinePoint, SmcTrendlinePoint] | null;
-  breakoutLine: [SmcTrendlinePoint, SmcTrendlinePoint] | null;
+  baseLine: SmcTrendlinePoint[] | null;
+  breakoutLine?: SmcTrendlinePoint[] | null;
+  resistanceLine?: SmcTrendlinePoint[] | null;
+  supportLine?: SmcTrendlinePoint[] | null;
   breakoutBoundary: number;
   retestCount: number;
-  retests: SmcTrendlinePoint[];
+  retests?: SmcTrendlinePoint[];
 }
 
 export interface DrawableLevels {
@@ -49,15 +51,16 @@ export function buildSmcDrawings(
 ): Drawing[] {
   const drawings: Drawing[] = [];
 
-  if (channel && channel.type !== "none" && channel.baseLine && channel.breakoutLine) {
+  const breakout = channel?.breakoutLine ?? (channel?.direction === "long" ? channel?.resistanceLine : channel?.supportLine);
+  if (channel && channel.type !== "none" && channel.baseLine && channel.baseLine.length >= 2 && breakout && breakout.length >= 2) {
     const dirColor = channel.direction === "long" ? "#22c55e" : "#ef4444";
     // The anchor line the channel is drawn from (support for an ascending
     // channel, resistance for a descending one) — drawn muted/blue since
     // it's context, not the tradeable level.
     drawings.push({
       type: "trendline",
-      p1time: channel.baseLine[0].time, p1price: channel.baseLine[0].price,
-      p2time: channel.baseLine[1].time, p2price: channel.baseLine[1].price,
+      p1time: channel.baseLine[0]!.time, p1price: channel.baseLine[0]!.price,
+      p2time: channel.baseLine[1]!.time, p2price: channel.baseLine[1]!.price,
       color: "#60a5fa",
       style: "dashed",
       label: `${channel.type} channel base`,
@@ -65,20 +68,22 @@ export function buildSmcDrawings(
     // The actual breakout boundary — the tradeable level.
     drawings.push({
       type: "trendline",
-      p1time: channel.breakoutLine[0].time, p1price: channel.breakoutLine[0].price,
-      p2time: channel.breakoutLine[1].time, p2price: channel.breakoutLine[1].price,
+      p1time: breakout[0]!.time, p1price: breakout[0]!.price,
+      p2time: breakout[1]!.time, p2price: breakout[1]!.price,
       color: dirColor,
       label: `Breakout boundary (${channel.retestCount} retest${channel.retestCount === 1 ? "" : "s"})`,
     });
-    for (const r of channel.retests.slice(-8)) {
-      drawings.push({
-        type: "marker",
-        time: r.time,
-        position: channel.direction === "long" ? "aboveBar" : "belowBar",
-        markerType: "circle",
-        color: dirColor,
-        label: "retest",
-      });
+    for (const r of (channel.retests ?? []).slice(-8)) {
+      if (r && r.time != null) {
+        drawings.push({
+          type: "marker",
+          time: r.time,
+          position: channel.direction === "long" ? "aboveBar" : "belowBar",
+          markerType: "circle",
+          color: dirColor,
+          label: "retest",
+        });
+      }
     }
   } else if (structure?.trendline) {
     // Fallback when there's no valid channel yet — the generic swing

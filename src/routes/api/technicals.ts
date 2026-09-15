@@ -165,8 +165,8 @@ export const Route = createFileRoute("/api/technicals")({
           }
 
           const data = await res.json() as any;
-          const rows = data.data || [];
-          if (rows.length === 0) {
+          const rows = data?.data || [];
+          if (rows.length === 0 || !rows[0]?.d) {
             return Response.json({ error: `No technical data for ${pairParam}` }, { status: 404 });
           }
 

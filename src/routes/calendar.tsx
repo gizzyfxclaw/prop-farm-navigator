@@ -12,8 +12,10 @@ import { classifyHazard } from "@/lib/news-hazard";
 import {
   analyzeNewsEvent,
   synthesizePairNewsConclusion,
+  synthesizeUpcomingPairForecast,
   type NewsAnalysis as HermesAnalysis,
   type MasterNewsConclusion,
+  type UpcomingMasterForecast,
 } from "@/lib/news-analyzer";
 
 /* ── Types ────────────────────────────────────────────────────── */
@@ -321,6 +323,19 @@ function CalendarPage() {
     }));
     return synthesizePairNewsConclusion(conclusionPair, newsEventsInput);
   }, [conclusionPair, liveEvents]);
+
+  const upcomingForecast = useMemo(() => {
+    const upcomingEventsInput = upcomingHighImpact.map((e) => ({
+      event_name: e.event,
+      currency: e.currency,
+      impact: e.impact,
+      actual: String(e.actual),
+      forecast: String(e.forecast),
+      previous: String(e.previous),
+      datetime: e.datetime,
+    }));
+    return synthesizeUpcomingPairForecast(conclusionPair, upcomingEventsInput);
+  }, [conclusionPair, upcomingHighImpact]);
 
   const sessions = useMemo(() => computeSessions(), [tick]);
 
