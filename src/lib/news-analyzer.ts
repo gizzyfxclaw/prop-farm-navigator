@@ -81,11 +81,14 @@ const CURRENCY_PAIRS: Record<string, string[]> = {
   CHF: ["USDCHF", "EURCHF"],
 };
 
-function parseValue(val: string | undefined): { num: number; unit: string; raw: string; valid: boolean } {
-  if (!val || val === "—" || val.trim() === "") {
+function parseValue(val: unknown): { num: number; unit: string; raw: string; valid: boolean } {
+  if (val == null || val === "—" || val === "") {
     return { num: 0, unit: "", raw: "—", valid: false };
   }
-  const clean = val.trim();
+  const clean = String(val).trim();
+  if (!clean || clean === "—") {
+    return { num: 0, unit: "", raw: "—", valid: false };
+  }
   const numMatch = clean.match(/[-+]?[0-9]*\.?[0-9]+/);
   if (!numMatch) {
     return { num: 0, unit: "", raw: clean, valid: false };
@@ -750,25 +753,27 @@ function findPattern(eventName: string): PatternHandler {
 }
 
 export function analyzeNewsEvent(event: NewsEvent): NewsAnalysis {
-  const pattern = findPattern(event.event_name);
+  const pattern = findPattern(event.event_name || "");
   const nowSec = Math.floor(Date.now() / 1000);
-  const hasActual = Boolean(event.actual && event.actual !== "—" && event.actual.trim() !== "");
+  const actualStr = event.actual != null ? String(event.actual).trim() : "";
+  const hasActual = Boolean(actualStr && actualStr !== "—");
   const isTimePassed = Boolean(event.datetime && event.datetime <= nowSec);
   const isPostNews = hasActual || isTimePassed;
-  const affectedPairs = CURRENCY_PAIRS[event.currency] || ["EURUSD", "USDJPY", "GBPUSD"];
+  const currency = event.currency || "USD";
+  const affectedPairs = CURRENCY_PAIRS[currency] || ["EURUSD", "USDJPY", "GBPUSD"];
 
   if (isPostNews) {
-    const actualStr = hasActual
-      ? event.actual!
-      : event.forecast && event.forecast !== "—"
-      ? event.forecast
-      : event.previous;
+    const effectiveActual = hasActual
+      ? actualStr
+      : event.forecast && String(event.forecast) !== "—"
+      ? String(event.forecast)
+      : String(event.previous || "0");
 
     const { whatHappened, postNewsTrend } = pattern.analyzePostNews(
-      actualStr,
-      event.forecast,
-      event.previous,
-      event.currency
+      effectiveActual,
+      String(event.forecast || "—"),
+      String(event.previous || "—"),
+      currency
     );
 
     const analysis = `[POST-NEWS REPORT] ${whatHappened.headline} ${whatHappened.macro_impact} ` +
@@ -793,7 +798,7 @@ export function analyzeNewsEvent(event: NewsEvent): NewsAnalysis {
 
   // Pre-News Analysis
   const { direction, confidence, detail, trade_setup, avoid_strategy, risk_factors } =
-    pattern.analyzePreNews(event.forecast, event.previous, event.currency);
+    pattern.analyzePreNews(String(event.forecast || "—"), String(event.previous || "—"), currency);
 
   const analysis = `${pattern.description} ${detail} Anticipated spike: ${pattern.base_pips} pips over ${pattern.duration}. Affected: ${affectedPairs.join(", ")}.`;
 
