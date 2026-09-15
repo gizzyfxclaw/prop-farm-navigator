@@ -199,17 +199,44 @@ function CalendarPage() {
     }
   }, []);
 
-  const fetchHermesAnalysis = useCallback((ev: RawEvent) => {
+  const fetchHermesAnalysis = useCallback(async (ev: RawEvent, force = false) => {
+    if (analyzingEvents.has(ev.id) && !force) return;
+    setAnalyzingEvents((prev) => new Set(prev).add(ev.id));
+    setHermesAnalyses((prev) => ({ ...prev, [ev.id]: "loading" }));
+
+    // Smooth visual feedback time so the user sees Hermes actively analyzing
+    await new Promise((r) => setTimeout(r, 650));
+
     try {
-      const result = analyzeNewsEvent({
-        event_name: ev.event,
-        currency: ev.currency,
-        impact: ev.impact,
-        actual: ev.actual,
-        forecast: ev.forecast,
-        previous: ev.previous,
-        datetime: ev.datetime,
+      const res = await fetch("/api/hermes/analyze-news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: ev.id,
+          event_name: ev.event,
+          currency: ev.currency,
+          impact: ev.impact,
+          actual: ev.actual,
+          forecast: ev.forecast,
+          previous: ev.previous,
+        }),
       });
+
+      let result: HermesAnalysis;
+      if (res.ok) {
+        result = await res.json();
+      } else {
+        result = analyzeNewsEvent({
+          event_name: ev.event,
+          currency: ev.currency,
+          impact: ev.impact,
+          actual: ev.actual,
+          forecast: ev.forecast,
+          previous: ev.previous,
+          datetime: ev.datetime,
+        });
+      }
+
       setHermesAnalyses((prev) => {
         const next = { ...prev, [ev.id]: result };
         try {
@@ -223,8 +250,26 @@ function CalendarPage() {
       });
     } catch (e) {
       console.error("Error analyzing news event:", e);
+      try {
+        const fallback = analyzeNewsEvent({
+          event_name: ev.event,
+          currency: ev.currency,
+          impact: ev.impact,
+          actual: ev.actual,
+          forecast: ev.forecast,
+          previous: ev.previous,
+          datetime: ev.datetime,
+        });
+        setHermesAnalyses((prev) => ({ ...prev, [ev.id]: fallback }));
+      } catch {}
+    } finally {
+      setAnalyzingEvents((prev) => {
+        const next = new Set(prev);
+        next.delete(ev.id);
+        return next;
+      });
     }
-  }, []);
+  }, [analyzingEvents]);
 
   useEffect(() => {
     fetchEvents();
@@ -430,9 +475,50 @@ function CalendarPage() {
                   recentReleasedEvents.map((ev) => {
                     const analysis = hermesAnalyses[ev.id];
                     const isAnalyzing = analysis === "loading" || analyzingEvents.has(ev.id);
-                    if (!analysis || analysis === "loading") {
+                    if (isAnalyzing) {
                       return (
-                        <div key={ev.id} className={`rounded-xl p-3 sm:p-4 bg-card/70 border ${isAnalyzing ? "border-primary/40 animate-pulse" : "border-border/60"}`}>
+                        <div key={ev.id} className="rounded-xl p-4 bg-card border border-primary/40 shadow-lg space-y-3 relative overflow-hidden">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                                <Bot size={18} className="text-primary animate-pulse" />
+                              </div>
+                              <div>
+                                <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                  Hermes AI Analyzing {ev.event}…
+                                </span>
+                                <span className="text-[11px] font-mono text-muted-foreground">
+                                  Evaluating release numbers, surprise delta & market continuation trend
+                                </span>
+                              </div>
+                            </div>
+                            <Badge tone="blue" live>
+                              <Loader2 size={11} className="animate-spin" />
+                              Analyzing
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-xs font-mono">
+                            <div className="p-2 rounded bg-secondary/60 border border-border/40 flex items-center gap-2">
+                              <CheckCircle2 size={13} className="text-success flex-shrink-0" />
+                              <span className="text-muted-foreground truncate">1. Actual vs Forecast</span>
+                            </div>
+                            <div className="p-2 rounded bg-primary/10 border border-primary/30 flex items-center gap-2">
+                              <Loader2 size={13} className="animate-spin text-primary flex-shrink-0" />
+                              <span className="text-primary font-bold truncate">2. Macro Flow & Yields</span>
+                            </div>
+                            <div className="p-2 rounded bg-secondary/30 border border-border/30 flex items-center gap-2 opacity-60">
+                              <div className="w-3 h-3 rounded-full border border-muted-foreground flex-shrink-0" />
+                              <span className="text-muted-foreground truncate">3. Continuation Setup</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (!analysis) {
+                      return (
+                        <div key={ev.id} className="rounded-xl p-3 sm:p-4 bg-card/70 border border-border/60">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className={`badge ${ev.impact === "high" ? "badge-danger" : "badge-warning"}`}>
@@ -443,18 +529,11 @@ function CalendarPage() {
                               <span className="font-mono text-xs text-muted-foreground">({formatCountdown(ev.secondsUntil)})</span>
                             </div>
                             <button
-                              onClick={() => fetchHermesAnalysis(ev)}
-                              disabled={isAnalyzing}
-                              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-primary/15 text-primary border border-primary/30 cursor-pointer hover:bg-primary/25 flex items-center gap-1.5"
+                              onClick={() => fetchHermesAnalysis(ev, true)}
+                              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground border border-primary shadow-sm cursor-pointer hover:bg-primary/90 flex items-center gap-1.5 transition-all"
                             >
-                              {isAnalyzing ? (
-                                <>
-                                  <RefreshCw size={12} className="animate-spin" />
-                                  Analyzing release & trend…
-                                </>
-                              ) : (
-                                "Analyze What Happened & Trend"
-                              )}
+                              <Bot size={13} />
+                              Analyze What Happened & Trend
                             </button>
                           </div>
                         </div>
@@ -503,6 +582,13 @@ function CalendarPage() {
                             </span>
                             {ev.forecast !== "—" && <span className="text-muted-foreground">F: {ev.forecast}</span>}
                             {ev.previous !== "—" && <span className="text-muted-foreground">P: {ev.previous}</span>}
+                            <button
+                              onClick={() => fetchHermesAnalysis(ev, true)}
+                              title="Re-run analysis with Hermes AI"
+                              className="text-[11px] font-mono font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer bg-primary/10 px-2 py-0.5 rounded border border-primary/20"
+                            >
+                              <RefreshCw size={10} /> Re-analyze
+                            </button>
                           </div>
                         </div>
 
