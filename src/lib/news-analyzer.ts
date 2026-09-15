@@ -550,6 +550,119 @@ const PATTERNS: Record<string, PatternHandler> = {
     },
   },
 
+  "Sentiment": {
+    description: "Economic Sentiment & Confidence Index — Measures institutional investor and business growth optimism.",
+    base_pips: 40,
+    duration: "5-10 minutes initial, 1-2 hours continuation",
+    analyzePreNews: (f, p, c) => {
+      const fVal = parseValue(f);
+      const pVal = parseValue(p);
+      const isHigher = fVal.valid && pVal.valid && fVal.num > pVal.num;
+      return {
+        direction: isHigher ? "BUY" : "SELL",
+        confidence: 70,
+        detail: `Sentiment forecast at ${f} vs ${p} prior. Rising confidence spurs investment demand for ${c}.`,
+        trade_setup: `Follow post-release momentum in direction of surprise.`,
+        avoid_strategy: `Wait 5 minutes post-release.`,
+        risk_factors: `Market sentiment can decouple from lagging surveys.`,
+      };
+    },
+    analyzePostNews: (a, f, p, c) => {
+      const aVal = parseValue(a);
+      const fVal = parseValue(f);
+      const pVal = parseValue(p);
+      const benchmark = fVal.valid ? fVal.num : pVal.valid ? pVal.num : 0;
+      const diff = +(aVal.num - benchmark).toFixed(1);
+      const isBeat = aVal.valid && diff >= 2.0;
+      const isMiss = aVal.valid && diff <= -2.0;
+      const bias: "BUY" | "SELL" | "NEUTRAL" = isBeat ? "BUY" : isMiss ? "SELL" : "NEUTRAL";
+      const conf = Math.abs(diff) >= 5.0 ? 85 : 75;
+
+      return {
+        whatHappened: {
+          verdict: isBeat ? "STRONG_BEAT" : isMiss ? "SEVERE_MISS" : "INLINE",
+          verdict_title: isBeat ? "Economic Sentiment Surge" : isMiss ? "Economic Sentiment Slump" : "Sentiment Inline",
+          headline: `Economic Sentiment printed ${a} (Forecast: ${f}, Prior: ${p}) — ${isBeat ? `Beating estimates by +${diff}` : isMiss ? `Missing estimates by ${diff}` : "Matching consensus"}.`,
+          actual_val: a,
+          forecast_val: f,
+          previous_val: p,
+          surprise_delta: `${diff > 0 ? "+" : ""}${diff} vs forecast`,
+          macro_impact: isBeat
+            ? `Institutional and business sentiment improved significantly, demonstrating rising confidence in ${c} economic outlook and driving currency inflows.`
+            : isMiss
+            ? `Economic sentiment deteriorated sharply below expectations, reflecting growing economic uncertainty and triggering capital outflow from ${c}.`
+            : `Sentiment figures matched consensus expectations closely.`,
+        },
+        postNewsTrend: {
+          likely_trend: isBeat ? "BULLISH_CONTINUATION" : isMiss ? "BEARISH_CONTINUATION" : "RANGE_BOUND",
+          trend_headline: `${c} ${isBeat ? "Bullish" : isMiss ? "Bearish" : "Consolidation"} Trend Follow-Through (${conf}% Confidence)`,
+          bias,
+          confidence: conf,
+          duration_horizon: "Trend continuation projected for 1 to 2 hours.",
+          key_drivers: `Institutional confidence shift driving ${c} asset re-weighting.`,
+          recommended_pairs: generatePairRecommendations(c, bias, conf, 40),
+          pullback_entry_rule: `Enter in trend direction on 5M consolidation.`,
+          invalidation_level: `Loss of the initial release candle boundary.`,
+        },
+      };
+    },
+  },
+
+  "Trade Balance": {
+    description: "Balance of Trade / Current Account — Measures net export vs import capital inflows.",
+    base_pips: 35,
+    duration: "5-10 minutes initial, 1-2 hours continuation",
+    analyzePreNews: (f, p, c) => {
+      return {
+        direction: "BUY",
+        confidence: 65,
+        detail: `Trade balance forecast ${f} vs prior ${p}. Trade surpluses indicate net commercial demand for ${c}.`,
+        trade_setup: `Follow momentum on trade surplus expansion.`,
+        avoid_strategy: `Standard 5-minute wait.`,
+        risk_factors: `Global commodity price fluctuations.`,
+      };
+    },
+    analyzePostNews: (a, f, p, c) => {
+      const aVal = parseValue(a);
+      const fVal = parseValue(f);
+      const pVal = parseValue(p);
+      const benchmark = fVal.valid ? fVal.num : pVal.valid ? pVal.num : 0;
+      const diff = +(aVal.num - benchmark).toFixed(1);
+      const isBeat = aVal.valid && diff > 0.5;
+      const isMiss = aVal.valid && diff < -0.5;
+      const bias: "BUY" | "SELL" | "NEUTRAL" = isBeat ? "BUY" : isMiss ? "SELL" : "NEUTRAL";
+      const conf = 75;
+
+      return {
+        whatHappened: {
+          verdict: isBeat ? "BEAT" : isMiss ? "MISS" : "INLINE",
+          verdict_title: isBeat ? "Trade Surplus Expansion" : isMiss ? "Trade Balance Contraction" : "Trade Balance Inline",
+          headline: `Balance of Trade printed ${a} (Forecast: ${f}, Prior: ${p}) — ${isBeat ? `Surplus widened by +${diff}` : isMiss ? `Deficit widened by ${diff}` : "Matching expectations"}.`,
+          actual_val: a,
+          forecast_val: f,
+          previous_val: p,
+          surprise_delta: `${diff > 0 ? "+" : ""}${diff} vs forecast`,
+          macro_impact: isBeat
+            ? `Net export surplus expanded, indicating positive cross-border commercial demand for ${c} and supporting currency appreciation.`
+            : isMiss
+            ? `Trade balance narrowed or shifted into deficit, signaling reduced international capital demand for ${c}.`
+            : `Trade balance printed in line with estimates.`,
+        },
+        postNewsTrend: {
+          likely_trend: isBeat ? "BULLISH_CONTINUATION" : isMiss ? "BEARISH_CONTINUATION" : "RANGE_BOUND",
+          trend_headline: `${c} ${isBeat ? "Bullish" : isMiss ? "Bearish" : "Consolidation"} Trend (${conf}% Confidence)`,
+          bias,
+          confidence: conf,
+          duration_horizon: "Trend follow-through for 1 to 2 hours.",
+          key_drivers: `Commercial flow and trade balance momentum supporting ${c} valuation.`,
+          recommended_pairs: generatePairRecommendations(c, bias, conf, 35),
+          pullback_entry_rule: `Enter on 5M consolidation following the release.`,
+          invalidation_level: `Break of the pre-news range.`,
+        },
+      };
+    },
+  },
+
   "_default": {
     description: "Macroeconomic indicator with direct currency valuation impact.",
     base_pips: 40,
@@ -626,6 +739,12 @@ function findPattern(eventName: string): PatternHandler {
   }
   if (lower.includes("rate") || lower.includes("monetary") || lower.includes("fomc") || lower.includes("ecb") || lower.includes("boe")) {
     return PATTERNS["Interest Rate Decision"]!;
+  }
+  if (lower.includes("sentiment") || lower.includes("zew") || lower.includes("ifo") || lower.includes("confidence")) {
+    return PATTERNS["Sentiment"]!;
+  }
+  if (lower.includes("trade") || lower.includes("balance of trade") || lower.includes("current account")) {
+    return PATTERNS["Trade Balance"]!;
   }
   return PATTERNS["_default"]!;
 }

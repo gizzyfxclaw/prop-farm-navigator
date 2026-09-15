@@ -127,7 +127,17 @@ function CalendarPage() {
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem("gizzyfx.calendar.hermesAnalyses");
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const clean: Record<string, HermesAnalysis> = {};
+          for (const [id, a] of Object.entries(parsed)) {
+            // Ignore any stale analysis with "Analysis unavailable" or missing what_happened
+            if (a && typeof a === "object" && (a as any).analysis && !(a as any).analysis.includes("Analysis unavailable") && (a as any).what_happened) {
+              clean[id] = a as HermesAnalysis;
+            }
+          }
+          return clean;
+        }
       } catch {}
     }
     return {};
