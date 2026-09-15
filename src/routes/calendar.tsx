@@ -3,13 +3,18 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   ShieldX, ShieldAlert, ShieldCheck, XCircle, AlertTriangle, CheckCircle2,
   Clock, Activity, Radio, RefreshCw, Loader2, Bot, TrendingUp, TrendingDown,
-  Minus, ChevronDown, ChevronUp, ArrowRight, Target, Sparkles, X, Info,
+  Minus, ChevronDown, ChevronUp, ArrowRight, Target, Sparkles, X, Info, Scale,
 } from "lucide-react";
 import { getEasternTime, getWATTime, formatTime, etToWAT, formatEventTimeWAT, formatEtTo12h } from "@/lib/timezone";
 import { Badge, Button, CockpitHeader } from "@/components/terminal/ui";
 import { LiveDot } from "@/components/terminal/anim";
 import { classifyHazard } from "@/lib/news-hazard";
-import { analyzeNewsEvent, type NewsAnalysis as HermesAnalysis } from "@/lib/news-analyzer";
+import {
+  analyzeNewsEvent,
+  synthesizePairNewsConclusion,
+  type NewsAnalysis as HermesAnalysis,
+  type MasterNewsConclusion,
+} from "@/lib/news-analyzer";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -102,6 +107,8 @@ function computeSessions(): SessionOverlap[] {
   });
 }
 
+const CONCLUSION_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"] as const;
+
 /* ── Route ────────────────────────────────────────────────────── */
 
 export const Route = createFileRoute("/calendar")({
@@ -160,6 +167,14 @@ function CalendarPage() {
     }
     return "post_news";
   });
+  const [conclusionPair, setConclusionPair] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem("gizzyfx.calendar.conclusionPair") || "EURUSD";
+      } catch {}
+    }
+    return "EURUSD";
+  });
   const [modalEvent, setModalEvent] = useState<RawEvent | null>(null);
 
   useEffect(() => {
@@ -173,6 +188,12 @@ function CalendarPage() {
       localStorage.setItem("gizzyfx.calendar.tab", activeAnalysisTab);
     } catch {}
   }, [activeAnalysisTab]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("gizzyfx.calendar.conclusionPair", conclusionPair);
+    } catch {}
+  }, [conclusionPair]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -288,40 +309,18 @@ function CalendarPage() {
       .reverse();
   }, [liveEvents]);
 
-  // Auto-analyze all events immediately so they are pre-rendered with zero wait time
-  useEffect(() => {
-    if (liveEvents.length === 0) return;
-    const updates: Record<string, HermesAnalysis> = {};
-    let changed = false;
-
-    for (const ev of liveEvents) {
-      if (!hermesAnalyses[ev.id] || hermesAnalyses[ev.id] === "loading") {
-        try {
-          const result = analyzeNewsEvent({
-            event_name: ev.event,
-            currency: ev.currency,
-            impact: ev.impact,
-            actual: ev.actual,
-            forecast: ev.forecast,
-            previous: ev.previous,
-            datetime: ev.datetime,
-          });
-          updates[ev.id] = result;
-          changed = true;
-        } catch {}
-      }
-    }
-
-    if (changed) {
-      setHermesAnalyses((prev) => {
-        const next = { ...prev, ...updates };
-        try {
-          localStorage.setItem("gizzyfx.calendar.hermesAnalyses", JSON.stringify(next));
-        } catch {}
-        return next;
-      });
-    }
-  }, [liveEvents]);
+  const masterConclusion = useMemo(() => {
+    const newsEventsInput = liveEvents.map((e) => ({
+      event_name: e.event,
+      currency: e.currency,
+      impact: e.impact,
+      actual: e.actual,
+      forecast: e.forecast,
+      previous: e.previous,
+      datetime: e.datetime,
+    }));
+    return synthesizePairNewsConclusion(conclusionPair, newsEventsInput);
+  }, [conclusionPair, liveEvents]);
 
   const sessions = useMemo(() => computeSessions(), [tick]);
 
@@ -494,6 +493,198 @@ function CalendarPage() {
             {/* Content for Post-News Releases */}
             {activeAnalysisTab === "post_news" && (
               <div className="space-y-4">
+                {/* ── HERMES MASTER MULTI-NEWS JUDGE & DIRECTIONAL CONCLUSION ── */}
+                <div className="rounded-xl p-3.5 sm:p-4 bg-card border-2 border-primary/40 shadow-lg space-y-3.5">
+                  {/* Header + Pair Selector */}
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border/50 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-primary/20 text-primary flex items-center justify-center">
+                        <Scale size={16} />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-xs sm:text-sm text-foreground uppercase tracking-wide flex items-center gap-1.5">
+                          Hermes Multi-News Judge & Master Conclusion
+                        </h3>
+                        <p className="text-[10.5px] text-muted-foreground">
+                          Synthesizes all releases affecting the pair to determine the accurate master trade call
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Pair Selector Pills */}
+                    <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-institutional">
+                      {CONCLUSION_PAIRS.map((p) => {
+                        const conc = synthesizePairNewsConclusion(p, liveEvents.map(e => ({
+                          event_name: e.event, currency: e.currency, impact: e.impact,
+                          actual: e.actual, forecast: e.forecast, previous: e.previous, datetime: e.datetime
+                        })));
+                        const dirTone = conc.masterDirection === "BUY" ? "text-emerald-400" : conc.masterDirection === "SELL" ? "text-red-400" : "text-muted-foreground";
+                        return (
+                          <button
+                            key={p}
+                            onClick={() => setConclusionPair(p)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold cursor-pointer transition-all flex items-center gap-1 ${
+                              conclusionPair === p
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "bg-secondary text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <span>{p}</span>
+                            <span className={`text-[10px] font-black ${conclusionPair === p ? "text-white" : dirTone}`}>
+                              [{conc.masterDirection}]
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Master Callout Banner */}
+                  <div
+                    className="p-3 sm:p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3"
+                    style={{
+                      background: masterConclusion.masterDirection === "BUY"
+                        ? "oklch(var(--gz-pos) / 0.12)"
+                        : masterConclusion.masterDirection === "SELL"
+                        ? "oklch(var(--gz-neg) / 0.12)"
+                        : "var(--tv-surface-subtle)",
+                      borderColor: masterConclusion.masterDirection === "BUY"
+                        ? "var(--tv-teal)"
+                        : masterConclusion.masterDirection === "SELL"
+                        ? "var(--tv-red)"
+                        : "var(--tv-border)",
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-lg bg-card flex items-center justify-center">
+                        {masterConclusion.masterDirection === "BUY" ? (
+                          <TrendingUp size={22} className="text-success" />
+                        ) : masterConclusion.masterDirection === "SELL" ? (
+                          <TrendingDown size={22} className="text-destructive" />
+                        ) : (
+                          <Minus size={22} className="text-muted-foreground" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-bold text-muted-foreground uppercase tracking-wide">
+                            Master Trade Call:
+                          </span>
+                          <span className={`px-2.5 py-1 rounded-md font-mono text-xs sm:text-sm font-black uppercase tracking-wider ${
+                            masterConclusion.masterDirection === "BUY"
+                              ? "bg-emerald-500 text-white"
+                              : masterConclusion.masterDirection === "SELL"
+                              ? "bg-red-500 text-white"
+                              : "bg-amber-500 text-black"
+                          }`}>
+                            {masterConclusion.masterDirection === "BUY"
+                              ? `BUY ${masterConclusion.pair} (BULLISH CONVICTION)`
+                              : masterConclusion.masterDirection === "SELL"
+                              ? `SELL ${masterConclusion.pair} (BEARISH CONVICTION)`
+                              : `NEUTRAL / RANGE ${masterConclusion.pair}`}
+                          </span>
+                          <Badge tone={masterConclusion.convictionScore >= 85 ? "green" : masterConclusion.convictionScore >= 70 ? "amber" : "neutral"}>
+                            {masterConclusion.convictionGrade}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-foreground/90 font-medium mt-1">
+                          Net Macro Score: <strong>{masterConclusion.netScore > 0 ? `+${masterConclusion.netScore}` : masterConclusion.netScore} pts</strong> across <strong>{masterConclusion.totalEventsJudged} judged releases</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 font-mono text-xs">
+                      <div className="text-right">
+                        <span className="text-muted-foreground block text-[10px] uppercase">Conviction</span>
+                        <span className="font-extrabold text-sm sm:text-base text-primary">{masterConclusion.convictionScore}%</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-muted-foreground block text-[10px] uppercase">Target Flow</span>
+                        <span className="font-bold text-xs sm:text-sm text-foreground">{masterConclusion.tradePlaybook.targetPips}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Multi-Event Scorecard (The Judge Table) */}
+                  {masterConclusion.eventScorecard.length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Scale size={12} />
+                        Multi-Event Scorecard ({masterConclusion.eventScorecard.length} releases judged for {masterConclusion.pair}):
+                      </span>
+
+                      <div className="overflow-x-auto scrollbar-institutional">
+                        <table className="dgrid w-full text-xs">
+                          <thead>
+                            <tr>
+                              <th>Event</th>
+                              <th>Currency</th>
+                              <th>Actual vs Forecast</th>
+                              <th>Release Verdict</th>
+                              <th>Impact on {masterConclusion.pair}</th>
+                              <th style={{ textAlign: "right" }}>Score Points</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {masterConclusion.eventScorecard.map((item, idx) => (
+                              <tr key={idx} className="hover:bg-secondary/40">
+                                <td className="font-semibold text-foreground py-1.5">{item.eventName}</td>
+                                <td className="mono-cap font-bold">{item.currency}</td>
+                                <td className="font-mono">{item.actual} <span className="text-muted-foreground">(F: {item.forecast})</span></td>
+                                <td><span className="badge badge-neutral text-[9.5px]">{item.verdictTitle}</span></td>
+                                <td>
+                                  <span className={`font-mono text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
+                                    item.pairImpact === "BULLISH" ? "bg-emerald-500/15 text-emerald-400" :
+                                    item.pairImpact === "BEARISH" ? "bg-red-500/15 text-red-400" :
+                                    "bg-secondary text-muted-foreground"
+                                  }`}>
+                                    {item.pairImpact}
+                                  </span>
+                                </td>
+                                <td className="font-mono text-right font-bold" style={{ color: item.points > 0 ? "oklch(var(--gz-pos))" : item.points < 0 ? "oklch(var(--gz-neg))" : "inherit" }}>
+                                  {item.points > 0 ? `+${item.points}` : item.points}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Macro Synthesis & Trade Playbook */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                    <div className="p-3 rounded-lg bg-secondary/50 border border-border/50 space-y-1">
+                      <span className="font-bold text-foreground uppercase tracking-wider block text-[11px] mb-1">
+                        Executive News Synthesis:
+                      </span>
+                      <p className="text-foreground/90 leading-relaxed font-medium">
+                        {masterConclusion.synthesis}
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-secondary/50 border border-border/50 space-y-1">
+                      <span className="font-bold text-primary uppercase tracking-wider block text-[11px] mb-1">
+                        Actionable News Playbook:
+                      </span>
+                      <div className="space-y-1 text-[11.5px]">
+                        <div>
+                          <span className="font-bold text-muted-foreground mr-1">Recommended Execution:</span>
+                          <span className="font-mono font-bold text-foreground">{masterConclusion.tradePlaybook.recommendedOrder}</span>
+                        </div>
+                        <div>
+                          <span className="font-bold text-muted-foreground mr-1">Target Pips:</span>
+                          <span className="font-mono font-bold text-primary">{masterConclusion.tradePlaybook.targetPips}</span>
+                        </div>
+                        <div>
+                          <span className="font-bold text-muted-foreground mr-1">Entry Window:</span>
+                          <span className="text-foreground/90">{masterConclusion.tradePlaybook.entryTiming}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {recentReleasedEvents.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No recent news releases logged yet today.

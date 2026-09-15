@@ -815,3 +815,148 @@ export function analyzeNewsEvent(event: NewsEvent): NewsAnalysis {
     is_post_news: false,
   };
 }
+
+/* ── Multi-Event Master Conclusion & Pair Synthesis ─────────────── */
+
+export interface ScorecardItem {
+  eventName: string;
+  currency: string;
+  impact: "high" | "medium" | "low";
+  actual: string;
+  forecast: string;
+  previous: string;
+  verdictTitle: string;
+  pairImpact: "BULLISH" | "BEARISH" | "NEUTRAL";
+  points: number;
+  explanation: string;
+}
+
+export interface MasterNewsConclusion {
+  pair: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  masterDirection: "BUY" | "SELL" | "NEUTRAL";
+  convictionScore: number;
+  convictionGrade: "A+ Institutional Conviction" | "A High Probability" | "B Moderate / Developing" | "C Choppy / Conflicting";
+  netScore: number;
+  totalEventsJudged: number;
+  eventScorecard: ScorecardItem[];
+  synthesis: string;
+  tradePlaybook: {
+    recommendedOrder: "BUY_STOP" | "SELL_STOP" | "BUY_LIMIT" | "SELL_LIMIT" | "MARKET" | "WAIT_FOR_CLEAR_SETUP";
+    targetPips: string;
+    suggestedSLPips: number;
+    entryTiming: string;
+    invalidation: string;
+  };
+}
+
+export function synthesizePairNewsConclusion(
+  pair: string,
+  events: NewsEvent[]
+): MasterNewsConclusion {
+  const cleanPair = pair.toUpperCase().replace(/[^A-Z]/g, "") || "EURUSD";
+  const baseCurrency = cleanPair.length >= 6 ? cleanPair.slice(0, 3) : "EUR";
+  const quoteCurrency = cleanPair.length >= 6 ? cleanPair.slice(3, 6) : "USD";
+
+  const relevantEvents = events.filter(
+    (e) => e.currency === baseCurrency || e.currency === quoteCurrency
+  );
+
+  let netScore = 0;
+  const eventScorecard: ScorecardItem[] = [];
+
+  for (const ev of relevantEvents) {
+    const analysis = analyzeNewsEvent(ev);
+    const isBase = ev.currency === baseCurrency;
+    const impactWeight = ev.impact === "high" ? 35 : ev.impact === "medium" ? 20 : 10;
+
+    let pairImpact: "BULLISH" | "BEARISH" | "NEUTRAL" = "NEUTRAL";
+    let points = 0;
+
+    if (analysis.direction === "BUY") {
+      if (isBase) {
+        pairImpact = "BULLISH";
+        points = +impactWeight;
+      } else {
+        pairImpact = "BEARISH";
+        points = -impactWeight;
+      }
+    } else if (analysis.direction === "SELL") {
+      if (isBase) {
+        pairImpact = "BEARISH";
+        points = -impactWeight;
+      } else {
+        pairImpact = "BULLISH";
+        points = +impactWeight;
+      }
+    }
+
+    netScore += points;
+
+    eventScorecard.push({
+      eventName: ev.event_name,
+      currency: ev.currency,
+      impact: ev.impact,
+      actual: String(ev.actual || "—"),
+      forecast: String(ev.forecast || "—"),
+      previous: String(ev.previous || "—"),
+      verdictTitle: analysis.what_happened?.verdict_title || `${analysis.direction} Bias`,
+      pairImpact,
+      points,
+      explanation: analysis.what_happened?.macro_impact || analysis.analysis,
+    });
+  }
+
+  // Determine Master Direction & Conviction
+  let masterDirection: "BUY" | "SELL" | "NEUTRAL" = "NEUTRAL";
+  if (netScore >= 20) masterDirection = "BUY";
+  else if (netScore <= -20) masterDirection = "SELL";
+
+  const absScore = Math.abs(netScore);
+  const convictionScore = relevantEvents.length === 0 ? 50 : Math.min(95, Math.max(55, Math.round(55 + absScore * 0.5)));
+
+  let convictionGrade: MasterNewsConclusion["convictionGrade"];
+  if (convictionScore >= 88) convictionGrade = "A+ Institutional Conviction";
+  else if (convictionScore >= 78) convictionGrade = "A High Probability";
+  else if (convictionScore >= 65) convictionGrade = "B Moderate / Developing";
+  else convictionGrade = "C Choppy / Conflicting";
+
+  const bullishEvents = eventScorecard.filter(e => e.pairImpact === "BULLISH");
+  const bearishEvents = eventScorecard.filter(e => e.pairImpact === "BEARISH");
+
+  let synthesis = "";
+  if (relevantEvents.length === 0) {
+    synthesis = `No economic calendar releases directly affecting ${baseCurrency} or ${quoteCurrency} today. Market is driven primarily by technical SMC structure and baseline session liquidity.`;
+  } else if (masterDirection === "BUY") {
+    synthesis = `Collective news scorecard for ${cleanPair} is BULLISH (+${netScore} net score) across ${relevantEvents.length} economic events. ${bullishEvents.map(e => e.eventName).join(", ")} provide strong macro tailwinds supporting ${cleanPair} upside.`;
+  } else if (masterDirection === "SELL") {
+    synthesis = `Collective news scorecard for ${cleanPair} is BEARISH (${netScore} net score) across ${relevantEvents.length} economic events. ${bearishEvents.map(e => e.eventName).join(", ")} generate persistent downward pressure favoring ${cleanPair} shorts.`;
+  } else {
+    synthesis = `Economic news data for ${cleanPair} is mixed/balanced (${bullishEvents.length} bullish vs ${bearishEvents.length} bearish drivers). No strong one-sided macro catalyst; price action will likely mean-revert within technical boundaries.`;
+  }
+
+  const targetPips = masterDirection !== "NEUTRAL" ? `${Math.round(35 + absScore * 0.4)}–${Math.round(55 + absScore * 0.6)} pips` : "20–30 pips (Range Play)";
+
+  return {
+    pair: cleanPair,
+    baseCurrency,
+    quoteCurrency,
+    masterDirection,
+    convictionScore,
+    convictionGrade,
+    netScore,
+    totalEventsJudged: relevantEvents.length,
+    eventScorecard,
+    synthesis,
+    tradePlaybook: {
+      recommendedOrder: masterDirection === "BUY" ? "BUY_STOP" : masterDirection === "SELL" ? "SELL_STOP" : "WAIT_FOR_CLEAR_SETUP",
+      targetPips,
+      suggestedSLPips: 30,
+      entryTiming: masterDirection !== "NEUTRAL"
+        ? "Allow the initial 5M–15M post-release liquidity spike to settle. Enter in the master direction on a 50% retracement into the breakout zone."
+        : "Avoid trading breakouts. Fade range boundaries or wait for next major macro catalyst.",
+      invalidation: "Break back across the pre-news channel boundary.",
+    },
+  };
+}
