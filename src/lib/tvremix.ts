@@ -1,4 +1,4 @@
-// Shared tvremix fetching with rate limiting and caching
+// Shared tvremix fetching with fallback to Yahoo Finance
 
 const TVREMIX_URL = "https://tvremix.xyz/api/mcp/v1";
 const TV_INTERVAL: Record<string, string> = {
@@ -8,27 +8,8 @@ const TV_INTERVAL: Record<string, string> = {
 
 // Rate limiting state
 let lastCallTime = 0;
-const MIN_CALL_INTERVAL = 500;
-const pendingRequests = new Map<string, Promise<any[] | null>>();
-const rateLimitHistory: number[] = [];
-
-function getRateLimitCooldown(): number {
-  const now = Date.now();
-  const recentLimits = rateLimitHistory.filter(t => now - t < 60000);
-  if (recentLimits.length >= 3) {
-    const backoff = Math.min(30 * Math.pow(2, recentLimits.length - 3), 300);
-    return now + backoff * 1000;
-  }
-  return 0;
-}
-
-function recordRateLimit() {
-  rateLimitHistory.push(Date.now());
-  const now = Date.now();
-  while (rateLimitHistory.length > 0 && now - rateLimitHistory[0]! > 60000) {
-    rateLimitHistory.shift();
-  }
-}
+const MIN_CALL_INTERVAL = 300;
+const pendingRequests = new Map<string, Promise<Bar[] | null>>();
 
 export interface Bar {
   time: number;
@@ -39,6 +20,7 @@ export interface Bar {
 }
 
 export async function fetchBars(apiKey: string, pair: string, interval: string, count: number): Promise<Bar[] | null> {
+  if (!apiKey) return null;
   const dedupKey = `${pair}-${interval}-${count}`;
   if (pendingRequests.has(dedupKey)) {
     return pendingRequests.get(dedupKey)!;
@@ -55,12 +37,8 @@ export async function fetchBars(apiKey: string, pair: string, interval: string, 
 }
 
 async function _fetchBarsInternal(apiKey: string, pair: string, interval: string, count: number): Promise<Bar[] | null> {
-  if (Date.now() < getRateLimitCooldown()) {
-    return null;
-  }
-
   const tvInterval = TV_INTERVAL[interval] ?? "1h";
-  
+
   const now = Date.now();
   const elapsed = now - lastCallTime;
   if (elapsed < MIN_CALL_INTERVAL) {
@@ -75,7 +53,7 @@ async function _fetchBarsInternal(apiKey: string, pair: string, interval: string
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
+        Accept: "application/json",
       },
       body: JSON.stringify({
         jsonrpc: "2.0", id: 1, method: "tools/call",
@@ -95,24 +73,25 @@ async function _fetchBarsInternal(apiKey: string, pair: string, interval: string
     return null;
   }
 
-  if (json.error && typeof json.error === 'object' && json.error.message) {
-    const msg = json.error.message;
-    const retryMatch = msg.match(/retry after (\d+)s/i);
-    if (retryMatch) {
-      recordRateLimit();
-      return null;
-    }
+  if (json.error || json.result?.isError) return null;
+
+  let raw = json.result?.structuredContent?.bars;
+  if (!Array.isArray(raw) && json.result?.content?.[0]?.text) {
+    try {
+      const parsed = JSON.parse(json.result.content[0].text);
+      if (Array.isArray(parsed.bars)) {
+        raw = parsed.bars;
+      }
+    } catch {}
   }
 
-  if (json.error || json.result?.isError) return null;
-  const raw = json.result?.structuredContent?.bars;
   if (!Array.isArray(raw)) return null;
   return raw
     .filter((b: any) => b.t != null && b.o != null && b.h != null && b.l != null && b.c != null)
     .map((b: any) => ({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c }));
 }
 
-// Yahoo Finance fallback for forex data
+// Yahoo Finance fallback for forex and commodities data
 const YAHOO_SYMBOLS: Record<string, string> = {
   "EURUSD": "EURUSD=X",
   "USDJPY": "USDJPY=X",
@@ -130,39 +109,41 @@ const YAHOO_INTERVALS: Record<string, string> = {
 };
 
 export async function fetchBarsYahoo(pair: string, interval: string, count: number): Promise<Bar[] | null> {
-  const symbol = YAHOO_SYMBOLS[pair] || `${pair}=X`; // EURUSD=X format
+  const symbol = YAHOO_SYMBOLS[pair] || `${pair}=X`;
   const yahooInterval = YAHOO_INTERVALS[interval] ?? "1h";
-  
-  // Calculate range based on count and interval
-  const range = calculateYahooRange(count, yahooInterval);
-  
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${yahooInterval}&range=${range}`;
-  
+
+  const range = interval === "1m" || interval === "5m" ? "5d" :
+                interval === "15m" || interval === "30m" ? "1mo" :
+                interval === "1h" || interval === "4h" ? "3mo" : "1y";
+
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${yahooInterval}&range=${range}&includePrePost=false`;
+
   try {
     const res = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json",
       },
     });
-    
+
     if (!res.ok) return null;
-    
-    const json = await res.json();
+
+    const json = await res.json() as any;
     const result = json.chart?.result?.[0];
     if (!result) return null;
-    
+
     const timestamps = result.timestamp || [];
     const quotes = result.indicators?.quote?.[0] || {};
     const opens = quotes.open || [];
     const highs = quotes.high || [];
     const lows = quotes.low || [];
     const closes = quotes.close || [];
-    
+
     const bars: Bar[] = [];
     for (let i = 0; i < timestamps.length; i++) {
-      if (opens[i] != null && highs[i] != null && lows[i] != null && closes[i] != null) {
+      if (timestamps[i] != null && opens[i] != null && highs[i] != null && lows[i] != null && closes[i] != null) {
         bars.push({
-          time: timestamps[i]! * 1000, // Convert to milliseconds
+          time: timestamps[i]!, // In seconds (UNIX timestamp) to match tvremix
           open: opens[i]!,
           high: highs[i]!,
           low: lows[i]!,
@@ -170,29 +151,37 @@ export async function fetchBarsYahoo(pair: string, interval: string, count: numb
         });
       }
     }
-    
-    return bars.length > 0 ? bars : null;
+
+    if (interval === "4h" && bars.length > 0) {
+      // Aggregate 1h bars into 4h
+      const grouped = new Map<number, Bar[]>();
+      for (const b of bars) {
+        const dt = new Date(b.time * 1000);
+        const slotHour = Math.floor(dt.getUTCHours() / 4) * 4;
+        dt.setUTCHours(slotHour, 0, 0, 0);
+        const key = Math.floor(dt.getTime() / 1000);
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(b);
+      }
+      const aggregated: Bar[] = [];
+      for (const [time, chunk] of Array.from(grouped.entries()).sort((a, b) => a[0] - b[0])) {
+        if (chunk.length > 0) {
+          aggregated.push({
+            time,
+            open: chunk[0]!.open,
+            high: Math.max(...chunk.map(c => c.high)),
+            low: Math.min(...chunk.map(c => c.low)),
+            close: chunk[chunk.length - 1]!.close,
+          });
+        }
+      }
+      return aggregated.slice(-count);
+    }
+
+    return bars.length > 0 ? bars.slice(-count) : null;
   } catch {
     return null;
   }
-}
-
-function calculateYahooRange(count: number, interval: string): string {
-  // Yahoo uses "range" parameter (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
-  // We need to estimate the right range based on count and interval
-  const minutes: Record<string, number> = {
-    "1m": 1, "5m": 5, "15m": 15, "30m": 30,
-    "1h": 60, "1d": 1440, "1wk": 10080,
-  };
-  const mins = minutes[interval] ?? 60;
-  const totalMinutes = count * mins;
-  
-  if (totalMinutes <= 60) return "1d";
-  if (totalMinutes <= 240) return "5d";
-  if (totalMinutes <= 720) return "1mo";
-  if (totalMinutes <= 2160) return "3mo";
-  if (totalMinutes <= 4320) return "6mo";
-  return "1y";
 }
 
 export async function fetchBarsWithRetry(apiKey: string, pair: string, interval: string, count: number): Promise<Bar[] | null> {
@@ -202,22 +191,16 @@ export async function fetchBarsWithRetry(apiKey: string, pair: string, interval:
   };
   const safeLimit = SAFE_LIMITS[interval] ?? 2000;
   const startCount = Math.min(count, safeLimit);
-  
-  // Try tvremix first
-  let bars = await fetchBars(apiKey, pair, interval, startCount);
-  if (bars && bars.length > 0) return bars;
-  
-  // Retry with fewer bars
-  const fallbackCounts = [100, 50, 30, 20, 10];
-  for (const fallback of fallbackCounts) {
-    if (fallback >= startCount) continue;
-    bars = await fetchBars(apiKey, pair, interval, fallback);
+
+  // 1. Try tvremix if apiKey is provided
+  if (apiKey) {
+    const bars = await fetchBars(apiKey, pair, interval, startCount);
     if (bars && bars.length > 0) return bars;
   }
-  
-  // Fallback to Yahoo Finance
-  bars = await fetchBarsYahoo(pair, interval, count);
-  if (bars && bars.length > 0) return bars;
-  
+
+  // 2. Fallback to Yahoo Finance (highly reliable)
+  const yahooBars = await fetchBarsYahoo(pair, interval, startCount);
+  if (yahooBars && yahooBars.length > 0) return yahooBars;
+
   return null;
 }

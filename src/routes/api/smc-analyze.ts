@@ -529,22 +529,19 @@ export const Route = createFileRoute("/api/smc-analyze")({
         const strategy = url.searchParams.get("strategy") ?? "channel-breakout";
         const count = Math.min(parseInt(url.searchParams.get("limit") ?? "500", 10) || 500, 5000);
 
-        const apiKey = getCFEnv()?.TVREMIX_API_KEY;
-        if (!apiKey) {
-          return Response.json({ error: "TVREMIX_API_KEY not configured" }, { status: 503 });
-        }
+        const apiKey = getCFEnv()?.TVREMIX_API_KEY ?? "";
 
         // Check cache first
         const env = getCFEnv();
         const cacheKey = `${pair}-${interval}-${strategy}-${count}`;
         const now = new Date().toISOString();
-        
+
         if (env?.DB) {
           try {
             const cached = await env.DB.prepare(
               "SELECT result FROM smc_analysis_cache WHERE id = ? AND expires_at > ?"
             ).bind(cacheKey, now).first() as { result?: string } | null;
-            
+
             if (cached?.result) {
               return Response.json(JSON.parse(cached.result), { headers: { "Cache-Control": "public, max-age=60", "X-Cache": "HIT" } });
             }
