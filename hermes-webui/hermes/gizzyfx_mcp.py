@@ -435,6 +435,32 @@ TOOLS = [
             "required": ["pair", "period_description", "trades_analyzed", "wins", "losses", "narrative"],
         },
     ),
+    Tool(
+        name="get_economic_calendar",
+        description="Fetch real-time upcoming and recent economic calendar events, including actual, forecast, and previous data.",
+        inputSchema={"type": "object", "properties": {}, "required": []},
+    ),
+    Tool(
+        name="analyze_news_event",
+        description=(
+            "Analyze an economic news event (pre-news scenarios or post-news review). "
+            "When the news is over (actual number is provided), this tool tells you EXACTLY what happened "
+            "in the news (beat/miss/inline, surprise delta, macro context) and what market trend is likely "
+            "or has the highest confidence to continue going (bias, duration, key pairs, target pips, pullback entry rules)."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "event_name": {"type": "string", "description": "e.g. Non-Farm Payrolls, CPI, Interest Rate Decision"},
+                "currency": {"type": "string", "description": "e.g. USD, EUR, GBP, JPY"},
+                "actual": {"type": "string", "description": "Actual released number if news is over (e.g. '254K', '3.2%')"},
+                "forecast": {"type": "string", "description": "Consensus forecast (e.g. '180K', '3.1%')"},
+                "previous": {"type": "string", "description": "Previous period print (e.g. '159K', '2.9%')"},
+                "impact": {"type": "string", "enum": ["high", "medium", "low"], "description": "Impact level (default: high)"},
+            },
+            "required": ["event_name", "currency"],
+        },
+    ),
 ]
 
 @server.list_tools()
@@ -621,6 +647,61 @@ async def call_tool(name, arguments):
             data = _post("/api/hermes/backtests", body)
             wr = (arguments["wins"] / arguments["trades_analyzed"] * 100) if arguments["trades_analyzed"] else 0
             result = f"Backtest result posted (id={data.get('id')}). Win rate {wr:.0f}% ({arguments['wins']}/{arguments['trades_analyzed']})."
+        elif name == "get_economic_calendar":
+            data = _get("/api/events")
+            events = data.get("events", [])
+            if not events:
+                result = "No events found."
+            else:
+                lines = []
+                for e in events[:12]:
+                    lines.append(
+                        f"[{e.get('impact','').upper()}] {e.get('time','')} WAT | {e.get('currency')} - {e.get('event')} | "
+                        f"Actual: {e.get('actual','—')} | Forecast: {e.get('forecast','—')} | Prior: {e.get('previous','—')}"
+                    )
+                result = "\n".join(lines)
+        elif name == "analyze_news_event":
+            body = {
+                "event_name": arguments["event_name"],
+                "currency": arguments["currency"],
+                "impact": arguments.get("impact", "high"),
+                "actual": arguments.get("actual"),
+                "forecast": arguments.get("forecast", "—"),
+                "previous": arguments.get("previous", "—"),
+            }
+            data = _post("/api/hermes/analyze-news", body)
+            is_post = data.get("is_post_news")
+            wh = data.get("what_happened", {})
+            pt = data.get("post_news_trend", {})
+            if is_post and wh and pt:
+                pairs_str = "\n".join([f"  - {p['pair']} ({p['direction']}): Target {p['target_pips']} (Conf: {p['confidence']}%) - {p['rationale']}" for p in pt.get("recommended_pairs", [])])
+                result = (
+                    f"=== POST-NEWS OUTCOME & MARKET TREND ANALYSIS ===\n"
+                    f"Event: {arguments['event_name']} ({arguments['currency']})\n"
+                    f"Verdict: {wh.get('verdict_title')} ({wh.get('surprise_delta')})\n"
+                    f"Actual: {wh.get('actual_val')} vs Forecast: {wh.get('forecast_val')} (Prior: {wh.get('previous_val')})\n\n"
+                    f"WHAT HAPPENED:\n{wh.get('macro_impact')}\n\n"
+                    f"HIGHEST-CONFIDENCE MARKET TREND:\n"
+                    f"Directional Bias: {pt.get('bias')} ({pt.get('likely_trend')}) - {pt.get('confidence')}% Confidence\n"
+                    f"Headline: {pt.get('trend_headline')}\n"
+                    f"Duration Horizon: {pt.get('duration_horizon')}\n"
+                    f"Macro Driver: {pt.get('key_drivers')}\n\n"
+                    f"HIGH-CONVICTION TRADE CONTINUATION PAIRS:\n{pairs_str}\n\n"
+                    f"EXECUTION / PULLBACK TIMING:\n{pt.get('pullback_entry_rule')}\n"
+                    f"INVALIDATION: {pt.get('invalidation_level')}"
+                )
+            else:
+                result = (
+                    f"=== PRE-NEWS FORECAST & SCENARIO ANALYSIS ===\n"
+                    f"Event: {arguments['event_name']} ({arguments['currency']})\n"
+                    f"Directional Bias: {data.get('direction')} (Confidence: {data.get('confidence')}%)\n"
+                    f"Anticipated Spike: {data.get('spike_pips')} over {data.get('duration')}\n"
+                    f"Affected Pairs: {', '.join(data.get('affected_pairs', []))}\n"
+                    f"Analysis: {data.get('analysis')}\n"
+                    f"Trade Setup: {data.get('trade_setup')}\n"
+                    f"Avoid Strategy: {data.get('avoid_strategy')}\n"
+                    f"Risk Factors: {data.get('risk_factors')}"
+                )
 
         else:
             result = f"Unknown tool: {name}"

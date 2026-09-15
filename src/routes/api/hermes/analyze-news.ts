@@ -12,6 +12,7 @@ export const Route = createFileRoute("/api/hermes/analyze-news")({
             event_name?: string;
             currency?: string;
             impact?: string;
+            actual?: string;
             forecast?: string;
             previous?: string;
           };
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/api/hermes/analyze-news")({
             event_name: body.event_name || "Unknown Event",
             currency: body.currency || "USD",
             impact: (body.impact as "high" | "medium" | "low") || "medium",
+            actual: body.actual,
             forecast: body.forecast || "—",
             previous: body.previous || "—",
           });

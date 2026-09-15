@@ -2,12 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   ShieldX, ShieldAlert, ShieldCheck, XCircle, AlertTriangle, CheckCircle2,
-  MinusCircle, Clock, Activity, Radio, RefreshCcw, Bot, TrendingUp, TrendingDown,
-  Minus, ChevronDown, ChevronUp,
+  Clock, Activity, Radio, RefreshCcw, Bot, TrendingUp, TrendingDown,
+  Minus, ChevronDown, ChevronUp, ArrowRight, Target, Sparkles, X, Info,
 } from "lucide-react";
 import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
 import { Badge, Button, CockpitHeader } from "@/components/terminal/ui";
 import { LiveDot } from "@/components/terminal/anim";
+import { classifyHazard } from "@/lib/news-hazard";
+import { analyzeNewsEvent, type NewsAnalysis as HermesAnalysis } from "@/lib/news-analyzer";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -23,19 +25,6 @@ interface RawEvent {
   previous: string;
   datetime: number;
   pairs: string[];
-}
-
-interface HermesAnalysis {
-  analysis: string;
-  direction: "BUY" | "SELL" | "NEUTRAL" | "UNKNOWN";
-  confidence: number;
-  affected_pairs: string[];
-  spike_pips: string;
-  duration: string;
-  trade_setup: string;
-  avoid_strategy: string;
-  risk_factors: string;
-  cached?: boolean;
 }
 
 interface SessionOverlap {
@@ -57,8 +46,6 @@ const SESSIONS = [
 
 const API_REFRESH_MS = 300_000;
 const TICK_MS = 5_000;
-
-import { classifyHazard } from "@/lib/news-hazard";
 
 /* ── Pure helpers ─────────────────────────────────────────────── */
 
@@ -120,8 +107,8 @@ function computeSessions(): SessionOverlap[] {
 export const Route = createFileRoute("/calendar")({
   head: () => ({
     meta: [
-      { title: "Economic Calendar — GizzyFx" },
-      { name: "description", content: "Strategy-aware economic calendar with real-time trade timing." },
+      { title: "Economic Calendar & Hermes Post-News Trend — GizzyFx" },
+      { name: "description", content: "Strategy-aware economic calendar with real-time post-news trend continuation intelligence." },
     ],
   }),
   component: CalendarPage,
@@ -138,7 +125,9 @@ function CalendarPage() {
   const [tick, setTick] = useState(0);
   const [hermesAnalyses, setHermesAnalyses] = useState<Record<string, HermesAnalysis | "loading">>({});
   const [analyzingEvents, setAnalyzingEvents] = useState<Set<string>>(new Set());
-  const [hermesExpanded, setHermesExpanded] = useState(false);
+  const [hermesExpanded, setHermesExpanded] = useState(true);
+  const [activeAnalysisTab, setActiveAnalysisTab] = useState<"post_news" | "upcoming">("post_news");
+  const [modalEvent, setModalEvent] = useState<RawEvent | null>(null);
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -159,24 +148,20 @@ function CalendarPage() {
     }
   }, []);
 
-  // Fetch Hermes analysis for a high-impact event (uses local professional analyzer)
   const fetchHermesAnalysis = useCallback(async (ev: RawEvent) => {
     if (analyzingEvents.has(ev.id) || hermesAnalyses[ev.id]) return;
     setAnalyzingEvents((prev) => new Set(prev).add(ev.id));
     setHermesAnalyses((prev) => ({ ...prev, [ev.id]: "loading" }));
-    
-    // Simulate brief loading for UX
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
+
     try {
-      // Use the professional news analyzer
-      const { analyzeNewsEvent } = await import("@/lib/news-analyzer");
       const result = analyzeNewsEvent({
         event_name: ev.event,
         currency: ev.currency,
         impact: ev.impact,
+        actual: ev.actual,
         forecast: ev.forecast,
         previous: ev.previous,
+        datetime: ev.datetime,
       });
       setHermesAnalyses((prev) => ({ ...prev, [ev.id]: result }));
     } catch {
@@ -214,17 +199,36 @@ function CalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawEvents, tick]);
 
-  // Auto-fetch Hermes analysis for high-impact events within 3 hours
+  // Upcoming high-impact events
+  const upcomingHighImpact = useMemo(() => {
+    return liveEvents
+      .filter((e) => e.impact === "high" && e.secondsUntil > 0)
+      .slice(0, 5);
+  }, [liveEvents]);
+
+  // Recent released / past events (high & medium impact)
+  const recentReleasedEvents = useMemo(() => {
+    return liveEvents
+      .filter((e) => (e.impact === "high" || e.impact === "medium") && (e.secondsUntil <= 0 || (e.actual && e.actual !== "—")))
+      .slice(-6)
+      .reverse();
+  }, [liveEvents]);
+
+  // Auto-analyze upcoming high-impact and top recent released event
   useEffect(() => {
-    const upcomingHigh = liveEvents.filter(
-      (e) => e.impact === "high" && e.secondsUntil > 0 && e.secondsUntil < 10800
-    );
-    for (const ev of upcomingHigh) {
-      if (!hermesAnalyses[ev.id] && !analyzingEvents.has(ev.id)) {
-        fetchHermesAnalysis(ev);
+    if (upcomingHighImpact.length > 0) {
+      const first = upcomingHighImpact[0]!;
+      if (!hermesAnalyses[first.id] && !analyzingEvents.has(first.id)) {
+        fetchHermesAnalysis(first);
       }
     }
-  }, [liveEvents, tick]);
+    if (recentReleasedEvents.length > 0) {
+      const firstPast = recentReleasedEvents[0]!;
+      if (!hermesAnalyses[firstPast.id] && !analyzingEvents.has(firstPast.id)) {
+        fetchHermesAnalysis(firstPast);
+      }
+    }
+  }, [upcomingHighImpact.length, recentReleasedEvents.length]);
 
   const sessions = useMemo(() => computeSessions(), [tick]);
 
@@ -243,21 +247,6 @@ function CalendarPage() {
   const tradingBlocked = critical.length > 0 || warning.length > 0;
   const tradingCaution = caution.length > 0 && !tradingBlocked;
   const nextEvent = liveEvents.find((e) => e.secondsUntil > 0);
-
-  // Events with Hermes analysis (show panel for ALL upcoming high-impact events)
-  const upcomingHighImpact = liveEvents
-    .filter((e) => e.impact === "high" && e.secondsUntil > 0)
-    .slice(0, 5);
-
-  // Auto-analyze first upcoming high-impact event if not done
-  useEffect(() => {
-    if (upcomingHighImpact.length > 0) {
-      const first = upcomingHighImpact[0]!;
-      if (!hermesAnalyses[first.id] && !analyzingEvents.has(first.id)) {
-        fetchHermesAnalysis(first);
-      }
-    }
-  }, [upcomingHighImpact.length]);
 
   return (
     <div className="engine-cockpit">
@@ -292,7 +281,7 @@ function CalendarPage() {
         }
       />
 
-      {/* ── HERMES AI NEWS ANALYSIS ──────────────────────────────── */}
+      {/* ── HERMES AI NEWS & POST-NEWS TREND INTELLIGENCE ────────── */}
       <div className="panel hermes-panel" style={{ padding: 0, borderColor: "oklch(var(--gz-p) / 0.25)" }}>
         <div
           className="panel-head"
@@ -300,140 +289,300 @@ function CalendarPage() {
           onClick={() => setHermesExpanded(!hermesExpanded)}
         >
           <div className="flex items-center gap-2">
-            <Bot size={14} style={{ color: "oklch(var(--gz-p))" }} />
-            <h2 className="panel-head-title">Hermes AI Analysis</h2>
-            <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
-              {upcomingHighImpact.length} event{upcomingHighImpact.length > 1 ? "s" : ""}
-            </span>
+            <Bot size={16} style={{ color: "oklch(var(--gz-p))" }} />
+            <h2 className="panel-head-title">Hermes News Intelligence & Trend Forecast</h2>
           </div>
           <div className="flex items-center gap-2">
-            <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
-              Real-time market impact prediction
+            <span className="mono-cap hidden sm:inline" style={{ color: "oklch(var(--gz-mut))" }}>
+              What Happened & Highest-Confidence Trend Continuation
             </span>
             {hermesExpanded ? <ChevronUp size={14} style={{ color: "oklch(var(--gz-p))" }} /> : <ChevronDown size={14} style={{ color: "oklch(var(--gz-p))" }} />}
           </div>
         </div>
-        {hermesExpanded && upcomingHighImpact.length > 0 && (
-          <div className="space-y-3 p-4">
-            {upcomingHighImpact.map((ev) => {
-              const analysis = hermesAnalyses[ev.id];
-              if (analysis === "loading" || !analysis) {
-                return (
-                  <div key={ev.id} className="rounded-lg p-4" style={{ background: "oklch(var(--gz-s2) / 0.5)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="badge badge-danger">HIGH</span>
-                        <span className="text-sm font-semibold" style={{ color: "oklch(var(--gz-txt))" }}>{ev.event}</span>
-                        <span className="font-mono text-[10px] tabular-nums" style={{ color: "oklch(var(--gz-mut))" }}>{formatCountdown(ev.secondsUntil)}</span>
-                      </div>
-                      <button
-                        onClick={() => fetchHermesAnalysis(ev)}
-                        className="text-[10px] mono-cap font-bold cursor-pointer px-2 py-1 rounded"
-                        style={{ background: "oklch(var(--gz-p) / 0.1)", color: "oklch(var(--gz-p))", border: "1px solid oklch(var(--gz-p) / 0.3)" }}
-                      >
-                        Analyze Now
-                      </button>
-                    </div>
-                    <p className="text-[11px]" style={{ color: "oklch(var(--gz-mut))" }}>
-                      Click "Analyze Now" to get market direction, confidence, and impact prediction from Hermes AI.
-                    </p>
-                  </div>
-                );
-              }
-              const dirColor =
-                analysis.direction === "BUY" ? "oklch(var(--gz-pos))" :
-                analysis.direction === "SELL" ? "oklch(var(--gz-neg))" :
-                "oklch(var(--gz-mut))";
-              const DirIcon =
-                analysis.direction === "BUY" ? TrendingUp :
-                analysis.direction === "SELL" ? TrendingDown :
-                Minus;
-              return (
-                <div
-                  key={ev.id}
-                  className="rounded-lg p-4"
-                  style={{
-                    background: "oklch(var(--gz-s2))",
-                    border: `1px solid ${dirColor}20`,
-                  }}
-                >
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`badge ${ev.impact === "high" ? "badge-danger" : ev.impact === "medium" ? "badge-warning" : "badge-neutral"}`}>
-                        {ev.impact.toUpperCase()}
-                      </span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "oklch(var(--gz-txt))" }}>
-                        {ev.event}
-                      </span>
-                      <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
-                        {ev.currency}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] tabular-nums" style={{ color: "oklch(var(--gz-mut))" }}>
-                        {formatCountdown(ev.secondsUntil)}
-                      </span>
-                      <span
-                        className="font-mono text-[11px] font-bold px-2 py-0.5 rounded"
-                        style={{ background: `${dirColor}20`, color: dirColor, border: `1px solid ${dirColor}40` }}
-                      >
-                        {ev.forecast !== "—" ? `F: ${ev.forecast}` : ""}
-                        {ev.previous !== "—" ? ` · P: ${ev.previous}` : ""}
-                      </span>
-                    </div>
-                  </div>
 
-                  {/* Direction + Confidence */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                      style={{ background: `${dirColor}15`, border: `1px solid ${dirColor}30` }}
-                    >
-                      <DirIcon size={16} style={{ color: dirColor }} />
-                      <span style={{ fontSize: 14, fontWeight: 800, color: dirColor, letterSpacing: "0.05em" }}>
-                        {analysis.direction}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span style={{ fontSize: 11, color: "oklch(var(--gz-mut))" }}>Confidence</span>
-                      <div
-                        className="h-2 rounded-full overflow-hidden"
-                        style={{ width: 80, background: "oklch(var(--gz-s3))" }}
-                      >
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${analysis.confidence}%`,
-                            background: analysis.confidence >= 70 ? "oklch(var(--gz-pos))" :
-                                        analysis.confidence >= 50 ? "oklch(var(--gz-warn))" :
-                                        "oklch(var(--gz-neg))",
-                          }}
-                        />
-                      </div>
-                      <span
-                        className="font-mono text-[12px] font-bold tabular-nums"
-                        style={{ color: dirColor }}
-                      >
-                        {analysis.confidence}%
-                      </span>
-                    </div>
-                    <div className="flex gap-1">
-                      {analysis.affected_pairs.map((p) => (
-                        <span key={p} className="badge badge-neutral" style={{ fontSize: 9, padding: "1px 5px" }}>
-                          {p}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+        {hermesExpanded && (
+          <div className="p-3 sm:p-4">
+            {/* Tabs for Post-News vs Upcoming */}
+            <div className="flex gap-2 mb-4 border-b border-border/40 pb-2">
+              <button
+                onClick={() => setActiveAnalysisTab("post_news")}
+                className={`px-3 py-1.5 rounded-md font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
+                  activeAnalysisTab === "post_news"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Sparkles size={13} />
+                Post-News Outcomes & Trends ({recentReleasedEvents.length})
+              </button>
+              <button
+                onClick={() => setActiveAnalysisTab("upcoming")}
+                className={`px-3 py-1.5 rounded-md font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
+                  activeAnalysisTab === "upcoming"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Clock size={13} />
+                Upcoming Scenarios ({upcomingHighImpact.length})
+              </button>
+            </div>
 
-                  {/* Analysis text */}
-                  <p style={{ fontSize: 12, lineHeight: 1.6, color: "oklch(var(--gz-txt) / 0.9)" }}>
-                    {analysis.analysis}
+            {/* Content for Post-News Releases */}
+            {activeAnalysisTab === "post_news" && (
+              <div className="space-y-4">
+                {recentReleasedEvents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No recent news releases logged yet today.
                   </p>
-                </div>
-              );
-            })}
+                ) : (
+                  recentReleasedEvents.map((ev) => {
+                    const analysis = hermesAnalyses[ev.id];
+                    if (analysis === "loading" || !analysis) {
+                      return (
+                        <div key={ev.id} className="rounded-lg p-3 sm:p-4 bg-card/60 border border-border/40">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={`badge ${ev.impact === "high" ? "badge-danger" : "badge-warning"}`}>
+                                {ev.impact.toUpperCase()}
+                              </span>
+                              <span className="font-bold text-sm text-foreground">{ev.event}</span>
+                              <span className="mono-cap text-muted-foreground">{ev.currency}</span>
+                              <span className="font-mono text-xs text-muted-foreground">({formatCountdown(ev.secondsUntil)})</span>
+                            </div>
+                            <button
+                              onClick={() => fetchHermesAnalysis(ev)}
+                              className="text-xs font-bold px-3 py-1 rounded bg-primary/10 text-primary border border-primary/30 cursor-pointer hover:bg-primary/20"
+                            >
+                              Analyze What Happened & Trend
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const isPost = analysis.is_post_news && analysis.what_happened && analysis.post_news_trend;
+                    const whatHappened = analysis.what_happened;
+                    const trend = analysis.post_news_trend;
+
+                    const dirColor =
+                      analysis.direction === "BUY" ? "oklch(var(--gz-pos))" :
+                      analysis.direction === "SELL" ? "oklch(var(--gz-neg))" :
+                      "oklch(var(--gz-mut))";
+
+                    const DirIcon =
+                      analysis.direction === "BUY" ? TrendingUp :
+                      analysis.direction === "SELL" ? TrendingDown :
+                      Minus;
+
+                    const verdictTone =
+                      whatHappened?.verdict === "STRONG_BEAT" || whatHappened?.verdict === "BEAT" ? "badge-success" :
+                      whatHappened?.verdict === "SEVERE_MISS" || whatHappened?.verdict === "MISS" ? "badge-danger" :
+                      "badge-neutral";
+
+                    return (
+                      <div
+                        key={ev.id}
+                        className="rounded-xl p-3 sm:p-4 bg-card border border-border shadow-sm space-y-3"
+                      >
+                        {/* Event Title Header */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`badge ${ev.impact === "high" ? "badge-danger" : "badge-warning"}`}>
+                              {ev.impact.toUpperCase()}
+                            </span>
+                            <span className="font-bold text-sm text-foreground">{ev.event}</span>
+                            <span className="mono-cap text-muted-foreground">{ev.currency}</span>
+                            <span className="font-mono text-xs text-muted-foreground font-semibold">
+                              ({formatCountdown(ev.secondsUntil)})
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 font-mono text-xs font-bold">
+                            <span className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                              Actual: {ev.actual || "Released"}
+                            </span>
+                            {ev.forecast !== "—" && <span className="text-muted-foreground">F: {ev.forecast}</span>}
+                            {ev.previous !== "—" && <span className="text-muted-foreground">P: {ev.previous}</span>}
+                          </div>
+                        </div>
+
+                        {/* SECTION 1: WHAT HAPPENED IN THE NEWS */}
+                        {whatHappened && (
+                          <div className="rounded-lg p-3 bg-secondary/40 border border-border/50 space-y-2">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`badge ${verdictTone}`}>
+                                  {whatHappened.verdict_title}
+                                </span>
+                                <span className="text-xs font-bold text-foreground">
+                                  {whatHappened.surprise_delta}
+                                </span>
+                              </div>
+                              <span className="text-[11px] font-mono text-muted-foreground">
+                                Macro Release Verdict
+                              </span>
+                            </div>
+                            <p className="text-xs font-medium text-foreground/90 leading-relaxed">
+                              {whatHappened.macro_impact}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* SECTION 2: HIGHEST-CONFIDENCE MARKET TREND */}
+                        {trend && (
+                          <div
+                            className="rounded-lg p-3 space-y-3"
+                            style={{
+                              background: analysis.direction === "BUY" ? "oklch(var(--gz-pos) / 0.08)" : analysis.direction === "SELL" ? "oklch(var(--gz-neg) / 0.08)" : "oklch(var(--gz-s2) / 0.5)",
+                              border: `1px solid ${dirColor}30`,
+                            }}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <div className="p-1 rounded bg-card flex items-center justify-center">
+                                  <DirIcon size={16} style={{ color: dirColor }} />
+                                </div>
+                                <div>
+                                  <span className="font-extrabold text-xs uppercase tracking-wide" style={{ color: dirColor }}>
+                                    {trend.trend_headline}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-muted-foreground">Confidence:</span>
+                                <span
+                                  className="font-mono text-xs font-extrabold px-2 py-0.5 rounded"
+                                  style={{ background: `${dirColor}20`, color: dirColor }}
+                                >
+                                  {trend.confidence}%
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Key Drivers & Horizon */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                              <div className="rounded p-2 bg-card/70 border border-border/40">
+                                <span className="font-bold text-muted-foreground block mb-0.5">Key Market Driver:</span>
+                                <p className="text-foreground/90">{trend.key_drivers}</p>
+                              </div>
+                              <div className="rounded p-2 bg-card/70 border border-border/40">
+                                <span className="font-bold text-muted-foreground block mb-0.5">Continuation Horizon:</span>
+                                <p className="text-foreground/90">{trend.duration_horizon}</p>
+                              </div>
+                            </div>
+
+                            {/* Recommended Pairs with Targets */}
+                            {trend.recommended_pairs.length > 0 && (
+                              <div>
+                                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                                  Highest-Conviction Trade Continuation Pairs:
+                                </span>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                  {trend.recommended_pairs.map((rec) => (
+                                    <div
+                                      key={rec.pair}
+                                      className="rounded p-2 bg-card border border-border/60 flex flex-col gap-1"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-mono font-bold text-xs text-foreground">{rec.pair}</span>
+                                        <span
+                                          className="font-mono text-[10px] font-extrabold px-1.5 py-0.5 rounded"
+                                          style={{
+                                            background: rec.direction === "BUY" ? "oklch(var(--gz-pos) / 0.15)" : "oklch(var(--gz-neg) / 0.15)",
+                                            color: rec.direction === "BUY" ? "oklch(var(--gz-pos))" : "oklch(var(--gz-neg))",
+                                          }}
+                                        >
+                                          {rec.direction}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center justify-between text-[11px]">
+                                        <span className="text-muted-foreground">Target:</span>
+                                        <span className="font-mono font-bold text-primary">{rec.target_pips}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Entry Timing & Invalidation */}
+                            <div className="rounded p-2.5 bg-card/80 border border-border/50 text-xs space-y-1">
+                              <div>
+                                <span className="font-bold text-primary mr-1">Execution Rule:</span>
+                                <span className="text-foreground/90">{trend.pullback_entry_rule}</span>
+                              </div>
+                              <div>
+                                <span className="font-bold text-destructive mr-1">Invalidation Level:</span>
+                                <span className="text-muted-foreground">{trend.invalidation_level}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {/* Content for Upcoming Scenarios */}
+            {activeAnalysisTab === "upcoming" && (
+              <div className="space-y-3">
+                {upcomingHighImpact.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No upcoming high-impact events in the next 24 hours.
+                  </p>
+                ) : (
+                  upcomingHighImpact.map((ev) => {
+                    const analysis = hermesAnalyses[ev.id];
+                    if (analysis === "loading" || !analysis) {
+                      return (
+                        <div key={ev.id} className="rounded-lg p-3 bg-card/60 border border-border/40 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="badge badge-danger">HIGH</span>
+                            <span className="font-bold text-sm text-foreground">{ev.event}</span>
+                            <span className="font-mono text-xs text-muted-foreground">({formatCountdown(ev.secondsUntil)})</span>
+                          </div>
+                          <button
+                            onClick={() => fetchHermesAnalysis(ev)}
+                            className="text-xs font-bold px-3 py-1 rounded bg-primary/10 text-primary border border-primary/30 cursor-pointer hover:bg-primary/20"
+                          >
+                            Analyze Scenarios
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    const dirColor =
+                      analysis.direction === "BUY" ? "oklch(var(--gz-pos))" :
+                      analysis.direction === "SELL" ? "oklch(var(--gz-neg))" :
+                      "oklch(var(--gz-mut))";
+
+                    return (
+                      <div key={ev.id} className="rounded-lg p-3.5 bg-card border border-border space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="badge badge-danger">HIGH</span>
+                            <span className="font-bold text-sm text-foreground">{ev.event}</span>
+                            <span className="mono-cap text-muted-foreground">{ev.currency}</span>
+                          </div>
+                          <div className="flex items-center gap-2 font-mono text-xs">
+                            <span className="text-muted-foreground">F: {ev.forecast}</span>
+                            <span className="text-muted-foreground">P: {ev.previous}</span>
+                            <span className="font-bold text-primary">In {formatCountdown(ev.secondsUntil)}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-foreground/90 leading-relaxed">{analysis.analysis}</p>
+                        <div className="p-2 rounded bg-secondary/50 border border-border/40 text-xs">
+                          <span className="font-bold text-primary mr-1">Pre-News Setup:</span>
+                          <span className="text-foreground/90">{analysis.trade_setup}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -554,7 +703,7 @@ function CalendarPage() {
       {/* EVENTS TABLE */}
       <div className="panel" style={{ padding: 0 }}>
         <div className="panel-head">
-          <h2 className="panel-head-title">Upcoming Events</h2>
+          <h2 className="panel-head-title">Economic Calendar Schedule</h2>
           <span className="mono-cap" style={{ color: "oklch(var(--gz-mut))" }}>
             {liveEvents.length} events — all times in WAT (Nigeria, UTC+1)
           </span>
@@ -584,7 +733,7 @@ function CalendarPage() {
                   <th>Pairs</th>
                   <th style={{ textAlign: "right" }}>Countdown</th>
                   <th>Hazard</th>
-                  <th>Hermes</th>
+                  <th>Hermes Analysis</th>
                 </tr>
               </thead>
               <tbody>
@@ -600,7 +749,7 @@ function CalendarPage() {
                     "oklch(var(--gz-p))";
                   const hermes = hermesAnalyses[ev.id];
                   return (
-                    <tr key={ev.id} style={{ background: rowBg, opacity: isPast ? 0.52 : 1 }}>
+                    <tr key={ev.id} style={{ background: rowBg, opacity: isPast ? 0.65 : 1 }}>
                       <td className="font-mono tabular-nums whitespace-nowrap">
                         {new Date(ev.time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Lagos" })}
                       </td>
@@ -611,7 +760,9 @@ function CalendarPage() {
                           {ev.impact === "high" ? "HIGH" : ev.impact === "medium" ? "MED" : "LOW"}
                         </span>
                       </td>
-                      <td className="num font-mono tabular-nums">{ev.actual || "—"}</td>
+                      <td className="num font-mono tabular-nums font-bold" style={{ color: ev.actual && ev.actual !== "—" ? "oklch(var(--gz-p))" : "inherit" }}>
+                        {ev.actual || "—"}
+                      </td>
                       <td className="num font-mono tabular-nums">{ev.forecast || "—"}</td>
                       <td className="num font-mono tabular-nums">{ev.previous || "—"}</td>
                       <td>
@@ -634,39 +785,43 @@ function CalendarPage() {
                           {ev.hazardLevel === "critical" ? "CRITICAL" :
                            ev.hazardLevel === "warning"  ? "WARNING" :
                            ev.hazardLevel === "caution"  ? "CAUTION" :
-                           isPast ? "PASSED" : "SAFE"}
+                           isPast ? "RELEASED" : "SAFE"}
                         </span>
                       </td>
                       <td>
                         {hermes && hermes !== "loading" ? (
-                          <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setModalEvent(ev)}
+                            className="flex items-center gap-1.5 px-2 py-1 rounded bg-secondary/80 hover:bg-secondary border border-border cursor-pointer transition-all"
+                          >
                             {(() => {
                               const a = hermes as HermesAnalysis;
                               const dc = a.direction === "BUY" ? "oklch(var(--gz-pos))" : a.direction === "SELL" ? "oklch(var(--gz-neg))" : "oklch(var(--gz-mut))";
                               return (
                                 <>
-                                  <span className="font-mono text-[10px] font-bold" style={{ color: dc }}>
-                                    {a.direction}
+                                  <span className="font-mono text-[10.5px] font-extrabold" style={{ color: dc }}>
+                                    {a.is_post_news ? `TREND: ${a.direction}` : a.direction}
                                   </span>
-                                  <span className="font-mono text-[9px]" style={{ color: "oklch(var(--gz-mut))" }}>
+                                  <span className="font-mono text-[9.5px] text-muted-foreground">
                                     {a.confidence}%
                                   </span>
+                                  <Info size={11} className="text-primary ml-0.5" />
                                 </>
                               );
                             })()}
-                          </div>
-                        ) : analyzingEvents.has(ev.id) ? (
-                          <span className="text-[9px] mono-cap" style={{ color: "oklch(var(--gz-p))" }}>…</span>
-                        ) : ev.impact === "high" && ev.secondsUntil > 0 && ev.secondsUntil < 10800 ? (
-                          <button
-                            onClick={() => fetchHermesAnalysis(ev)}
-                            className="text-[9px] mono-cap font-bold cursor-pointer hover:underline"
-                            style={{ color: "oklch(var(--gz-p))", background: "none", border: "none", padding: 0 }}
-                          >
-                            analyze
                           </button>
+                        ) : analyzingEvents.has(ev.id) ? (
+                          <span className="text-[10px] mono-cap font-bold text-primary">Analyzing…</span>
                         ) : (
-                          <span className="text-[9px]" style={{ color: "oklch(var(--gz-mut) / 0.4)" }}>—</span>
+                          <button
+                            onClick={() => {
+                              fetchHermesAnalysis(ev);
+                              setModalEvent(ev);
+                            }}
+                            className="text-[10px] mono-cap font-bold cursor-pointer text-primary hover:underline"
+                          >
+                            {isPast ? "Review Trend" : "Forecast"}
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -678,15 +833,187 @@ function CalendarPage() {
         )}
       </div>
 
+      {/* DETAIL MODAL DIALOG */}
+      {modalEvent && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.7)",
+            backdropFilter: "blur(6px)",
+            padding: 16,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModalEvent(null);
+          }}
+        >
+          <div
+            className="panel fx-rise"
+            style={{
+              maxWidth: 580,
+              width: "100%",
+              maxHeight: "85vh",
+              overflowY: "auto",
+              padding: 0,
+              background: "var(--tv-surface, oklch(var(--gz-s1)))",
+              border: "1px solid var(--tv-border, oklch(var(--gz-p) / 0.3))",
+              borderRadius: 12,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div className="panel-head" style={{ padding: "12px 18px", borderBottom: "1px solid var(--tv-border)" }}>
+              <div className="flex items-center gap-2">
+                <Bot size={18} style={{ color: "var(--tv-blue)" }} />
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+                  Hermes News Intelligence
+                </h3>
+              </div>
+              <button
+                onClick={() => setModalEvent(null)}
+                style={{
+                  padding: 6,
+                  borderRadius: 6,
+                  border: "none",
+                  background: "var(--tv-surface-subtle)",
+                  color: "var(--tv-text-secondary)",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div className="border-b border-border/40 pb-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`badge ${modalEvent.impact === "high" ? "badge-danger" : "badge-warning"}`}>
+                    {modalEvent.impact.toUpperCase()}
+                  </span>
+                  <span className="font-bold text-base text-foreground">{modalEvent.event}</span>
+                  <span className="mono-cap text-muted-foreground">{modalEvent.currency}</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground mt-1">
+                  <span>Actual: <strong className="text-primary">{modalEvent.actual || "—"}</strong></span>
+                  <span>Forecast: {modalEvent.forecast || "—"}</span>
+                  <span>Previous: {modalEvent.previous || "—"}</span>
+                </div>
+              </div>
+
+              {(() => {
+                const a = hermesAnalyses[modalEvent.id];
+                if (!a || a === "loading") {
+                  return (
+                    <div className="text-center py-8 text-sm text-muted-foreground">
+                      Analyzing release data and market continuation vectors…
+                    </div>
+                  );
+                }
+
+                const dirColor =
+                  a.direction === "BUY" ? "oklch(var(--gz-pos))" :
+                  a.direction === "SELL" ? "oklch(var(--gz-neg))" :
+                  "oklch(var(--gz-mut))";
+
+                const DirIcon =
+                  a.direction === "BUY" ? TrendingUp :
+                  a.direction === "SELL" ? TrendingDown :
+                  Minus;
+
+                return (
+                  <div className="space-y-4">
+                    {/* What Happened Section */}
+                    {a.what_happened && (
+                      <div className="p-3.5 rounded-lg bg-secondary/50 border border-border space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="badge badge-info">{a.what_happened.verdict_title}</span>
+                          <span className="font-mono text-xs font-bold text-primary">{a.what_happened.surprise_delta}</span>
+                        </div>
+                        <p className="text-xs text-foreground/90 leading-relaxed font-medium">
+                          {a.what_happened.macro_impact}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Post-News Trend Section */}
+                    {a.post_news_trend ? (
+                      <div
+                        className="p-3.5 rounded-lg space-y-3"
+                        style={{
+                          background: a.direction === "BUY" ? "oklch(var(--gz-pos) / 0.08)" : a.direction === "SELL" ? "oklch(var(--gz-neg) / 0.08)" : "oklch(var(--gz-s2) / 0.5)",
+                          border: `1px solid ${dirColor}40`,
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <DirIcon size={18} style={{ color: dirColor }} />
+                            <span className="font-extrabold text-sm" style={{ color: dirColor }}>
+                              {a.post_news_trend.trend_headline}
+                            </span>
+                          </div>
+                          <span className="font-mono text-xs font-bold px-2 py-0.5 rounded" style={{ background: `${dirColor}20`, color: dirColor }}>
+                            {a.post_news_trend.confidence}% Confidence
+                          </span>
+                        </div>
+
+                        <div className="text-xs space-y-1">
+                          <div>
+                            <span className="font-bold text-muted-foreground mr-1">Macro Trend Driver:</span>
+                            <span className="text-foreground/90">{a.post_news_trend.key_drivers}</span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-muted-foreground mr-1">Projected Duration:</span>
+                            <span className="text-foreground/90">{a.post_news_trend.duration_horizon}</span>
+                          </div>
+                        </div>
+
+                        {a.post_news_trend.recommended_pairs.length > 0 && (
+                          <div className="space-y-1.5 pt-1">
+                            <span className="text-[11px] font-bold text-muted-foreground uppercase">High-Conviction Currency Pairs:</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {a.post_news_trend.recommended_pairs.map((p) => (
+                                <div key={p.pair} className="p-2 rounded bg-card border border-border text-xs flex justify-between items-center">
+                                  <span className="font-mono font-bold text-foreground">{p.pair} ({p.direction})</span>
+                                  <span className="font-mono font-bold text-primary">{p.target_pips}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="p-2 rounded bg-card/80 border border-border text-xs">
+                          <span className="font-bold text-primary mr-1">Pullback Entry Rule:</span>
+                          <span className="text-foreground/90">{a.post_news_trend.pullback_entry_rule}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-lg bg-card border border-border text-xs space-y-2">
+                        <p className="text-foreground/90 leading-relaxed">{a.analysis}</p>
+                        <div className="p-2 rounded bg-secondary/50 border border-border/40">
+                          <span className="font-bold text-primary mr-1">Setup:</span>
+                          <span className="text-foreground/90">{a.trade_setup}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* STRATEGY RULES */}
       <div className="panel" style={{ padding: "0.8rem 1rem" }}>
         <p className="section-label mb-2">Strategy Rules</p>
         <ul className="space-y-1 text-[12px]" style={{ color: "oklch(var(--gz-mut))" }}>
-          <li><strong style={{ color: "oklch(var(--gz-txt))" }}>No pending orders</strong> ±30 min before/after HIGH impact news</li>
-          <li><strong style={{ color: "oklch(var(--gz-txt))" }}>Avoid new entries</strong> ±2–3 hours before HIGH impact events</li>
-          <li><strong style={{ color: "oklch(var(--gz-txt))" }}>Vary entry times:</strong> 08:13, 10:42, 14:05</li>
-          <li><strong style={{ color: "oklch(var(--gz-txt))" }}>Vary SL pips:</strong> 28, 35, 22</li>
-          <li><strong style={{ color: "oklch(var(--gz-txt))" }}>Best liquidity:</strong> London/NY overlap (18:00–21:00 WAT / 13:00–16:00 ET)</li>
+          <li>• NO pending orders within ±30 minutes of RED (HIGH) folder news events.</li>
+          <li>• Avoid placing new orders 2–3 hours before scheduled high-impact events.</li>
+          <li>• After news completes, wait for the initial 5–15M wick to settle before trading confirmed trend continuation.</li>
+          <li>• If an order is already filled and in profit before news, move SL to breakeven immediately.</li>
         </ul>
       </div>
     </div>
