@@ -566,6 +566,21 @@ function CalendarPage() {
                             <span className="font-mono text-xs text-muted-foreground font-semibold">
                               ({formatCountdown(ev.secondsUntil)})
                             </span>
+                            {/* Prominent Actionable Direction Badge */}
+                            <span className={`px-2.5 py-0.5 rounded-md font-mono text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-sm ${
+                              currentAnalysis?.direction === "BUY"
+                                ? "bg-emerald-500 text-white"
+                                : currentAnalysis?.direction === "SELL"
+                                ? "bg-red-500 text-white"
+                                : "bg-secondary text-muted-foreground"
+                            }`}>
+                              <DirIcon size={13} />
+                              {currentAnalysis?.direction === "BUY"
+                                ? `DIRECTION: BUY ${ev.currency}`
+                                : currentAnalysis?.direction === "SELL"
+                                ? `DIRECTION: SELL ${ev.currency}`
+                                : `DIRECTION: NEUTRAL ${ev.currency}`}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2 font-mono text-xs font-bold">
                             <span className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
@@ -610,10 +625,33 @@ function CalendarPage() {
                           <div
                             className="rounded-lg p-3 space-y-3"
                             style={{
-                              background: analysis.direction === "BUY" ? "oklch(var(--gz-pos) / 0.08)" : analysis.direction === "SELL" ? "oklch(var(--gz-neg) / 0.08)" : "oklch(var(--gz-s2) / 0.5)",
+                              background: currentAnalysis?.direction === "BUY" ? "oklch(var(--gz-pos) / 0.08)" : currentAnalysis?.direction === "SELL" ? "oklch(var(--gz-neg) / 0.08)" : "oklch(var(--gz-s2) / 0.5)",
                               border: `1px solid ${dirColor}30`,
                             }}
                           >
+                            {/* Main Actionable Direction Callout */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-card/80 border border-border">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Trade Call:</span>
+                                <span className={`px-2.5 py-1 rounded font-mono text-xs font-black uppercase flex items-center gap-1 ${
+                                  currentAnalysis?.direction === "BUY" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" :
+                                  currentAnalysis?.direction === "SELL" ? "bg-red-500/20 text-red-400 border border-red-500/40" :
+                                  "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                                }`}>
+                                  <DirIcon size={14} />
+                                  {currentAnalysis?.direction === "BUY" ? `BUY ${ev.currency} (BULLISH CONTINUATION)` :
+                                   currentAnalysis?.direction === "SELL" ? `SELL ${ev.currency} (BEARISH CONTINUATION)` :
+                                   `NEUTRAL ${ev.currency} (CONSOLIDATION)`}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 font-mono text-xs">
+                                <span className="text-muted-foreground">Confidence:</span>
+                                <span className="font-extrabold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                                  {trend.confidence}%
+                                </span>
+                              </div>
+                            </div>
+
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
                                 <div className="p-1 rounded bg-card flex items-center justify-center">
@@ -624,15 +662,6 @@ function CalendarPage() {
                                     {trend.trend_headline}
                                   </span>
                                 </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-muted-foreground">Confidence:</span>
-                                <span
-                                  className="font-mono text-xs font-extrabold px-2 py-0.5 rounded"
-                                  style={{ background: `${dirColor}20`, color: dirColor }}
-                                >
-                                  {trend.confidence}%
-                                </span>
                               </div>
                             </div>
 
@@ -1095,7 +1124,8 @@ function CalendarPage() {
                 const a = hermesAnalyses[modalEvent.id];
                 if (!a || a === "loading") {
                   return (
-                    <div className="text-center py-8 text-sm text-muted-foreground">
+                    <div className="text-center py-8 text-sm text-muted-foreground font-mono">
+                      <Loader2 size={20} className="animate-spin text-primary mx-auto mb-2" />
                       Analyzing release data and market continuation vectors…
                     </div>
                   );
@@ -1113,6 +1143,24 @@ function CalendarPage() {
 
                 return (
                   <div className="space-y-4">
+                    {/* Explicit Actionable Direction Callout */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-card border border-border shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase text-muted-foreground">Actionable Direction:</span>
+                        <span className={`px-3 py-1 rounded-md font-mono text-xs font-black uppercase flex items-center gap-1.5 shadow-sm ${
+                          a.direction === "BUY" ? "bg-emerald-500 text-white" :
+                          a.direction === "SELL" ? "bg-red-500 text-white" :
+                          "bg-secondary text-muted-foreground"
+                        }`}>
+                          <DirIcon size={14} />
+                          {a.direction === "BUY" ? `BUY ${modalEvent.currency} (BULLISH)` : a.direction === "SELL" ? `SELL ${modalEvent.currency} (BEARISH)` : `NEUTRAL ${modalEvent.currency}`}
+                        </span>
+                      </div>
+                      <div className="font-mono text-xs font-extrabold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                        {a.confidence}% Confidence
+                      </div>
+                    </div>
+
                     {/* What Happened Section */}
                     {a.what_happened && (
                       <div className="p-3.5 rounded-lg bg-secondary/50 border border-border space-y-2">
