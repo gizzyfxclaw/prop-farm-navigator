@@ -123,7 +123,15 @@ function CalendarPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
-  const [hermesAnalyses, setHermesAnalyses] = useState<Record<string, HermesAnalysis | "loading">>({});
+  const [hermesAnalyses, setHermesAnalyses] = useState<Record<string, HermesAnalysis | "loading">>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("gizzyfx.calendar.hermesAnalyses");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return {};
+  });
   const [analyzingEvents, setAnalyzingEvents] = useState<Set<string>>(new Set());
   const [hermesExpanded, setHermesExpanded] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
@@ -156,6 +164,22 @@ function CalendarPage() {
     } catch {}
   }, [activeAnalysisTab]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const toSave: Record<string, HermesAnalysis> = {};
+        for (const [id, a] of Object.entries(hermesAnalyses)) {
+          if (a && a !== "loading") {
+            toSave[id] = a;
+          }
+        }
+        if (Object.keys(toSave).length > 0) {
+          localStorage.setItem("gizzyfx.calendar.hermesAnalyses", JSON.stringify(toSave));
+        }
+      } catch {}
+    }
+  }, [hermesAnalyses]);
+
   const fetchEvents = useCallback(async () => {
     try {
       const res = await fetch("/api/events?days=7");
@@ -176,9 +200,12 @@ function CalendarPage() {
   }, []);
 
   const fetchHermesAnalysis = useCallback(async (ev: RawEvent) => {
-    if (analyzingEvents.has(ev.id) || hermesAnalyses[ev.id]) return;
+    if (analyzingEvents.has(ev.id)) return;
     setAnalyzingEvents((prev) => new Set(prev).add(ev.id));
     setHermesAnalyses((prev) => ({ ...prev, [ev.id]: "loading" }));
+
+    // Small delay for tactile button feedback
+    await new Promise((r) => setTimeout(r, 350));
 
     try {
       const result = analyzeNewsEvent({
@@ -190,7 +217,17 @@ function CalendarPage() {
         previous: ev.previous,
         datetime: ev.datetime,
       });
-      setHermesAnalyses((prev) => ({ ...prev, [ev.id]: result }));
+      setHermesAnalyses((prev) => {
+        const next = { ...prev, [ev.id]: result };
+        try {
+          const toSave: Record<string, HermesAnalysis> = {};
+          for (const [k, v] of Object.entries(next)) {
+            if (v && v !== "loading") toSave[k] = v;
+          }
+          localStorage.setItem("gizzyfx.calendar.hermesAnalyses", JSON.stringify(toSave));
+        } catch {}
+        return next;
+      });
     } catch {
       // fail silently
     } finally {
@@ -200,7 +237,7 @@ function CalendarPage() {
         return next;
       });
     }
-  }, [analyzingEvents, hermesAnalyses]);
+  }, [analyzingEvents]);
 
   useEffect(() => {
     fetchEvents();
@@ -237,22 +274,20 @@ function CalendarPage() {
   const recentReleasedEvents = useMemo(() => {
     return liveEvents
       .filter((e) => (e.impact === "high" || e.impact === "medium") && (e.secondsUntil <= 0 || (e.actual && e.actual !== "—")))
-      .slice(-6)
+      .slice(-8)
       .reverse();
   }, [liveEvents]);
 
-  // Auto-analyze upcoming high-impact and top recent released event
+  // Auto-analyze all upcoming and released high-impact events in background
   useEffect(() => {
-    if (upcomingHighImpact.length > 0) {
-      const first = upcomingHighImpact[0]!;
-      if (!hermesAnalyses[first.id] && !analyzingEvents.has(first.id)) {
-        fetchHermesAnalysis(first);
+    for (const ev of upcomingHighImpact) {
+      if (!hermesAnalyses[ev.id] && !analyzingEvents.has(ev.id)) {
+        fetchHermesAnalysis(ev);
       }
     }
-    if (recentReleasedEvents.length > 0) {
-      const firstPast = recentReleasedEvents[0]!;
-      if (!hermesAnalyses[firstPast.id] && !analyzingEvents.has(firstPast.id)) {
-        fetchHermesAnalysis(firstPast);
+    for (const ev of recentReleasedEvents) {
+      if (!hermesAnalyses[ev.id] && !analyzingEvents.has(ev.id)) {
+        fetchHermesAnalysis(ev);
       }
     }
   }, [upcomingHighImpact.length, recentReleasedEvents.length]);
@@ -365,10 +400,11 @@ function CalendarPage() {
                 ) : (
                   recentReleasedEvents.map((ev) => {
                     const analysis = hermesAnalyses[ev.id];
-                    if (analysis === "loading" || !analysis) {
+                    const isAnalyzing = analysis === "loading" || analyzingEvents.has(ev.id);
+                    if (!analysis || analysis === "loading") {
                       return (
-                        <div key={ev.id} className="rounded-lg p-3 sm:p-4 bg-card/60 border border-border/40">
-                          <div className="flex items-center justify-between">
+                        <div key={ev.id} className={`rounded-xl p-3 sm:p-4 bg-card/70 border ${isAnalyzing ? "border-primary/40 animate-pulse" : "border-border/60"}`}>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className={`badge ${ev.impact === "high" ? "badge-danger" : "badge-warning"}`}>
                                 {ev.impact.toUpperCase()}
@@ -379,9 +415,17 @@ function CalendarPage() {
                             </div>
                             <button
                               onClick={() => fetchHermesAnalysis(ev)}
-                              className="text-xs font-bold px-3 py-1 rounded bg-primary/10 text-primary border border-primary/30 cursor-pointer hover:bg-primary/20"
+                              disabled={isAnalyzing}
+                              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-primary/15 text-primary border border-primary/30 cursor-pointer hover:bg-primary/25 flex items-center gap-1.5"
                             >
-                              Analyze What Happened & Trend
+                              {isAnalyzing ? (
+                                <>
+                                  <RefreshCw size={12} className="animate-spin" />
+                                  Analyzing release & trend…
+                                </>
+                              ) : (
+                                "Analyze What Happened & Trend"
+                              )}
                             </button>
                           </div>
                         </div>
