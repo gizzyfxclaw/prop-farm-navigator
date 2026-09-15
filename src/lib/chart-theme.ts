@@ -113,6 +113,6 @@ export function chartTheme(): ChartTheme {
 export function onThemeChange(fn: () => void): () => void {
   if (typeof document === "undefined") return () => {};
   const obs = new MutationObserver(fn);
-  obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-mode", "class"] });
   return () => obs.disconnect();
 }

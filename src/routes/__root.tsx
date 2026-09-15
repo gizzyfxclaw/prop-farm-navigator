@@ -116,8 +116,16 @@ type Mode = "dark" | "light";
 function applyMode(mode: Mode) {
   if (mode === "light") {
     document.documentElement.dataset["mode"] = "light";
+    document.documentElement.classList.remove("dark");
+    document.documentElement.classList.add("light");
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute("content", "#f4f5f7");
   } else {
     delete document.documentElement.dataset["mode"];
+    document.documentElement.classList.remove("light");
+    document.documentElement.classList.add("dark");
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute("content", "#0a0c12");
   }
   // Sync to Hermes WebUI localStorage key so the skin matches when navigating there
   try {
@@ -324,6 +332,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" },
       { rel: "stylesheet", href: appCss },
       { rel: "stylesheet", href: mobileTvCss },
       { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
@@ -352,7 +363,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 })();`,
       },
       {
-        children: `try{var t=localStorage.getItem("gz-theme");if(t&&["graphite","blue","amber","emerald","purple"].indexOf(t)>=0)document.documentElement.dataset.theme=t;var m=localStorage.getItem("gz-mode");if(m==="light")document.documentElement.dataset.mode="light";}catch(e){}`,
+        children: `try{var t=localStorage.getItem("gz-theme");if(t&&["graphite","blue","amber","emerald","purple"].indexOf(t)>=0)document.documentElement.dataset.theme=t;var m=localStorage.getItem("gz-mode");if(m==="light"){document.documentElement.dataset.mode="light";document.documentElement.classList.add("light");document.documentElement.classList.remove("dark");}else{document.documentElement.classList.add("dark");document.documentElement.classList.remove("light");}}catch(e){}`,
       },
       {
         children: `if(window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true){document.documentElement.classList.add("pwa-standalone");}`,
@@ -409,10 +420,11 @@ function Clock() {
 }
 
 function MobileNav() {
+  const router = useRouter();
+  const pathname = router.state.location.pathname;
   const [mounted, setMounted] = useState(false);
   const [openPanel, setOpenPanel] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
 
   // Only render portal on client-side (document is not available during SSR)
   useEffect(() => {
@@ -447,11 +459,11 @@ function MobileNav() {
   ];
 
   const primaryTabs = [
-    { to: "/", label: "Home", icon: <LayoutDashboard size={22} />, action: "home" },
-    { to: "/smc", label: "SMC", icon: <Layers size={22} />, action: "smc" },
-    { to: "tools", label: "Tools", icon: <Wrench size={22} />, action: "tools" },
-    { to: "/briefing", label: "Brief", icon: <ClipboardList size={22} />, action: "briefing" },
-    { to: "more", label: "More", icon: <Menu size={22} />, action: "more" },
+    { to: "/", label: "Home", icon: <LayoutDashboard size={20} />, action: "home" },
+    { to: "/smc", label: "SMC", icon: <Layers size={20} />, action: "smc" },
+    { to: "tools", label: "Tools", icon: <Wrench size={20} />, action: "tools" },
+    { to: "/briefing", label: "Brief", icon: <ClipboardList size={20} />, action: "briefing" },
+    { to: "more", label: "More", icon: <Menu size={20} />, action: "more" },
   ];
 
   return createPortal(
@@ -460,48 +472,73 @@ function MobileNav() {
       {openPanel && (
         <div style={{ position: "fixed", inset: 0, zIndex: 99999 }}>
           <div
-            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }}
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
             onClick={() => setOpenPanel(null)}
           />
           <div
+            className="fx-rise"
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
-              background: "oklch(var(--gz-s1))", borderTopLeftRadius: 20, borderTopRightRadius: 20,
-              border: "1px solid oklch(var(--gz-p) / 0.2)", boxShadow: "0 -12px 48px rgba(0,0,0,0.5)", overflow: "hidden",
+              background: "oklch(var(--gz-s1))", borderTopLeftRadius: 18, borderTopRightRadius: 18,
+              border: "1px solid oklch(var(--gz-p) / 0.2)", boxShadow: "0 -12px 48px rgba(0,0,0,0.45)", overflow: "hidden",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid oklch(var(--gz-p) / 0.15)" }}>
-              <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "oklch(var(--gz-p))" }}>
-                {openPanel === "tools" ? "Trading Tools" : "More Options"}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid oklch(var(--gz-p) / 0.12)" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "oklch(var(--gz-p))" }}>
+                {openPanel === "tools" ? "Trading Tools" : "Navigation & Settings"}
               </span>
-              <button onClick={() => setOpenPanel(null)} style={{ padding: 8, borderRadius: 8, border: "none", background: "oklch(var(--gz-s2))", color: "oklch(var(--gz-mut))", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <button
+                onClick={() => setOpenPanel(null)}
+                style={{
+                  width: 30, height: 30, borderRadius: 6, border: "none",
+                  background: "oklch(var(--gz-s2))", color: "oklch(var(--gz-mut))",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
                 <X size={16} />
               </button>
             </div>
-            <div style={{ padding: "12px 0", maxHeight: "50vh", overflowY: "auto" }}>
-              {(openPanel === "tools" ? toolsItems : moreItems).map((item) => (
-                <button
-                  key={item.to}
-                  onClick={() => { setOpenPanel(null); window.location.href = item.to; }}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 16, width: "100%", padding: "14px 20px",
-                    border: "none", background: isActive(item.to) ? "oklch(var(--gz-p) / 0.12)" : "transparent",
-                    color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-txt))",
-                    fontSize: 15, fontWeight: 600, textAlign: "left", cursor: "pointer",
-                  }}
-                >
-                  <span style={{ color: isActive(item.to) ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>{item.icon}</span>
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {isActive(item.to) && (
-                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "3px 8px", borderRadius: 4, background: "oklch(var(--gz-p) / 0.2)", color: "oklch(var(--gz-p))" }}>Active</span>
-                  )}
-                </button>
-              ))}
+            <div style={{ padding: "8px 0", maxHeight: "55vh", overflowY: "auto" }}>
+              {(openPanel === "tools" ? toolsItems : moreItems).map((item) => {
+                const itemActive = isActive(item.to);
+                return (
+                  <button
+                    key={item.to}
+                    onClick={() => {
+                      setOpenPanel(null);
+                      router.navigate({ to: item.to });
+                    }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 14, width: "100%", padding: "12px 18px",
+                      border: "none", background: itemActive ? "oklch(var(--gz-p) / 0.12)" : "transparent",
+                      color: itemActive ? "oklch(var(--gz-p))" : "oklch(var(--gz-txt))",
+                      fontSize: 14, fontWeight: 600, textAlign: "left", cursor: "pointer",
+                    }}
+                  >
+                    <span style={{ color: itemActive ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>{item.icon}</span>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    {itemActive && (
+                      <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "2px 7px", borderRadius: 4, background: "oklch(var(--gz-p) / 0.2)", color: "oklch(var(--gz-p))" }}>
+                        Active
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
               <button
-                onClick={() => { setOpenPanel(null); fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
-                style={{ display: "flex", alignItems: "center", gap: 16, width: "100%", padding: "14px 20px", border: "none", borderTop: "1px solid oklch(var(--gz-p) / 0.1)", background: "oklch(var(--gz-neg) / 0.05)", color: "oklch(var(--gz-neg))", fontSize: 15, fontWeight: 600, textAlign: "left", cursor: "pointer", marginTop: 8 }}
+                onClick={() => {
+                  setOpenPanel(null);
+                  fetch("/api/auth/logout", { method: "POST" });
+                  window.location.href = "/login";
+                }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 14, width: "100%", padding: "12px 18px",
+                  border: "none", borderTop: "1px solid oklch(var(--gz-p) / 0.1)",
+                  background: "oklch(var(--gz-neg) / 0.06)", color: "oklch(var(--gz-neg))",
+                  fontSize: 14, fontWeight: 600, textAlign: "left", cursor: "pointer", marginTop: 6,
+                }}
               >
-                <LogOut size={20} />
+                <LogOut size={18} />
                 <span style={{ flex: 1 }}>Sign Out</span>
               </button>
             </div>
@@ -510,10 +547,23 @@ function MobileNav() {
       )}
 
       {/* Fixed Bottom Toolbar */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999, background: "oklch(var(--gz-s1))", borderTop: "1px solid oklch(var(--gz-p) / 0.15)", boxShadow: "0 -4px 20px rgba(0,0,0,0.4)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around", padding: "8px 4px", paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
+      <div style={{
+        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999,
+        background: "oklch(var(--gz-s1) / 0.94)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderTop: "1px solid oklch(var(--gz-p) / 0.16)",
+        boxShadow: "0 -4px 24px rgba(0,0,0,0.35)",
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-around",
+          padding: "6px 2px",
+          paddingBottom: "max(6px, env(safe-area-inset-bottom))",
+        }}>
           {primaryTabs.map((tab) => {
             const itemIsActive = tab.to === "/" ? pathname === "/" : pathname.startsWith(tab.to);
+            const isPanelOpen = openPanel === tab.action;
+            const highlighted = isPanelOpen || (openPanel === null && itemIsActive);
             return (
               <button
                 key={tab.action}
@@ -521,13 +571,26 @@ function MobileNav() {
                   if (tab.action === "tools" || tab.action === "more") {
                     setOpenPanel(openPanel === tab.action ? null : tab.action);
                   } else {
-                    window.location.href = tab.to;
+                    setOpenPanel(null);
+                    router.navigate({ to: tab.to });
                   }
                 }}
-                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 12px", border: "none", borderRadius: 12, background: openPanel === tab.action ? "oklch(var(--gz-p) / 0.1)" : "transparent", cursor: "pointer", minWidth: 60 }}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                  padding: "6px 8px", border: "none", borderRadius: 8,
+                  background: isPanelOpen ? "oklch(var(--gz-p) / 0.12)" : "transparent",
+                  cursor: "pointer", minWidth: 56, flex: 1,
+                }}
               >
-                <span style={{ color: itemIsActive || openPanel === tab.action ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>{tab.icon}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: itemIsActive || openPanel === tab.action ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>{tab.label}</span>
+                <span style={{ color: highlighted ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>
+                  {tab.icon}
+                </span>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
+                  color: highlighted ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))",
+                }}>
+                  {tab.label}
+                </span>
               </button>
             );
           })}

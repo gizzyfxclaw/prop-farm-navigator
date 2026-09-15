@@ -29,7 +29,7 @@
       oklch(var(--gz-s2) / 0.92),
       oklch(var(--gz-s1) / 0.96));
   border: var(--gz-hair) solid oklch(var(--gz-p) / 0.13);
-  border-radius: 3px;
+  border-radius: 8px;
   box-shadow: var(--gz-e2);
   overflow: hidden;
 }

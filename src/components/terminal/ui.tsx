@@ -174,7 +174,7 @@ export function Segmented<T extends string | number>({
           key={String(o.value)}
           role="tab"
           aria-selected={o.value === value}
-          className="seg-item"
+          className={cn("seg-item", o.value === value && "is-active")}
           onClick={() => onChange(o.value)}
         >
           {o.label}

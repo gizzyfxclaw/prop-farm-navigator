@@ -1,522 +1,197 @@
 /**
- * GizzyFx Mobile Terminal — Professional TradingView Design System
+ * GizzyFx Mobile & Tablet Design System
  *
- * Premium dark trading interface with institutional-grade aesthetics
- * - TradingView's exact color system
- * - Micro-interactions and visual hierarchy
- * - Optimized for active traders
+ * Performance-optimized, responsive styling for screens <= 1023px.
+ * Works seamlessly with both Dark Mode (default) and Light Mode ([data-mode="light"]).
+ * Fully integrated with the --gz-* OKLCH color token system.
  */
 
-@media (max-width: 1199px) {
-  /* ─────────────────────────────────────────────────────────────
-     RESET & FOUNDATION
-     ───────────────────────────────────────────────────────────── */
-
-  * {
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 0 !important;
-    box-sizing: border-box !important;
-  }
-
+@media (max-width: 1023px) {
+  /* ── 1. FOUNDATION & SCROLLING ─────────────────────────────────── */
   html, body {
-    width: 100% !important;
-    height: 100% !important;
-    overflow: hidden !important;
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   body {
-    background: #0d0e11 !important;
-    color: #d1d4dc !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', 'Roboto', sans-serif !important;
-    font-size: 14px !important;
-    line-height: 1.5 !important;
-    -webkit-font-smoothing: antialiased !important;
-    -webkit-tap-highlight-color: transparent !important;
+    font-size: 14px;
+    line-height: 1.45;
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     HEADER & NAVIGATION
-     ───────────────────────────────────────────────────────────── */
-
-  header, .cmdbar, .engine-cockpit, .cockpit-header {
-    background: #131722 !important;
-    border-bottom: 1px solid #1a1d26 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    height: auto !important;
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 1000 !important;
+  /* ── 2. SITE HEADER (COMMAND BAR) ──────────────────────────────── */
+  .cmdbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    width: 100%;
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
   }
 
-  .cockpit-title, [class*="title"] {
-    color: #d1d4dc !important;
-    font-weight: 600 !important;
-    font-size: 14px !important;
+  .cmdbar img {
+    max-height: 28px;
+    width: auto;
   }
 
-  nav, .navtab, [role="navigation"] {
-    display: none !important;
+  /* ── 3. MAIN CONTENT CONTAINER ─────────────────────────────────── */
+  main.fx-stagger {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     CONTENT LAYOUT
-     ───────────────────────────────────────────────────────────── */
-
-  main, .fx-stagger, [role="main"] {
-    background: #0d0e11 !important;
-    padding: 12px !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    padding-bottom: 80px !important;
+  /* ── 4. CARDS & PANELS ─────────────────────────────────────────── */
+  .panel,
+  .card,
+  [class*="rounded-xl"] {
+    border-radius: 8px;
+    margin-bottom: 12px;
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     CARDS & PANELS - Premium Design
-     ───────────────────────────────────────────────────────────── */
-
-  .panel, .card, [class*="panel"], [class*="card"] {
-    background: #1a1d26 !important;
-    border: 1px solid #252a34 !important;
-    border-radius: 8px !important;
-    margin: 8px 0 !important;
-    padding: 16px !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
-    transition: all 0.2s ease !important;
+  .panel-body {
+    padding: 12px 14px;
   }
 
-  .panel:active, .card:active {
-    background: #212733 !important;
-    border-color: #2a2f3a !important;
+  .panel-head {
+    padding: 8px 12px;
+    min-height: 36px;
   }
 
-  .panel-head, [class*="panel-head"] {
-    border-bottom: 1px solid #252a34 !important;
-    margin-bottom: 12px !important;
-    padding-bottom: 12px !important;
+  .panel-head-title {
+    font-size: 12px;
+    letter-spacing: 0.05em;
   }
 
-  .panel-head-title, [class*="panel-title"] {
-    color: #d1d4dc !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     STAT TILES - Institutional Style
-     ───────────────────────────────────────────────────────────── */
-
-  .stat, [class*="stat"] {
-    background: #131722 !important;
-    border: 1px solid #1a1d26 !important;
-    border-radius: 6px !important;
-    padding: 12px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
-  }
-
-  .stat-label, [class*="label"] {
-    color: #787b86 !important;
-    font-size: 10px !important;
-    font-weight: 600 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.8px !important;
-  }
-
-  .stat-value, [class*="value"] {
-    color: #d1d4dc !important;
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    font-family: 'Courier New', monospace !important;
-    letter-spacing: -0.5px !important;
-  }
-
-  /* Positive/Negative coloring */
-  .gz-pos, .text-success, [class*="positive"], [class*="success"] {
-    color: #26a69a !important;
-  }
-
-  .gz-neg, .text-destructive, [class*="negative"], [class*="destructive"] {
-    color: #ef5350 !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     BUTTONS - TradingView Style
-     ───────────────────────────────────────────────────────────── */
-
-  button, .btn, [role="button"], input[type="button"], input[type="submit"] {
-    background: #2962ff !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 6px !important;
-    padding: 10px 16px !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    cursor: pointer !important;
-    transition: all 0.15s ease !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
-  }
-
-  button:hover, .btn:hover {
-    background: #1e53e5 !important;
-    box-shadow: 0 2px 8px rgba(41, 98, 255, 0.3) !important;
-  }
-
-  button:active, .btn:active {
-    background: #1a47b5 !important;
-    transform: scale(0.98) !important;
-  }
-
-  /* Variants */
-  button.success, .btn-success, [class*="success"] {
-    background: #26a69a !important;
-  }
-
-  button.success:hover, .btn-success:hover {
-    background: #1f8680 !important;
-  }
-
-  button.danger, .btn-danger, [class*="danger"] {
-    background: #ef5350 !important;
-  }
-
-  button.danger:hover, .btn-danger:hover {
-    background: #d63c3c !important;
-  }
-
-  button.ghost, .btn-ghost {
-    background: transparent !important;
-    border: 1px solid #252a34 !important;
-    color: #d1d4dc !important;
-  }
-
-  button.ghost:hover, .btn-ghost:hover {
-    background: rgba(41, 98, 255, 0.08) !important;
-    border-color: #2962ff !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     BADGES - Accent Elements
-     ───────────────────────────────────────────────────────────── */
-
-  .badge, [class*="badge"] {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    padding: 4px 8px !important;
-    border-radius: 4px !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-  }
-
-  .badge.tone-green {
-    background: rgba(38, 166, 154, 0.12) !important;
-    color: #26a69a !important;
-  }
-
-  .badge.tone-red {
-    background: rgba(239, 83, 80, 0.12) !important;
-    color: #ef5350 !important;
-  }
-
-  .badge.tone-blue {
-    background: rgba(41, 98, 255, 0.12) !important;
-    color: #2962ff !important;
-  }
-
-  .badge.tone-yellow {
-    background: rgba(255, 152, 0, 0.12) !important;
-    color: #ff9800 !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     FORM CONTROLS
-     ───────────────────────────────────────────────────────────── */
-
-  input, select, textarea, [class*="input"] {
-    background: #131722 !important;
-    border: 1px solid #252a34 !important;
-    border-radius: 6px !important;
-    color: #d1d4dc !important;
-    padding: 10px 12px !important;
-    font-size: 14px !important;
-    font-family: inherit !important;
-    transition: all 0.15s ease !important;
-  }
-
-  input:focus, select:focus, textarea:focus {
-    border-color: #2962ff !important;
-    background: #1a1d26 !important;
-    outline: none !important;
-    box-shadow: 0 0 0 3px rgba(41, 98, 255, 0.1) !important;
-  }
-
-  input::placeholder {
-    color: #5d606b !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     TABLES - Data Display
-     ───────────────────────────────────────────────────────────── */
-
-  table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    margin: 0 !important;
-  }
-
-  thead {
-    background: #1a1d26 !important;
-    border-bottom: 2px solid #252a34 !important;
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 10 !important;
-  }
-
-  th {
-    color: #787b86 !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    padding: 12px !important;
-    text-align: left !important;
-    border: none !important;
-  }
-
-  tbody tr {
-    background: #131722 !important;
-    border-bottom: 1px solid #1a1d26 !important;
-    transition: all 0.1s ease !important;
-  }
-
-  tbody tr:hover {
-    background: #1a1d26 !important;
-  }
-
-  td {
-    color: #d1d4dc !important;
-    padding: 12px !important;
-    border: none !important;
-    font-size: 13px !important;
-    font-variant-numeric: tabular-nums !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     ALERTS & ALERTS - Semantic Colors
-     ───────────────────────────────────────────────────────────── */
-
-  .alert, [role="alert"] {
-    border-left: 4px solid #2962ff !important;
-    background: rgba(41, 98, 255, 0.08) !important;
-    padding: 12px !important;
-    border-radius: 6px !important;
-    margin: 8px 0 !important;
-  }
-
-  .alert.success {
-    border-left-color: #26a69a !important;
-    background: rgba(38, 166, 154, 0.08) !important;
-  }
-
-  .alert.danger, .alert.error {
-    border-left-color: #ef5350 !important;
-    background: rgba(239, 83, 80, 0.08) !important;
-  }
-
-  .alert.warning {
-    border-left-color: #ff9800 !important;
-    background: rgba(255, 152, 0, 0.08) !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     BOTTOM NAVIGATION - Mobile Footer
-     ───────────────────────────────────────────────────────────── */
-
-  footer, .mobile-nav, [role="navigation"] {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    background: #131722 !important;
-    border-top: 1px solid #1a1d26 !important;
-    display: flex !important;
-    justify-content: space-around !important;
-    align-items: center !important;
-    height: 70px !important;
-    padding: 0 !important;
-    z-index: 900 !important;
-  }
-
-  .mobile-nav-item, [role="menuitem"] {
-    flex: 1 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    padding: 8px !important;
-    color: #5d606b !important;
-    font-size: 10px !important;
-    font-weight: 600 !important;
-    text-decoration: none !important;
-    transition: all 0.15s ease !important;
-    text-align: center !important;
-  }
-
-  .mobile-nav-item.active, [role="menuitem"].active {
-    color: #2962ff !important;
-  }
-
-  .mobile-nav-item svg, [role="menuitem"] svg {
-    width: 24px !important;
-    height: 24px !important;
-    stroke-width: 2 !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     CHARTS & GRAPHS - Dark Theme
-     ───────────────────────────────────────────────────────────── */
-
-  svg {
-    color: #d1d4dc !important;
-  }
-
-  svg text, tspan {
-    fill: #787b86 !important;
-    font-size: 10px !important;
-  }
-
-  svg [class*="line"] {
-    stroke: #2962ff !important;
-    stroke-width: 2px !important;
-  }
-
-  svg [class*="grid"] {
-    stroke: #1a1d26 !important;
-    opacity: 0.5 !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     SCROLLING & OVERFLOW
-     ───────────────────────────────────────────────────────────── */
-
-  ::-webkit-scrollbar {
-    width: 6px !important;
-    height: 6px !important;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent !important;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #252a34 !important;
-    border-radius: 3px !important;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #2a2f3a !important;
-  }
-
-  * {
-    -webkit-overflow-scrolling: touch !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     TEXT & TYPOGRAPHY
-     ───────────────────────────────────────────────────────────── */
-
-  h1, h2, h3, h4, h5, h6 {
-    color: #d1d4dc !important;
-    font-weight: 700 !important;
-  }
-
-  p, span, div {
-    color: #d1d4dc !important;
-  }
-
-  a, [href] {
-    color: #2962ff !important;
-    text-decoration: none !important;
-    transition: all 0.1s ease !important;
-  }
-
-  a:hover, [href]:hover {
-    color: #1e53e5 !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     UTILITY CLASSES
-     ───────────────────────────────────────────────────────────── */
-
-  .desktop-only {
-    display: none !important;
-  }
-
-  .hidden, [hidden] {
-    display: none !important;
-  }
-
-  .text-muted, .gz-mut {
-    color: #787b86 !important;
-  }
-
-  .text-primary {
-    color: #2962ff !important;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     SPACING & LAYOUT
-     ───────────────────────────────────────────────────────────── */
-
-  .grid, [class*="grid"] {
+  /* ── 5. STAT TILES ─────────────────────────────────────────────── */
+  .wgrid-4,
+  .wgrid-3,
+  .wgrid-2 {
     display: grid !important;
-    grid-auto-flow: row !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
   }
 
-  .flex, [class*="flex"] {
-    display: flex !important;
-    gap: 8px !important;
+  .stat {
+    padding: 10px 12px;
+    border-radius: 6px;
+    gap: 2px;
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     FINAL POLISH - Micro-interactions
-     ───────────────────────────────────────────────────────────── */
-
-  * {
-    transition-property: background, border, color, box-shadow !important;
-    transition-duration: 0.15s !important;
-    transition-timing-function: ease !important;
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    * {
-      transition: none !important;
-      animation: none !important;
-    }
+  .stat-value {
+    font-size: 18px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
   }
 
-  /* Prevent text selection on interactive elements */
-  button, a, [role="button"], [role="menuitem"] {
-    -webkit-user-select: none !important;
-    user-select: none !important;
+  .stat-sub {
+    font-size: 10px;
   }
 
-  /* Typography optimization */
-  body {
-    text-rendering: optimizeLegibility !important;
-    -webkit-font-feature-settings: "kern" 1 !important;
-    font-kerning: auto !important;
+  /* ── 6. FORM CONTROLS & TOUCH TARGETS ──────────────────────────── */
+  input,
+  select,
+  textarea,
+  .ctl {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS/Android */
+    min-height: 42px;
+    border-radius: 6px;
+    padding: 0 12px;
+  }
+
+  .ctl-label {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+
+  button,
+  .btn,
+  .seg-item {
+    min-height: 40px;
+    font-size: 13px;
+    border-radius: 6px;
+  }
+
+  .seg-item {
+    padding: 0 12px;
+  }
+
+  /* ── 7. DATA TABLES & GRIDS ────────────────────────────────────── */
+  .dgrid-wrap,
+  .overflow-x-auto {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dgrid thead th,
+  table th {
+    font-size: 9.5px;
+    padding: 6px 8px;
+    white-space: nowrap;
+  }
+
+  .dgrid tbody td,
+  table td {
+    font-size: 11.5px;
+    padding: 6px 8px;
+    white-space: nowrap;
+  }
+
+  /* ── 8. COCKPIT & ENGINE ELEMENTS ──────────────────────────────── */
+  .cockpit-header {
+    padding: 8px 12px;
+    min-height: 40px;
+    gap: 8px;
+  }
+
+  .cockpit-title {
+    font-size: 14px;
+  }
+
+  .cockpit-pair {
+    font-size: 12px;
+  }
+
+  .cockpit-price {
+    font-size: 14px;
+  }
+
+  /* ── 9. SCROLLBARS ─────────────────────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+/* Compact phones (< 480px) fine-tuning */
+@media (max-width: 480px) {
+  .wgrid-4,
+  .wgrid-3 {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
+
+  .stat-value {
+    font-size: 16px;
+  }
+
+  .cockpit-header {
+    flex-wrap: wrap;
+  }
+
+  main.fx-stagger {
+    padding-left: 8px;
+    padding-right: 8px;
   }
 }

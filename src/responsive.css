@@ -30,10 +30,7 @@
 
   .tape-item { padding: 5px 10px; }
 
-  /* Fix bottom toolbar blocking content */
-  main.fx-stagger { padding-bottom: 140px !important; }
   .cmdbar { position: fixed !important; top: 0; left: 0; right: 0; z-index: 996; }
-  .relative.min-h-screen { padding-top: var(--cmdbar-h, 120px); }
 }
 
 /* ─── PHONE / SMALL TABLET ─────────────────────────────────────────────── */
@@ -50,8 +47,13 @@
   }
   button, .btn, .seg-item { min-height: 38px; font-size: 12px; }
 
-  /* Collapse every multi-column grid. */
-  .wgrid-2, .wgrid-3, .wgrid-4,
+  /* Responsive grids for stats and panels */
+  .wgrid-4 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .wgrid-3, .wgrid-2,
   .grid.sm\:grid-cols-2, .grid.sm\:grid-cols-3, .grid.sm\:grid-cols-4,
   .grid.md\:grid-cols-2, .grid.lg\:grid-cols-2, .grid.lg\:grid-cols-3 {
     grid-template-columns: 1fr !important;
@@ -63,8 +65,6 @@
   .action-buttons button, .action-buttons .btn { width: 100%; }
   .backdrop-grid { background-size: 40px 40px, 40px 40px; }
 
-  /* Fix bottom toolbar blocking content */
-  main.fx-stagger { padding-bottom: 140px !important; }
   .cmdbar { position: fixed !important; top: 0; left: 0; right: 0; z-index: 996; }
 }
 
