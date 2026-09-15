@@ -44,8 +44,8 @@ const SESSIONS = [
   { label: "Sydney/Tokyo", start: "19:00", end: "04:00" },
 ];
 
-const API_REFRESH_MS = 300_000;
-const TICK_MS = 5_000;
+const API_REFRESH_MS = 20_000;
+const TICK_MS = 1_000;
 
 /* ── Pure helpers ─────────────────────────────────────────────── */
 
@@ -401,6 +401,27 @@ function CalendarPage() {
 
         {hermesExpanded && (
           <div className="p-3 sm:p-4">
+            {/* Real-time Status Strip */}
+            <div className="flex items-center justify-between p-2.5 mb-3 rounded-lg bg-secondary/50 border border-border/60 text-xs flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span className="font-mono font-bold text-foreground uppercase tracking-wider text-[11px]">
+                  Hermes Live Radar: Active
+                </span>
+                <span className="text-muted-foreground hidden sm:inline">
+                  • Monitoring releases, surprise deltas & trend vectors in real-time
+                </span>
+              </div>
+              <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                <span className="px-2 py-0.5 rounded bg-card border border-border/50 font-bold text-primary">
+                  {recentReleasedEvents.length} Active Releases Tracked
+                </span>
+              </div>
+            </div>
+
             {/* Active Analyzing Status Banner */}
             {analyzingEvents.size > 0 && (
               <div className="p-3 mb-3 rounded-lg bg-primary/10 border border-primary/30 flex flex-wrap items-center justify-between gap-2 animate-pulse">
