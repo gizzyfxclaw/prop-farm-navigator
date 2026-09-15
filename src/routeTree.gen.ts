@@ -34,6 +34,7 @@ import { Route as ApiSmcMigrateRouteImport } from './routes/api/smc-migrate'
 import { Route as ApiSmcMigrateChatRouteImport } from './routes/api/smc-migrate-chat'
 import { Route as ApiSmcStrategyConfigRouteImport } from './routes/api/smc-strategy-config'
 import { Route as ApiStrategiesRouteImport } from './routes/api/strategies'
+import { Route as ApiTechnicalsRouteImport } from './routes/api/technicals'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
 import { Route as ApiHermesAnalysisRouteImport } from './routes/api/hermes/analysis'
@@ -182,6 +183,11 @@ const ApiStrategiesRoute = ApiStrategiesRouteImport.update({
   path: '/api/strategies',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTechnicalsRoute = ApiTechnicalsRouteImport.update({
+  id: '/api/technicals',
+  path: '/api/technicals',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHermesDebugRoute = ApiHermesDebugRouteImport.update({
   id: '/api/hermes/_debug',
   path: '/api/hermes',
@@ -323,6 +329,7 @@ export interface FileRoutesByFullPath {
   '/api/smc-migrate-chat': typeof ApiSmcMigrateChatRoute
   '/api/smc-strategy-config': typeof ApiSmcStrategyConfigRoute
   '/api/strategies': typeof ApiStrategiesRoute
+  '/api/technicals': typeof ApiTechnicalsRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -372,6 +379,7 @@ export interface FileRoutesByTo {
   '/api/smc-migrate-chat': typeof ApiSmcMigrateChatRoute
   '/api/smc-strategy-config': typeof ApiSmcStrategyConfigRoute
   '/api/strategies': typeof ApiStrategiesRoute
+  '/api/technicals': typeof ApiTechnicalsRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -422,6 +430,7 @@ export interface FileRoutesById {
   '/api/smc-migrate-chat': typeof ApiSmcMigrateChatRoute
   '/api/smc-strategy-config': typeof ApiSmcStrategyConfigRoute
   '/api/strategies': typeof ApiStrategiesRoute
+  '/api/technicals': typeof ApiTechnicalsRoute
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -473,6 +482,7 @@ export interface FileRouteTypes {
     | '/api/smc-migrate-chat'
     | '/api/smc-strategy-config'
     | '/api/strategies'
+    | '/api/technicals'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -522,6 +532,7 @@ export interface FileRouteTypes {
     | '/api/smc-migrate-chat'
     | '/api/smc-strategy-config'
     | '/api/strategies'
+    | '/api/technicals'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -571,6 +582,7 @@ export interface FileRouteTypes {
     | '/api/smc-migrate-chat'
     | '/api/smc-strategy-config'
     | '/api/strategies'
+    | '/api/technicals'
     | '/api/hermes/_debug'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -621,6 +633,7 @@ export interface RootRouteChildren {
   ApiSmcMigrateChatRoute: typeof ApiSmcMigrateChatRoute
   ApiSmcStrategyConfigRoute: typeof ApiSmcStrategyConfigRoute
   ApiStrategiesRoute: typeof ApiStrategiesRoute
+  ApiTechnicalsRoute: typeof ApiTechnicalsRoute
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
   ApiHermesAnalysisRoute: typeof ApiHermesAnalysisRoute
@@ -822,6 +835,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStrategiesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/technicals': {
+      id: '/api/technicals'
+      path: '/api/technicals'
+      fullPath: '/api/technicals'
+      preLoaderRoute: typeof ApiTechnicalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/_debug': {
       id: '/api/hermes/_debug'
       path: '/api/hermes'
@@ -1005,6 +1025,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSmcMigrateChatRoute: ApiSmcMigrateChatRoute,
   ApiSmcStrategyConfigRoute: ApiSmcStrategyConfigRoute,
   ApiStrategiesRoute: ApiStrategiesRoute,
+  ApiTechnicalsRoute: ApiTechnicalsRoute,
   ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
   ApiHermesAnalysisRoute: ApiHermesAnalysisRoute,

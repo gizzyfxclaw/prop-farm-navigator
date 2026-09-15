@@ -461,6 +461,22 @@ TOOLS = [
             "required": ["event_name", "currency"],
         },
     ),
+    Tool(
+        name="get_tradingview_technicals",
+        description=(
+            "Fetch real-time TradingView technical indicators and summary ratings for a forex pair. "
+            "Returns Overall Summary Rating (STRONG_BUY, BUY, NEUTRAL, SELL, STRONG_SELL), "
+            "Oscillators Rating & values (RSI 14, MACD, Stoch, ADX, Momentum, CCI), "
+            "Moving Averages Rating & values (EMA 10/20/50/100/200, SMA 10/20/50/100/200), and Pivot levels."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "pair": {"type": "string", "description": "Forex pair e.g. EURUSD, USDJPY, GBPUSD"},
+            },
+            "required": ["pair"],
+        },
+    ),
 ]
 
 @server.list_tools()
@@ -701,6 +717,36 @@ async def call_tool(name, arguments):
                     f"Trade Setup: {data.get('trade_setup')}\n"
                     f"Avoid Strategy: {data.get('avoid_strategy')}\n"
                     f"Risk Factors: {data.get('risk_factors')}"
+                )
+        elif name == "get_tradingview_technicals":
+            pair = arguments["pair"].upper().replace("/", "").replace(" ", "")
+            data = _get("/api/technicals", {"pair": pair})
+            if data.get("error"):
+                result = f"Error fetching technicals: {data.get('error')}"
+            else:
+                summary = data.get("summary", {})
+                osc = data.get("oscillators", {})
+                ma = data.get("moving_averages", {})
+                pivots = data.get("pivots", {})
+                px = data.get("price", {})
+                result = (
+                    f"=== TRADINGVIEW TECHNICAL ANALYSIS: {pair} ===\n"
+                    f"Overall Rating: {summary.get('verdict')} (Score: {summary.get('score', 0):.2f})\n"
+                    f"Moving Averages: {ma.get('verdict')} (Score: {ma.get('score', 0):.2f})\n"
+                    f"Oscillators: {osc.get('verdict')} (Score: {osc.get('score', 0):.2f})\n\n"
+                    f"KEY OSCILLATORS:\n"
+                    f"  - RSI (14): {osc.get('rsi')}\n"
+                    f"  - MACD: {osc.get('macd_level')} / Signal: {osc.get('macd_signal')}\n"
+                    f"  - Stoch %K/%D: {osc.get('stoch_k')} / {osc.get('stoch_d')}\n"
+                    f"  - ADX: {osc.get('adx')}\n"
+                    f"  - Williams %R: {osc.get('williams_r')}\n\n"
+                    f"KEY MOVING AVERAGES:\n"
+                    f"  - EMA 20: {ma.get('ema20')} | SMA 20: {ma.get('sma20')}\n"
+                    f"  - EMA 50: {ma.get('ema50')} | SMA 50: {ma.get('sma50')}\n"
+                    f"  - EMA 200: {ma.get('ema200')} | SMA 200: {ma.get('sma200')}\n\n"
+                    f"PIVOT LEVELS (Classic):\n"
+                    f"  - S1: {pivots.get('s1')} | Pivot: {pivots.get('middle')} | R1: {pivots.get('r1')}\n"
+                    f"  - Current Close: {px.get('close')} (High: {px.get('high')}, Low: {px.get('low')})"
                 )
 
         else:
