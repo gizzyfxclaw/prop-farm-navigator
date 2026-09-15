@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   ShieldX, ShieldAlert, ShieldCheck, XCircle, AlertTriangle, CheckCircle2,
-  Clock, Activity, Radio, RefreshCcw, Bot, TrendingUp, TrendingDown,
+  Clock, Activity, Radio, RefreshCw, Loader2, Bot, TrendingUp, TrendingDown,
   Minus, ChevronDown, ChevronUp, ArrowRight, Target, Sparkles, X, Info,
 } from "lucide-react";
 import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
@@ -336,7 +336,7 @@ function CalendarPage() {
               <span className="text-[9px]" style={{ color: "oklch(var(--gz-mut))" }}>API {lastFetch}</span>
             )}
             <Button variant="ghost" onClick={fetchEvents} disabled={loading}>
-              <RefreshCcw size={11} />
+              <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
               {loading ? "…" : "Refresh"}
             </Button>
           </div>
@@ -353,6 +353,12 @@ function CalendarPage() {
           <div className="flex items-center gap-2">
             <Bot size={16} style={{ color: "oklch(var(--gz-p))" }} />
             <h2 className="panel-head-title">Hermes News Intelligence & Trend Forecast</h2>
+            {analyzingEvents.size > 0 && (
+              <span className="badge badge-warning flex items-center gap-1">
+                <Loader2 size={10} className="animate-spin" />
+                Analyzing {analyzingEvents.size}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="mono-cap hidden sm:inline" style={{ color: "oklch(var(--gz-mut))" }}>
@@ -364,6 +370,21 @@ function CalendarPage() {
 
         {hermesExpanded && (
           <div className="p-3 sm:p-4">
+            {/* Active Analyzing Status Banner */}
+            {analyzingEvents.size > 0 && (
+              <div className="p-3 mb-3 rounded-lg bg-primary/10 border border-primary/30 flex flex-wrap items-center justify-between gap-2 animate-pulse">
+                <div className="flex items-center gap-2">
+                  <Loader2 size={16} className="animate-spin text-primary" />
+                  <span className="text-xs font-bold text-primary uppercase tracking-wider">
+                    Hermes AI is actively analyzing {analyzingEvents.size} event{analyzingEvents.size > 1 ? "s" : ""}…
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-muted-foreground">
+                  Computing release surprise & market trend continuation
+                </span>
+              </div>
+            )}
+
             {/* Tabs for Post-News vs Upcoming */}
             <div className="flex gap-2 mb-4 border-b border-border/40 pb-2">
               <button
