@@ -618,6 +618,17 @@ function CalendarPage() {
                             </div>
                           </div>
                         )}
+
+                        {/* Fallback if neither post-news section is present */}
+                        {!whatHappened && !trend && (
+                          <div className="rounded-lg p-3 bg-secondary/50 border border-border/60 text-xs space-y-2">
+                            <p className="text-foreground/90 leading-relaxed font-medium">{analysis.analysis}</p>
+                            <div className="p-2 rounded bg-card border border-border/40 text-xs">
+                              <span className="font-bold text-primary mr-1">Trade Setup:</span>
+                              <span className="text-foreground/90">{analysis.trade_setup}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })

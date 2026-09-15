@@ -831,12 +831,21 @@ function findPattern(eventName: string): PatternHandler {
 
 export function analyzeNewsEvent(event: NewsEvent): NewsAnalysis {
   const pattern = findPattern(event.event_name);
-  const isPostNews = Boolean(event.actual && event.actual !== "—" && event.actual.trim() !== "");
+  const nowSec = Math.floor(Date.now() / 1000);
+  const hasActual = Boolean(event.actual && event.actual !== "—" && event.actual.trim() !== "");
+  const isTimePassed = Boolean(event.datetime && event.datetime <= nowSec);
+  const isPostNews = hasActual || isTimePassed;
   const affectedPairs = CURRENCY_PAIRS[event.currency] || ["EURUSD", "USDJPY", "GBPUSD"];
 
-  if (isPostNews && event.actual) {
+  if (isPostNews) {
+    const actualStr = hasActual
+      ? event.actual!
+      : event.forecast && event.forecast !== "—"
+      ? event.forecast
+      : event.previous;
+
     const { whatHappened, postNewsTrend } = pattern.analyzePostNews(
-      event.actual,
+      actualStr,
       event.forecast,
       event.previous,
       event.currency
