@@ -125,9 +125,36 @@ function CalendarPage() {
   const [tick, setTick] = useState(0);
   const [hermesAnalyses, setHermesAnalyses] = useState<Record<string, HermesAnalysis | "loading">>({});
   const [analyzingEvents, setAnalyzingEvents] = useState<Set<string>>(new Set());
-  const [hermesExpanded, setHermesExpanded] = useState(true);
-  const [activeAnalysisTab, setActiveAnalysisTab] = useState<"post_news" | "upcoming">("post_news");
+  const [hermesExpanded, setHermesExpanded] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("gizzyfx.calendar.hermesExpanded");
+        if (saved !== null) return saved === "true";
+      } catch {}
+    }
+    return true;
+  });
+  const [activeAnalysisTab, setActiveAnalysisTab] = useState<"post_news" | "upcoming">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return (localStorage.getItem("gizzyfx.calendar.tab") as any) || "post_news";
+      } catch {}
+    }
+    return "post_news";
+  });
   const [modalEvent, setModalEvent] = useState<RawEvent | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("gizzyfx.calendar.hermesExpanded", String(hermesExpanded));
+    } catch {}
+  }, [hermesExpanded]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("gizzyfx.calendar.tab", activeAnalysisTab);
+    } catch {}
+  }, [activeAnalysisTab]);
 
   const fetchEvents = useCallback(async () => {
     try {

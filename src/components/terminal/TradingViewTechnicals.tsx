@@ -221,14 +221,40 @@ export function TradingViewTechnicalsPanel({
   pair: string;
   smcBias?: "bullish" | "bearish" | "neutral";
 }) {
-  const [interval, setInterval] = useState("1h");
+  const [interval, setInterval] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem("gizzyfx.technicals.interval") || "1h";
+      } catch {}
+    }
+    return "1h";
+  });
   const [data, setData] = useState<TechnicalsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"gauges" | "oscillators" | "moving_averages" | "pivots">("gauges");
+  const [activeTab, setActiveTab] = useState<"gauges" | "oscillators" | "moving_averages" | "pivots">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return (localStorage.getItem("gizzyfx.technicals.tab") as any) || "gauges";
+      } catch {}
+    }
+    return "gauges";
+  });
 
   const cleanPair = pair.toUpperCase().replace(/[^A-Z]/g, "") || "EURUSD";
   const fullName = PAIR_NAMES[cleanPair] || `${cleanPair} Technicals`;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("gizzyfx.technicals.interval", interval);
+    } catch {}
+  }, [interval]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("gizzyfx.technicals.tab", activeTab);
+    } catch {}
+  }, [activeTab]);
 
   const fetchTechnicals = useCallback(async () => {
     setLoading(true);

@@ -138,6 +138,7 @@ const LS_KEY = "gizzyfx.smc";
 interface Persisted {
   pair: string;
   timeframe: string;
+  strategy: string;
   data: AnalysisData | null;
   fetchedAt: number | null;
   reviews: HermesReview[];
@@ -159,7 +160,7 @@ function readLS(): Persisted {
 }
 
 function defaultPersisted(): Persisted {
-  return { pair: "EURUSD", timeframe: "1h", data: null, fetchedAt: null, reviews: [], selectedReviewId: null, userNotes: "", pollingId: null, pollingSubmittedAt: null };
+  return { pair: "EURUSD", timeframe: "1h", strategy: "channel-breakout", data: null, fetchedAt: null, reviews: [], selectedReviewId: null, userNotes: "", pollingId: null, pollingSubmittedAt: null };
 }
 
 function writeLS(v: Partial<Persisted>) {
@@ -661,7 +662,7 @@ function SMCPage() {
   const [timeframe, setTimeframe] = useState<TF>(saved.timeframe as TF ?? "1h");
   const [loading, setLoading]     = useState(false);
   const [data, setData]           = useState<AnalysisData | null>(saved.data);
-  const [strategy, setStrategy]   = useState("channel-breakout");
+  const [strategy, setStrategy]   = useState(saved.strategy ?? "channel-breakout");
   const [fetchedAt, setFetchedAt] = useState<number | null>(saved.fetchedAt);
   const [error, setError]         = useState<string | null>(null);
   const [showPine, setShowPine]   = useState(false);
@@ -694,8 +695,8 @@ function SMCPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollTimer    = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  /* ── Persist pair/timeframe/data on every state change ────────── */
-  useEffect(() => { writeLS({ pair, timeframe }); }, [pair, timeframe]);
+  /* ── Persist pair/timeframe/strategy/data on every state change ────────── */
+  useEffect(() => { writeLS({ pair, timeframe, strategy }); }, [pair, timeframe, strategy]);
   useEffect(() => { writeLS({ data, fetchedAt }); }, [data, fetchedAt]);
   useEffect(() => { writeLS({ reviews }); }, [reviews]);
   useEffect(() => { writeLS({ selectedReviewId }); }, [selectedReviewId]);
