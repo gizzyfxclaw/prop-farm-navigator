@@ -437,30 +437,58 @@ function CalendarPage() {
               </div>
             )}
 
-            {/* Tabs for Post-News vs Upcoming */}
-            <div className="flex gap-2 mb-4 border-b border-border/40 pb-2">
-              <button
-                onClick={() => setActiveAnalysisTab("post_news")}
-                className={`px-3 py-1.5 rounded-md font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
-                  activeAnalysisTab === "post_news"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Sparkles size={13} />
-                Post-News Outcomes & Trends ({recentReleasedEvents.length})
-              </button>
-              <button
-                onClick={() => setActiveAnalysisTab("upcoming")}
-                className={`px-3 py-1.5 rounded-md font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
-                  activeAnalysisTab === "upcoming"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Clock size={13} />
-                Upcoming Scenarios ({upcomingHighImpact.length})
-              </button>
+            {/* Tabs for Post-News vs Upcoming + Quick Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4 border-b border-border/40 pb-2">
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setActiveAnalysisTab("post_news")}
+                  className={`px-3 py-1.5 rounded-md font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
+                    activeAnalysisTab === "post_news"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Sparkles size={13} />
+                  Post-News Outcomes & Trends ({recentReleasedEvents.length})
+                </button>
+                <button
+                  onClick={() => setActiveAnalysisTab("upcoming")}
+                  className={`px-3 py-1.5 rounded-md font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all ${
+                    activeAnalysisTab === "upcoming"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Clock size={13} />
+                  Upcoming Scenarios ({upcomingHighImpact.length})
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    const targetList = activeAnalysisTab === "post_news" ? recentReleasedEvents : upcomingHighImpact;
+                    for (const ev of targetList) {
+                      await fetchHermesAnalysis(ev, true);
+                    }
+                  }}
+                  disabled={analyzingEvents.size > 0}
+                  className="text-xs font-bold font-mono px-3 py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 flex items-center gap-1.5 cursor-pointer transition-all"
+                >
+                  <Bot size={13} />
+                  Analyze All ({activeAnalysisTab === "post_news" ? recentReleasedEvents.length : upcomingHighImpact.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setHermesAnalyses({});
+                    try { localStorage.removeItem("gizzyfx.calendar.hermesAnalyses"); } catch {}
+                  }}
+                  title="Reset and clear all cached analyses to show Analyze buttons"
+                  className="text-xs font-mono text-muted-foreground hover:text-foreground px-2 py-1.5 rounded hover:bg-secondary cursor-pointer"
+                >
+                  Reset
+                </button>
+              </div>
             </div>
 
             {/* Content for Post-News Releases */}
