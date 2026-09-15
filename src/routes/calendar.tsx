@@ -209,43 +209,23 @@ function CalendarPage() {
     }
   }, []);
 
-  const fetchHermesAnalysis = useCallback(async (ev: RawEvent, force = false) => {
-    if (analyzingEvents.has(ev.id) && !force) return;
+  const fetchHermesAnalysis = useCallback(async (ev: RawEvent, force = true) => {
     setAnalyzingEvents((prev) => new Set(prev).add(ev.id));
     setHermesAnalyses((prev) => ({ ...prev, [ev.id]: "loading" }));
 
     // Smooth visual feedback time so the user sees Hermes actively analyzing
-    await new Promise((r) => setTimeout(r, 650));
+    await new Promise((r) => setTimeout(r, 450));
 
     try {
-      const res = await fetch("/api/hermes/analyze-news", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_id: ev.id,
-          event_name: ev.event,
-          currency: ev.currency,
-          impact: ev.impact,
-          actual: ev.actual,
-          forecast: ev.forecast,
-          previous: ev.previous,
-        }),
+      const result = analyzeNewsEvent({
+        event_name: ev.event,
+        currency: ev.currency,
+        impact: ev.impact,
+        actual: ev.actual,
+        forecast: ev.forecast,
+        previous: ev.previous,
+        datetime: ev.datetime,
       });
-
-      let result: HermesAnalysis;
-      if (res.ok) {
-        result = await res.json();
-      } else {
-        result = analyzeNewsEvent({
-          event_name: ev.event,
-          currency: ev.currency,
-          impact: ev.impact,
-          actual: ev.actual,
-          forecast: ev.forecast,
-          previous: ev.previous,
-          datetime: ev.datetime,
-        });
-      }
 
       setHermesAnalyses((prev) => {
         const next = { ...prev, [ev.id]: result };
@@ -260,18 +240,6 @@ function CalendarPage() {
       });
     } catch (e) {
       console.error("Error analyzing news event:", e);
-      try {
-        const fallback = analyzeNewsEvent({
-          event_name: ev.event,
-          currency: ev.currency,
-          impact: ev.impact,
-          actual: ev.actual,
-          forecast: ev.forecast,
-          previous: ev.previous,
-          datetime: ev.datetime,
-        });
-        setHermesAnalyses((prev) => ({ ...prev, [ev.id]: fallback }));
-      } catch {}
     } finally {
       setAnalyzingEvents((prev) => {
         const next = new Set(prev);
@@ -279,7 +247,7 @@ function CalendarPage() {
         return next;
       });
     }
-  }, [analyzingEvents]);
+  }, []);
 
   useEffect(() => {
     fetchEvents();
@@ -550,18 +518,31 @@ function CalendarPage() {
                       );
                     }
 
-                    const isPost = analysis.is_post_news && analysis.what_happened && analysis.post_news_trend;
-                    const whatHappened = analysis.what_happened;
-                    const trend = analysis.post_news_trend;
+                    let currentAnalysis = analysis && analysis !== "loading" ? analysis : null;
+                    if (currentAnalysis && (currentAnalysis.analysis?.includes("Analysis unavailable") || !currentAnalysis.what_happened)) {
+                      currentAnalysis = analyzeNewsEvent({
+                        event_name: ev.event,
+                        currency: ev.currency,
+                        impact: ev.impact,
+                        actual: ev.actual,
+                        forecast: ev.forecast,
+                        previous: ev.previous,
+                        datetime: ev.datetime,
+                      });
+                    }
+
+                    const isPost = currentAnalysis && currentAnalysis.is_post_news && currentAnalysis.what_happened && currentAnalysis.post_news_trend;
+                    const whatHappened = currentAnalysis?.what_happened;
+                    const trend = currentAnalysis?.post_news_trend;
 
                     const dirColor =
-                      analysis.direction === "BUY" ? "oklch(var(--gz-pos))" :
-                      analysis.direction === "SELL" ? "oklch(var(--gz-neg))" :
+                      currentAnalysis?.direction === "BUY" ? "oklch(var(--gz-pos))" :
+                      currentAnalysis?.direction === "SELL" ? "oklch(var(--gz-neg))" :
                       "oklch(var(--gz-mut))";
 
                     const DirIcon =
-                      analysis.direction === "BUY" ? TrendingUp :
-                      analysis.direction === "SELL" ? TrendingDown :
+                      currentAnalysis?.direction === "BUY" ? TrendingUp :
+                      currentAnalysis?.direction === "SELL" ? TrendingDown :
                       Minus;
 
                     const verdictTone =

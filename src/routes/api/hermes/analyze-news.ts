@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getCFEnv } from "@/lib/cloudflare-env";
 import { analyzeNewsEvent } from "@/lib/news-analyzer";
 
 export const Route = createFileRoute("/api/hermes/analyze-news")({
@@ -7,7 +6,7 @@ export const Route = createFileRoute("/api/hermes/analyze-news")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const body = await request.json() as {
+          const body = (await request.json().catch(() => ({}))) as {
             event_id?: string;
             event_name?: string;
             currency?: string;
@@ -18,9 +17,9 @@ export const Route = createFileRoute("/api/hermes/analyze-news")({
           };
 
           const result = analyzeNewsEvent({
-            event_name: body.event_name || "Unknown Event",
+            event_name: body.event_name || "Economic Event",
             currency: body.currency || "USD",
-            impact: (body.impact as "high" | "medium" | "low") || "medium",
+            impact: (body.impact as "high" | "medium" | "low") || "high",
             actual: body.actual,
             forecast: body.forecast || "—",
             previous: body.previous || "—",
@@ -28,14 +27,14 @@ export const Route = createFileRoute("/api/hermes/analyze-news")({
 
           return Response.json(result);
         } catch (err: any) {
-          return Response.json({
-            analysis: "Analysis unavailable. High-impact news typically causes spread widening.",
-            direction: "UNKNOWN",
-            confidence: 0,
-            affected_pairs: [],
-            spike_pips: "0",
-            duration: "unknown",
+          const safeResult = analyzeNewsEvent({
+            event_name: "Economic Event",
+            currency: "USD",
+            impact: "high",
+            forecast: "—",
+            previous: "—",
           });
+          return Response.json(safeResult);
         }
       },
     },
