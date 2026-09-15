@@ -217,6 +217,13 @@ interface TVTechnicalsSummary {
   macd_signal?: number | null;
   ma_verdict?: string;
   classic_pivots?: { r1?: number; r2?: number; s1?: number; s2?: number; p?: number };
+  mtfAlignment?: {
+    h4: string;
+    h1: string;
+    m15: string;
+    allAgree: boolean;
+    grade: "A+ Triple Timeframe Locked" | "A Strong Confluence" | "B Mixed";
+  };
 }
 
 async function fetchTVTechnicalsForSMC(pair: string, interval: string): Promise<TVTechnicalsSummary | null> {
@@ -237,6 +244,7 @@ async function fetchTVTechnicalsForSMC(pair: string, interval: string): Promise<
           `Recommend.Other${sfx}`, `Recommend.All${sfx}`, `Recommend.MA${sfx}`,
           `RSI${sfx}`, `MACD.macd${sfx}`, `MACD.signal${sfx}`,
           `Pivot.M.Classic.S2${sfx}`, `Pivot.M.Classic.S1${sfx}`, `Pivot.M.Classic.Middle${sfx}`, `Pivot.M.Classic.R1${sfx}`, `Pivot.M.Classic.R2${sfx}`,
+          `Recommend.All|240`, `Recommend.All|60`, `Recommend.All|15`,
         ],
       }),
     });
@@ -244,9 +252,19 @@ async function fetchTVTechnicalsForSMC(pair: string, interval: string): Promise<
     const data = await res.json() as any;
     const d = data.data?.[0]?.d;
     if (!d) return null;
+
+    const toVerd = (s: number) => s >= 0.5 ? "STRONG_BUY" : s >= 0.1 ? "BUY" : s <= -0.5 ? "STRONG_SELL" : s <= -0.1 ? "SELL" : "NEUTRAL";
+    const h4Verd = toVerd(d[11] ?? 0);
+    const h1Verd = toVerd(d[12] ?? 0);
+    const m15Verd = toVerd(d[13] ?? 0);
+
+    const isAllBuy = (h4Verd === "BUY" || h4Verd === "STRONG_BUY") && (h1Verd === "BUY" || h1Verd === "STRONG_BUY") && (m15Verd === "BUY" || m15Verd === "STRONG_BUY");
+    const isAllSell = (h4Verd === "SELL" || h4Verd === "STRONG_SELL") && (h1Verd === "SELL" || h1Verd === "STRONG_SELL") && (m15Verd === "SELL" || m15Verd === "STRONG_SELL");
+    const allAgree = isAllBuy || isAllSell;
+
     return {
       score: d[1] ?? 0,
-      verdict: d[1] >= 0.5 ? "STRONG_BUY" : d[1] >= 0.1 ? "BUY" : d[1] <= -0.5 ? "STRONG_SELL" : d[1] <= -0.1 ? "SELL" : "NEUTRAL",
+      verdict: toVerd(d[1] ?? 0),
       counts: { buy: 0, neutral: 0, sell: 0 },
       rsi: d[3] != null ? +d[3].toFixed(2) : null,
       macd_level: d[4] != null ? +d[4].toFixed(5) : null,
@@ -254,6 +272,13 @@ async function fetchTVTechnicalsForSMC(pair: string, interval: string): Promise<
       ma_verdict: d[2] >= 0.1 ? "BUY" : d[2] <= -0.1 ? "SELL" : "NEUTRAL",
       classic_pivots: {
         s2: d[6], s1: d[7], p: d[8], r1: d[9], r2: d[10],
+      },
+      mtfAlignment: {
+        h4: h4Verd,
+        h1: h1Verd,
+        m15: m15Verd,
+        allAgree,
+        grade: allAgree ? "A+ Triple Timeframe Locked" : (h4Verd === h1Verd || h1Verd === m15Verd) ? "A Strong Confluence" : "B Mixed",
       },
     };
   } catch {
@@ -302,10 +327,26 @@ function buildStrategyLevels(
   const slDist = SL_PIPS * spec.pipSize;
   const stopLoss = channel.direction === "long" ? entryPrice - slDist : entryPrice + slDist;
 
-  const tp15Dist = SL_PIPS * 1.5 * spec.pipSize;
-  const tp20Dist = SL_PIPS * 2 * spec.pipSize;
-  const tp15 = channel.direction === "long" ? entryPrice + tp15Dist : entryPrice - tp15Dist;
-  const tp20 = channel.direction === "long" ? entryPrice + tp20Dist : entryPrice - tp20Dist;
+  let tp15 = channel.direction === "long" ? entryPrice + (SL_PIPS * 1.5 * spec.pipSize) : entryPrice - (SL_PIPS * 1.5 * spec.pipSize);
+  let tp20 = channel.direction === "long" ? entryPrice + (SL_PIPS * 2.0 * spec.pipSize) : entryPrice - (SL_PIPS * 2.0 * spec.pipSize);
+
+  // Precision Pivot Magnetic Target Snapping
+  const piv = tvTechnicals?.classic_pivots;
+  if (piv && channel.direction === "long") {
+    if (piv.r1 && piv.r1 > entryPrice && Math.abs(piv.r1 - tp15) < (SL_PIPS * 0.4 * spec.pipSize)) {
+      tp15 = piv.r1;
+    }
+    if (piv.r2 && piv.r2 > entryPrice && Math.abs(piv.r2 - tp20) < (SL_PIPS * 0.4 * spec.pipSize)) {
+      tp20 = piv.r2;
+    }
+  } else if (piv && channel.direction === "short") {
+    if (piv.s1 && piv.s1 < entryPrice && Math.abs(piv.s1 - tp15) < (SL_PIPS * 0.4 * spec.pipSize)) {
+      tp15 = piv.s1;
+    }
+    if (piv.s2 && piv.s2 < entryPrice && Math.abs(piv.s2 - tp20) < (SL_PIPS * 0.4 * spec.pipSize)) {
+      tp20 = piv.s2;
+    }
+  }
 
   const nearbyConflict = hasNearbyConflict(orderBlocks, tp20, channel.direction, atr);
 
@@ -315,14 +356,16 @@ function buildStrategyLevels(
       (channel.direction === "short" && (tvTechnicals.verdict === "SELL" || tvTechnicals.verdict === "STRONG_SELL"))
     : false;
 
+  const tripleTimeframeAligned = tvTechnicals?.mtfAlignment?.allAgree ?? false;
+
   const strongSetup = (breakoutConfirmed5m || tvAligned) && channel.retestCount >= 3 && !nearbyConflict;
-  const recommendedRR = strongSetup ? "1:2" : "1:1.5";
-  const primaryTP = strongSetup ? tp20 : tp15;
-  const primaryTPPips = strongSetup ? SL_PIPS * 2 : SL_PIPS * 1.5;
+  const recommendedRR = (strongSetup && tripleTimeframeAligned) ? "1:2" : strongSetup ? "1:2" : "1:1.5";
+  const primaryTP = recommendedRR === "1:2" ? tp20 : tp15;
+  const primaryTPPips = Math.round(Math.abs(primaryTP - entryPrice) / spec.pipSize);
 
   return {
     direction: channel.direction,
-    confidence: strongSetup ? 0.90 : 0.70,
+    confidence: (strongSetup && tripleTimeframeAligned) ? 0.95 : strongSetup ? 0.88 : 0.70,
     orderType: channel.direction === "long" ? "BUY_STOP" : "SELL_STOP",
     entry: entryPrice.toFixed(spec.decimals),
     stopLoss: stopLoss.toFixed(spec.decimals),
@@ -332,8 +375,8 @@ function buildStrategyLevels(
     riskReward: recommendedRR,
     recommendedRR,
     slPips: SL_PIPS,
-    tp15Pips: SL_PIPS * 1.5,
-    tp20Pips: SL_PIPS * 2,
+    tp15Pips: Math.round(Math.abs(tp15 - entryPrice) / spec.pipSize),
+    tp20Pips: Math.round(Math.abs(tp20 - entryPrice) / spec.pipSize),
     primaryTPPips,
     retestCount: channel.retestCount,
     breakoutConfirmed5m,

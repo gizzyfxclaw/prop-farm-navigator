@@ -40,6 +40,10 @@ interface OrderBlock {
   impulseMag: number;
   invalidated: boolean;
   invalidatedIdx: number | null;
+  retestCount: number;
+  sweptLiquidity: boolean;
+  qualityGrade: "A+ Fresh Unmitigated" | "A Mitigated 1x" | "B Retested";
+  fresh: boolean;
 }
 
 interface FVG {
@@ -208,6 +212,10 @@ export function findOrderBlocks(bars: Bar[], impulseMult = 1.5, maxAge = 60): Or
       futureMin = Math.min(futureMin, bars[j].close);
     }
 
+    const prevCandle = i > 0 ? bars[i - 1] : candle;
+    const sweptBullish = bearishCandle && candle.low < prevCandle.low;
+    const sweptBearish = bullishCandle && candle.high > prevCandle.high;
+
     if (bearishCandle && (futureMax - candle.close) >= impulseMult * a) {
       obs.push({
         low: candle.low,
@@ -217,6 +225,10 @@ export function findOrderBlocks(bars: Bar[], impulseMult = 1.5, maxAge = 60): Or
         impulseMag: (futureMax - candle.close) / a,
         invalidated: false,
         invalidatedIdx: null,
+        retestCount: 0,
+        sweptLiquidity: sweptBullish,
+        qualityGrade: "A+ Fresh Unmitigated",
+        fresh: true,
       });
     } else if (bullishCandle && (candle.close - futureMin) >= impulseMult * a) {
       obs.push({
@@ -227,26 +239,48 @@ export function findOrderBlocks(bars: Bar[], impulseMult = 1.5, maxAge = 60): Or
         impulseMag: (candle.close - futureMin) / a,
         invalidated: false,
         invalidatedIdx: null,
+        retestCount: 0,
+        sweptLiquidity: sweptBearish,
+        qualityGrade: "A+ Fresh Unmitigated",
+        fresh: true,
       });
     }
   }
 
-  // Check for invalidation: price closes through far side
-  // Bullish OB (support at low): invalidated when price closes below low
-  // Bearish OB (resistance at high): invalidated when price closes above high
+  // Check for retests and invalidation
   for (const ob of obs) {
     const farSide = ob.kind === 'bullish' ? ob.low : ob.high;
+    let retests = 0;
     for (let k = ob.idx + 1; k < n; k++) {
-      if (ob.kind === 'bullish' && bars[k].close < farSide) {
-        ob.invalidated = true;
-        ob.invalidatedIdx = k;
-        break;
+      const b = bars[k];
+      if (ob.kind === 'bullish') {
+        if (b.close < farSide) {
+          ob.invalidated = true;
+          ob.invalidatedIdx = k;
+          break;
+        }
+        if (b.low <= ob.high && b.low >= ob.low) {
+          retests++;
+        }
+      } else {
+        if (b.close > farSide) {
+          ob.invalidated = true;
+          ob.invalidatedIdx = k;
+          break;
+        }
+        if (b.high >= ob.low && b.high <= ob.high) {
+          retests++;
+        }
       }
-      if (ob.kind === 'bearish' && bars[k].close > farSide) {
-        ob.invalidated = true;
-        ob.invalidatedIdx = k;
-        break;
-      }
+    }
+    ob.retestCount = retests;
+    ob.fresh = retests === 0 && !ob.invalidated;
+    if (ob.fresh && ob.impulseMag >= 2.0 && ob.sweptLiquidity) {
+      ob.qualityGrade = "A+ Fresh Unmitigated";
+    } else if (retests === 1 && !ob.invalidated) {
+      ob.qualityGrade = "A Mitigated 1x";
+    } else {
+      ob.qualityGrade = "B Retested";
     }
   }
 
