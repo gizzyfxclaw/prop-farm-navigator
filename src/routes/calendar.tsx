@@ -451,8 +451,7 @@ function CalendarPage() {
                   </p>
                 ) : (
                   recentReleasedEvents.map((ev) => {
-                    const analysis = hermesAnalyses[ev.id];
-                    const isAnalyzing = analysis === "loading" || analyzingEvents.has(ev.id);
+                    const isAnalyzing = analyzingEvents.has(ev.id);
                     if (isAnalyzing) {
                       return (
                         <div key={ev.id} className="rounded-xl p-4 bg-card border border-primary/40 shadow-lg space-y-3 relative overflow-hidden">
@@ -494,42 +493,16 @@ function CalendarPage() {
                       );
                     }
 
-                    if (!analysis) {
-                      return (
-                        <div key={ev.id} className="rounded-xl p-3 sm:p-4 bg-card/70 border border-border/60">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className={`badge ${ev.impact === "high" ? "badge-danger" : "badge-warning"}`}>
-                                {ev.impact.toUpperCase()}
-                              </span>
-                              <span className="font-bold text-sm text-foreground">{ev.event}</span>
-                              <span className="mono-cap text-muted-foreground">{ev.currency}</span>
-                              <span className="font-mono text-xs text-muted-foreground">({formatCountdown(ev.secondsUntil)})</span>
-                            </div>
-                            <button
-                              onClick={() => fetchHermesAnalysis(ev, true)}
-                              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground border border-primary shadow-sm cursor-pointer hover:bg-primary/90 flex items-center gap-1.5 transition-all"
-                            >
-                              <Bot size={13} />
-                              Analyze What Happened & Trend
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    let currentAnalysis = analysis && analysis !== "loading" ? analysis : null;
-                    if (currentAnalysis && (currentAnalysis.analysis?.includes("Analysis unavailable") || !currentAnalysis.what_happened)) {
-                      currentAnalysis = analyzeNewsEvent({
-                        event_name: ev.event,
-                        currency: ev.currency,
-                        impact: ev.impact,
-                        actual: ev.actual,
-                        forecast: ev.forecast,
-                        previous: ev.previous,
-                        datetime: ev.datetime,
-                      });
-                    }
+                    // Always compute fresh, reliable analysis for every released event
+                    const currentAnalysis = analyzeNewsEvent({
+                      event_name: ev.event,
+                      currency: ev.currency,
+                      impact: ev.impact,
+                      actual: ev.actual,
+                      forecast: ev.forecast,
+                      previous: ev.previous,
+                      datetime: ev.datetime,
+                    });
 
                     const isPost = currentAnalysis && currentAnalysis.is_post_news && currentAnalysis.what_happened && currentAnalysis.post_news_trend;
                     const whatHappened = currentAnalysis?.what_happened;
