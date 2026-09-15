@@ -107,85 +107,91 @@ function SpeedometerGauge({
   verdict: string;
   counts: { buy: number; neutral: number; sell: number };
 }) {
-  // Score is between -1.0 (Strong Sell, left -90deg) and +1.0 (Strong Buy, right +90deg)
+  // Score is between -1.0 (Strong Sell, left -80deg) and +1.0 (Strong Buy, right +80deg)
   const clampedScore = Math.max(-1, Math.min(1, score));
-  const angle = clampedScore * 80; // -80deg to +80deg
+  const angle = clampedScore * 80;
   const verdictText = formatVerdict(verdict);
   const verdictColor = getVerdictColor(verdict);
 
   return (
     <div className="flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl bg-card/60 border border-border">
-      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
+      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
         {title}
       </span>
 
       {/* SVG Arc Gauge */}
-      <div className="relative w-44 h-24 flex items-center justify-center overflow-hidden">
-        <svg viewBox="0 0 200 110" className="w-full h-full">
+      <div className="relative w-48 h-28 flex items-center justify-center">
+        <svg viewBox="0 0 200 120" className="w-full h-full overflow-visible">
           {/* Background Track */}
           <path
-            d="M 20 100 A 80 80 0 0 1 180 100"
+            d="M 25 105 A 75 75 0 0 1 175 105"
             fill="none"
-            stroke="oklch(var(--gz-p) / 0.15)"
-            strokeWidth="8"
+            stroke="oklch(var(--gz-p) / 0.12)"
+            strokeWidth="10"
             strokeLinecap="round"
           />
 
           {/* Red Arc (Sell side: left) */}
           <path
-            d="M 20 100 A 80 80 0 0 1 75 35"
+            d="M 25 105 A 75 75 0 0 1 78 42"
             fill="none"
             stroke="var(--tv-red, #f23645)"
-            strokeWidth="6"
+            strokeWidth="8"
             strokeLinecap="round"
-            opacity={clampedScore < -0.1 ? 0.95 : 0.35}
+            opacity={clampedScore < -0.1 ? 0.95 : 0.4}
           />
 
           {/* Neutral Arc (Top) */}
           <path
-            d="M 80 30 A 80 80 0 0 1 120 30"
+            d="M 83 38 A 75 75 0 0 1 117 38"
             fill="none"
             stroke="var(--tv-text-secondary, #787b86)"
-            strokeWidth="6"
+            strokeWidth="8"
             strokeLinecap="round"
-            opacity={Math.abs(clampedScore) <= 0.1 ? 0.95 : 0.35}
+            opacity={Math.abs(clampedScore) <= 0.1 ? 0.95 : 0.4}
           />
 
           {/* Green Arc (Buy side: right) */}
           <path
-            d="M 125 35 A 80 80 0 0 1 180 100"
+            d="M 122 42 A 75 75 0 0 1 175 105"
             fill="none"
             stroke="var(--tv-teal, #089981)"
-            strokeWidth="6"
+            strokeWidth="8"
             strokeLinecap="round"
-            opacity={clampedScore > 0.1 ? 0.95 : 0.35}
+            opacity={clampedScore > 0.1 ? 0.95 : 0.4}
           />
 
+          {/* Clean text markers inside SVG coordinate system */}
+          <text x="18" y="118" fill="var(--tv-red, #f23645)" fontSize="9" fontWeight="700" textAnchor="start" fontFamily="sans-serif">
+            Strong sell
+          </text>
+          <text x="100" y="24" fill="var(--tv-text-secondary, #787b86)" fontSize="9" fontWeight="700" textAnchor="middle" fontFamily="sans-serif">
+            Neutral
+          </text>
+          <text x="182" y="118" fill="var(--tv-teal, #089981)" fontSize="9" fontWeight="700" textAnchor="end" fontFamily="sans-serif">
+            Strong buy
+          </text>
+
           {/* Needle Indicator */}
-          <g transform={`rotate(${angle}, 100, 100)`}>
+          <g transform={`rotate(${angle}, 100, 105)`} style={{ transition: "transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
             <line
               x1="100"
-              y1="100"
+              y1="105"
               x2="100"
-              y2="28"
+              y2="34"
               stroke="oklch(var(--gz-txt))"
               strokeWidth="3.5"
               strokeLinecap="round"
               style={{ filter: "drop-shadow(0 0 4px rgba(0,0,0,0.5))" }}
             />
-            <circle cx="100" cy="100" r="6" fill="oklch(var(--gz-txt))" />
-            <circle cx="100" cy="100" r="3" fill="var(--tv-blue, oklch(var(--gz-p)))" />
+            <circle cx="100" cy="105" r="6" fill="oklch(var(--gz-txt))" />
+            <circle cx="100" cy="105" r="3" fill="var(--tv-blue, oklch(var(--gz-p)))" />
           </g>
         </svg>
-
-        {/* Labels on arc ends */}
-        <span className="absolute left-2 bottom-1 text-[9px] font-bold uppercase text-destructive/80">Strong sell</span>
-        <span className="absolute top-0 text-[9px] font-bold uppercase text-muted-foreground">Neutral</span>
-        <span className="absolute right-2 bottom-1 text-[9px] font-bold uppercase text-success/80">Strong buy</span>
       </div>
 
       {/* Large Verdict */}
-      <span className="text-base font-extrabold mt-1 uppercase tracking-wide" style={{ color: verdictColor }}>
+      <span className="text-base font-extrabold mt-2 uppercase tracking-wide" style={{ color: verdictColor }}>
         {verdictText}
       </span>
 

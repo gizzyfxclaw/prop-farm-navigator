@@ -208,6 +208,59 @@ interface DrawableLevels {
   reason: string;
 }
 
+interface TVTechnicalsSummary {
+  score: number;
+  verdict: string;
+  counts: { buy: number; neutral: number; sell: number };
+  rsi?: number | null;
+  macd_level?: number | null;
+  macd_signal?: number | null;
+  ma_verdict?: string;
+  classic_pivots?: { r1?: number; r2?: number; s1?: number; s2?: number; p?: number };
+}
+
+async function fetchTVTechnicalsForSMC(pair: string, interval: string): Promise<TVTechnicalsSummary | null> {
+  const ticker = `FX:${pair.toUpperCase().replace(/[^A-Z]/g, "")}`;
+  const sfx = interval === "5m" ? "|5" : interval === "15m" ? "|15" : interval === "4h" ? "|240" : interval === "1d" ? "" : "|60";
+  try {
+    const res = await fetch("https://scanner.tradingview.com/forex/scan", {
+      method: "POST",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Origin": "https://www.tradingview.com",
+        "Referer": "https://www.tradingview.com/",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        symbols: { tickers: [ticker], query: { types: [] } },
+        columns: [
+          `Recommend.Other${sfx}`, `Recommend.All${sfx}`, `Recommend.MA${sfx}`,
+          `RSI${sfx}`, `MACD.macd${sfx}`, `MACD.signal${sfx}`,
+          `Pivot.M.Classic.S2${sfx}`, `Pivot.M.Classic.S1${sfx}`, `Pivot.M.Classic.Middle${sfx}`, `Pivot.M.Classic.R1${sfx}`, `Pivot.M.Classic.R2${sfx}`,
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as any;
+    const d = data.data?.[0]?.d;
+    if (!d) return null;
+    return {
+      score: d[1] ?? 0,
+      verdict: d[1] >= 0.5 ? "STRONG_BUY" : d[1] >= 0.1 ? "BUY" : d[1] <= -0.5 ? "STRONG_SELL" : d[1] <= -0.1 ? "SELL" : "NEUTRAL",
+      counts: { buy: 0, neutral: 0, sell: 0 },
+      rsi: d[3] != null ? +d[3].toFixed(2) : null,
+      macd_level: d[4] != null ? +d[4].toFixed(5) : null,
+      macd_signal: d[5] != null ? +d[5].toFixed(5) : null,
+      ma_verdict: d[2] >= 0.1 ? "BUY" : d[2] <= -0.1 ? "SELL" : "NEUTRAL",
+      classic_pivots: {
+        s2: d[6], s1: d[7], p: d[8], r1: d[9], r2: d[10],
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 function buildStrategyLevels(
   channel: Channel,
   orderBlocks: any[],
@@ -215,6 +268,7 @@ function buildStrategyLevels(
   atr: number,
   pairSymbol: string,
   breakoutConfirmed5m: boolean,
+  tvTechnicals?: TVTechnicalsSummary | null,
 ): DrawableLevels {
   const spec = pairSpec(pairSymbol);
   const SL_PIPS = 30;
@@ -255,14 +309,20 @@ function buildStrategyLevels(
 
   const nearbyConflict = hasNearbyConflict(orderBlocks, tp20, channel.direction, atr);
 
-  const strongSetup = breakoutConfirmed5m && channel.retestCount >= 3 && !nearbyConflict;
+  // Technical confluence boost
+  const tvAligned = tvTechnicals
+    ? (channel.direction === "long" && (tvTechnicals.verdict === "BUY" || tvTechnicals.verdict === "STRONG_BUY")) ||
+      (channel.direction === "short" && (tvTechnicals.verdict === "SELL" || tvTechnicals.verdict === "STRONG_SELL"))
+    : false;
+
+  const strongSetup = (breakoutConfirmed5m || tvAligned) && channel.retestCount >= 3 && !nearbyConflict;
   const recommendedRR = strongSetup ? "1:2" : "1:1.5";
   const primaryTP = strongSetup ? tp20 : tp15;
   const primaryTPPips = strongSetup ? SL_PIPS * 2 : SL_PIPS * 1.5;
 
   return {
     direction: channel.direction,
-    confidence: strongSetup ? 0.85 : 0.65,
+    confidence: strongSetup ? 0.90 : 0.70,
     orderType: channel.direction === "long" ? "BUY_STOP" : "SELL_STOP",
     entry: entryPrice.toFixed(spec.decimals),
     stopLoss: stopLoss.toFixed(spec.decimals),
@@ -299,6 +359,7 @@ function generateDebate(
   breakoutConfirmed5m: boolean,
   nearbyConflict: boolean,
   alignment: { biasByTf: Record<string, string>; aligned: boolean; agreeCount: number; totalCount: number },
+  tvTechnicals?: TVTechnicalsSummary | null,
 ): DebateResult {
   const isLong = channel.direction === "long";
   const points: any[] = [];
@@ -327,22 +388,42 @@ function generateDebate(
   }
 
   if (alignment.aligned) {
-    score += 25;
+    score += 20;
     points.push({ claim: `Multi-timeframe aligned (${alignment.agreeCount}/${alignment.totalCount})` });
   } else {
     counterPoints.push({ claim: `Timeframes conflict: ${Object.entries(alignment.biasByTf).map(([tf, b]) => `${tf.toUpperCase()}=${b}`).join(", ")}` });
   }
 
+  // TradingView Technicals Confluence Scoring
+  if (tvTechnicals) {
+    const isTvLong = tvTechnicals.verdict === "BUY" || tvTechnicals.verdict === "STRONG_BUY";
+    const isTvShort = tvTechnicals.verdict === "SELL" || tvTechnicals.verdict === "STRONG_SELL";
+
+    if ((isLong && isTvLong) || (!isLong && isTvShort)) {
+      score += 30;
+      points.push({
+        claim: `TradingView Technicals Consensus confirms ${tvTechnicals.verdict} (MA: ${tvTechnicals.ma_verdict}, RSI: ${tvTechnicals.rsi ?? "—"})`,
+      });
+    } else if ((isLong && isTvShort) || (!isLong && isTvLong)) {
+      score -= 20;
+      counterPoints.push({
+        claim: `TradingView Technicals Divergence: Indicators signal ${tvTechnicals.verdict} against channel direction`,
+      });
+    } else {
+      points.push({ claim: `TradingView Technicals Neutral/Developing (${tvTechnicals.verdict})` });
+    }
+  }
+
   let finalVerdict = "NEUTRAL";
   let confidence = 0.5;
-  if (score >= 65) {
+  if (score >= 75) {
     finalVerdict = isLong ? "STRONG_LONG" : "STRONG_SHORT";
-    confidence = 0.85;
-  } else if (score >= 40) {
+    confidence = 0.90;
+  } else if (score >= 50) {
     finalVerdict = isLong ? "LEAN_LONG" : "LEAN_SHORT";
-    confidence = 0.65;
+    confidence = 0.75;
   } else {
-    confidence = 0.3;
+    confidence = 0.35;
   }
 
   return {
@@ -355,7 +436,7 @@ function generateDebate(
     ],
     finalVerdict,
     confidence,
-    finalRationale: `Setup score: ${score}/110`,
+    finalRationale: `Institutional Confluence Score: ${Math.max(0, score)}/120`,
     entryZone: channel.type !== "none" ? channel.breakoutBoundary.toFixed(5) : "See levels below",
     invalidationLevel: channel.baseLine ? channel.baseLine[1].price.toFixed(5) : "",
     riskReward: "See levels below",
@@ -420,10 +501,13 @@ export const Route = createFileRoute("/api/smc-analyze")({
         const actualCount = bars.length;
         const wasRetried = actualCount < requestedCount;
 
+        // Fetch TradingView technicals for multi-indicator confluence
+        const tvTechnicals = await fetchTVTechnicalsForSMC(pair, interval);
+
         // Generate debate and levels for frontend
         const nearbyConflict = hasNearbyConflict(smcResult.orderBlocks, channel.breakoutBoundary, channel.direction, atr);
-        const debate = generateDebate(channel, breakoutConfirmed5m, nearbyConflict, alignment);
-        const levels = buildStrategyLevels(channel, smcResult.orderBlocks, bars[bars.length - 1]!.close, atr, pair, breakoutConfirmed5m);
+        const debate = generateDebate(channel, breakoutConfirmed5m, nearbyConflict, alignment, tvTechnicals);
+        const levels = buildStrategyLevels(channel, smcResult.orderBlocks, bars[bars.length - 1]!.close, atr, pair, breakoutConfirmed5m, tvTechnicals);
 
         // Flatten structure for frontend compatibility
         // Frontend expects: structure.bias, structure.bos, structure.orderBlocks, etc.
@@ -464,6 +548,7 @@ export const Route = createFileRoute("/api/smc-analyze")({
           debate,
           levels,
           channel,
+          technicals: tvTechnicals,
           strategy: strategyInfo,
           ...(includeBars ? { bars } : { barCount: actualCount }),
           actualBarCount: actualCount,
