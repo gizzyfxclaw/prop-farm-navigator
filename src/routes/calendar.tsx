@@ -199,14 +199,7 @@ function CalendarPage() {
     }
   }, []);
 
-  const fetchHermesAnalysis = useCallback(async (ev: RawEvent) => {
-    if (analyzingEvents.has(ev.id)) return;
-    setAnalyzingEvents((prev) => new Set(prev).add(ev.id));
-    setHermesAnalyses((prev) => ({ ...prev, [ev.id]: "loading" }));
-
-    // Small delay for tactile button feedback
-    await new Promise((r) => setTimeout(r, 350));
-
+  const fetchHermesAnalysis = useCallback((ev: RawEvent) => {
     try {
       const result = analyzeNewsEvent({
         event_name: ev.event,
@@ -228,16 +221,10 @@ function CalendarPage() {
         } catch {}
         return next;
       });
-    } catch {
-      // fail silently
-    } finally {
-      setAnalyzingEvents((prev) => {
-        const next = new Set(prev);
-        next.delete(ev.id);
-        return next;
-      });
+    } catch (e) {
+      console.error("Error analyzing news event:", e);
     }
-  }, [analyzingEvents]);
+  }, []);
 
   useEffect(() => {
     fetchEvents();
@@ -278,19 +265,40 @@ function CalendarPage() {
       .reverse();
   }, [liveEvents]);
 
-  // Auto-analyze all upcoming and released high-impact events in background
+  // Auto-analyze all events immediately so they are pre-rendered with zero wait time
   useEffect(() => {
-    for (const ev of upcomingHighImpact) {
-      if (!hermesAnalyses[ev.id] && !analyzingEvents.has(ev.id)) {
-        fetchHermesAnalysis(ev);
+    if (liveEvents.length === 0) return;
+    const updates: Record<string, HermesAnalysis> = {};
+    let changed = false;
+
+    for (const ev of liveEvents) {
+      if (!hermesAnalyses[ev.id] || hermesAnalyses[ev.id] === "loading") {
+        try {
+          const result = analyzeNewsEvent({
+            event_name: ev.event,
+            currency: ev.currency,
+            impact: ev.impact,
+            actual: ev.actual,
+            forecast: ev.forecast,
+            previous: ev.previous,
+            datetime: ev.datetime,
+          });
+          updates[ev.id] = result;
+          changed = true;
+        } catch {}
       }
     }
-    for (const ev of recentReleasedEvents) {
-      if (!hermesAnalyses[ev.id] && !analyzingEvents.has(ev.id)) {
-        fetchHermesAnalysis(ev);
-      }
+
+    if (changed) {
+      setHermesAnalyses((prev) => {
+        const next = { ...prev, ...updates };
+        try {
+          localStorage.setItem("gizzyfx.calendar.hermesAnalyses", JSON.stringify(next));
+        } catch {}
+        return next;
+      });
     }
-  }, [upcomingHighImpact.length, recentReleasedEvents.length]);
+  }, [liveEvents]);
 
   const sessions = useMemo(() => computeSessions(), [tick]);
 
