@@ -52,8 +52,8 @@ const RULES: Rule[] = [
   {
     id: "session",
     category: "execution",
-    text: "Best window: London/NY overlap (18:00–21:00 WAT)",
-    detail: "Peak liquidity. Acceptable: London (13:00–17:00 WAT) or NY (18:00–22:00 WAT).",
+    text: "Best window: London/NY overlap (6:00 PM–9:00 PM WAT)",
+    detail: "Peak liquidity. Acceptable: London (1:00 PM–5:00 PM WAT) or NY (6:00 PM–10:00 PM WAT).",
   },
   {
     id: "news",

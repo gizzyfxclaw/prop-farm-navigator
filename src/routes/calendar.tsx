@@ -5,7 +5,7 @@ import {
   Clock, Activity, Radio, RefreshCw, Loader2, Bot, TrendingUp, TrendingDown,
   Minus, ChevronDown, ChevronUp, ArrowRight, Target, Sparkles, X, Info,
 } from "lucide-react";
-import { getEasternTime, getWATTime, formatTime, etToWAT } from "@/lib/timezone";
+import { getEasternTime, getWATTime, formatTime, etToWAT, formatEventTimeWAT, formatEtTo12h } from "@/lib/timezone";
 import { Badge, Button, CockpitHeader } from "@/components/terminal/ui";
 import { LiveDot } from "@/components/terminal/anim";
 import { classifyHazard } from "@/lib/news-hazard";
@@ -888,7 +888,7 @@ function CalendarPage() {
                   {watStart}–{watEnd} WAT
                 </div>
                 <div className="font-mono text-[9px]" style={{ color: "oklch(var(--gz-mut))" }}>
-                  {s.start}–{s.end} ET
+                  {formatEtTo12h(s.start)}–{formatEtTo12h(s.end)} ET
                 </div>
                 {!s.active && (
                   <div className="font-mono text-[9px] tabular-nums mt-0.5" style={{ color: "oklch(var(--gz-mut))" }}>
@@ -967,8 +967,8 @@ function CalendarPage() {
                   const hermes = hermesAnalyses[ev.id];
                   return (
                     <tr key={ev.id} style={{ background: rowBg, opacity: isPast ? 0.65 : 1 }}>
-                      <td className="font-mono tabular-nums whitespace-nowrap">
-                        {new Date(ev.time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Lagos" })}
+                      <td className="font-mono tabular-nums whitespace-nowrap font-bold">
+                        {formatEventTimeWAT(ev.time)}
                       </td>
                       <td className="mono-cap">{ev.currency}</td>
                       <td style={{ color: "oklch(var(--gz-txt))" }}>{ev.event}</td>

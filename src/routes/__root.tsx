@@ -395,14 +395,20 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function Clock() {
-  const [now, setNow] = useState<string>("--:--:--");
+  const [now, setNow] = useState<string>("--:-- --");
   useEffect(() => {
     const tick = () => {
-      const wat = new Date().toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour12: false });
+      const wat = new Date().toLocaleTimeString("en-US", {
+        timeZone: "Africa/Lagos",
+        hour12: true,
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+      });
       setNow(wat);
     };
     tick();
-    const id = window.setInterval(tick, 10000);
+    const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, []);
   return (
