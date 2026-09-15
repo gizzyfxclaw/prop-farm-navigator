@@ -476,22 +476,22 @@ function MobileNav() {
             onClick={() => setOpenPanel(null)}
           />
           <div
-            className="fx-rise"
+            className="mobile-sheet fx-rise"
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
-              background: "oklch(var(--gz-s1))", borderTopLeftRadius: 18, borderTopRightRadius: 18,
-              border: "1px solid oklch(var(--gz-p) / 0.2)", boxShadow: "0 -12px 48px rgba(0,0,0,0.45)", overflow: "hidden",
+              background: "var(--tv-surface, oklch(var(--gz-s1)))", borderTopLeftRadius: 18, borderTopRightRadius: 18,
+              border: "1px solid var(--tv-border, oklch(var(--gz-p) / 0.2))", boxShadow: "0 -12px 48px rgba(0,0,0,0.45)", overflow: "hidden",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid oklch(var(--gz-p) / 0.12)" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "oklch(var(--gz-p))" }}>
+            <div className="mobile-sheet-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid var(--tv-border-subtle, oklch(var(--gz-p) / 0.12))" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tv-blue, oklch(var(--gz-p)))" }}>
                 {openPanel === "tools" ? "Trading Tools" : "Navigation & Settings"}
               </span>
               <button
                 onClick={() => setOpenPanel(null)}
                 style={{
                   width: 30, height: 30, borderRadius: 6, border: "none",
-                  background: "oklch(var(--gz-s2))", color: "oklch(var(--gz-mut))",
+                  background: "var(--tv-surface-subtle, oklch(var(--gz-s2)))", color: "var(--tv-text-secondary, oklch(var(--gz-mut)))",
                   cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                 }}
               >
@@ -504,21 +504,22 @@ function MobileNav() {
                 return (
                   <button
                     key={item.to}
+                    className={`mobile-sheet-item ${itemActive ? "is-active" : ""}`}
                     onClick={() => {
                       setOpenPanel(null);
                       router.navigate({ to: item.to });
                     }}
                     style={{
                       display: "flex", alignItems: "center", gap: 14, width: "100%", padding: "12px 18px",
-                      border: "none", background: itemActive ? "oklch(var(--gz-p) / 0.12)" : "transparent",
-                      color: itemActive ? "oklch(var(--gz-p))" : "oklch(var(--gz-txt))",
+                      border: "none", background: itemActive ? "var(--tv-blue-subtle, oklch(var(--gz-p) / 0.12))" : "transparent",
+                      color: itemActive ? "var(--tv-blue, oklch(var(--gz-p)))" : "var(--tv-text-primary, oklch(var(--gz-txt)))",
                       fontSize: 14, fontWeight: 600, textAlign: "left", cursor: "pointer",
                     }}
                   >
-                    <span style={{ color: itemActive ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>{item.icon}</span>
+                    <span style={{ color: itemActive ? "var(--tv-blue, oklch(var(--gz-p)))" : "var(--tv-text-secondary, oklch(var(--gz-mut)))" }}>{item.icon}</span>
                     <span style={{ flex: 1 }}>{item.label}</span>
                     {itemActive && (
-                      <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "2px 7px", borderRadius: 4, background: "oklch(var(--gz-p) / 0.2)", color: "oklch(var(--gz-p))" }}>
+                      <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "2px 7px", borderRadius: 4, background: "var(--tv-blue-subtle, oklch(var(--gz-p) / 0.2))", color: "var(--tv-blue, oklch(var(--gz-p)))" }}>
                         Active
                       </span>
                     )}
@@ -533,8 +534,8 @@ function MobileNav() {
                 }}
                 style={{
                   display: "flex", alignItems: "center", gap: 14, width: "100%", padding: "12px 18px",
-                  border: "none", borderTop: "1px solid oklch(var(--gz-p) / 0.1)",
-                  background: "oklch(var(--gz-neg) / 0.06)", color: "oklch(var(--gz-neg))",
+                  border: "none", borderTop: "1px solid var(--tv-border, oklch(var(--gz-p) / 0.1))",
+                  background: "var(--tv-red-subtle, oklch(var(--gz-neg) / 0.06))", color: "var(--tv-red, oklch(var(--gz-neg)))",
                   fontSize: 14, fontWeight: 600, textAlign: "left", cursor: "pointer", marginTop: 6,
                 }}
               >
@@ -547,12 +548,12 @@ function MobileNav() {
       )}
 
       {/* Fixed Bottom Toolbar */}
-      <div style={{
+      <div className="mobile-bottom-nav" style={{
         position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999,
-        background: "oklch(var(--gz-s1) / 0.94)",
+        background: "var(--tv-surface, oklch(var(--gz-s1) / 0.94))",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
-        borderTop: "1px solid oklch(var(--gz-p) / 0.16)",
+        borderTop: "1px solid var(--tv-border, oklch(var(--gz-p) / 0.16))",
         boxShadow: "0 -4px 24px rgba(0,0,0,0.35)",
       }}>
         <div style={{
@@ -567,6 +568,7 @@ function MobileNav() {
             return (
               <button
                 key={tab.action}
+                className={`mobile-tab-btn ${highlighted ? "is-active" : ""}`}
                 onClick={() => {
                   if (tab.action === "tools" || tab.action === "more") {
                     setOpenPanel(openPanel === tab.action ? null : tab.action);
@@ -578,16 +580,16 @@ function MobileNav() {
                 style={{
                   display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                   padding: "6px 8px", border: "none", borderRadius: 8,
-                  background: isPanelOpen ? "oklch(var(--gz-p) / 0.12)" : "transparent",
+                  background: isPanelOpen ? "var(--tv-blue-subtle, oklch(var(--gz-p) / 0.12))" : "transparent",
                   cursor: "pointer", minWidth: 56, flex: 1,
                 }}
               >
-                <span style={{ color: highlighted ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))" }}>
+                <span style={{ color: highlighted ? "var(--tv-blue, oklch(var(--gz-p)))" : "var(--tv-text-secondary, oklch(var(--gz-mut)))" }}>
                   {tab.icon}
                 </span>
                 <span style={{
                   fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
-                  color: highlighted ? "oklch(var(--gz-p))" : "oklch(var(--gz-mut))",
+                  color: highlighted ? "var(--tv-blue, oklch(var(--gz-p)))" : "var(--tv-text-secondary, oklch(var(--gz-mut)))",
                 }}>
                   {tab.label}
                 </span>
