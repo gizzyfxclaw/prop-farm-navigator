@@ -35,6 +35,7 @@ import { Route as ApiSmcMigrateChatRouteImport } from './routes/api/smc-migrate-
 import { Route as ApiSmcStrategyConfigRouteImport } from './routes/api/smc-strategy-config'
 import { Route as ApiStrategiesRouteImport } from './routes/api/strategies'
 import { Route as ApiTechnicalsRouteImport } from './routes/api/technicals'
+import { Route as ApiTradingviewIdeasRouteImport } from './routes/api/tradingview-ideas'
 import { Route as ApiHermesDebugRouteImport } from './routes/api/hermes/_debug'
 import { Route as ApiHermesAccountsRouteImport } from './routes/api/hermes/accounts'
 import { Route as ApiHermesAnalysisRouteImport } from './routes/api/hermes/analysis'
@@ -188,6 +189,11 @@ const ApiTechnicalsRoute = ApiTechnicalsRouteImport.update({
   path: '/api/technicals',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTradingviewIdeasRoute = ApiTradingviewIdeasRouteImport.update({
+  id: '/api/tradingview-ideas',
+  path: '/api/tradingview-ideas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHermesDebugRoute = ApiHermesDebugRouteImport.update({
   id: '/api/hermes/_debug',
   path: '/api/hermes',
@@ -330,6 +336,7 @@ export interface FileRoutesByFullPath {
   '/api/smc-strategy-config': typeof ApiSmcStrategyConfigRoute
   '/api/strategies': typeof ApiStrategiesRoute
   '/api/technicals': typeof ApiTechnicalsRoute
+  '/api/tradingview-ideas': typeof ApiTradingviewIdeasRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -380,6 +387,7 @@ export interface FileRoutesByTo {
   '/api/smc-strategy-config': typeof ApiSmcStrategyConfigRoute
   '/api/strategies': typeof ApiStrategiesRoute
   '/api/technicals': typeof ApiTechnicalsRoute
+  '/api/tradingview-ideas': typeof ApiTradingviewIdeasRoute
   '/api/hermes': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -431,6 +439,7 @@ export interface FileRoutesById {
   '/api/smc-strategy-config': typeof ApiSmcStrategyConfigRoute
   '/api/strategies': typeof ApiStrategiesRoute
   '/api/technicals': typeof ApiTechnicalsRoute
+  '/api/tradingview-ideas': typeof ApiTradingviewIdeasRoute
   '/api/hermes/_debug': typeof ApiHermesDebugRoute
   '/api/hermes/accounts': typeof ApiHermesAccountsRoute
   '/api/hermes/analysis': typeof ApiHermesAnalysisRoute
@@ -483,6 +492,7 @@ export interface FileRouteTypes {
     | '/api/smc-strategy-config'
     | '/api/strategies'
     | '/api/technicals'
+    | '/api/tradingview-ideas'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -533,6 +543,7 @@ export interface FileRouteTypes {
     | '/api/smc-strategy-config'
     | '/api/strategies'
     | '/api/technicals'
+    | '/api/tradingview-ideas'
     | '/api/hermes'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -583,6 +594,7 @@ export interface FileRouteTypes {
     | '/api/smc-strategy-config'
     | '/api/strategies'
     | '/api/technicals'
+    | '/api/tradingview-ideas'
     | '/api/hermes/_debug'
     | '/api/hermes/accounts'
     | '/api/hermes/analysis'
@@ -634,6 +646,7 @@ export interface RootRouteChildren {
   ApiSmcStrategyConfigRoute: typeof ApiSmcStrategyConfigRoute
   ApiStrategiesRoute: typeof ApiStrategiesRoute
   ApiTechnicalsRoute: typeof ApiTechnicalsRoute
+  ApiTradingviewIdeasRoute: typeof ApiTradingviewIdeasRoute
   ApiHermesDebugRoute: typeof ApiHermesDebugRoute
   ApiHermesAccountsRoute: typeof ApiHermesAccountsRoute
   ApiHermesAnalysisRoute: typeof ApiHermesAnalysisRoute
@@ -842,6 +855,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTechnicalsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/tradingview-ideas': {
+      id: '/api/tradingview-ideas'
+      path: '/api/tradingview-ideas'
+      fullPath: '/api/tradingview-ideas'
+      preLoaderRoute: typeof ApiTradingviewIdeasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hermes/_debug': {
       id: '/api/hermes/_debug'
       path: '/api/hermes'
@@ -1026,6 +1046,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSmcStrategyConfigRoute: ApiSmcStrategyConfigRoute,
   ApiStrategiesRoute: ApiStrategiesRoute,
   ApiTechnicalsRoute: ApiTechnicalsRoute,
+  ApiTradingviewIdeasRoute: ApiTradingviewIdeasRoute,
   ApiHermesDebugRoute: ApiHermesDebugRoute,
   ApiHermesAccountsRoute: ApiHermesAccountsRoute,
   ApiHermesAnalysisRoute: ApiHermesAnalysisRoute,

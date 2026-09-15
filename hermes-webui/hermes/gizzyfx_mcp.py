@@ -477,6 +477,20 @@ TOOLS = [
             "required": ["pair"],
         },
     ),
+    Tool(
+        name="get_tradingview_community_ideas",
+        description=(
+            "Fetch real-time published Community trade ideas, setups, and market opinions "
+            "from top analysts on TradingView for any forex pair (e.g. EURUSD, USDJPY, GBPUSD, XAUUSD)."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "pair": {"type": "string", "description": "Forex pair e.g. EURUSD, USDJPY, GBPUSD"},
+            },
+            "required": ["pair"],
+        },
+    ),
 ]
 
 @server.list_tools()
@@ -748,6 +762,22 @@ async def call_tool(name, arguments):
                     f"  - S1: {pivots.get('s1')} | Pivot: {pivots.get('middle')} | R1: {pivots.get('r1')}\n"
                     f"  - Current Close: {px.get('close')} (High: {px.get('high')}, Low: {px.get('low')})"
                 )
+        elif name == "get_tradingview_community_ideas":
+            pair = arguments["pair"].upper().replace("/", "").replace(" ", "")
+            data = _get("/api/tradingview-ideas", {"pair": pair})
+            ideas = data.get("ideas", [])
+            if not ideas:
+                result = f"No community ideas found on TradingView for {pair}."
+            else:
+                lines = [f"=== TRADINGVIEW COMMUNITY & EXPLORE IDEAS: {pair} ({len(ideas)} published setups) ==="]
+                for idx, idea in enumerate(ideas[:8], 1):
+                    lines.append(
+                        f"\n[{idx}] {idea.get('title')} (Direction: {idea.get('direction')})\n"
+                        f"    Author: {idea.get('author')}\n"
+                        f"    Link: {idea.get('link')}\n"
+                        f"    Summary: {idea.get('description')[:140]}..."
+                    )
+                result = "\n".join(lines)
 
         else:
             result = f"Unknown tool: {name}"
