@@ -17,6 +17,7 @@ import { StrategyBuilder } from "@/components/terminal/StrategyBuilder";
 import { StrategySelector } from "@/components/terminal/StrategySelector";
 import { PineScriptInterpreter } from "@/components/terminal/PineScriptInterpreter";
 import { StrategyPineScript, getStrategyPineScript } from "@/components/terminal/StrategyPineScript";
+import { TradingViewTechnicalsPanel } from "@/components/terminal/TradingViewTechnicals";
 
 export const Route = createFileRoute("/smc")({
   head: () => ({ meta: [{ title: "SMC Analysis — GizzyFx" }] }),
@@ -1719,6 +1720,9 @@ function fmt(val: unknown, decimals = 5): string {
               </div>
             </Card>
           )}
+
+          {/* ── TradingView Technical Analysis (Gauges, Oscillators, Moving Averages & Pivots) ── */}
+          <TradingViewTechnicalsPanel pair={pair} smcBias={bias as "bullish" | "bearish" | "neutral"} />
 
           {/* Trading Levels */}
           {data.levels && data.levels.direction !== "neutral" && (
