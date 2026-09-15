@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   TrendingUp, TrendingDown, Minus, Activity, RefreshCw, Gauge,
   Layers, ShieldCheck, AlertTriangle, ArrowRight, Zap, ChevronDown, ChevronUp,
+  ExternalLink, Users, Award,
 } from "lucide-react";
 import { Badge, Button } from "@/components/terminal/ui";
 
@@ -40,6 +41,36 @@ interface TechnicalsData {
     low: number;
   };
   timestamp: string;
+}
+
+interface CommunityReport {
+  pair: string;
+  totalAnalyzed: number;
+  sentiment: {
+    longCount: number;
+    shortCount: number;
+    neutralCount: number;
+    longPct: number;
+    shortPct: number;
+    bias: string;
+  };
+  topRatedIdeas: Array<{
+    id: string;
+    title: string;
+    author: string;
+    authorUrl: string;
+    link: string;
+    description: string;
+    image?: string;
+    direction: "LONG" | "SHORT" | "NEUTRAL";
+    accuracyScore: number;
+    accuracyGrade: string;
+    verdict: string;
+    confluencePoints: string[];
+    riskWarnings: string[];
+  }>;
+  synthesis: string;
+  actionableRecommendation: string;
 }
 
 const TIMEFRAMES = [
@@ -107,7 +138,6 @@ function SpeedometerGauge({
   verdict: string;
   counts: { buy: number; neutral: number; sell: number };
 }) {
-  // Score is between -1.0 (Strong Sell, left -80deg) and +1.0 (Strong Buy, right +80deg)
   const clampedScore = Math.max(-1, Math.min(1, score));
   const angle = clampedScore * 80;
   const verdictText = formatVerdict(verdict);
@@ -230,9 +260,11 @@ export function TradingViewTechnicalsPanel({
     return "1h";
   });
   const [data, setData] = useState<TechnicalsData | null>(null);
+  const [communityReport, setCommunityReport] = useState<CommunityReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [communityLoading, setCommunityLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"gauges" | "oscillators" | "moving_averages" | "pivots">(() => {
+  const [activeTab, setActiveTab] = useState<"gauges" | "oscillators" | "moving_averages" | "pivots" | "community">(() => {
     if (typeof window !== "undefined") {
       try {
         return (localStorage.getItem("gizzyfx.technicals.tab") as any) || "gauges";
@@ -272,11 +304,26 @@ export function TradingViewTechnicalsPanel({
     }
   }, [cleanPair, interval]);
 
+  const fetchCommunityIdeas = useCallback(async () => {
+    setCommunityLoading(true);
+    try {
+      const res = await fetch(`/api/tradingview-ideas?pair=${cleanPair}`);
+      if (res.ok) {
+        const json = await res.json();
+        setCommunityReport(json);
+      }
+    } catch {}
+    finally {
+      setCommunityLoading(false);
+    }
+  }, [cleanPair]);
+
   useEffect(() => {
     fetchTechnicals();
-    const id = window.setInterval(fetchTechnicals, 30_000); // 30s auto-refresh
+    fetchCommunityIdeas();
+    const id = window.setInterval(fetchTechnicals, 30_000);
     return () => window.clearInterval(id);
-  }, [fetchTechnicals]);
+  }, [fetchTechnicals, fetchCommunityIdeas]);
 
   // Compute Confluence between SMC Structure and TradingView Technicals
   const tvVerdict = data?.summary.verdict;
@@ -301,7 +348,7 @@ export function TradingViewTechnicalsPanel({
           <div>
             <h2 className="font-bold text-sm text-foreground">{fullName} • Technicals</h2>
             <span className="text-[11px] text-muted-foreground font-mono">
-              Live Institutional Data from TradingView
+              Live Institutional Data & Community Pro Analyses from TradingView
             </span>
           </div>
         </div>
@@ -314,7 +361,7 @@ export function TradingViewTechnicalsPanel({
         </div>
       </div>
 
-      {/* Timeframe Switcher Bar (Exact TradingView Bar) */}
+      {/* Timeframe Switcher Bar */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-institutional">
         {TIMEFRAMES.map((tf) => (
           <button
@@ -403,8 +450,8 @@ export function TradingViewTechnicalsPanel({
             />
           </div>
 
-          {/* Section Tabs: Oscillators, Moving Averages, Pivots */}
-          <div className="flex border-b border-border/50 gap-2 pt-2">
+          {/* Section Tabs */}
+          <div className="flex border-b border-border/50 gap-2 pt-2 flex-wrap">
             <button
               onClick={() => setActiveTab("oscillators")}
               className={`pb-2 px-3 text-xs font-bold uppercase tracking-wider cursor-pointer transition-all border-b-2 ${
@@ -434,6 +481,17 @@ export function TradingViewTechnicalsPanel({
               }`}
             >
               Pivots (Key Levels)
+            </button>
+            <button
+              onClick={() => setActiveTab("community")}
+              className={`pb-2 px-3 text-xs font-bold uppercase tracking-wider cursor-pointer transition-all border-b-2 flex items-center gap-1.5 ${
+                activeTab === "community"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Users size={12} />
+              Community Pro Setups ({communityReport?.topRatedIdeas.length ?? "…"})
             </button>
           </div>
 
@@ -535,9 +593,101 @@ export function TradingViewTechnicalsPanel({
             </div>
           )}
 
+          {/* TAB 4: COMMUNITY PRO IDEAS GRADED BY ACCURACY */}
+          {activeTab === "community" && (
+            <div className="space-y-4">
+              {communityLoading ? (
+                <div className="py-8 text-center text-muted-foreground font-mono text-xs">
+                  Fetching top-rated TradingView analyses and evaluating institutional accuracy…
+                </div>
+              ) : !communityReport || communityReport.topRatedIdeas.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-xs">
+                  No community trade ideas found for {cleanPair}.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Consensus Header */}
+                  <div className="p-3 rounded-lg bg-secondary/50 border border-border/60 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Award size={16} className="text-primary" />
+                        <span className="font-bold text-xs uppercase tracking-wide text-foreground">
+                          Community Sentiment: {communityReport.sentiment.bias.replace("_", " ")}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{communityReport.synthesis}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 font-mono text-xs">
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold">
+                        {communityReport.sentiment.longPct}% Long
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-red-500/10 text-red-400 font-bold">
+                        {communityReport.sentiment.shortPct}% Short
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* List of Pro Analyses Graded by Accuracy */}
+                  <div className="space-y-3">
+                    {communityReport.topRatedIdeas.map((idea) => {
+                      const gradeTone = idea.accuracyScore >= 85 ? "badge-success" : idea.accuracyScore >= 70 ? "badge-warning" : "badge-danger";
+                      return (
+                        <div key={idea.id} className="p-3.5 rounded-lg bg-card border border-border space-y-2">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`badge ${gradeTone}`}>{idea.accuracyGrade}</span>
+                              <span className="font-bold text-xs text-foreground">{idea.title}</span>
+                              <span className="text-[11px] text-muted-foreground">by <strong>{idea.author}</strong></span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${idea.direction === "LONG" ? "bg-emerald-500/15 text-emerald-400" : idea.direction === "SHORT" ? "bg-red-500/15 text-red-400" : "bg-secondary text-muted-foreground"}`}>
+                                {idea.direction}
+                              </span>
+                              <a
+                                href={idea.link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-primary flex items-center gap-1 hover:underline"
+                              >
+                                View Chart <ExternalLink size={11} />
+                              </a>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-foreground/80 leading-relaxed">{idea.description}</p>
+
+                          {/* Confluence points & warnings */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
+                            {idea.confluencePoints.length > 0 && (
+                              <div className="p-2 rounded bg-emerald-500/5 border border-emerald-500/20 text-emerald-300 space-y-0.5">
+                                <span className="font-bold block text-[10px] uppercase">Validated Confluence:</span>
+                                {idea.confluencePoints.map((cp, idx) => (
+                                  <div key={idx}>✓ {cp}</div>
+                                ))}
+                              </div>
+                            )}
+                            {idea.riskWarnings.length > 0 && (
+                              <div className="p-2 rounded bg-amber-500/5 border border-amber-500/20 text-amber-300 space-y-0.5">
+                                <span className="font-bold block text-[10px] uppercase">Risk Warning:</span>
+                                {idea.riskWarnings.map((rw, idx) => (
+                                  <div key={idx}>⚠ {rw}</div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Disclaimer */}
           <p className="text-[10px] text-muted-foreground pt-2 border-t border-border/40">
-            Disclaimer: This technical indicator data is sourced directly from TradingView. It does not constitute investment advice. Combine with GizzyFx SMC order blocks and strict risk management.
+            Disclaimer: Technical indicator data and community analysis are sourced directly from TradingView. Combine with GizzyFx SMC order blocks and strict dual-account risk hedging.
           </p>
         </div>
       )}

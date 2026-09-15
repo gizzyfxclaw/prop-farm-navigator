@@ -1,171 +1,542 @@
 /**
- * GizzyFx Mobile Terminal — Professional TradingView Design System
+ * GizzyFx Universal TradingView Design System
  *
- * Authentic TradingView mobile interface with institutional trading aesthetics.
- * Supports both TradingView Dark (#131722 / #1E222D) and TradingView Light (#F0F3FA / #FFFFFF).
- * High-performance, fully responsive, zero UI hangs.
+ * Applies the authentic TradingView interface aesthetic across Desktop and Mobile.
+ * Features exact TradingView Dark (#131722 / #1E222D) and TradingView Light (#F0F3FA / #FFFFFF).
+ * High performance, zero UI freezes, seamless responsive scaling.
  */
 
+/* ── 1. TRADINGVIEW THEME TOKENS ─────────────────────────────────── */
+:root:not([data-mode="light"]) {
+  --tv-bg: #131722;
+  --tv-surface: #1e222d;
+  --tv-surface-subtle: #171b26;
+  --tv-surface-hover: #262b38;
+  --tv-border: #2a2e39;
+  --tv-border-subtle: #1f232d;
+  --tv-blue: #2962ff;
+  --tv-blue-hover: #1e53e5;
+  --tv-blue-subtle: rgba(41, 98, 255, 0.12);
+  --tv-teal: #089981;
+  --tv-teal-subtle: rgba(8, 153, 129, 0.12);
+  --tv-red: #f23645;
+  --tv-red-subtle: rgba(242, 54, 69, 0.12);
+  --tv-amber: #ff9800;
+  --tv-amber-subtle: rgba(255, 152, 0, 0.12);
+  --tv-text-primary: #d1d4dc;
+  --tv-text-secondary: #787b86;
+  --tv-text-bright: #ffffff;
+  --tv-input-bg: #131722;
+}
+
+:root[data-mode="light"] {
+  --tv-bg: #f0f3fa;
+  --tv-surface: #ffffff;
+  --tv-surface-subtle: #f8f9fd;
+  --tv-surface-hover: #e8ecf5;
+  --tv-border: #e0e3eb;
+  --tv-border-subtle: #eaecef;
+  --tv-blue: #2962ff;
+  --tv-blue-hover: #1e53e5;
+  --tv-blue-subtle: rgba(41, 98, 255, 0.10);
+  --tv-teal: #089981;
+  --tv-teal-subtle: rgba(8, 153, 129, 0.10);
+  --tv-red: #f23645;
+  --tv-red-subtle: rgba(242, 54, 69, 0.10);
+  --tv-amber: #e67e00;
+  --tv-amber-subtle: rgba(230, 126, 0, 0.10);
+  --tv-text-primary: #131722;
+  --tv-text-secondary: #787b86;
+  --tv-text-bright: #131722;
+  --tv-input-bg: #ffffff;
+}
+
+/* ── 2. GLOBAL FOUNDATION & SMOOTH SCROLLING ─────────────────────── */
+html, body {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  background: var(--tv-bg) !important;
+  color: var(--tv-text-primary) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif !important;
+}
+
+/* ── 3. TRADINGVIEW STICKY COMMAND BAR / HEADER ──────────────────── */
+.cmdbar {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 40 !important;
+  width: 100% !important;
+  background: var(--tv-bg) !important;
+  border-bottom: 1px solid var(--tv-border) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.cmdbar-status {
+  background: var(--tv-surface-subtle) !important;
+  border-bottom: 1px solid var(--tv-border-subtle) !important;
+}
+
+.navtab {
+  color: var(--tv-text-secondary) !important;
+  border-radius: 6px !important;
+  transition: all 0.12s ease !important;
+}
+
+.navtab:hover {
+  color: var(--tv-text-primary) !important;
+  background: var(--tv-surface-hover) !important;
+}
+
+.navtab-active {
+  color: var(--tv-blue) !important;
+  background: var(--tv-blue-subtle) !important;
+}
+
+.navtab-active::after {
+  background: var(--tv-blue) !important;
+}
+
+/* Live quote tape in TradingView style */
+.fx-tape {
+  background: var(--tv-surface-subtle) !important;
+  border-top: 1px solid var(--tv-border-subtle) !important;
+  border-bottom: 1px solid var(--tv-border) !important;
+  font-family: "JetBrains Mono", -apple-system, monospace !important;
+  font-size: 11px !important;
+}
+
+.tape-item {
+  border-right: 1px solid var(--tv-border-subtle) !important;
+  padding: 6px 14px !important;
+}
+
+.tape-sym {
+  color: var(--tv-text-bright) !important;
+  font-weight: 700 !important;
+}
+
+/* ── 4. TRADINGVIEW CARDS & PANELS ───────────────────────────────── */
+.panel,
+.card,
+[class*="rounded-xl"] {
+  background: var(--tv-surface) !important;
+  border: 1px solid var(--tv-border) !important;
+  border-radius: 8px !important;
+  margin-bottom: 12px !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15) !important;
+  overflow: hidden !important;
+}
+
+.panel-head {
+  background: var(--tv-surface-subtle) !important;
+  border-bottom: 1px solid var(--tv-border-subtle) !important;
+  padding: 10px 14px !important;
+  min-height: 38px !important;
+}
+
+.panel-head-title {
+  color: var(--tv-text-primary) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+.panel-head-title::before {
+  background: var(--tv-blue) !important;
+}
+
+.panel-body {
+  padding: 14px !important;
+  background: var(--tv-surface) !important;
+}
+
+.panel-accent {
+  border-top: 2px solid var(--tv-blue) !important;
+}
+.panel-pos {
+  border-top: 2px solid var(--tv-teal) !important;
+}
+.panel-neg {
+  border-top: 2px solid var(--tv-red) !important;
+}
+.panel-warn {
+  border-top: 2px solid var(--tv-amber) !important;
+}
+
+/* ── 5. TRADINGVIEW STAT TILES (INSTITUTIONAL STYLE) ──────────────── */
+.stat {
+  background: var(--tv-surface) !important;
+  border: 1px solid var(--tv-border) !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.stat-label {
+  color: var(--tv-text-secondary) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+}
+
+.stat-value {
+  color: var(--tv-text-bright) !important;
+  font-weight: 700 !important;
+  font-family: "JetBrains Mono", "SF Mono", monospace !important;
+  letter-spacing: -0.02em !important;
+}
+
+.stat-sub {
+  color: var(--tv-text-secondary) !important;
+  font-size: 10.5px !important;
+}
+
+/* Positive & Negative Semantic Colors */
+.gz-pos, .text-success, [class*="positive"], [class*="success"], .tone-green, .c-pos {
+  color: var(--tv-teal) !important;
+}
+
+.gz-neg, .text-destructive, [class*="negative"], [class*="destructive"], .tone-red, .c-neg {
+  color: var(--tv-red) !important;
+}
+
+.gz-warn, .tone-amber, .c-warn {
+  color: var(--tv-amber) !important;
+}
+
+/* ── 6. TRADINGVIEW BUTTONS ──────────────────────────────────────── */
+.btn-primary,
+.btn-institutional {
+  background: var(--tv-blue) !important;
+  color: #ffffff !important;
+  border: 1px solid var(--tv-blue) !important;
+  border-radius: 6px !important;
+  padding: 9px 16px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  box-shadow: 0 2px 6px rgba(41, 98, 255, 0.25) !important;
+  transition: background 0.12s ease, transform 0.07s ease !important;
+}
+
+.btn-primary:active,
+.btn-institutional:active {
+  background: var(--tv-blue-hover) !important;
+  transform: scale(0.98) !important;
+}
+
+.btn-ghost {
+  background: var(--tv-surface-subtle) !important;
+  border: 1px solid var(--tv-border) !important;
+  color: var(--tv-text-primary) !important;
+  border-radius: 6px !important;
+  padding: 8px 14px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.btn-ghost:active {
+  background: var(--tv-surface-hover) !important;
+  border-color: var(--tv-blue) !important;
+  color: var(--tv-blue) !important;
+}
+
+.btn-danger {
+  background: var(--tv-red-subtle) !important;
+  border: 1px solid var(--tv-red) !important;
+  color: var(--tv-red) !important;
+  border-radius: 6px !important;
+}
+
+.btn-success {
+  background: var(--tv-teal-subtle) !important;
+  border: 1px solid var(--tv-teal) !important;
+  color: var(--tv-teal) !important;
+  border-radius: 6px !important;
+}
+
+/* ── 7. TRADINGVIEW FORM CONTROLS ────────────────────────────────── */
+input,
+select,
+textarea,
+.ctl {
+  background: var(--tv-input-bg) !important;
+  border: 1px solid var(--tv-border) !important;
+  border-radius: 6px !important;
+  color: var(--tv-text-primary) !important;
+  padding: 0 12px !important;
+  font-family: inherit !important;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.ctl:focus {
+  border-color: var(--tv-blue) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px var(--tv-blue-subtle) !important;
+}
+
+.ctl-label {
+  color: var(--tv-text-secondary) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* ── 8. TRADINGVIEW SEGMENTED TABS (PILL SWITCHER) ────────────────── */
+.seg {
+  display: flex !important;
+  background: var(--tv-surface-subtle) !important;
+  border: 1px solid var(--tv-border) !important;
+  border-radius: 8px !important;
+  padding: 3px !important;
+  gap: 3px !important;
+}
+
+.seg-item {
+  flex: 1 !important;
+  min-height: 34px !important;
+  border-radius: 6px !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--tv-text-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  cursor: pointer !important;
+  transition: all 0.12s ease !important;
+}
+
+.seg-item.is-active,
+.seg-item[aria-selected="true"] {
+  background: var(--tv-blue) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px var(--tv-blue-subtle) !important;
+}
+
+/* ── 9. TRADINGVIEW BADGES ───────────────────────────────────────── */
+.badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+.badge-info {
+  background: var(--tv-blue-subtle) !important;
+  color: var(--tv-blue) !important;
+  border: 1px solid rgba(41, 98, 255, 0.25) !important;
+}
+
+.badge-success {
+  background: var(--tv-teal-subtle) !important;
+  color: var(--tv-teal) !important;
+  border: 1px solid rgba(8, 153, 129, 0.25) !important;
+}
+
+.badge-danger {
+  background: var(--tv-red-subtle) !important;
+  color: var(--tv-red) !important;
+  border: 1px solid rgba(242, 54, 69, 0.25) !important;
+}
+
+.badge-warning {
+  background: var(--tv-amber-subtle) !important;
+  color: var(--tv-amber) !important;
+  border: 1px solid rgba(255, 152, 0, 0.25) !important;
+}
+
+.badge-neutral {
+  background: var(--tv-surface-subtle) !important;
+  color: var(--tv-text-secondary) !important;
+  border: 1px solid var(--tv-border) !important;
+}
+
+/* ── 10. TRADINGVIEW ALERTS ──────────────────────────────────────── */
+.alert {
+  border-radius: 6px !important;
+  padding: 12px 14px !important;
+  margin: 8px 0 !important;
+  font-size: 12px !important;
+  border-left: 4px solid var(--tv-blue) !important;
+  background: var(--tv-blue-subtle) !important;
+}
+
+.alert-title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+.alert-green {
+  border-left-color: var(--tv-teal) !important;
+  background: var(--tv-teal-subtle) !important;
+}
+.alert-green .alert-title {
+  color: var(--tv-teal) !important;
+}
+
+.alert-red {
+  border-left-color: var(--tv-red) !important;
+  background: var(--tv-red-subtle) !important;
+}
+.alert-red .alert-title {
+  color: var(--tv-red) !important;
+}
+
+.alert-amber {
+  border-left-color: var(--tv-amber) !important;
+  background: var(--tv-amber-subtle) !important;
+}
+.alert-amber .alert-title {
+  color: var(--tv-amber) !important;
+}
+
+.alert-blue {
+  border-left-color: var(--tv-blue) !important;
+  background: var(--tv-blue-subtle) !important;
+}
+.alert-blue .alert-title {
+  color: var(--tv-blue) !important;
+}
+
+/* ── 11. TRADINGVIEW TABLES & BLOTTER ────────────────────────────── */
+.dgrid,
+table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-family: "JetBrains Mono", monospace !important;
+}
+
+.dgrid thead th,
+table th {
+  background: var(--tv-surface-subtle) !important;
+  color: var(--tv-text-secondary) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  padding: 10px 12px !important;
+  border-bottom: 1px solid var(--tv-border) !important;
+  text-align: left !important;
+}
+
+.dgrid tbody td,
+table td {
+  padding: 10px 12px !important;
+  border-bottom: 1px solid var(--tv-border-subtle) !important;
+  color: var(--tv-text-primary) !important;
+  font-size: 12px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.dgrid tbody tr:hover td,
+table tbody tr:hover td {
+  background: var(--tv-surface-hover) !important;
+}
+
+/* ── 12. COCKPIT HEADER ──────────────────────────────────────────── */
+.cockpit-header {
+  background: var(--tv-surface) !important;
+  border: 1px solid var(--tv-border) !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.cockpit-title {
+  color: var(--tv-text-bright) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+.cockpit-pair {
+  color: var(--tv-text-secondary) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.cockpit-price {
+  color: var(--tv-blue) !important;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  font-family: "JetBrains Mono", monospace !important;
+}
+
+/* ── 13. KEY-VALUE READOUTS ──────────────────────────────────────── */
+.kv {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 6px 0 !important;
+  border-bottom: 1px solid var(--tv-border-subtle) !important;
+  font-size: 12px !important;
+}
+
+.kv-label {
+  color: var(--tv-text-secondary) !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+.kv-value {
+  color: var(--tv-text-bright) !important;
+  font-weight: 700 !important;
+  font-family: "JetBrains Mono", monospace !important;
+}
+
+/* ── 14. SCROLLBARS ──────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+::-webkit-scrollbar-track {
+  background: var(--tv-surface-subtle) !important;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--tv-border) !important;
+  border-radius: 3px !important;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tv-text-secondary) !important;
+}
+
+/* ── 15. MOBILE-SPECIFIC ADJUSTMENTS (Screens < 1024px) ──────────── */
 @media (max-width: 1023px) {
-  /* ── 1. TRADINGVIEW THEME TOKENS ───────────────────────────────── */
-  :root:not([data-mode="light"]) {
-    --tv-bg: #131722;
-    --tv-surface: #1e222d;
-    --tv-surface-subtle: #171b26;
-    --tv-surface-hover: #262b38;
-    --tv-border: #2a2e39;
-    --tv-border-subtle: #1f232d;
-    --tv-blue: #2962ff;
-    --tv-blue-hover: #1e53e5;
-    --tv-blue-subtle: rgba(41, 98, 255, 0.12);
-    --tv-teal: #089981;
-    --tv-teal-subtle: rgba(8, 153, 129, 0.12);
-    --tv-red: #f23645;
-    --tv-red-subtle: rgba(242, 54, 69, 0.12);
-    --tv-amber: #ff9800;
-    --tv-amber-subtle: rgba(255, 152, 0, 0.12);
-    --tv-text-primary: #d1d4dc;
-    --tv-text-secondary: #787b86;
-    --tv-text-bright: #ffffff;
-    --tv-input-bg: #131722;
-  }
-
-  :root[data-mode="light"] {
-    --tv-bg: #f0f3fa;
-    --tv-surface: #ffffff;
-    --tv-surface-subtle: #f8f9fd;
-    --tv-surface-hover: #e8ecf5;
-    --tv-border: #e0e3eb;
-    --tv-border-subtle: #eaecef;
-    --tv-blue: #2962ff;
-    --tv-blue-hover: #1e53e5;
-    --tv-blue-subtle: rgba(41, 98, 255, 0.10);
-    --tv-teal: #089981;
-    --tv-teal-subtle: rgba(8, 153, 129, 0.10);
-    --tv-red: #f23645;
-    --tv-red-subtle: rgba(242, 54, 69, 0.10);
-    --tv-amber: #e67e00;
-    --tv-amber-subtle: rgba(230, 126, 0, 0.10);
-    --tv-text-primary: #131722;
-    --tv-text-secondary: #787b86;
-    --tv-text-bright: #131722;
-    --tv-input-bg: #ffffff;
-  }
-
-  /* ── 2. BASE & SMOOTH SCROLLING ────────────────────────────────── */
-  html, body {
-    width: 100%;
-    min-height: 100vh;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    background: var(--tv-bg) !important;
-    color: var(--tv-text-primary) !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif !important;
-    font-size: 14px;
-    line-height: 1.45;
-  }
-
-  /* ── 3. TRADINGVIEW STICKY COMMAND BAR / HEADER ────────────────── */
-  .cmdbar {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 40 !important;
-    background: var(--tv-bg) !important;
-    border-bottom: 1px solid var(--tv-border) !important;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25) !important;
-  }
-
-  .cmdbar-status {
-    background: var(--tv-surface-subtle) !important;
-    border-bottom: 1px solid var(--tv-border-subtle) !important;
-  }
-
-  .cmdbar img {
-    max-height: 28px;
-    width: auto;
-  }
-
-  /* Live quote tape in TradingView style */
-  .fx-tape {
-    background: var(--tv-surface-subtle) !important;
-    border-top: 1px solid var(--tv-border-subtle) !important;
-    border-bottom: 1px solid var(--tv-border) !important;
-    font-family: "JetBrains Mono", -apple-system, monospace !important;
-    font-size: 11px !important;
-  }
-
-  .tape-item {
-    border-right: 1px solid var(--tv-border-subtle) !important;
-    padding: 6px 14px !important;
-  }
-
-  .tape-sym {
-    color: var(--tv-text-bright) !important;
-    font-weight: 700 !important;
-  }
-
-  /* ── 4. MAIN CONTENT CONTAINER ─────────────────────────────────── */
   main.fx-stagger {
     width: 100% !important;
     min-width: 0 !important;
-    background: var(--tv-bg) !important;
     padding-left: 12px !important;
     padding-right: 12px !important;
     padding-bottom: 110px !important;
   }
 
-  /* ── 5. TRADINGVIEW CARDS & PANELS ─────────────────────────────── */
-  .panel,
-  .card,
-  [class*="rounded-xl"] {
-    background: var(--tv-surface) !important;
-    border: 1px solid var(--tv-border) !important;
-    border-radius: 8px !important;
-    margin-bottom: 12px !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15) !important;
-    overflow: hidden !important;
-  }
-
-  .panel-head {
-    background: var(--tv-surface-subtle) !important;
-    border-bottom: 1px solid var(--tv-border-subtle) !important;
-    padding: 10px 14px !important;
-    min-height: 38px !important;
-  }
-
-  .panel-head-title {
-    color: var(--tv-text-primary) !important;
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
-  }
-
-  .panel-head-title::before {
-    background: var(--tv-blue) !important;
-  }
-
-  .panel-body {
-    padding: 14px !important;
-    background: var(--tv-surface) !important;
-  }
-
-  .panel-accent {
-    border-top: 2px solid var(--tv-blue) !important;
-  }
-  .panel-pos {
-    border-top: 2px solid var(--tv-teal) !important;
-  }
-  .panel-neg {
-    border-top: 2px solid var(--tv-red) !important;
-  }
-  .panel-warn {
-    border-top: 2px solid var(--tv-amber) !important;
-  }
-
-  /* ── 6. TRADINGVIEW STAT TILES (INSTITUTIONAL STYLE) ────────────── */
   .wgrid-4,
   .wgrid-3,
   .wgrid-2 {
@@ -175,352 +546,14 @@
     margin-bottom: 12px !important;
   }
 
-  .stat {
-    background: var(--tv-surface) !important;
-    border: 1px solid var(--tv-border) !important;
-    border-radius: 8px !important;
-    padding: 12px 14px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
-  }
-
-  .stat-label {
-    color: var(--tv-text-secondary) !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.08em !important;
-  }
-
-  .stat-value {
-    color: var(--tv-text-bright) !important;
-    font-size: 20px !important;
-    font-weight: 700 !important;
-    font-family: "JetBrains Mono", "SF Mono", monospace !important;
-    letter-spacing: -0.02em !important;
-  }
-
-  .stat-sub {
-    color: var(--tv-text-secondary) !important;
-    font-size: 10.5px !important;
-  }
-
-  /* Positive & Negative Semantic Colors */
-  .gz-pos, .text-success, [class*="positive"], [class*="success"], .tone-green, .c-pos {
-    color: var(--tv-teal) !important;
-  }
-
-  .gz-neg, .text-destructive, [class*="negative"], [class*="destructive"], .tone-red, .c-neg {
-    color: var(--tv-red) !important;
-  }
-
-  .gz-warn, .tone-amber, .c-warn {
-    color: var(--tv-amber) !important;
-  }
-
-  /* ── 7. TRADINGVIEW BUTTONS ────────────────────────────────────── */
-  .btn-primary,
-  .btn-institutional {
-    background: var(--tv-blue) !important;
-    color: #ffffff !important;
-    border: 1px solid var(--tv-blue) !important;
-    border-radius: 6px !important;
-    padding: 9px 16px !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.04em !important;
-    box-shadow: 0 2px 6px rgba(41, 98, 255, 0.25) !important;
-    transition: background 0.12s ease, transform 0.07s ease !important;
-  }
-
-  .btn-primary:active,
-  .btn-institutional:active {
-    background: var(--tv-blue-hover) !important;
-    transform: scale(0.98) !important;
-  }
-
-  .btn-ghost {
-    background: var(--tv-surface-subtle) !important;
-    border: 1px solid var(--tv-border) !important;
-    color: var(--tv-text-primary) !important;
-    border-radius: 6px !important;
-    padding: 8px 14px !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-  }
-
-  .btn-ghost:active {
-    background: var(--tv-surface-hover) !important;
-    border-color: var(--tv-blue) !important;
-    color: var(--tv-blue) !important;
-  }
-
-  .btn-danger {
-    background: var(--tv-red-subtle) !important;
-    border: 1px solid var(--tv-red) !important;
-    color: var(--tv-red) !important;
-    border-radius: 6px !important;
-  }
-
-  .btn-success {
-    background: var(--tv-teal-subtle) !important;
-    border: 1px solid var(--tv-teal) !important;
-    color: var(--tv-teal) !important;
-    border-radius: 6px !important;
-  }
-
-  /* ── 8. TRADINGVIEW FORM CONTROLS ──────────────────────────────── */
   input,
   select,
   textarea,
   .ctl {
-    background: var(--tv-input-bg) !important;
-    border: 1px solid var(--tv-border) !important;
-    border-radius: 6px !important;
-    color: var(--tv-text-primary) !important;
-    font-size: 16px !important; /* No zoom on iOS/Android */
+    font-size: 16px !important; /* No zoom on mobile */
     min-height: 42px !important;
-    padding: 0 12px !important;
-    font-family: inherit !important;
-    transition: border-color 0.12s ease, box-shadow 0.12s ease !important;
   }
 
-  input:focus,
-  select:focus,
-  textarea:focus,
-  .ctl:focus {
-    border-color: var(--tv-blue) !important;
-    outline: none !important;
-    box-shadow: 0 0 0 3px var(--tv-blue-subtle) !important;
-  }
-
-  .ctl-label {
-    color: var(--tv-text-secondary) !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
-  }
-
-  /* ── 9. TRADINGVIEW SEGMENTED TABS (PILL SWITCHER) ──────────────── */
-  .seg {
-    display: flex !important;
-    background: var(--tv-surface-subtle) !important;
-    border: 1px solid var(--tv-border) !important;
-    border-radius: 8px !important;
-    padding: 3px !important;
-    gap: 3px !important;
-  }
-
-  .seg-item {
-    flex: 1 !important;
-    min-height: 36px !important;
-    border-radius: 6px !important;
-    border: none !important;
-    background: transparent !important;
-    color: var(--tv-text-secondary) !important;
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.04em !important;
-    cursor: pointer !important;
-    transition: all 0.12s ease !important;
-  }
-
-  .seg-item.is-active,
-  .seg-item[aria-selected="true"] {
-    background: var(--tv-blue) !important;
-    color: #ffffff !important;
-    box-shadow: 0 2px 8px var(--tv-blue-subtle) !important;
-  }
-
-  /* ── 10. TRADINGVIEW BADGES ────────────────────────────────────── */
-  .badge {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 4px !important;
-    padding: 3px 8px !important;
-    border-radius: 4px !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
-  }
-
-  .badge-info {
-    background: var(--tv-blue-subtle) !important;
-    color: var(--tv-blue) !important;
-    border: 1px solid rgba(41, 98, 255, 0.25) !important;
-  }
-
-  .badge-success {
-    background: var(--tv-teal-subtle) !important;
-    color: var(--tv-teal) !important;
-    border: 1px solid rgba(8, 153, 129, 0.25) !important;
-  }
-
-  .badge-danger {
-    background: var(--tv-red-subtle) !important;
-    color: var(--tv-red) !important;
-    border: 1px solid rgba(242, 54, 69, 0.25) !important;
-  }
-
-  .badge-warning {
-    background: var(--tv-amber-subtle) !important;
-    color: var(--tv-amber) !important;
-    border: 1px solid rgba(255, 152, 0, 0.25) !important;
-  }
-
-  .badge-neutral {
-    background: var(--tv-surface-subtle) !important;
-    color: var(--tv-text-secondary) !important;
-    border: 1px solid var(--tv-border) !important;
-  }
-
-  /* ── 11. TRADINGVIEW ALERTS ────────────────────────────────────── */
-  .alert {
-    border-radius: 6px !important;
-    padding: 12px 14px !important;
-    margin: 8px 0 !important;
-    font-size: 12px !important;
-    border-left: 4px solid var(--tv-blue) !important;
-    background: var(--tv-blue-subtle) !important;
-  }
-
-  .alert-title {
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
-  }
-
-  .alert-green {
-    border-left-color: var(--tv-teal) !important;
-    background: var(--tv-teal-subtle) !important;
-  }
-  .alert-green .alert-title {
-    color: var(--tv-teal) !important;
-  }
-
-  .alert-red {
-    border-left-color: var(--tv-red) !important;
-    background: var(--tv-red-subtle) !important;
-  }
-  .alert-red .alert-title {
-    color: var(--tv-red) !important;
-  }
-
-  .alert-amber {
-    border-left-color: var(--tv-amber) !important;
-    background: var(--tv-amber-subtle) !important;
-  }
-  .alert-amber .alert-title {
-    color: var(--tv-amber) !important;
-  }
-
-  .alert-blue {
-    border-left-color: var(--tv-blue) !important;
-    background: var(--tv-blue-subtle) !important;
-  }
-  .alert-blue .alert-title {
-    color: var(--tv-blue) !important;
-  }
-
-  /* ── 12. TRADINGVIEW TABLES & BLOTTER ──────────────────────────── */
-  .dgrid,
-  table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    font-family: "JetBrains Mono", monospace !important;
-  }
-
-  .dgrid thead th,
-  table th {
-    background: var(--tv-surface-subtle) !important;
-    color: var(--tv-text-secondary) !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
-    padding: 10px 12px !important;
-    border-bottom: 1px solid var(--tv-border) !important;
-    text-align: left !important;
-  }
-
-  .dgrid tbody td,
-  table td {
-    padding: 10px 12px !important;
-    border-bottom: 1px solid var(--tv-border-subtle) !important;
-    color: var(--tv-text-primary) !important;
-    font-size: 12px !important;
-    font-variant-numeric: tabular-nums !important;
-  }
-
-  .dgrid tbody tr:hover td,
-  table tbody tr:hover td {
-    background: var(--tv-surface-hover) !important;
-  }
-
-  /* ── 13. COCKPIT HEADER ────────────────────────────────────────── */
-  .cockpit-header {
-    background: var(--tv-surface) !important;
-    border: 1px solid var(--tv-border) !important;
-    border-radius: 8px !important;
-    padding: 10px 14px !important;
-    margin-bottom: 12px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-  }
-
-  .cockpit-title {
-    color: var(--tv-text-bright) !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
-  }
-
-  .cockpit-pair {
-    color: var(--tv-text-secondary) !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-  }
-
-  .cockpit-price {
-    color: var(--tv-blue) !important;
-    font-size: 16px !important;
-    font-weight: 700 !important;
-    font-family: "JetBrains Mono", monospace !important;
-  }
-
-  /* ── 14. KEY-VALUE READOUTS ────────────────────────────────────── */
-  .kv {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    padding: 6px 0 !important;
-    border-bottom: 1px solid var(--tv-border-subtle) !important;
-    font-size: 12px !important;
-  }
-
-  .kv-label {
-    color: var(--tv-text-secondary) !important;
-    font-size: 11px !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.04em !important;
-  }
-
-  .kv-value {
-    color: var(--tv-text-bright) !important;
-    font-weight: 700 !important;
-    font-family: "JetBrains Mono", monospace !important;
-  }
-
-  /* ── 15. TRADINGVIEW MOBILE BOTTOM NAVIGATION ─────────────────── */
   .mobile-bottom-nav {
     position: fixed !important;
     bottom: 0 !important;
@@ -567,16 +600,6 @@
   .mobile-sheet-item.is-active {
     background: var(--tv-blue-subtle) !important;
     color: var(--tv-blue) !important;
-  }
-
-  /* ── 16. SCROLLBARS ────────────────────────────────────────────── */
-  ::-webkit-scrollbar {
-    width: 4px !important;
-    height: 4px !important;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: var(--tv-border) !important;
-    border-radius: 2px !important;
   }
 }
 
