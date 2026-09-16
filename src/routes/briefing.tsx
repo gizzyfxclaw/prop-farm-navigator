@@ -65,9 +65,9 @@ function DailyBriefingPage() {
 
   const defaultItems = {
     1: [
-      "I have checked ForexFactory.com — NO red-folder news in the next 2 hours",
-      "It is currently between 13:00–16:00 EST (best liquidity, lowest spread)",
-      "Exness FIRST → Prop SECOND — CRITICAL execution — Manual check: always Exness first, wait for green, then Prop",
+      "I have checked Economic Calendar — NO high-impact news in the danger window (±30 min)",
+      "Trading during an active session overlap or major market hours with solid liquidity",
+      "Exness FIRST → Prop SECOND — CRITICAL execution: always Exness first, wait for green, then Prop",
       "Check Live MT5 tab before trading — CRITICAL execution: verify Live MT5 tab shows balance before trading",
       "I will place the EXNESS trade FIRST via the Execute button and wait for green confirmation",
       "I will then manually place the PROP trade on my phone at the EXACT same price",
@@ -75,9 +75,9 @@ function DailyBriefingPage() {
       "If I hit a LOSS, I will log it in the Journal immediately using 'Sync Exness History'",
     ],
     2: [
-      "I have checked ForexFactory.com — NO red-folder news in the next 2 hours",
-      "It is currently between 13:00–16:00 EST (best liquidity, lowest spread)",
-      "Exness FIRST → Prop SECOND — CRITICAL execution — Manual check: always Exness first, wait for green, then Prop",
+      "I have checked Economic Calendar — NO high-impact news in the danger window (±30 min)",
+      "Trading during an active session overlap or major market hours with solid liquidity",
+      "Exness FIRST → Prop SECOND — CRITICAL execution: always Exness first, wait for green, then Prop",
       "Check Live MT5 tab before trading — CRITICAL execution: verify Live MT5 tab shows balance before trading",
       "I have confirmed the Funded Phase lot size and risk parameters",
       "I will place the EXNESS trade FIRST via the Execute button and wait for green confirmation",
@@ -127,27 +127,23 @@ function DailyBriefingPage() {
   // ── Auto-validation: check if objective conditions are met ──
   const et = getEasternTime();
   const etSec = et.totalSeconds;
-  const overlapStart = 13 * 3600;
-  const overlapEnd = 16 * 3600;
-  const londonStart = 8 * 3600;
-  const londonEnd = 12 * 3600;
-  const nyStart = 13 * 3600;
-  const nyEnd = 17 * 3600;
-  const inOverlap = etSec >= overlapStart && etSec < overlapEnd;
-  const inLondon = etSec >= londonStart && etSec < londonEnd;
-  const inNY = etSec >= nyStart && etSec < nyEnd;
-  const inGoodWindow = inOverlap || inLondon || inNY;
+  const inLondonNy = etSec >= 8 * 3600 && etSec < 12 * 3600;
+  const inSydneyTokyo = etSec >= 19 * 3600 || etSec < 2 * 3600;
+  const inTokyoLondon = etSec >= 3 * 3600 && etSec < 4 * 3600;
+  const inLondon = etSec >= 3 * 3600 && etSec < 12 * 3600;
+  const inNY = etSec >= 8 * 3600 && etSec < 17 * 3600;
+  const inTokyo = etSec >= 19 * 3600 || etSec < 4 * 3600;
+  const inSydney = etSec >= 17 * 3600 || etSec < 2 * 3600;
+  const inAnyOverlap = inLondonNy || inSydneyTokyo || inTokyoLondon;
+  const inGoodWindow = inAnyOverlap || inLondon || inNY || inTokyo || inSydney;
 
   // Auto-condition checks — these show indicators but DON'T block checking
   const getAutoCondition = (label: string): { hasCondition: boolean; met: boolean } => {
-    if (label.includes("13:00–16:00 EST")) {
-      return { hasCondition: true, met: inOverlap };
+    if (label.includes("session overlap") || label.includes("market session") || label.includes("13:00–16:00")) {
+      return { hasCondition: true, met: inGoodWindow };
     }
     if (label.includes("London session")) {
-      return { hasCondition: true, met: inLondon };
-    }
-    if (label.includes("between 13:00")) {
-      return { hasCondition: true, met: inGoodWindow };
+      return { hasCondition: true, met: inLondon || inLondonNy };
     }
     return { hasCondition: false, met: false };
   };

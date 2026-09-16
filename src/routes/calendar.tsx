@@ -45,10 +45,13 @@ interface SessionOverlap {
 /* ── Constants ────────────────────────────────────────────────── */
 
 const SESSIONS = [
-  { label: "London/NY Overlap", start: "13:00", end: "16:00" },
+  { label: "London/NY Overlap", start: "08:00", end: "12:00" },
+  { label: "Sydney/Tokyo Overlap", start: "19:00", end: "02:00" },
+  { label: "Tokyo/London Overlap", start: "03:00", end: "04:00" },
   { label: "London Open", start: "03:00", end: "12:00" },
   { label: "NY Open", start: "08:00", end: "17:00" },
-  { label: "Sydney/Tokyo", start: "19:00", end: "04:00" },
+  { label: "Tokyo Open", start: "19:00", end: "04:00" },
+  { label: "Sydney Open", start: "17:00", end: "02:00" },
 ];
 
 const API_REFRESH_MS = 20_000;

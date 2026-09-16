@@ -227,31 +227,37 @@ export function useRiskSentinel() {
       if (!coachingTip) coachingTip = `Medium news: ${ev.event.slice(0, 30)}.`;
     }
 
-    // 7. Off-peak hours — use ET time for session windows
+    // 7. Session & Overlap Check — Active across all major session overlaps & market hours
     const et = getEasternTime();
     const etSec = et.totalSeconds;
-    const overlapStart = 13 * 3600; // 13:00 ET
-    const overlapEnd = 16 * 3600;   // 16:00 ET
-    const londonStart = 8 * 3600;   // 08:00 ET
-    const londonEnd = 12 * 3600;    // 12:00 ET
-    const nyStart = 13 * 3600;      // 13:00 ET
-    const nyEnd = 17 * 3600;        // 17:00 ET
-    const inOverlap = etSec >= overlapStart && etSec < overlapEnd;
-    const inLondon = etSec >= londonStart && etSec < londonEnd;
-    const inNY = etSec >= nyStart && etSec < nyEnd;
-    const inGoodWindow = inOverlap || inLondon || inNY;
-    const isOffPeak = !inGoodWindow;
-    if (isOffPeak) {
-      messages.push({
-        id: "off-peak",
-        level: "amber",
-        title: "OFF-PEAK",
-        message: "Outside London/NY overlap. Wait for 13:00 EST.",
-        page: "Calendar",
-        timestamp: Date.now(),
-      });
-      bumpLevel("amber");
-      if (!coachingTip) coachingTip = "Wait for liquidity. Use this time for analysis.";
+    const inLondonNyOverlap = etSec >= 8 * 3600 && etSec < 12 * 3600;
+    const inSydneyTokyoOverlap = etSec >= 19 * 3600 || etSec < 2 * 3600;
+    const inTokyoLondonOverlap = etSec >= 3 * 3600 && etSec < 4 * 3600;
+    const inLondon = etSec >= 3 * 3600 && etSec < 12 * 3600;
+    const inNY = etSec >= 8 * 3600 && etSec < 17 * 3600;
+    const inTokyo = etSec >= 19 * 3600 || etSec < 4 * 3600;
+    const inSydney = etSec >= 17 * 3600 || etSec < 2 * 3600;
+
+    const inAnyOverlap = inLondonNyOverlap || inSydneyTokyoOverlap || inTokyoLondonOverlap;
+    const inActiveSession = inLondon || inNY || inTokyo || inSydney;
+    const inTradeableWindow = inAnyOverlap || inActiveSession;
+
+    if (!coachingTip && market.open) {
+      if (inLondonNyOverlap) {
+        coachingTip = "London/NY overlap live — peak liquidity. Follow SMC rules.";
+      } else if (inTokyoLondonOverlap) {
+        coachingTip = "Tokyo/London overlap live — European open transition.";
+      } else if (inSydneyTokyoOverlap) {
+        coachingTip = "Sydney/Tokyo overlap live — Asian session volume.";
+      } else if (inLondon) {
+        coachingTip = "London session open — solid trend continuation.";
+      } else if (inNY) {
+        coachingTip = "New York session open — high volume.";
+      } else if (inTokyo) {
+        coachingTip = "Tokyo session open — Asian range active.";
+      } else if (inSydney) {
+        coachingTip = "Sydney session open — Pacific market flow.";
+      }
     }
 
     // 8. Phase 2 warning
@@ -673,13 +679,19 @@ export function useGreenCheckRequired(): { canTrade: boolean; reason: string } {
   if (recovery.adjustedRemainingLosses <= 2 && recovery.adjustedRemainingLosses > 0) return { canTrade: false, reason: "Critical legs — near blowout." };
   if (!meta.token || !meta.exnessAccountId) return { canTrade: false, reason: "MT5 not connected." };
 
-  // Check off-peak using ET time (London/NY sessions)
+  // Check tradeable sessions & overlaps
   const et = getEasternTime();
   const etSec = et.totalSeconds;
-  const inOverlap = etSec >= 13 * 3600 && etSec < 16 * 3600;
-  const inLondon = etSec >= 8 * 3600 && etSec < 12 * 3600;
-  const inNY = etSec >= 13 * 3600 && etSec < 17 * 3600;
-  if (!inOverlap && !inLondon && !inNY) return { canTrade: false, reason: "Off-peak hours — wait for London/NY overlap." };
+  const inLondonNy = etSec >= 8 * 3600 && etSec < 12 * 3600;
+  const inSydneyTokyo = etSec >= 19 * 3600 || etSec < 2 * 3600;
+  const inTokyoLondon = etSec >= 3 * 3600 && etSec < 4 * 3600;
+  const inLondon = etSec >= 3 * 3600 && etSec < 12 * 3600;
+  const inNY = etSec >= 8 * 3600 && etSec < 17 * 3600;
+  const inTokyo = etSec >= 19 * 3600 || etSec < 4 * 3600;
+  const inSydney = etSec >= 17 * 3600 || etSec < 2 * 3600;
+  const inTradeableWindow = inLondonNy || inSydneyTokyo || inTokyoLondon || inLondon || inNY || inTokyo || inSydney;
+
+  if (!inTradeableWindow && isWeekend) return { canTrade: false, reason: "Market closed (weekend)." };
 
   return { canTrade: true, reason: "All checks green. Cleared for entry." };
 }

@@ -77,10 +77,17 @@ export function MarketStatus() {
   const openCount = SESSIONS.filter(isSessionOpen).length;
 
   const etSec = getEasternTime().totalSeconds;
-  const inOverlap = etSec >= OVERLAP_START && etSec < OVERLAP_END;
-  const overlapMinsLeft = (OVERLAP_END - etSec) / 60;
-  const minsToOverlap =
-    (etSec < OVERLAP_START ? OVERLAP_START - etSec : 86400 - etSec + OVERLAP_START) / 60;
+  const inLondonNy = etSec >= 8 * 3600 && etSec < 12 * 3600;
+  const inSydneyTokyo = etSec >= 19 * 3600 || etSec < 2 * 3600;
+  const inTokyoLondon = etSec >= 3 * 3600 && etSec < 4 * 3600;
+
+  const activeOverlap = inLondonNy
+    ? { label: "LDN/NY OVERLAP", title: "London / New York Overlap (08:00–12:00 ET)" }
+    : inTokyoLondon
+    ? { label: "TYO/LDN OVERLAP", title: "Tokyo / London Overlap (03:00–04:00 ET)" }
+    : inSydneyTokyo
+    ? { label: "SYD/TYO OVERLAP", title: "Sydney / Tokyo Overlap (19:00–02:00 ET)" }
+    : null;
 
   return (
     <div className="flex items-center gap-2.5" title="Market sessions (UTC)">
@@ -105,20 +112,28 @@ export function MarketStatus() {
         );
       })}
 
-      {inOverlap ? (
+      {activeOverlap ? (
         <span
           className="badge badge-success"
-          title="London/NY overlap — peak liquidity, the preferred trading window (13:00–16:00 ET)"
+          title={activeOverlap.title}
         >
           <LiveDot state="live" />
-          LDN/NY {compactDuration(overlapMinsLeft)}
+          {activeOverlap.label}
+        </span>
+      ) : openCount > 0 ? (
+        <span
+          className="badge badge-success"
+          title="Active Forex Market Trading Session"
+        >
+          <LiveDot state="live" />
+          SESSIONS ACTIVE
         </span>
       ) : (
         <span
           className="badge badge-neutral"
-          title="Time until the London/NY overlap opens (13:00–16:00 ET)"
+          title="Market session transitioning"
         >
-          LDN/NY T-{compactDuration(minsToOverlap)}
+          WEEKEND CLOSED
         </span>
       )}
 

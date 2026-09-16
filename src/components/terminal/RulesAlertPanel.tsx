@@ -52,8 +52,8 @@ const RULES: Rule[] = [
   {
     id: "session",
     category: "execution",
-    text: "Best window: London/NY overlap (6:00 PM–9:00 PM WAT)",
-    detail: "Peak liquidity. Acceptable: London (1:00 PM–5:00 PM WAT) or NY (6:00 PM–10:00 PM WAT).",
+    text: "Trade during session overlaps & active sessions (clean of news)",
+    detail: "London/NY overlap (1:00–5:00 PM WAT), Sydney/Tokyo overlap (12:00–7:00 AM WAT), Tokyo/London overlap (8:00–9:00 AM WAT) & major open sessions.",
   },
   {
     id: "news",
@@ -219,34 +219,18 @@ export function RulesAlertPanel() {
   const liveRules: LiveRuleState[] = useMemo(() => {
     const etSec = et.totalSeconds;
 
-    // Session windows (ET)
-    // Best: London/NY overlap 13:00-16:00
-    // Good: London 08:00-12:00 or NY 13:00-17:00
-    // Acceptable: Pre-London 07:00-08:00
-    // Bad: Asian/off-hours
-    const overlapStart = 13 * 3600;
-    const overlapEnd = 16 * 3600;
-    const londonStart = 8 * 3600;
-    const londonEnd = 12 * 3600;
-    const nyStart = 13 * 3600;
-    const nyEnd = 17 * 3600;
-    const preLondon = 7 * 3600;
+    // Session windows & overlaps (ET)
+    const inLondonNyOverlap = etSec >= 8 * 3600 && etSec < 12 * 3600;
+    const inSydneyTokyoOverlap = etSec >= 19 * 3600 || etSec < 2 * 3600;
+    const inTokyoLondonOverlap = etSec >= 3 * 3600 && etSec < 4 * 3600;
+    const inLondon = etSec >= 3 * 3600 && etSec < 12 * 3600;
+    const inNY = etSec >= 8 * 3600 && etSec < 17 * 3600;
+    const inTokyo = etSec >= 19 * 3600 || etSec < 4 * 3600;
+    const inSydney = etSec >= 17 * 3600 || etSec < 2 * 3600;
 
-    const inOverlap = etSec >= overlapStart && etSec < overlapEnd;
-    const inLondon = etSec >= londonStart && etSec < londonEnd;
-    const inNY = etSec >= nyStart && etSec < nyEnd;
-    const inPreLondon = etSec >= preLondon && etSec < londonStart;
-    const inGoodWindow = inOverlap || inLondon || inNY;
-
-    const secsToOverlap = inOverlap ? 0 : etSec < overlapStart ? overlapStart - etSec : 86400 - etSec + overlapStart;
-    const secsInOverlap = inOverlap ? overlapEnd - etSec : 0;
-    const secsToLondon = inLondon ? 0 : etSec < londonStart ? londonStart - etSec : 86400 - etSec + londonStart;
-    const secsToNY = inNY ? 0 : etSec < nyStart ? nyStart - etSec : 86400 - etSec + nyStart;
-
-    // Next good window
-    const nextGoodStart = etSec < londonStart ? londonStart - etSec
-      : etSec < nyEnd ? 0 // currently in a good window
-      : 86400 - etSec + londonStart; // after NY close, wait for next London
+    const inAnyOverlap = inLondonNyOverlap || inSydneyTokyoOverlap || inTokyoLondonOverlap;
+    const inActiveSession = inLondon || inNY || inTokyo || inSydney;
+    const inTradeableWindow = inAnyOverlap || inActiveSession;
 
     // Suggested entry time (next odd-minute time from the list)
     const suggestedTimes = [
@@ -325,27 +309,25 @@ export function RulesAlertPanel() {
             : "No trades yet today — you are clear to trade",
       },
 
-      // 2. Session — expanded windows with green/yellow/red
+      // 2. Session & Overlaps
       {
         rule: RULES[1]!,
-        status: inOverlap ? "ok" as const
-          : inLondon || inNY ? "ok" as const
-          : inPreLondon ? "info" as const
-          : "warning" as const,
-        message: inOverlap
-          ? `PRIME TIME — London/NY overlap, ${formatCountdown(secsInOverlap)} left`
+        status: inAnyOverlap || inActiveSession ? "ok" as const : "info" as const,
+        message: inLondonNyOverlap
+          ? `PRIME TIME — London/NY overlap live (peak volume & tightest spreads)`
+          : inTokyoLondonOverlap
+          ? `ACTIVE OVERLAP — Tokyo/London overlap live (European open flow)`
+          : inSydneyTokyoOverlap
+          ? `ACTIVE OVERLAP — Sydney/Tokyo overlap live (Asian session volume)`
           : inLondon
-          ? `London session active — overlap in ${formatCountdown(secsToOverlap)}`
+          ? `ACTIVE SESSION — London session open`
           : inNY
-          ? `NY session active — closes in ${formatCountdown(nyEnd - etSec)}`
-          : inPreLondon
-          ? `Pre-London — London opens in ${formatCountdown(secsToLondon)}`
-          : nextGoodStart > 0
-          ? `OFF-HOURS — next window (London) in ${formatCountdown(nextGoodStart)}`
-          : `OFF-HOURS — wait for London open`,
-        countdown: inOverlap ? formatCountdown(secsInOverlap)
-          : inGoodWindow ? formatCountdown(inLondon ? secsToOverlap : nyEnd - etSec)
-          : formatCountdown(nextGoodStart),
+          ? `ACTIVE SESSION — New York session open`
+          : inTokyo
+          ? `ACTIVE SESSION — Tokyo session open`
+          : inSydney
+          ? `ACTIVE SESSION — Sydney session open`
+          : `Market open — trade active setups clear of high-impact news`,
       },
 
       // 3. News ±30min rule (CRITICAL)
