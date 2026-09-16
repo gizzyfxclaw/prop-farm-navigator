@@ -121,9 +121,8 @@ function JournalPage() {
   const totalExPnlSoFar = closedTradesForExness.reduce((s, t) => s + t.exPnl, 0);
   const totalExWinsSoFar = closedTradesForExness.filter((t) => t.exPnl > 0).reduce((s, t) => s + t.exPnl, 0);
   const totalExLossesSoFar = closedTradesForExness.filter((t) => t.exPnl < 0).reduce((s, t) => s + Math.abs(t.exPnl), 0);
-  const firstPropLoss = closedTradesForExness.find((t) => t.result === "LOSS");
-  const initialExnessBalance = firstPropLoss ? Math.abs(firstPropLoss.exPnl) : 0;
-  const calculatedCurrentExnessBalance = initialExnessBalance + totalExPnlSoFar;
+  const initialExnessBalance = recovery.initialExnessDeposit;
+  const calculatedCurrentExnessBalance = recovery.actualExnessBalance;
   const exnessLossRecovered = totalExWinsSoFar >= totalExLossesSoFar;
   const exnessRemainingLoss = Math.max(0, totalExLossesSoFar - totalExWinsSoFar);
   const exnessLossRecoveryPct = totalExLossesSoFar > 0 ? (totalExWinsSoFar / totalExLossesSoFar) * 100 : 0;
@@ -187,7 +186,7 @@ function JournalPage() {
 
   // ── Recovery timeline: narrative of each trade ──────────────────────
   const recoveryTimeline = useMemo(() => {
-    let runningBalance = initialExnessBalance;
+    let runningBalance = recovery.initialExnessDeposit;
     let runningPropEquity = 0;
     const trades = journal.filter((t) => t.result !== "OPEN").map((t, i) => {
       const prevBalance = runningBalance;
@@ -196,7 +195,7 @@ function JournalPage() {
       return { ...t, index: i + 1, exnessBalanceBefore: prevBalance, exnessBalanceAfter: runningBalance, runningPropEquity };
     });
     return trades;
-  }, [journal, r.actualExnessBalance]);
+  }, [journal, recovery.initialExnessDeposit]);
 
   function log(result: "WIN" | "LOSS") {
     const derived = tradePnl(r, result === "WIN", engine.rr);
@@ -598,7 +597,7 @@ function JournalPage() {
             {recovery.realMoneyNet >= 0 ? (
               <>Zero-loss loop achieved! Exness has over-recovered the prop fee by <strong>{money(recovery.realMoneyNet, true)}</strong>. Net Exness P&L: {money(recovery.actualExnessPnl, true)} on {money(recovery.propFee)} fee.</>
             ) : (
-              <>Running totals. Gross Exness losses so far: {money(recovery.totalExnessLosses)}; recovered by prop-loss legs: {money(recovery.totalExnessWins)} — net fuel burn {money(fuelExhausted)}. The Exness tank still holds {money(recovery.actualExnessBalance)}.</>
+              <>Running totals. Gross Exness losses so far: {money(recovery.totalExnessLosses)}; recovered by prop-loss legs: {money(recovery.totalExnessWins)} — net fuel burn {money(fuelExhausted)}. The Exness tank holds <strong>{money(recovery.actualExnessBalance)}</strong> ({money(recovery.initialExnessDeposit)} initial deposit + {money(recovery.actualExnessPnl, true)} net P&L).</>
             )}
           </p>
         </Card>

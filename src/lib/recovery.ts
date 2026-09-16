@@ -18,6 +18,7 @@ export interface RecoveryState {
   actualExnessPnl: number;
   totalExnessWins: number;
   totalExnessLosses: number;
+  initialExnessDeposit: number;
   actualExnessBalance: number;
 
   slippageDebt: number;
@@ -94,7 +95,14 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     .filter((t) => t.exPnl < 0)
     .reduce((s, t) => s + Math.abs(t.exPnl), 0);
   const actualExnessPnl     = totalExnessWins - totalExnessLosses;
-  const actualExnessBalance = r.actualExnessBalance;
+
+  // Starting/Initial Exness deposit (e.g. $40.66)
+  const initialExnessDeposit = (r.actualExnessBalance != null && r.actualExnessBalance > 0)
+    ? r.actualExnessBalance
+    : r.bufferedExnessCapital;
+
+  // Real-time Current Exness balance = Initial Deposit + Net Exness PnL made so far
+  const actualExnessBalance = initialExnessDeposit + actualExnessPnl;
 
   const propRiskPerTrade = r.lossesToBlow > 0 ? r.maxDdUsd / r.lossesToBlow : r.propWinPerTrade;
   const totalPropSlippage = closed
@@ -192,6 +200,7 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     actualExnessPnl,
     totalExnessWins,
     totalExnessLosses,
+    initialExnessDeposit,
     actualExnessBalance,
     slippageDebt,
     totalSlippageAccrued,
