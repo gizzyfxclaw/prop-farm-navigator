@@ -365,8 +365,8 @@ export function RulesAlertPanel() {
       // 5. Entry times — dynamic suggestion
       {
         rule: RULES[4]!,
-        status: inGoodWindow ? "ok" as const : "info" as const,
-        message: inGoodWindow
+        status: inTradeableWindow ? "ok" as const : "info" as const,
+        message: inTradeableWindow
           ? `Next suggested entry: ${suggestedStr}`
           : `Outside trade window — next entry: ${suggestedStr}`,
         countdown: nextSuggested

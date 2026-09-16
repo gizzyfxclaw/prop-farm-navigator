@@ -358,15 +358,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     });
   }
   if('caches' in window){
-    caches.keys().then(function(keys){ keys.forEach(function(k){ if(k !== 'gizzyfx-v9') caches.delete(k); }); });
+    caches.keys().then(function(keys){ keys.forEach(function(k){ if(k !== 'gizzyfx-v13') caches.delete(k); }); });
   }
 })();`,
       },
       {
         children: `try{var t=localStorage.getItem("gz-theme");if(t&&["graphite","blue","amber","emerald","purple"].indexOf(t)>=0)document.documentElement.dataset.theme=t;var m=localStorage.getItem("gz-mode");if(m==="light"){document.documentElement.dataset.mode="light";document.documentElement.classList.add("light");document.documentElement.classList.remove("dark");}else{document.documentElement.classList.add("dark");document.documentElement.classList.remove("light");}}catch(e){}`,
-      },
-      {
-        children: `if(window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true){document.documentElement.classList.add("pwa-standalone");}`,
       },
       {
         children: `if(window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true){document.documentElement.classList.add("pwa-standalone");}`,
