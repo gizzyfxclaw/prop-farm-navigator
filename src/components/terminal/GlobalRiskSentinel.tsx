@@ -348,8 +348,6 @@ export function GlobalRiskSentinel() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  if (!active) return null;
-
   const visibleMessages = analysis.messages.filter((m) => !dismissed.has(m.id));
   const level = analysis.currentLevel;
 
@@ -361,6 +359,43 @@ export function GlobalRiskSentinel() {
   };
 
   const colors = levelColors[level];
+
+  // If hidden via eye icon, render a discrete floating eye button so you can bring the coach back anytime
+  if (!active) {
+    return (
+      <button
+        onClick={toggleActive}
+        style={{
+          position: "fixed",
+          bottom: isMobile ? 70 : 16,
+          right: 16,
+          zIndex: 99990,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "7px 12px",
+          borderRadius: 20,
+          background: "oklch(var(--gz-s1) / 0.95)",
+          border: `1.5px solid ${colors.border}`,
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+          cursor: "pointer",
+          color: colors.text,
+          transition: "all 0.2s ease",
+        }}
+        title="Click to show Risk Coach"
+      >
+        <div style={{ position: "relative" }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: colors.dot }} />
+          <div className="animate-ping" style={{ position: "absolute", inset: 0, width: 8, height: 8, borderRadius: "50%", background: colors.dot, opacity: 0.4 }} />
+        </div>
+        <Eye size={14} style={{ color: colors.text }} />
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+          {level === "red" ? "STOP" : level === "amber" ? "CAUTION" : "COACH"}
+        </span>
+      </button>
+    );
+  }
 
   // Mobile: top-right badge BELOW header, with expandable panel
   if (isMobile) {
@@ -417,13 +452,22 @@ export function GlobalRiskSentinel() {
             }}
           >
             {/* Coaching tip */}
-            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${colors.border}` }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 4 }}>
-                {level === "red" ? "STOP" : level === "amber" ? "CAUTION" : "COACH"}
+            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${colors.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ flex: 1, paddingRight: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 4 }}>
+                  {level === "red" ? "STOP" : level === "amber" ? "CAUTION" : "COACH"}
+                </div>
+                <div style={{ fontSize: 12, color: "oklch(var(--gz-txt))", lineHeight: 1.5 }}>
+                  {analysis.coachingTip}
+                </div>
               </div>
-              <div style={{ fontSize: 12, color: "oklch(var(--gz-txt))", lineHeight: 1.5 }}>
-                {analysis.coachingTip}
-              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleActive(); }}
+                className="p-1 rounded text-muted-foreground hover:text-foreground"
+                title="Minimize coach to floating eye icon"
+              >
+                <EyeOff size={14} />
+              </button>
             </div>
             {/* Messages */}
             {visibleMessages.length > 0 && (
@@ -508,7 +552,7 @@ export function GlobalRiskSentinel() {
             onClick={(e) => { e.stopPropagation(); toggleActive(); }}
             className="p-0.5 rounded transition-colors hover:bg-white/10"
             style={{ color: "oklch(var(--gz-mut))" }}
-            title="Hide sentinel"
+            title="Minimize coach to floating eye icon (click to restore anytime)"
           >
             <EyeOff size={12} />
           </button>
