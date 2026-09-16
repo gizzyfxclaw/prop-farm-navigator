@@ -407,6 +407,14 @@ function EnginePage() {
                   <span className="kv-value">{money(r.cappedPropRisk * r.rr, true)}</span>
                 </div>
                 <div className="kv" style={{ gap: "0.35rem" }}>
+                  <span className="kv-label">Base Exness Win</span>
+                  <span className="kv-value c-pos">{money(recovery.baseExnessWinTarget, true)}</span>
+                </div>
+                <div className="kv" style={{ gap: "0.35rem" }}>
+                  <span className="kv-label">Base Exness Loss</span>
+                  <span className="kv-value c-neg">{money(-recovery.baseExnessLossTarget)}</span>
+                </div>
+                <div className="kv" style={{ gap: "0.35rem" }}>
                   <span className="kv-label">Prop fee</span>
                   <span className="kv-value">{money(selectedAccount.fee)}</span>
                 </div>
@@ -590,31 +598,38 @@ function EnginePage() {
               </div>
             )}
             <Row
-              label={recovery.adjustmentNeeded ? "Base Exness win target" : "Exness reward (prop loses)"}
+              label="Base Exness win target (prop loses)"
               value={money(recovery.baseExnessWinTarget, true)}
-              tone={recovery.adjustmentNeeded ? "default" : "pos"}
+              tone="pos"
+            />
+            <Row
+              label="Base Exness loss (prop wins)"
+              value={money(-recovery.baseExnessLossTarget)}
+              tone="neg"
             />
             {recovery.adjustmentNeeded && (
-              <Row label="Slippage debt (martingale bump)" value={money(recovery.slippageDebt, true)} tone="accent" />
+              <>
+                <Row label="Slippage debt (martingale bump)" value={money(recovery.slippageDebt, true)} tone="accent" />
+                <Row
+                  label="Next Exness target (prop loses)"
+                  value={money(recovery.newExnessWinTarget, true)}
+                  tone="accent"
+                  strong
+                />
+                <Row
+                  label="Next Exness risk (prop wins)"
+                  value={money(-recovery.newExnessLossTarget)}
+                  tone="accent"
+                />
+              </>
             )}
             {recovery.totalPropSlippage > 0 && (
               <div className="mt-2 rounded border border-amber-500/50 bg-amber-500/10 p-2 text-[10px] text-amber-400">
-                Prop slippage detected: <strong>{money(recovery.totalPropSlippage)}</strong> beyond expected risk. 
-                Remaining legs reduced from {r.lossesToBlow} to <strong>{recovery.adjustedRemainingLosses}</strong>. 
+                Prop slippage detected: <strong>{money(recovery.totalPropSlippage)}</strong> beyond expected risk.
+                Remaining legs reduced from {r.lossesToBlow} to <strong>{recovery.adjustedRemainingLosses}</strong>.
                 Exness target re-paced from {money(recovery.baseExnessWinTarget)} to <strong>{money(recovery.rePacedExnessTarget)}</strong> to recover remaining {money(recovery.recoveryShortfall)} over {recovery.adjustedRemainingLosses} legs.
               </div>
             )}
-            <Row
-              label={recovery.adjustmentNeeded ? "Next Exness target" : "Exness reward (prop loses)"}
-              value={money(recovery.newExnessWinTarget, true)}
-              tone={recovery.adjustmentNeeded ? "accent" : "pos"}
-              strong
-            />
-            <Row
-              label={recovery.adjustmentNeeded ? "Next Exness risk (prop wins)" : "Exness risk (prop wins)"}
-              value={money(-recovery.newExnessLossTarget)}
-              tone={recovery.adjustmentNeeded ? "accent" : "neg"}
-            />
             <Row label="Wins remaining (actual)" value={`${recovery.remainingWins} of ${r.winsToPass}`} tone="accent" />
             <Row label="Losses remaining (actual)" value={`${recovery.remainingLosses} of ${r.lossesToBlow}`} tone="accent" />
             <Row label="Remaining prop target" value={money(recovery.remainingPropTarget)} tone={recovery.challengePassed ? "pos" : "default"} />

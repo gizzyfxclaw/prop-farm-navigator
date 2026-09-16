@@ -24,6 +24,7 @@ export interface RecoveryState {
   slippageDebt: number;
   totalSlippageAccrued: number;
   baseExnessWinTarget: number;
+  baseExnessLossTarget: number;
   newExnessWinTarget: number;
   newExnessLossTarget: number;
   adjustmentNeeded: boolean;
@@ -157,6 +158,7 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
 
   const activeChain = r.phase === 1 ? r.phase1 : r.phase2;
   const baseExnessWinTarget = Math.max(0, activeChain.exnessWinTarget);
+  const baseExnessLossTarget = baseExnessWinTarget * r.rr;
   const effectiveBaseTarget = totalPropSlippage > 0 ? rePacedExnessTarget : baseExnessWinTarget;
   const newExnessWinTarget  = effectiveBaseTarget + slippageDebt;
   const newExnessLossTarget = newExnessWinTarget * r.rr;
@@ -205,6 +207,7 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     slippageDebt,
     totalSlippageAccrued,
     baseExnessWinTarget,
+    baseExnessLossTarget,
     newExnessWinTarget,
     newExnessLossTarget,
     adjustmentNeeded,

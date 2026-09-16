@@ -476,6 +476,7 @@ function DailyBriefingPage() {
         <StatCard icon={<Target size={16} />} label="Next Exness Lot" value={`${r.exnessLots.toFixed(2)} lots`} />
         <StatCard icon={<Activity size={16} />} label="Slippage Debt" value={money(recovery.slippageDebt)} highlight={recovery.slippageDebt > 0} />
         <StatCard icon={<DollarSign size={16} />} label="Next Exness Target" value={money(recovery.newExnessWinTarget)} highlight={recovery.adjustmentNeeded} />
+        <StatCard icon={<TrendingDown size={16} />} label="Exness Risk (Prop Wins)" value={money(-recovery.newExnessLossTarget)} />
         <StatCard icon={<BarChart3 size={16} />} label="Prop R:R" value={`1:${r.rr}`} />
       </div>
 
