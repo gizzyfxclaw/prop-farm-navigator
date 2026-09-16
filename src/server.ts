@@ -160,6 +160,7 @@ export default {
         url.pathname === "/news" ||
         url.pathname === "/smc" ||
         url.pathname === "/hermes" ||
+        url.pathname === "/backtest" ||
         url.pathname.startsWith("/api/technicals") ||
         url.pathname.startsWith("/api/tradingview-ideas") ||
         // Strategy endpoints (public for strategy exploration)

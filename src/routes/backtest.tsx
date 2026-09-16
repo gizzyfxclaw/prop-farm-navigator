@@ -32,6 +32,79 @@ type TF = (typeof TIMEFRAMES)[number];
 
 const PAIRS = ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "XAUUSD"] as const;
 
+const PRESET_RULES: StrategyRule[] = [
+  {
+    id: "preset-smc",
+    title: "SMC Market Structure (BOS / CHoCH)",
+    direction: "both",
+    entry_type: "smc" as any,
+    entry_params: {},
+    sl_type: "fixed_pips",
+    sl_value: 30,
+    tp_type: "rr_multiple",
+    tp_value: 2.0,
+    default_timeframe: "1h",
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "preset-ema-50-200",
+    title: "50 / 200 EMA Trend Crossover",
+    direction: "both",
+    entry_type: "ema_cross",
+    entry_params: { fast: 50, slow: 200 },
+    sl_type: "fixed_pips",
+    sl_value: 30,
+    tp_type: "rr_multiple",
+    tp_value: 2.0,
+    default_timeframe: "1h",
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "preset-ema-9-21",
+    title: "9 / 21 EMA Scalp Crossover",
+    direction: "both",
+    entry_type: "ema_cross",
+    entry_params: { fast: 9, slow: 21 },
+    sl_type: "fixed_pips",
+    sl_value: 20,
+    tp_type: "rr_multiple",
+    tp_value: 2.0,
+    default_timeframe: "15m",
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "preset-rsi-14",
+    title: "RSI (14) Mean Reversion (30/70)",
+    direction: "both",
+    entry_type: "rsi",
+    entry_params: { period: 14, oversold: 30, overbought: 70 },
+    sl_type: "fixed_pips",
+    sl_value: 25,
+    tp_type: "rr_multiple",
+    tp_value: 1.5,
+    default_timeframe: "1h",
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "preset-breakout-20",
+    title: "20-Bar Channel High/Low Breakout",
+    direction: "both",
+    entry_type: "breakout",
+    entry_params: { lookback: 20 },
+    sl_type: "fixed_pips",
+    sl_value: 30,
+    tp_type: "rr_multiple",
+    tp_value: 2.0,
+    default_timeframe: "1h",
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+];
+
 function fmtDate(unix: number) {
   return new Date(unix * 1000).toISOString().slice(0, 16).replace("T", " ");
 }
@@ -47,9 +120,9 @@ function resultBadge(r: SimTrade["result"]) {
 function BacktestPage() {
   const { meta } = useStore();
 
-  /* Strategy rules from DB */
-  const [rules, setRules] = useState<StrategyRule[]>([]);
-  const [selectedRuleId, setSelectedRuleId] = useState<string>("");
+  /* Strategy rules from DB + Presets */
+  const [rules, setRules] = useState<StrategyRule[]>(PRESET_RULES);
+  const [selectedRuleId, setSelectedRuleId] = useState<string>("preset-smc");
 
   /* Form state */
   const [pair, setPair] = useState<string>("EURUSD");
@@ -78,7 +151,15 @@ function BacktestPage() {
 
   /* Load strategy rules */
   useEffect(() => {
-    loadStrategyRules().then(setRules).catch(() => {});
+    loadStrategyRules().then((dbRules) => {
+      const all = [...PRESET_RULES, ...(dbRules || [])];
+      setRules(all);
+      if (!selectedRuleId && all.length > 0) {
+        setSelectedRuleId(all[0]!.id);
+      }
+    }).catch(() => {
+      setRules(PRESET_RULES);
+    });
   }, []);
 
   const selectedRule = rules.find((r) => r.id === selectedRuleId);
@@ -96,37 +177,52 @@ function BacktestPage() {
     setError(null);
     setResult(null);
     setPhase("fetching");
-    setProgress("Fetching historical candles from MetaApi…");
+    setProgress("Fetching market candles…");
 
-    // Need token + accountId to call MetaApi history
-    if (!meta.token || !meta.exnessAccountId) {
+    let bars: any[] = [];
+
+    // 1. Try MetaApi if credentials are configured
+    if (meta.token && meta.exnessAccountId) {
+      try {
+        const from = new Date(fromDate).toISOString();
+        const to   = new Date(toDate + "T23:59:59Z").toISOString();
+        const candleRes = await fetchHistoricalCandles({
+          data: {
+            token: meta.token,
+            accountId: meta.exnessAccountId,
+            symbol: pair + (meta.exnessSymbolSuffix ?? ""),
+            timeframe,
+            from,
+            to,
+            limit: 50_000,
+          },
+        });
+        if (candleRes.ok && candleRes.data && candleRes.data.length > 0) {
+          bars = candleRes.data;
+        }
+      } catch {}
+    }
+
+    // 2. Fallback to institutional live market feed
+    if (bars.length === 0) {
+      setProgress("Fetching market history from institutional data feed…");
+      try {
+        const res = await fetch(`/api/ohlcv?pair=${pair}&interval=${timeframe}&limit=5000`);
+        if (res.ok) {
+          const d = await res.json();
+          if (d.bars && d.bars.length > 0) {
+            bars = d.bars;
+          }
+        }
+      } catch {}
+    }
+
+    if (bars.length === 0) {
       setPhase("error");
-      setError("Set your MetaApi token and account ID in Settings first.");
+      setError("Unable to fetch candle data for this pair and timeframe.");
       return;
     }
 
-    const from = new Date(fromDate).toISOString();
-    const to   = new Date(toDate + "T23:59:59Z").toISOString();
-
-    const candleRes = await fetchHistoricalCandles({
-      data: {
-        token: meta.token,
-        accountId: meta.exnessAccountId,
-        symbol: pair + (meta.exnessSymbolSuffix ?? ""),
-        timeframe,
-        from,
-        to,
-        limit: 50_000,
-      },
-    });
-
-    if (!candleRes.ok) {
-      setPhase("error");
-      setError(`Failed to fetch candles: ${candleRes.error}`);
-      return;
-    }
-
-    const bars = candleRes.data;
     setProgress(`Running simulation over ${bars.length} bars…`);
     setPhase("simulating");
 
