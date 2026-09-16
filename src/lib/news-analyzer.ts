@@ -754,23 +754,14 @@ function findPattern(eventName: string): PatternHandler {
 
 export function analyzeNewsEvent(event: NewsEvent): NewsAnalysis {
   const pattern = findPattern(event.event_name || "");
-  const nowSec = Math.floor(Date.now() / 1000);
   const actualStr = event.actual != null ? String(event.actual).trim() : "";
-  const hasActual = Boolean(actualStr && actualStr !== "—");
-  const isTimePassed = Boolean(event.datetime && event.datetime <= nowSec);
-  const isPostNews = hasActual || isTimePassed;
+  const hasActual = Boolean(actualStr && actualStr !== "—" && actualStr !== "-" && actualStr !== "null" && actualStr !== "undefined");
   const currency = event.currency || "USD";
   const affectedPairs = CURRENCY_PAIRS[currency] || ["EURUSD", "USDJPY", "GBPUSD"];
 
-  if (isPostNews) {
-    const effectiveActual = hasActual
-      ? actualStr
-      : event.forecast && String(event.forecast) !== "—"
-      ? String(event.forecast)
-      : String(event.previous || "0");
-
+  if (hasActual) {
     const { whatHappened, postNewsTrend } = pattern.analyzePostNews(
-      effectiveActual,
+      actualStr,
       String(event.forecast || "—"),
       String(event.previous || "—"),
       currency
@@ -796,7 +787,7 @@ export function analyzeNewsEvent(event: NewsEvent): NewsAnalysis {
     };
   }
 
-  // Pre-News Analysis
+  // Pre-News Analysis (Real-time upcoming consensus evaluation)
   const { direction, confidence, detail, trade_setup, avoid_strategy, risk_factors } =
     pattern.analyzePreNews(String(event.forecast || "—"), String(event.previous || "—"), currency);
 
@@ -896,9 +887,13 @@ export function synthesizePairNewsConclusion(
   const baseCurrency = cleanPair.length >= 6 ? cleanPair.slice(0, 3) : "EUR";
   const quoteCurrency = cleanPair.length >= 6 ? cleanPair.slice(3, 6) : "USD";
 
-  const relevantEvents = events.filter(
-    (e) => e.currency === baseCurrency || e.currency === quoteCurrency
-  );
+  // Filter ONLY for events affecting the pair that have genuinely released actual data
+  const relevantEvents = events.filter((e) => {
+    const isPairCurrency = e.currency === baseCurrency || e.currency === quoteCurrency;
+    const actualStr = e.actual != null ? String(e.actual).trim() : "";
+    const hasActual = Boolean(actualStr && actualStr !== "—" && actualStr !== "-" && actualStr !== "null" && actualStr !== "undefined");
+    return isPairCurrency && hasActual;
+  });
 
   let netScore = 0;
   const eventScorecard: ScorecardItem[] = [];
@@ -951,10 +946,11 @@ export function synthesizePairNewsConclusion(
   else if (netScore <= -20) masterDirection = "SELL";
 
   const absScore = Math.abs(netScore);
-  const convictionScore = relevantEvents.length === 0 ? 50 : Math.min(95, Math.max(55, Math.round(55 + absScore * 0.5)));
+  const convictionScore = relevantEvents.length === 0 ? 75 : Math.min(95, Math.max(55, Math.round(55 + absScore * 0.5)));
 
   let convictionGrade: MasterNewsConclusion["convictionGrade"];
-  if (convictionScore >= 88) convictionGrade = "A+ Institutional Conviction";
+  if (relevantEvents.length === 0) convictionGrade = "A High Probability";
+  else if (convictionScore >= 88) convictionGrade = "A+ Institutional Conviction";
   else if (convictionScore >= 78) convictionGrade = "A High Probability";
   else if (convictionScore >= 65) convictionGrade = "B Moderate / Developing";
   else convictionGrade = "C Choppy / Conflicting";
@@ -969,15 +965,15 @@ export function synthesizePairNewsConclusion(
   let flowDriver = "";
 
   if (relevantEvents.length === 0) {
-    synthesis = `No economic calendar releases directly affecting ${baseCurrency} or ${quoteCurrency} today. Market is driven primarily by technical SMC structure and baseline session liquidity.`;
-    primaryReason = `No direct economic releases for ${baseCurrency} or ${quoteCurrency} today. Baseline technical channel rules apply.`;
-    macroChain.push("1. Economic calendar has no direct high-impact releases for this pair today.");
-    macroChain.push("2. Interbank liquidity is driven by baseline London/NY session order flow.");
-    macroChain.push("3. Smart Money Concepts order blocks and technical price action hold highest predictive weight.");
-    weightingExpl = "Technical chart structure has 100% weighting due to absence of macro catalysts.";
-    flowDriver = "Baseline institutional session trading.";
+    synthesis = `0 economic events have released actual data for ${cleanPair} today. Price action is currently governed by technical SMC structure, order blocks, and baseline session liquidity.`;
+    primaryReason = `No economic releases for ${baseCurrency} or ${quoteCurrency} have printed actual data yet today. Baseline technical channel rules apply.`;
+    macroChain.push(`1. Economic calendar has 0 post-release shock data points for ${cleanPair} today.`);
+    macroChain.push(`2. Interbank liquidity is driven by baseline London/NY session order flow.`);
+    macroChain.push(`3. Smart Money Concepts order blocks and channel boundary rules hold full priority.`);
+    weightingExpl = "Technical chart structure has 100% weighting due to absence of released macro catalysts.";
+    flowDriver = "Session liquidity & SMC channel breakout execution.";
   } else if (masterDirection === "BUY") {
-    synthesis = `Collective news scorecard for ${cleanPair} is BULLISH (+${netScore} net score) across ${relevantEvents.length} economic events. ${bullishEvents.map(e => e.eventName).join(", ")} provide strong macro tailwinds supporting ${cleanPair} upside.`;
+    synthesis = `Collective news scorecard for ${cleanPair} is BULLISH (+${netScore} net score) across ${relevantEvents.length} released events. ${bullishEvents.map(e => e.eventName).join(", ")} provide strong macro tailwinds supporting ${cleanPair} upside.`;
     primaryReason = `${baseCurrency} economic data outperformed expectations (or ${quoteCurrency} data softened), expanding sovereign yield spreads in favor of ${baseCurrency}.`;
     macroChain.push(`1. Actual releases showed positive economic momentum for ${baseCurrency} (or softness in ${quoteCurrency}).`);
     macroChain.push(`2. Interest rate expectations adjust hawkishly for ${baseCurrency}, reducing pressure for near-term rate cuts.`);
@@ -986,7 +982,7 @@ export function synthesizePairNewsConclusion(
     weightingExpl = `High-impact economic data (${bullishEvents[0]?.eventName || "Key Releases"}) takes precedence over secondary surveys, generating net positive macro flow.`;
     flowDriver = `Institutional carry and portfolio re-weighting into ${baseCurrency} assets.`;
   } else if (masterDirection === "SELL") {
-    synthesis = `Collective news scorecard for ${cleanPair} is BEARISH (${netScore} net score) across ${relevantEvents.length} economic events. ${bearishEvents.map(e => e.eventName).join(", ")} generate persistent downward pressure favoring ${cleanPair} shorts.`;
+    synthesis = `Collective news scorecard for ${cleanPair} is BEARISH (${netScore} net score) across ${relevantEvents.length} released events. ${bearishEvents.map(e => e.eventName).join(", ")} generate persistent downward pressure favoring ${cleanPair} shorts.`;
     primaryReason = `${baseCurrency} data disappointed or ${quoteCurrency} numbers beat expectations, contracting sovereign yield spreads and triggering capital outflow from ${baseCurrency}.`;
     macroChain.push(`1. Macroeconomic data printed softer for ${baseCurrency} (or stronger for ${quoteCurrency}).`);
     macroChain.push(`2. Central bank monetary policy expectations shift toward rate cuts / easing for ${baseCurrency}.`);
@@ -995,8 +991,8 @@ export function synthesizePairNewsConclusion(
     weightingExpl = `Negative surprise deltas across primary releases (${bearishEvents[0]?.eventName || "Key Releases"}) outweigh minor counter-indicators.`;
     flowDriver = `Sovereign yield contraction and institutional liquidation of ${baseCurrency} holdings.`;
   } else {
-    synthesis = `Economic news data for ${cleanPair} is mixed/balanced (${bullishEvents.length} bullish vs ${bearishEvents.length} bearish drivers). No strong one-sided macro catalyst; price action will likely mean-revert within technical boundaries.`;
-    primaryReason = `Conflicting data points offset each other (e.g. positive employment balanced by soft forward sentiment). Neither buyers nor sellers possess a dominant fundamental catalyst.`;
+    synthesis = `Economic news data for ${cleanPair} is mixed/balanced (${bullishEvents.length} bullish vs ${bearishEvents.length} bearish drivers across ${relevantEvents.length} releases). No strong one-sided macro catalyst; price action will respect technical boundaries.`;
+    primaryReason = `Conflicting data points offset each other. Neither buyers nor sellers possess a dominant fundamental catalyst.`;
     macroChain.push(`1. Competing economic reports delivered conflicting signals for ${baseCurrency} and ${quoteCurrency}.`);
     macroChain.push(`2. Central bank rate trajectory remains data-dependent without a decisive shift.`);
     macroChain.push(`3. Institutional market makers accumulate liquidity on both sides of the range.`);
@@ -1005,7 +1001,7 @@ export function synthesizePairNewsConclusion(
     flowDriver = `Two-way market making and range consolidation.`;
   }
 
-  const targetPips = masterDirection !== "NEUTRAL" ? `${Math.round(35 + absScore * 0.4)}–${Math.round(55 + absScore * 0.6)} pips` : "20–30 pips (Range Play)";
+  const targetPips = masterDirection !== "NEUTRAL" ? `${Math.round(35 + absScore * 0.4)}–${Math.round(55 + absScore * 0.6)} pips` : "Technical Range (20–30 pips)";
 
   return {
     pair: cleanPair,

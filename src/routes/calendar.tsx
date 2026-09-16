@@ -303,10 +303,14 @@ function CalendarPage() {
       .slice(0, 5);
   }, [liveEvents]);
 
-  // Recent released / past events (high & medium impact)
+  // Recent released / past events (high & medium impact that have actual data)
   const recentReleasedEvents = useMemo(() => {
     return liveEvents
-      .filter((e) => (e.impact === "high" || e.impact === "medium") && (e.secondsUntil <= 0 || (e.actual && e.actual !== "—")))
+      .filter((e) => {
+        const a = e.actual ? String(e.actual).trim() : "";
+        const hasA = Boolean(a && a !== "—" && a !== "-" && a !== "null" && a !== "undefined");
+        return (e.impact === "high" || e.impact === "medium") && hasA;
+      })
       .slice(-8)
       .reverse();
   }, [liveEvents]);
@@ -533,7 +537,8 @@ function CalendarPage() {
                           event_name: e.event, currency: e.currency, impact: e.impact,
                           actual: e.actual, forecast: e.forecast, previous: e.previous, datetime: e.datetime
                         })));
-                        const dirTone = conc.masterDirection === "BUY" ? "text-emerald-400" : conc.masterDirection === "SELL" ? "text-red-400" : "text-muted-foreground";
+                        const dirLabel = conc.totalEventsJudged > 0 ? conc.masterDirection : "TECHNICAL";
+                        const dirTone = conc.totalEventsJudged > 0 && conc.masterDirection === "BUY" ? "text-emerald-400" : conc.totalEventsJudged > 0 && conc.masterDirection === "SELL" ? "text-red-400" : "text-muted-foreground";
                         return (
                           <button
                             key={p}
@@ -546,7 +551,7 @@ function CalendarPage() {
                           >
                             <span>{p}</span>
                             <span className={`text-[10px] font-black ${conclusionPair === p ? "text-white" : dirTone}`}>
-                              [{conc.masterDirection}]
+                              [{dirLabel}]
                             </span>
                           </button>
                         );
@@ -558,23 +563,23 @@ function CalendarPage() {
                   <div
                     className="p-3 sm:p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3"
                     style={{
-                      background: masterConclusion.masterDirection === "BUY"
+                      background: masterConclusion.totalEventsJudged > 0 && masterConclusion.masterDirection === "BUY"
                         ? "oklch(var(--gz-pos) / 0.12)"
-                        : masterConclusion.masterDirection === "SELL"
+                        : masterConclusion.totalEventsJudged > 0 && masterConclusion.masterDirection === "SELL"
                         ? "oklch(var(--gz-neg) / 0.12)"
                         : "var(--tv-surface-subtle)",
-                      borderColor: masterConclusion.masterDirection === "BUY"
+                      borderColor: masterConclusion.totalEventsJudged > 0 && masterConclusion.masterDirection === "BUY"
                         ? "var(--tv-teal)"
-                        : masterConclusion.masterDirection === "SELL"
+                        : masterConclusion.totalEventsJudged > 0 && masterConclusion.masterDirection === "SELL"
                         ? "var(--tv-red)"
                         : "var(--tv-border)",
                     }}
                   >
                     <div className="flex items-center gap-2.5">
                       <div className="p-2 rounded-lg bg-card flex items-center justify-center">
-                        {masterConclusion.masterDirection === "BUY" ? (
+                        {masterConclusion.totalEventsJudged > 0 && masterConclusion.masterDirection === "BUY" ? (
                           <TrendingUp size={22} className="text-success" />
-                        ) : masterConclusion.masterDirection === "SELL" ? (
+                        ) : masterConclusion.totalEventsJudged > 0 && masterConclusion.masterDirection === "SELL" ? (
                           <TrendingDown size={22} className="text-destructive" />
                         ) : (
                           <Minus size={22} className="text-muted-foreground" />
@@ -586,24 +591,30 @@ function CalendarPage() {
                             Master Trade Call:
                           </span>
                           <span className={`px-2.5 py-1 rounded-md font-mono text-xs sm:text-sm font-black uppercase tracking-wider ${
-                            masterConclusion.masterDirection === "BUY"
+                            masterConclusion.totalEventsJudged > 0 && masterConclusion.masterDirection === "BUY"
                               ? "bg-emerald-500 text-white"
-                              : masterConclusion.masterDirection === "SELL"
+                              : masterConclusion.totalEventsJudged > 0 && masterConclusion.masterDirection === "SELL"
                               ? "bg-red-500 text-white"
-                              : "bg-amber-500 text-black"
+                              : "bg-secondary text-foreground border border-border"
                           }`}>
-                            {masterConclusion.masterDirection === "BUY"
-                              ? `BUY ${masterConclusion.pair} (BULLISH CONVICTION)`
-                              : masterConclusion.masterDirection === "SELL"
-                              ? `SELL ${masterConclusion.pair} (BEARISH CONVICTION)`
-                              : `NEUTRAL / RANGE ${masterConclusion.pair}`}
+                            {masterConclusion.totalEventsJudged > 0
+                              ? masterConclusion.masterDirection === "BUY"
+                                ? `BUY ${masterConclusion.pair} (BULLISH CONVICTION)`
+                                : masterConclusion.masterDirection === "SELL"
+                                ? `SELL ${masterConclusion.pair} (BEARISH CONVICTION)`
+                                : `NEUTRAL / RANGE ${masterConclusion.pair}`
+                              : `TECHNICAL SMC MODE (${masterConclusion.pair})`}
                           </span>
-                          <Badge tone={masterConclusion.convictionScore >= 85 ? "green" : masterConclusion.convictionScore >= 70 ? "amber" : "neutral"}>
+                          <Badge tone={masterConclusion.totalEventsJudged > 0 ? (masterConclusion.convictionScore >= 85 ? "green" : masterConclusion.convictionScore >= 70 ? "amber" : "neutral") : "neutral"}>
                             {masterConclusion.convictionGrade}
                           </Badge>
                         </div>
                         <p className="text-xs text-foreground/90 font-medium mt-1">
-                          Net Macro Score: <strong>{masterConclusion.netScore > 0 ? `+${masterConclusion.netScore}` : masterConclusion.netScore} pts</strong> across <strong>{masterConclusion.totalEventsJudged} judged releases</strong>
+                          {masterConclusion.totalEventsJudged > 0 ? (
+                            <>Net Macro Score: <strong>{masterConclusion.netScore > 0 ? `+${masterConclusion.netScore}` : masterConclusion.netScore} pts</strong> across <strong>{masterConclusion.totalEventsJudged} released event{masterConclusion.totalEventsJudged > 1 ? "s" : ""}</strong></>
+                          ) : (
+                            <>0 economic releases printed actual data yet today · Technical SMC channel rules active</>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -621,11 +632,11 @@ function CalendarPage() {
                   </div>
 
                   {/* Multi-Event Scorecard (The Judge Table) */}
-                  {masterConclusion.eventScorecard.length > 0 && (
+                  {masterConclusion.eventScorecard.length > 0 ? (
                     <div className="space-y-1.5">
                       <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                         <Scale size={12} />
-                        Multi-Event Scorecard ({masterConclusion.eventScorecard.length} releases judged for {masterConclusion.pair}):
+                        Multi-Event Scorecard ({masterConclusion.eventScorecard.length} release{masterConclusion.eventScorecard.length > 1 ? "s" : ""} judged for {masterConclusion.pair}):
                       </span>
 
                       <div className="overflow-x-auto scrollbar-institutional">
@@ -663,6 +674,24 @@ function CalendarPage() {
                             ))}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-secondary/30 border border-border/50 text-center space-y-2">
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                        <Scale size={16} />
+                        <span className="font-bold text-xs uppercase tracking-wide">0 Economic Releases Printed for {masterConclusion.pair} Today</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground max-w-lg mx-auto leading-relaxed">
+                        No economic calendar events have printed actual data for {masterConclusion.pair} yet today. Real-time institutional flow is currently governed by technical SMC structure and baseline session liquidity.
+                      </p>
+                      <div>
+                        <button
+                          onClick={() => setActiveAnalysisTab("upcoming")}
+                          className="px-3 py-1.5 rounded-lg bg-primary/15 text-primary border border-primary/30 text-xs font-mono font-bold hover:bg-primary/25 inline-flex items-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <Clock size={13} /> View {upcomingHighImpact.length} Upcoming Scenarios & Pre-News Plans →
+                        </button>
                       </div>
                     </div>
                   )}
