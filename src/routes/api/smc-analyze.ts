@@ -317,7 +317,31 @@ async function fetchTVTechnicalsForSMC(pair: string, interval: string): Promise<
   }
 }
 
+function calcEMA(bars: Bar[], period: number): number {
+  if (bars.length < period) return bars[bars.length - 1]?.close ?? 0;
+  const k = 2 / (period + 1);
+  let ema = bars[0]!.close;
+  for (let i = 1; i < bars.length; i++) {
+    ema = bars[i]!.close * k + ema * (1 - k);
+  }
+  return ema;
+}
+
+function calcVWAP(bars: Bar[]): number {
+  let cumTypicalVol = 0;
+  let cumVol = 0;
+  for (let i = Math.max(0, bars.length - 100); i < bars.length; i++) {
+    const b = bars[i]!;
+    const tp = (b.high + b.low + b.close) / 3;
+    cumTypicalVol += tp * tp;
+    cumVol += tp;
+  }
+  return cumVol > 0 ? cumTypicalVol / cumVol : bars[bars.length - 1]!.close;
+}
+
 function buildStrategyLevels(
+  strategyId: string,
+  bars: Bar[],
   channel: Channel,
   orderBlocks: any[],
   lastPrice: number,
@@ -329,6 +353,249 @@ function buildStrategyLevels(
   const spec = pairSpec(pairSymbol);
   const SL_PIPS = 30;
 
+  // 1. Asia Sweep Reversals
+  if (strategyId === "asia-sweep-reversals") {
+    // Look for bars in the last 24h that fell in Asia session (00:00 - 08:00 UTC)
+    let asiaHigh = -Infinity;
+    let asiaLow = Infinity;
+    let lastAsiaIdx = -1;
+
+    for (let i = 0; i < bars.length; i++) {
+      const dt = new Date(bars[i]!.time * 1000);
+      const hour = dt.getUTCHours();
+      if (hour >= 0 && hour < 8) {
+        asiaHigh = Math.max(asiaHigh, bars[i]!.high);
+        asiaLow = Math.min(asiaLow, bars[i]!.low);
+        lastAsiaIdx = i;
+      }
+    }
+
+    if (lastAsiaIdx >= 0 && asiaHigh > -Infinity && asiaLow < Infinity) {
+      let sweptLow = false;
+      let sweptHigh = false;
+      let sweepLowWick = asiaLow;
+      let sweepHighWick = asiaHigh;
+
+      for (let i = lastAsiaIdx + 1; i < bars.length; i++) {
+        if (bars[i]!.low < asiaLow && bars[i]!.close > asiaLow) {
+          sweptLow = true;
+          sweepLowWick = Math.min(sweepLowWick, bars[i]!.low);
+        }
+        if (bars[i]!.high > asiaHigh && bars[i]!.close < asiaHigh) {
+          sweptHigh = true;
+          sweepHighWick = Math.max(sweepHighWick, bars[i]!.high);
+        }
+      }
+
+      if (sweptLow && !sweptHigh) {
+        const entry = lastPrice;
+        const sl = sweepLowWick - (2 * spec.pipSize);
+        const slDist = Math.max(entry - sl, 15 * spec.pipSize);
+        const tp1 = entry + slDist * 1.5;
+        const tp2 = entry + slDist * 2.5;
+        return {
+          direction: "long",
+          confidence: 0.86,
+          orderType: "BUY_LIMIT",
+          entry: entry.toFixed(spec.decimals),
+          stopLoss: sl.toFixed(spec.decimals),
+          takeProfit1: tp1.toFixed(spec.decimals),
+          takeProfit2: tp2.toFixed(spec.decimals),
+          primaryTP: tp2.toFixed(spec.decimals),
+          riskReward: "1:2.5",
+          riskRewardOptions: ["1:1.5", "1:2.5"],
+          recommendedRR: "1:2.5",
+          slPips: Math.round(slDist / spec.pipSize),
+          tp15Pips: Math.round((tp1 - entry) / spec.pipSize),
+          tp20Pips: Math.round((tp2 - entry) / spec.pipSize),
+          primaryTPPips: Math.round((tp2 - entry) / spec.pipSize),
+          retestCount: 1,
+          breakoutConfirmed5m: true,
+          nearbyConflict: false,
+          reason: `Asia Low swept at ${sweepLowWick.toFixed(spec.decimals)} with confirmed close back inside range.`,
+        };
+      } else if (sweptHigh && !sweptLow) {
+        const entry = lastPrice;
+        const sl = sweepHighWick + (2 * spec.pipSize);
+        const slDist = Math.max(sl - entry, 15 * spec.pipSize);
+        const tp1 = entry - slDist * 1.5;
+        const tp2 = entry - slDist * 2.5;
+        return {
+          direction: "short",
+          confidence: 0.86,
+          orderType: "SELL_LIMIT",
+          entry: entry.toFixed(spec.decimals),
+          stopLoss: sl.toFixed(spec.decimals),
+          takeProfit1: tp1.toFixed(spec.decimals),
+          takeProfit2: tp2.toFixed(spec.decimals),
+          primaryTP: tp2.toFixed(spec.decimals),
+          riskReward: "1:2.5",
+          riskRewardOptions: ["1:1.5", "1:2.5"],
+          recommendedRR: "1:2.5",
+          slPips: Math.round(slDist / spec.pipSize),
+          tp15Pips: Math.round((entry - tp1) / spec.pipSize),
+          tp20Pips: Math.round((entry - tp2) / spec.pipSize),
+          primaryTPPips: Math.round((entry - tp2) / spec.pipSize),
+          retestCount: 1,
+          breakoutConfirmed5m: true,
+          nearbyConflict: false,
+          reason: `Asia High swept at ${sweepHighWick.toFixed(spec.decimals)} with confirmed close back inside range.`,
+        };
+      } else {
+        return {
+          direction: "neutral",
+          confidence: 0.4,
+          orderType: "NONE",
+          entry: lastPrice.toFixed(spec.decimals),
+          stopLoss: lastPrice.toFixed(spec.decimals),
+          takeProfit1: lastPrice.toFixed(spec.decimals),
+          takeProfit2: lastPrice.toFixed(spec.decimals),
+          riskReward: "1:2.5",
+          riskRewardOptions: ["1:1.5", "1:2.5"],
+          recommendedRR: "1:2.5",
+          slPips: SL_PIPS,
+          tp15Pips: 0,
+          tp20Pips: 0,
+          primaryTPPips: 0,
+          primaryTP: lastPrice.toFixed(spec.decimals),
+          retestCount: 0,
+          breakoutConfirmed5m: false,
+          nearbyConflict: false,
+          reason: `Asia session range (High: ${asiaHigh.toFixed(spec.decimals)}, Low: ${asiaLow.toFixed(spec.decimals)}) has not been swept yet.`,
+        };
+      }
+    }
+  }
+
+  // 2. Trend Continuation (50 EMA)
+  if (strategyId === "trend-continuation") {
+    const ema50 = calcEMA(bars, 50);
+    const isAbove = lastPrice > ema50;
+    const prevBar = bars[bars.length - 2] ?? bars[bars.length - 1]!;
+    const isTrendingLong = isAbove && prevBar.close > ema50;
+    const isTrendingShort = !isAbove && prevBar.close < ema50;
+
+    if (isTrendingLong) {
+      const entry = lastPrice;
+      const slDist = 25 * spec.pipSize;
+      const sl = entry - slDist;
+      const tp1 = entry + slDist * 1.5;
+      const tp2 = entry + slDist * 2.5;
+      return {
+        direction: "long",
+        confidence: 0.82,
+        orderType: "BUY_LIMIT",
+        entry: entry.toFixed(spec.decimals),
+        stopLoss: sl.toFixed(spec.decimals),
+        takeProfit1: tp1.toFixed(spec.decimals),
+        takeProfit2: tp2.toFixed(spec.decimals),
+        primaryTP: tp2.toFixed(spec.decimals),
+        riskReward: "1:2.5",
+        riskRewardOptions: ["1:1.5", "1:2.5"],
+        recommendedRR: "1:2.5",
+        slPips: 25,
+        tp15Pips: Math.round((tp1 - entry) / spec.pipSize),
+        tp20Pips: Math.round((tp2 - entry) / spec.pipSize),
+        primaryTPPips: Math.round((tp2 - entry) / spec.pipSize),
+        retestCount: 2,
+        breakoutConfirmed5m: true,
+        nearbyConflict: false,
+        reason: `Price holding above 50 EMA (${ema50.toFixed(spec.decimals)}) with confirmed bullish trend alignment.`,
+      };
+    } else if (isTrendingShort) {
+      const entry = lastPrice;
+      const slDist = 25 * spec.pipSize;
+      const sl = entry + slDist;
+      const tp1 = entry - slDist * 1.5;
+      const tp2 = entry - slDist * 2.5;
+      return {
+        direction: "short",
+        confidence: 0.82,
+        orderType: "SELL_LIMIT",
+        entry: entry.toFixed(spec.decimals),
+        stopLoss: sl.toFixed(spec.decimals),
+        takeProfit1: tp1.toFixed(spec.decimals),
+        takeProfit2: tp2.toFixed(spec.decimals),
+        primaryTP: tp2.toFixed(spec.decimals),
+        riskReward: "1:2.5",
+        riskRewardOptions: ["1:1.5", "1:2.5"],
+        recommendedRR: "1:2.5",
+        slPips: 25,
+        tp15Pips: Math.round((entry - tp1) / spec.pipSize),
+        tp20Pips: Math.round((entry - tp2) / spec.pipSize),
+        primaryTPPips: Math.round((entry - tp2) / spec.pipSize),
+        retestCount: 2,
+        breakoutConfirmed5m: true,
+        nearbyConflict: false,
+        reason: `Price holding below 50 EMA (${ema50.toFixed(spec.decimals)}) with confirmed bearish trend alignment.`,
+      };
+    }
+  }
+
+  // 3. EMA 9 + VWAP with ATR Trailing Stop
+  if (strategyId === "ema-9-vwap" || strategyId === "ema9-vwap") {
+    const ema9 = calcEMA(bars, 9);
+    const vwap = calcVWAP(bars);
+    const isEmaBull = ema9 > vwap && lastPrice > vwap;
+    const isEmaBear = ema9 < vwap && lastPrice < vwap;
+    const trailDist = Math.max(atr * 2, 20 * spec.pipSize);
+
+    if (isEmaBull) {
+      const entry = lastPrice - (5 * spec.pipSize);
+      const sl = entry - trailDist;
+      const tp1 = entry + trailDist * 1.5;
+      const tp2 = entry + trailDist * 2.5;
+      return {
+        direction: "long",
+        confidence: 0.88,
+        orderType: "BUY_LIMIT",
+        entry: entry.toFixed(spec.decimals),
+        stopLoss: sl.toFixed(spec.decimals),
+        takeProfit1: tp1.toFixed(spec.decimals),
+        takeProfit2: tp2.toFixed(spec.decimals),
+        primaryTP: tp2.toFixed(spec.decimals),
+        riskReward: "1:2.5",
+        riskRewardOptions: ["1:1.5", "1:2.5"],
+        recommendedRR: "1:2.5",
+        slPips: Math.round(trailDist / spec.pipSize),
+        tp15Pips: Math.round((tp1 - entry) / spec.pipSize),
+        tp20Pips: Math.round((tp2 - entry) / spec.pipSize),
+        primaryTPPips: Math.round((tp2 - entry) / spec.pipSize),
+        retestCount: 3,
+        breakoutConfirmed5m: true,
+        nearbyConflict: false,
+        reason: `EMA 9 (${ema9.toFixed(spec.decimals)}) > VWAP (${vwap.toFixed(spec.decimals)}). Bullish pending order active.`,
+      };
+    } else if (isEmaBear) {
+      const entry = lastPrice + (5 * spec.pipSize);
+      const sl = entry + trailDist;
+      const tp1 = entry - trailDist * 1.5;
+      const tp2 = entry - trailDist * 2.5;
+      return {
+        direction: "short",
+        confidence: 0.88,
+        orderType: "SELL_LIMIT",
+        entry: entry.toFixed(spec.decimals),
+        stopLoss: sl.toFixed(spec.decimals),
+        takeProfit1: tp1.toFixed(spec.decimals),
+        takeProfit2: tp2.toFixed(spec.decimals),
+        primaryTP: tp2.toFixed(spec.decimals),
+        riskReward: "1:2.5",
+        riskRewardOptions: ["1:1.5", "1:2.5"],
+        recommendedRR: "1:2.5",
+        slPips: Math.round(trailDist / spec.pipSize),
+        tp15Pips: Math.round((entry - tp1) / spec.pipSize),
+        tp20Pips: Math.round((entry - tp2) / spec.pipSize),
+        primaryTPPips: Math.round((entry - tp2) / spec.pipSize),
+        retestCount: 3,
+        breakoutConfirmed5m: true,
+        nearbyConflict: false,
+        reason: `EMA 9 (${ema9.toFixed(spec.decimals)}) < VWAP (${vwap.toFixed(spec.decimals)}). Bearish pending order active.`,
+      };
+    }
+  }
+
+  // 4. Default: GizzyFx Channel Breakout
   if (channel.type === "none" || channel.retestCount < 2) {
     return {
       direction: "neutral",
@@ -350,8 +617,8 @@ function buildStrategyLevels(
       breakoutConfirmed5m,
       nearbyConflict: false,
       reason: channel.type === "none"
-        ? "No valid ascending/descending channel — market is too choppy or ranging"
-        : `Only ${channel.retestCount} retest(s) of the breakout boundary — needs 2+ before this is tradeable`,
+        ? "No valid ascending/descending channel — market is currently consolidating"
+        : `Only ${channel.retestCount} retest(s) of the breakout boundary — needs 2+ touches before tradeable`,
     };
   }
 
@@ -431,43 +698,50 @@ interface DebateResult {
 }
 
 function generateDebate(
+  strategyId: string,
+  levels: DrawableLevels,
   channel: Channel,
   breakoutConfirmed5m: boolean,
   nearbyConflict: boolean,
   alignment: { biasByTf: Record<string, string>; aligned: boolean; agreeCount: number; totalCount: number },
   tvTechnicals?: TVTechnicalsSummary | null,
 ): DebateResult {
-  const isLong = channel.direction === "long";
+  const isLong = levels.direction === "long" || (levels.direction === "neutral" && channel.direction === "long");
   const points: any[] = [];
   const counterPoints: any[] = [];
   let score = 0;
 
-  if (channel.type !== "none") {
-    score += 25;
-    points.push({ claim: `Valid ${channel.type} channel with ${channel.retestCount} retest(s) of the breakout boundary` });
+  if (levels.direction !== "neutral") {
+    score += 30;
+    points.push({ claim: levels.reason || `Valid ${levels.orderType} entry identified with ${levels.recommendedRR} R:R` });
   } else {
-    counterPoints.push({ claim: "No valid channel — market is too choppy or ranging" });
+    counterPoints.push({ claim: levels.reason || "No confirmed entry trigger yet — awaiting setup alignment" });
+  }
+
+  if (channel.type !== "none") {
+    score += 20;
+    points.push({ claim: `Valid ${channel.type} structure with ${channel.retestCount} retest(s)` });
   }
 
   if (breakoutConfirmed5m) {
-    score += 20;
-    points.push({ claim: "5M breakout already confirmed" });
+    score += 15;
+    points.push({ claim: "5M breakout / momentum confirmed" });
   } else {
-    counterPoints.push({ claim: "5M breakout not yet confirmed — still anticipatory" });
+    counterPoints.push({ claim: "5M breakout confirmation pending" });
   }
 
   if (nearbyConflict) {
-    counterPoints.push({ claim: "Conflicting order block near the 1:2 target" });
-  } else if (channel.type !== "none") {
+    counterPoints.push({ claim: "Conflicting order block near target zone" });
+  } else if (levels.direction !== "neutral") {
     score += 15;
-    points.push({ claim: "No conflicting level near target" });
+    points.push({ claim: "No conflicting structure near profit target" });
   }
 
   if (alignment.aligned) {
     score += 20;
-    points.push({ claim: `Multi-timeframe aligned (${alignment.agreeCount}/${alignment.totalCount})` });
+    points.push({ claim: `Multi-timeframe trend aligned (${alignment.agreeCount}/${alignment.totalCount})` });
   } else {
-    counterPoints.push({ claim: `Timeframes conflict: ${Object.entries(alignment.biasByTf).map(([tf, b]) => `${tf.toUpperCase()}=${b}`).join(", ")}` });
+    counterPoints.push({ claim: `Timeframes mixed: ${Object.entries(alignment.biasByTf).map(([tf, b]) => `${tf.toUpperCase()}=${b}`).join(", ")}` });
   }
 
   // TradingView Technicals Confluence Scoring
@@ -476,14 +750,14 @@ function generateDebate(
     const isTvShort = tvTechnicals.verdict === "SELL" || tvTechnicals.verdict === "STRONG_SELL";
 
     if ((isLong && isTvLong) || (!isLong && isTvShort)) {
-      score += 30;
+      score += 25;
       points.push({
         claim: `TradingView Technicals Consensus confirms ${tvTechnicals.verdict} (MA: ${tvTechnicals.ma_verdict}, RSI: ${tvTechnicals.rsi ?? "—"})`,
       });
     } else if ((isLong && isTvShort) || (!isLong && isTvLong)) {
       score -= 20;
       counterPoints.push({
-        claim: `TradingView Technicals Divergence: Indicators signal ${tvTechnicals.verdict} against channel direction`,
+        claim: `TradingView Technicals Divergence: Indicators signal ${tvTechnicals.verdict} against setup direction`,
       });
     } else {
       points.push({ claim: `TradingView Technicals Neutral/Developing (${tvTechnicals.verdict})` });
@@ -492,11 +766,17 @@ function generateDebate(
 
   let finalVerdict = "NEUTRAL";
   let confidence = 0.5;
-  if (score >= 75) {
-    finalVerdict = isLong ? "STRONG_LONG" : "STRONG_SHORT";
+  if (score >= 70 && levels.direction === "long") {
+    finalVerdict = "STRONG_LONG";
     confidence = 0.90;
-  } else if (score >= 50) {
-    finalVerdict = isLong ? "LEAN_LONG" : "LEAN_SHORT";
+  } else if (score >= 70 && levels.direction === "short") {
+    finalVerdict = "STRONG_SHORT";
+    confidence = 0.90;
+  } else if (score >= 45 && isLong) {
+    finalVerdict = "LEAN_LONG";
+    confidence = 0.75;
+  } else if (score >= 45 && !isLong) {
+    finalVerdict = "LEAN_SHORT";
     confidence = 0.75;
   } else {
     confidence = 0.35;
@@ -506,16 +786,16 @@ function generateDebate(
     bullCase: { direction: "bullish", points: isLong ? points : counterPoints, overallConfidence: isLong ? confidence : 1 - confidence },
     bearCase: { direction: "bearish", points: isLong ? counterPoints : points, overallConfidence: isLong ? 1 - confidence : confidence },
     debateRounds: [
-      `For: "${points[0]?.claim ?? "No case"}"`,
-      `Against: "${counterPoints[0]?.claim ?? "No case"}"`,
+      `For: "${points[0]?.claim ?? "No clear bullish catalyst"}"`,
+      `Against: "${counterPoints[0]?.claim ?? "No clear bearish catalyst"}"`,
       `Synthesis: ${finalVerdict.replace("_", " ")} — confidence ${(confidence * 100).toFixed(0)}%`,
     ],
     finalVerdict,
     confidence,
     finalRationale: `Institutional Confluence Score: ${Math.max(0, score)}/120`,
-    entryZone: channel.type !== "none" ? channel.breakoutBoundary.toFixed(5) : "See levels below",
-    invalidationLevel: channel.baseLine ? channel.baseLine[1].price.toFixed(5) : "",
-    riskReward: "See levels below",
+    entryZone: levels.entry || "See levels below",
+    invalidationLevel: levels.stopLoss || (channel.baseLine ? channel.baseLine[1]?.price.toFixed(5) : ""),
+    riskReward: levels.riskReward || "See levels below",
   };
 }
 
@@ -559,15 +839,13 @@ export const Route = createFileRoute("/api/smc-analyze")({
         const smcResult = summarizeSMC(bars);
         const channel = detectChannel(bars, atr);
 
-        // 5M confirmation is always checked on the true 5-minute chart,
-        // regardless of which timeframe the channel was drawn on — reuse
-        // `bars` when the request already IS 5m to avoid a redundant fetch.
+        // 5M confirmation is always checked on the true 5-minute chart
         const bars5m = interval === "5m" ? bars : await fetchBarsWithRetry(apiKey, pair, "5m", 200);
         const breakoutConfirmed5m = checkBreakoutConfirmed(bars5m, channel.breakoutBoundary, channel.direction);
 
         const channelBias: Bias = channel.direction === "long" ? "bullish" : channel.direction === "short" ? "bearish" : "neutral";
         const alignment = await computeAlignment(apiKey, pair, interval, channelBias);
-        
+
         const includeBars = url.searchParams.get("include_bars") === "true";
 
         const requestedCount = count;
@@ -577,10 +855,10 @@ export const Route = createFileRoute("/api/smc-analyze")({
         // Fetch TradingView technicals for multi-indicator confluence
         const tvTechnicals = await fetchTVTechnicalsForSMC(pair, interval);
 
-        // Generate debate and levels for frontend
+        // Generate debate and levels for frontend based on the selected strategy
         const nearbyConflict = hasNearbyConflict(smcResult.orderBlocks, channel.breakoutBoundary, channel.direction, atr);
-        const debate = generateDebate(channel, breakoutConfirmed5m, nearbyConflict, alignment, tvTechnicals);
-        const levels = buildStrategyLevels(channel, smcResult.orderBlocks, bars[bars.length - 1]!.close, atr, pair, breakoutConfirmed5m, tvTechnicals);
+        const levels = buildStrategyLevels(strategy, bars, channel, smcResult.orderBlocks, bars[bars.length - 1]!.close, atr, pair, breakoutConfirmed5m, tvTechnicals);
+        const debate = generateDebate(strategy, levels, channel, breakoutConfirmed5m, nearbyConflict, alignment, tvTechnicals);
 
         // Flatten structure for frontend compatibility
         // Frontend expects: structure.bias, structure.bos, structure.orderBlocks, etc.
@@ -632,10 +910,10 @@ export const Route = createFileRoute("/api/smc-analyze")({
           lastPrice: bars[bars.length - 1]!.close,
         };
 
-        // Store in cache (30 minute TTL)
+        // Store in cache (30 second TTL for real-time live data)
         if (env?.DB) {
           try {
-            const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+            const expiresAt = new Date(Date.now() + 30 * 1000).toISOString();
             await env.DB.prepare(
               "INSERT OR REPLACE INTO smc_analysis_cache (id, pair, interval, requested_count, result, expires_at) VALUES (?, ?, ?, ?, ?, ?)"
             ).bind(cacheKey, pair, interval, count, JSON.stringify(response), expiresAt).run();

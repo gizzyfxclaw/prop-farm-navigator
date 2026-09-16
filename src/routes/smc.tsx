@@ -717,10 +717,11 @@ function SMCPage() {
   }, [selectedReviewId, reviews]);
 
   /* ── SMC Analysis fetch ─────────────────────────────────────────── */
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setData(null);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     setShowPine(false);
 
     try {
@@ -733,10 +734,15 @@ function SMCPage() {
       if ((json as any).error) throw new Error((json as any).error);
       setData(json);
       setFetchedAt(Date.now());
+      setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load analysis");
+      if (!silent) {
+        setError(e instanceof Error ? e.message : "Failed to load analysis");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [pair, timeframe, strategy]);
 
@@ -768,14 +774,15 @@ function SMCPage() {
     }
   }, [pollingId]);
 
-  /* ── On mount: load, fetch reviews ─────────────────────────────── */
+  /* ── Real-time auto-refresh on mount and parameter changes ──────── */
   useEffect(() => {
-    // Only auto-fetch if there's no saved data or it's stale (>30min)
-    const stale = !saved.data || !saved.fetchedAt || (Date.now() - saved.fetchedAt > 30 * 60 * 1000);
-    if (stale) load();
+    load();
     loadReviews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const intervalId = setInterval(() => {
+      load(true);
+    }, 20_000);
+    return () => clearInterval(intervalId);
+  }, [load, loadReviews]);
 
   /* ── Auto-poll when ANY pending review exists ──────────────────── */
   useEffect(() => {
@@ -1024,8 +1031,20 @@ function SMCPage() {
               </span>
             )}
           </p>
-          <div className="mt-1.5">
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             <WinRateBadge />
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-emerald-400 font-bold uppercase tracking-wider text-[10px]">Real-Time Feed</span>
+              {data?.lastPrice && (
+                <span className="text-foreground font-bold font-mono ml-1">
+                  {data.pair}: {fmt(data.lastPrice)}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         {/* Hermes AI Analysis Loader — Professional Trading Terminal Style */}
