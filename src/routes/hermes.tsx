@@ -106,13 +106,23 @@ function LiveSmcPanel({
   lastBarTime?: number | undefined;
   onAnalyzed: (drawings: Drawing[]) => void;
 }) {
+  const [strategy, setStrategy] = useState("channel-breakout");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const STRATEGIES = [
+    { id: "channel-breakout", label: "GizzyFx Channel Breakout" },
+    { id: "asia-sweep-reversals", label: "Asia Sweep Reversals" },
+    { id: "trend-continuation", label: "Trend Continuation (50 EMA)" },
+    { id: "ema-9-vwap", label: "EMA 9 + VWAP ATR Trail" },
+    { id: "pdh-l-fvg", label: "PDH/L Fair Value Gap" },
+    { id: "london-breakout", label: "London Range Breakout" },
+  ];
+
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      const r = await fetch(`/api/smc-analyze?pair=${pair}&interval=${tf}&limit=500`);
+      const r = await fetch(`/api/smc-analyze?pair=${pair}&interval=${tf}&limit=500&strategy=${strategy}`);
       if (r.ok) {
         const json = await r.json();
         setData(json);
@@ -125,11 +135,16 @@ function LiveSmcPanel({
         }, lastBarTime, json.channel));
       }
     } catch {}
-    setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pair, tf, lastBarTime]);
+    if (!silent) setLoading(false);
+  }, [pair, tf, strategy, lastBarTime, onAnalyzed]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    const intervalId = setInterval(() => {
+      load(true);
+    }, 20_000);
+    return () => clearInterval(intervalId);
+  }, [load]);
 
   const lv = data?.levels;
   const dir = lv?.direction;
@@ -139,11 +154,28 @@ function LiveSmcPanel({
   const mtf = data?.timeframeAlignment;
 
   return (
-    <Card title="Live Market Analysis" badge={<Badge tone={hasSignal ? (isLong ? "green" : "red") : "neutral"}>SMC</Badge>}>
-      <div className="mb-3">
+    <Card title="Live Market Analysis" badge={<Badge tone={hasSignal ? (isLong ? "green" : "red") : "neutral"}>REAL-TIME SMC</Badge>}>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <WinRateBadge pair={pair} />
+        <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="text-emerald-400 font-bold uppercase tracking-wider text-[10px]">Real-Time Active</span>
+          {data?.lastPrice && (
+            <span className="text-foreground font-bold font-mono ml-1">
+              {pair}: {data.lastPrice.toFixed(PAIR_SPECS[pair as keyof typeof PAIR_SPECS]?.decimals ?? 5)}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex flex-wrap gap-3 mb-4">
+        <Field label="Strategy">
+          <select className="h-11 rounded-xl border border-border bg-input px-3 text-sm font-semibold text-foreground" value={strategy} onChange={e => setStrategy(e.target.value)}>
+            {STRATEGIES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </Field>
         <Field label="Pair">
           <select className="h-11 rounded-xl border border-border bg-input px-3 text-sm" value={pair} onChange={e => onPairChange(e.target.value)}>
             {["EURUSD","GBPUSD","USDJPY","AUDUSD","XAUUSD"].map(p => <option key={p} value={p}>{p}</option>)}
@@ -155,75 +187,74 @@ function LiveSmcPanel({
           </select>
         </Field>
         <div className="flex items-end">
-          <Button onClick={load} disabled={loading}>{loading ? "..." : "Analyze"}</Button>
+          <Button onClick={() => load()} disabled={loading}>{loading ? "Analyzing..." : "Analyze Live"}</Button>
         </div>
       </div>
 
       {data && hasSignal && lv && (
         <div className="space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
-            <Badge tone={isLong ? "green" : "red"}>{isLong ? "LONG" : "SHORT"}</Badge>
+            <Badge tone={isLong ? "green" : "red"}>{isLong ? "LONG SIGNAL" : "SHORT SIGNAL"}</Badge>
             <Badge tone="amber">{lv.orderType?.replace("_"," ")}</Badge>
             <span className="text-[12px] text-muted-foreground">
-              SL: {lv.slPips}pips · {data.debate?.finalVerdict?.replace("_"," ")}
+              SL: {lv.slPips} pips · {data.debate?.finalVerdict?.replace("_"," ")} (Confidence: {((data.debate?.confidence ?? 0)*100).toFixed(0)}%)
             </span>
           </div>
           {mtf && (
             <div className="flex items-center gap-2 flex-wrap">
               <Badge tone={mtf.aligned ? "green" : "amber"}>
-                {mtf.aligned ? "MTF ALIGNED" : "MTF CONFLICT"}
+                {mtf.aligned ? "MTF ALIGNED" : "MTF MIXED"}
               </Badge>
               <span className="text-[11px] text-muted-foreground">
-                {mtf.agreeCount}/{mtf.totalCount} timeframes agree (Daily→5M)
+                {mtf.agreeCount}/{mtf.totalCount} timeframes agree (Daily down to 5M)
                 {!mtf.aligned && mtf.conflictingTfs?.length > 0 && ` — conflicting: ${mtf.conflictingTfs.map((t: string) => t.toUpperCase()).join(", ")}`}
               </span>
             </div>
           )}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge tone={(lv.retestCount ?? 0) >= 2 ? "green" : "red"}>
-              {lv.retestCount ?? 0} RETEST{(lv.retestCount ?? 0) === 1 ? "" : "S"}
-            </Badge>
-            <Badge tone={lv.breakoutConfirmed5m ? "green" : "neutral"}>
-              {lv.breakoutConfirmed5m ? "5M CONFIRMED" : "5M PENDING"}
-            </Badge>
-            {lv.nearbyConflict && <Badge tone="amber">CONFLICTING LEVEL</Badge>}
-          </div>
+          {lv.reason && (
+            <p className="text-[12px] text-foreground font-medium bg-card/60 p-2.5 rounded-lg border border-border/60">
+              {lv.reason}
+            </p>
+          )}
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
-              <p className="text-[10px] text-muted-foreground">Entry</p>
+              <p className="text-[10px] text-muted-foreground">Entry ({lv.orderType?.replace("_"," ") ?? "MARKET"})</p>
               <p className="text-lg font-bold font-mono text-emerald-400">{lv.entry}</p>
             </div>
             <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-center">
-              <p className="text-[10px] text-muted-foreground">SL</p>
+              <p className="text-[10px] text-muted-foreground">SL ({lv.slPips} pips)</p>
               <p className="text-lg font-bold font-mono text-red-400">{lv.stopLoss}</p>
             </div>
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-center">
-              <p className="text-[10px] text-muted-foreground">TP ({lv.recommendedRR})</p>
+              <p className="text-[10px] text-muted-foreground">Primary TP ({lv.recommendedRR})</p>
               <p className="text-lg font-bold font-mono text-amber-400">{lv.primaryTP}</p>
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            {lv.riskRewardOptions?.map((rr: string, i: number) => {
+            {(lv.riskRewardOptions ?? ["1:1.5", "1:2.5"]).map((rr: string, i: number) => {
               const rec = rr === lv.recommendedRR;
-              const tp = [lv.takeProfit1, lv.takeProfit2][i];
+              const tp = [lv.takeProfit1, lv.takeProfit2][i] ?? lv.primaryTP;
+              const pips = [lv.tp15Pips, lv.tp20Pips][i] ?? lv.primaryTPPips;
               return (
                 <div key={rr} className="rounded-lg p-2 text-center" style={{ border: `1px solid ${rec ? "oklch(0.55 0.18 145)" : "oklch(0.25 0.04 280)"}`, background: rec ? "oklch(0.20 0.06 145 / 0.3)" : "transparent" }}>
-                  <p className="text-[10px] font-bold" style={{ color: rec ? "oklch(0.70 0.15 145)" : "oklch(0.55 0.06 280)" }}>{rr} {rec && "★"}</p>
+                  <p className="text-[10px] font-bold" style={{ color: rec ? "oklch(0.70 0.15 145)" : "oklch(0.55 0.06 280)" }}>{rr} {rec && "★ RECOMMENDED"}</p>
                   <p className="text-sm font-mono font-bold" style={{ color: rec ? "oklch(0.70 0.15 145)" : "oklch(0.65 0.05 280)" }}>{tp}</p>
+                  {pips > 0 && <p className="text-[10px] text-muted-foreground">{pips} pips</p>}
                 </div>
               );
             })}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Drawn on the chart above — switch to the "Analysis" view if you're on TradingView.
+            Drawn on the chart above — switch to the "Analysis" view to inspect the live levels.
           </p>
         </div>
       )}
 
       {data && !hasSignal && (
-        <p className="text-[12px] text-muted-foreground">
-          {lv?.reason ?? "No clear signal — market is ranging. Wait for a valid channel breakout."}
-        </p>
+        <div className="p-3 rounded-lg bg-secondary/30 border border-border/40 text-[12px] text-muted-foreground">
+          <p className="font-semibold text-foreground mb-0.5">Neutral Market Structure</p>
+          <p>{lv?.reason ?? "No active trigger — market is currently consolidating. Awaiting high-probability setup."}</p>
+        </div>
       )}
     </Card>
   );
@@ -665,15 +696,26 @@ function HermesPage() {
           >
             ← Engine
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Trading Agent</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Trading Agent</h1>
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-mono text-emerald-400 font-bold">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>LIVE AGENT ACTIVE</span>
+            </div>
+          </div>
           <p className="mt-1 text-[13px] text-muted-foreground">
             Strategy material you teach it, and its market analysis log. The agent reads from here —
             it never places trades.
           </p>
         </div>
-        <Link to="/console">
-          <Button variant="ghost">Open Agent Console</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/console">
+            <Button variant="ghost">Open Agent Console</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Live chart — TradingView for manual work, Analysis view for the agent's drawings */}
