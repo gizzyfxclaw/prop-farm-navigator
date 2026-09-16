@@ -451,10 +451,10 @@ function JournalPage() {
             {hermesAnalysis ? (
               <div className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Stat label="Win rate" value={`${hermesAnalysis.winRate.toFixed(1)}%`} tone={hermesAnalysis.winRate >= 50 ? "text-success" : "text-destructive"} />
-                  <Stat label="Net P&L" value={money(hermesAnalysis.netPnl, true)} tone={hermesAnalysis.netPnl >= 0 ? "text-success" : "text-destructive"} />
-                  <Stat label="Exness recovery" value={`${hermesAnalysis.exnessRecoveryPct.toFixed(0)}%`} tone={hermesAnalysis.exnessRecoveryPct >= 100 ? "text-success" : hermesAnalysis.exnessRecoveryPct >= 70 ? "text-success" : "text-amber-400"} />
-                  <Stat label="Real-money net" value={money(hermesAnalysis.realMoneyNet, true)} tone={hermesAnalysis.realMoneyNet >= 0 ? "text-success" : "text-destructive"} />
+                  <Stat label="Win rate" value={`${hermesAnalysis.winRate.toFixed(1)}%`} tone={hermesAnalysis.winRate >= 50 ? "text-success" : "text-destructive"} sub={`${closed.filter(t => t.result === "WIN").length}W / ${closed.filter(t => t.result === "LOSS").length}L`} />
+                  <Stat label="Combined Net P&L" value={money(hermesAnalysis.netPnl, true)} tone={hermesAnalysis.netPnl >= 0 ? "text-success" : "text-destructive"} sub="Prop Demo + Exness Cash" />
+                  <Stat label="Fee recovery" value={`${hermesAnalysis.exnessRecoveryPct.toFixed(0)}%`} tone={hermesAnalysis.exnessRecoveryPct >= 100 ? "text-success" : hermesAnalysis.exnessRecoveryPct >= 70 ? "text-success" : "text-amber-400"} sub={`${money(totalExWinsSoFar)} of ${money(recovery.propFee)} fee`} />
+                  <Stat label="Real-Money Net" value={money(hermesAnalysis.realMoneyNet, true)} tone={hermesAnalysis.realMoneyNet >= 0 ? "text-success" : "text-destructive"} sub={`Exness ${money(totalExPnlSoFar, true)} - Fee ${money(recovery.propFee)}`} />
                 </div>
                 <div className="rounded-lg p-3" style={{ background: "oklch(var(--gz-s2) / 0.5)", border: "1px solid oklch(var(--gz-p) / 0.15)" }}>
                   <p className="text-[11px] font-semibold mb-2" style={{ color: "oklch(var(--gz-p))" }}><Bot size={11} /> Hermes Assessment:</p>
@@ -535,10 +535,10 @@ function JournalPage() {
 
       {/* ── MAIN STATS GRID ───────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Closed trades" value={closed.length} />
+        <Stat label="Closed trades" value={closed.length} sub={`${wins}W / ${losses}L`} />
         <Stat label="Win rate" value={`${winRate.toFixed(1)}%`} tone="text-primary" />
-        <Stat label="Real-money net" value={money(hermesAnalysis?.realMoneyNet ?? 0, true)} tone={(hermesAnalysis?.realMoneyNet ?? 0) >= 0 ? "text-success" : "text-destructive"} />
-        <Stat label="Exness recovery" value={`${hermesAnalysis?.exnessRecoveryPct.toFixed(0) ?? "0"}%`} tone={(hermesAnalysis?.exnessRecoveryPct ?? 0) >= 100 ? "text-success" : (hermesAnalysis?.exnessRecoveryPct ?? 0) >= 70 ? "text-success" : "text-amber-400"} />
+        <Stat label="Real-money net" value={money(hermesAnalysis?.realMoneyNet ?? (totalExPnlSoFar - recovery.propFee), true)} tone={(hermesAnalysis?.realMoneyNet ?? (totalExPnlSoFar - recovery.propFee)) >= 0 ? "text-success" : "text-destructive"} sub={`Exness profit ${money(totalExPnlSoFar, true)} - fee ${money(recovery.propFee)}`} />
+        <Stat label="Fee recovery" value={`${hermesAnalysis?.exnessRecoveryPct.toFixed(0) ?? "0"}%`} tone={(hermesAnalysis?.exnessRecoveryPct ?? 0) >= 100 ? "text-success" : (hermesAnalysis?.exnessRecoveryPct ?? 0) >= 70 ? "text-success" : "text-amber-400"} sub={`${money(totalExWinsSoFar)} of ${money(recovery.propFee)}`} />
       </div>
 
       {/* ── MARTINGALE + MONEY LOST ─────────────────────────────────── */}
