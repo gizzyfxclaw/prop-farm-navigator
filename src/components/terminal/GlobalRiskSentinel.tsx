@@ -701,6 +701,10 @@ export function useGreenCheckRequired(): { canTrade: boolean; reason: string } {
     return { canTrade: true, reason: "Relaxed mode — no green check required." };
   }
 
+  // Check tradeable sessions & overlaps
+  const et = getEasternTime();
+  const etSec = et.totalSeconds;
+
   if (isWeekend) return { canTrade: false, reason: "Market closed (weekend)." };
   if (wonToday && selectedAccount?.dailyProfitCap != null) return { canTrade: false, reason: "Daily cap lock — already won today." };
   if (recovery.bufferDepleted) return { canTrade: false, reason: "Buffer depleted — deposit required." };
@@ -710,9 +714,6 @@ export function useGreenCheckRequired(): { canTrade: boolean; reason: string } {
   const isNightRollover = etSec >= 16.5 * 3600 && etSec < 18 * 3600;
   if (isNightRollover) return { canTrade: false, reason: "Rollover danger zone (4:30–6:00 PM ET / 9:30–11:00 PM WAT). Extreme spread widening." };
 
-  // Check tradeable sessions & overlaps
-  const et = getEasternTime();
-  const etSec = et.totalSeconds;
   const inLondonNy = etSec >= 8 * 3600 && etSec < 12 * 3600;
   const inSydneyTokyo = etSec >= 19 * 3600 || etSec < 2 * 3600;
   const inTokyoLondon = etSec >= 3 * 3600 && etSec < 4 * 3600;
