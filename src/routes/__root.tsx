@@ -10,7 +10,7 @@ import {
 import { useEffect, useRef, useState, type ReactNode, Component, type ErrorInfo } from "react";
 import { createPortal } from "react-dom";
 import { Toaster } from "sonner";
-import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, RefreshCw, ClipboardList, ArrowRight, Menu, X, LayoutDashboard, Calendar, ShieldCheck, Wallet, BookOpen, Radio, Bot, BarChart3, Layers, PieChart, Terminal, HelpCircle, Settings, Wrench } from "lucide-react";
+import { Palette, Check, LogOut, ExternalLink, Sun, Moon, AlertTriangle, RefreshCw, ClipboardList, ArrowRight, Menu, X, LayoutDashboard, Calendar, ShieldCheck, Wallet, BookOpen, Radio, Bot, BarChart3, Layers, PieChart, Terminal, HelpCircle, Settings, Wrench, ChevronDown, ChevronUp, Sliders } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import mobileTvCss from "../styles/mobile-tradingview.css?url";
@@ -70,6 +70,158 @@ import { LivePrice } from "../components/terminal/LivePrice";
 import { MarketTape } from "../components/terminal/MarketTape";
 import { GlobalRiskSentinel } from "../components/terminal/GlobalRiskSentinel";
 import { LogoMark, LogoWordmark } from "../components/brand/logo";
+
+interface NavDropdownItem {
+  to: string;
+  label: string;
+  desc: string;
+  icon: ReactNode;
+}
+
+const PRIMARY_NAV = [
+  { to: "/", label: "Engine", icon: <LayoutDashboard size={15} /> },
+  { to: "/smc", label: "SMC Analysis", icon: <Layers size={15} /> },
+  { to: "/calendar", label: "Calendar", icon: <Calendar size={15} /> },
+] as const;
+
+const TOOLS_NAV: NavDropdownItem[] = [
+  { to: "/backtest", label: "Backtest", desc: "Mechanical candle-by-candle simulation", icon: <BarChart3 size={15} /> },
+  { to: "/pnl", label: "P&L Dashboard", desc: "Real-time realized & buffer analytics", icon: <PieChart size={15} /> },
+  { to: "/hermes", label: "Trading Agent", desc: "AI market analysis & strategy rules", icon: <Bot size={15} /> },
+  { to: "/validator", label: "Validator", desc: "Prop firm evaluation & risk checker", icon: <ShieldCheck size={15} /> },
+  { to: "/console", label: "Console", desc: "Live terminal execution log stream", icon: <Terminal size={15} /> },
+];
+
+const MANAGEMENT_NAV: NavDropdownItem[] = [
+  { to: "/briefing", label: "Daily Briefing", desc: "Pre-flight trading checklist & rules", icon: <ClipboardList size={15} /> },
+  { to: "/journal", label: "Journal", desc: "Mirror hedge trade history & PnL sync", icon: <BookOpen size={15} /> },
+  { to: "/accounts", label: "Accounts", desc: "Prop firm & Exness configuration", icon: <Wallet size={15} /> },
+  { to: "/live", label: "Live MT5", desc: "Live broker feed & active balances", icon: <Radio size={15} /> },
+  { to: "/settings", label: "Settings", desc: "MetaApi credentials & API keys", icon: <Settings size={15} /> },
+  { to: "/help", label: "Help & Docs", desc: "Math calculations & strategy guide", icon: <HelpCircle size={15} /> },
+];
+
+function DesktopNavDropdown({
+  label,
+  icon,
+  items,
+  currentPath,
+}: {
+  label: string;
+  icon: ReactNode;
+  items: NavDropdownItem[];
+  currentPath: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const timeoutRef = useRef<number | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isChildActive = items.some((item) =>
+    item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to)
+  );
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current != null) window.clearTimeout(timeoutRef.current);
+    setOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = window.setTimeout(() => setOpen(false), 150);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
+      if (timeoutRef.current != null) window.clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={dropdownRef}
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className={`navtab flex items-center gap-1.5 cursor-pointer transition-all duration-150 ${
+          isChildActive || open ? "navtab-active" : ""
+        }`}
+        aria-expanded={open}
+      >
+        {icon}
+        <span>{label}</span>
+        <ChevronDown
+          size={11}
+          className={`transition-transform duration-200 opacity-70 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {/* Animated Dropdown Menu */}
+      {open && (
+        <div
+          className="absolute top-full left-0 mt-1 w-72 rounded-xl border border-border/80 bg-card/98 backdrop-blur-2xl shadow-2xl p-1.5 z-[100000] animate-in fade-in zoom-in-95 duration-150 origin-top-left"
+          style={{
+            background: "oklch(var(--gz-s1) / 0.98)",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px oklch(var(--gz-p) / 0.15)",
+          }}
+        >
+          <div className="space-y-0.5">
+            {items.map((item) => {
+              const active = item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setOpen(false)}
+                  className={`flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-all ${
+                    active
+                      ? "bg-primary/15 text-primary font-semibold"
+                      : "text-foreground hover:bg-muted/50 hover:text-foreground"
+                  }`}
+                >
+                  <span
+                    className={`mt-0.5 shrink-0 transition-colors ${
+                      active ? "text-primary" : "text-muted-foreground"
+                    }`}
+                  >
+                    {item.icon}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[12.5px] font-semibold tracking-tight">{item.label}</span>
+                      {active && (
+                        <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-primary/20 text-primary">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10.5px] text-muted-foreground leading-tight line-clamp-1 mt-0.5">
+                      {item.desc}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const NAV = [
   { to: "/", label: "Engine",         icon: <LayoutDashboard size={16} /> },
@@ -735,21 +887,37 @@ function RootComponent() {
                     </Link>
 
                     <nav
-                      className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-institutional"
-                      style={{ maxWidth: "62vw" }}
+                      className="hidden lg:flex items-center gap-1 min-w-0"
                     >
-                      {NAV.map((item) => (
+                      {/* Primary Quick Links */}
+                      {PRIMARY_NAV.map((item) => (
                         <Link
                           key={item.to}
                           to={item.to}
                           activeOptions={{ exact: item.to === "/" }}
-                          className="navtab"
-                          activeProps={{ className: "navtab navtab-active" }}
+                          className="navtab flex items-center gap-1.5"
+                          activeProps={{ className: "navtab navtab-active flex items-center gap-1.5" }}
                         >
                           {item.icon}
-                          {item.label}
+                          <span>{item.label}</span>
                         </Link>
                       ))}
+
+                      {/* Tools Animated Dropdown */}
+                      <DesktopNavDropdown
+                        label="Tools"
+                        icon={<Wrench size={15} />}
+                        items={TOOLS_NAV}
+                        currentPath={pathname}
+                      />
+
+                      {/* Management Animated Dropdown */}
+                      <DesktopNavDropdown
+                        label="Management"
+                        icon={<Sliders size={15} />}
+                        items={MANAGEMENT_NAV}
+                        currentPath={pathname}
+                      />
                     </nav>
                     <a
                       href="https://hermes.gizzyfxstrategy.dpdns.org"
