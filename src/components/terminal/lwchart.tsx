@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { X, Maximize2, Minimize2, RotateCcw } from "lucide-react";
 import { chartTheme, onThemeChange } from "@/lib/chart-theme";
 import { pairSpec } from "@/lib/engine/pairs";
 
@@ -48,6 +48,8 @@ interface Props {
   storageKey?: string;
   /** Override pair for price formatting (defaults to storageKey). */
   pair?: string;
+  /** Optional title to display in full screen mode */
+  title?: string;
 }
 
 function loadStoredDrawings(storageKey: string | undefined): Drawing[] {
@@ -107,10 +109,10 @@ function applyDrawings(
       freshSeries.createPriceLine({
         price: d.price,
         color,
-        lineWidth: 1,
+        lineWidth: 1.5,
         lineStyle: lineStyleFromString(d.style),
         axisLabelVisible: true,
-        title: d.label ?? d.price.toFixed(dec),
+        title: d.label ? `${d.label} (${d.price.toFixed(dec)})` : d.price.toFixed(dec),
       });
     } else if (
       d.type === "trendline" &&
@@ -119,10 +121,17 @@ function applyDrawings(
     ) {
       const tl = chart.addLineSeries({
         color,
-        lineWidth: 1,
+        lineWidth: 2,
+        lineStyle: lineStyleFromString(d.style),
         lastValueVisible: false,
         priceLineVisible: false,
         crosshairMarkerVisible: false,
+        autoscaleInfoProvider: () => null,
+        priceFormat: {
+          type: "price",
+          precision: dec,
+          minMove: Math.pow(10, -dec),
+        },
       });
       tl.setData([
         { time: d.p1time, value: d.p1price },
@@ -130,18 +139,19 @@ function applyDrawings(
       ]);
       if (d.label) {
         tl.setMarkers([
-          { time: d.p2time, position: "aboveBar", color, shape: "circle", text: d.label },
+          { time: d.p1time, position: "inBar", color, shape: "circle", text: d.label },
         ]);
       }
       drawingSeriesRef.current.push(tl);
     } else if (d.type === "zone" && d.topPrice != null && d.bottomPrice != null) {
+      // Subtle price lines for zones so they don't flood the right price axis tags
       freshSeries.createPriceLine({
         price: d.topPrice, color, lineWidth: 1, lineStyle: 1,
-        axisLabelVisible: true, title: `▲ ${d.label ?? "Zone"}`,
+        axisLabelVisible: false, title: `▲ ${d.label ?? "OB"} (${d.topPrice.toFixed(dec)})`,
       });
       freshSeries.createPriceLine({
         price: d.bottomPrice, color, lineWidth: 1, lineStyle: 1,
-        axisLabelVisible: true, title: `▼ ${d.label ?? "Zone"}`,
+        axisLabelVisible: false, title: `▼ ${d.label ?? "OB"} (${d.bottomPrice.toFixed(dec)})`,
       });
     } else if (d.type === "marker" && d.time != null) {
       markers.push({
@@ -164,10 +174,22 @@ function applyDrawings(
   freshSeries.setData(
     bars.map((b) => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })),
   );
+
+  if (bars.length > 0) {
+    try {
+      chart.timeScale().fitContent();
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
-export function LWChart({ bars, drawings = [], height = 480, loading, storageKey, pair }: Props) {
-  const dec = pairSpec(pair ?? storageKey ?? "EURUSD").decimals;
+export function LWChart({ bars, drawings = [], height = 480, loading, storageKey, pair, title }: Props) {
+  const pairName = pair ?? storageKey ?? "EURUSD";
+  const spec = pairSpec(pairName);
+  const dec = spec.decimals;
+
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null);
@@ -176,6 +198,7 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const drawingSeriesRef = useRef<any[]>([]);
   const [ready, setReady] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Drawing tool state
   const [activeTool, setActiveTool] = useState<DrawTool>("cursor");
@@ -189,9 +212,7 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
-  // Persist on every change, so navigating away and back (or reloading)
-  // restores them. Swallow storage errors (private mode, quota) — drawings
-  // just won't persist that session rather than breaking the chart.
+  // Persist on every change
   useEffect(() => {
     if (!storageKey) return;
     const key = `gizzyfx:chart-drawings:${storageKey}`;
@@ -202,8 +223,8 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
       /* ignore */
     }
   }, [userDrawings, storageKey]);
-  // The `title` attribute only shows on mouse hover — touch has no hover, so
-  // double-tapping a tool button surfaces its label here instead.
+
+  // Tool label display on double-tap / hover
   const [labelTool, setLabelTool] = useState<DrawTool | null>(null);
   const labelTimeoutRef = useRef<number | null>(null);
 
@@ -226,6 +247,63 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
   useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
   useEffect(() => { pendingPointRef.current = pendingPoint; }, [pendingPoint]);
 
+  // Fullscreen toggle handler
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((prev) => {
+      const next = !prev;
+      if (next) {
+        // Try native fullscreen if available
+        if (wrapperRef.current && !document.fullscreenElement) {
+          wrapperRef.current.requestFullscreen?.().catch(() => {});
+        }
+      } else {
+        if (document.fullscreenElement) {
+          document.exitFullscreen?.().catch(() => {});
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  // Listen for native escape / fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (pendingPointRef.current) {
+          setPendingPoint(null);
+          setActiveTool("cursor");
+        } else if (isFullscreen) {
+          setIsFullscreen(false);
+          if (document.fullscreenElement) {
+            document.exitFullscreen?.().catch(() => {});
+          }
+        }
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFullscreen]);
+
+  // Fit content helper
+  const fitContent = useCallback(() => {
+    if (chartRef.current && bars.length) {
+      try {
+        chartRef.current.timeScale().fitContent();
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [bars]);
+
   // Load CDN script once
   useEffect(() => {
     if (window.LightweightCharts) {
@@ -241,7 +319,6 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
       document.head.appendChild(s);
       return undefined;
     }
-    // Script tag exists but may still be loading — poll for the global
     const id = setInterval(() => {
       if (window.LightweightCharts) {
         setReady(true);
@@ -260,17 +337,17 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
     const LW = window.LightweightCharts;
     const t = chartTheme();
     const chart = LW.createChart(container, {
-      width: container.clientWidth,
-      height: typeof height === "number" ? height : container.clientHeight || 480,
-      /* Native-resolution canvas: LW multiplies its internal buffer by the
-         device pixel ratio, so on a 3x phone or a 4K panel the candles and
-         axis text are rendered at real pixels instead of being upscaled. */
+      width: container.clientWidth || 600,
+      height: isFullscreen ? container.clientHeight || window.innerHeight : (typeof height === "number" ? height : container.clientHeight || 480),
       layout: {
         background: { color: t.bg },
         textColor: t.text,
-        fontFamily: "'Times New Roman', Times, serif",
+        fontFamily: "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         fontSize: 11,
         attributionLogo: false,
+      },
+      localization: {
+        priceFormatter: (p: number) => (Number.isFinite(p) ? p.toFixed(dec) : ""),
       },
       grid: {
         vertLines: { color: t.grid, style: 0 },
@@ -283,19 +360,20 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
       },
       rightPriceScale: {
         borderColor: t.border,
-        minimumWidth: 68,
+        minimumWidth: 76,
+        autoScale: true,
         scaleMargins: { top: 0.1, bottom: 0.1 },
-        priceFormat: {
-          type: "price" as any,
-          precision: dec,
-          minMove: Math.pow(10, -dec),
-        },
+        alignLabels: true,
       },
       timeScale: {
         borderColor: t.border,
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 6,
+        rightOffset: 10,
+        barSpacing: 8,
+        minBarSpacing: 3,
+        fixLeftEdge: false,
+        fixRightEdge: false,
       },
       handleScale: { axisPressedMouseMove: { time: true, price: true } },
     });
@@ -363,12 +441,17 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
     });
 
     const ro = new ResizeObserver(() => {
-      chart.applyOptions({ width: container.clientWidth });
+      if (!container || !chartRef.current) return;
+      chartRef.current.applyOptions({
+        width: container.clientWidth,
+        height: container.clientHeight,
+      });
+      if (bars.length) {
+        chartRef.current.timeScale().fitContent();
+      }
     });
     ro.observe(container);
 
-    /* Repaint when the user switches palette — the switcher flips
-       data-theme on <html>, which canvas can't observe on its own. */
     const offTheme = onThemeChange(() => {
       const n = chartTheme();
       chart.applyOptions({
@@ -398,7 +481,22 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
       candleSeriesRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
+  }, [ready, dec]);
+
+  // Adjust options when fullscreen toggles
+  useEffect(() => {
+    if (!chartRef.current || !containerRef.current) return;
+    const timer = setTimeout(() => {
+      if (containerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
+        chartRef.current.timeScale().fitContent();
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [isFullscreen]);
 
   // Re-render all drawings (agent + user) when either changes
   useEffect(() => {
@@ -416,6 +514,11 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
       wickDownColor: ft.wick, wickUpColor: ft.wick,
       priceLineColor: ft.accent,
       priceLineStyle: 2,
+      priceFormat: {
+        type: "price" as any,
+        precision: dec,
+        minMove: Math.pow(10, -dec),
+      },
     });
     if (oldSeries) {
       try { chart.removeSeries(oldSeries); } catch { /* ignore */ }
@@ -424,15 +527,23 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
 
     applyDrawings(chart, freshSeries, bars, allDrawings, drawingSeriesRef, dec);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawings, userDrawings, ready]);
+  }, [drawings, userDrawings, ready, dec]);
 
   // Apply candles when bars change (without resetting drawings)
   useEffect(() => {
     const series = candleSeriesRef.current;
+    const chart = chartRef.current;
     if (!series || !bars.length) return;
     series.setData(
       bars.map((b) => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })),
     );
+    if (chart) {
+      try {
+        chart.timeScale().fitContent();
+      } catch {
+        /* ignore */
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bars, ready]);
 
@@ -441,10 +552,77 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
     : activeTool === "hline" ? "crosshair"
     : "crosshair";
 
+  const latestBar = bars.length ? bars[bars.length - 1] : null;
+
   return (
-    <div style={{ width: "100%", height, position: "relative" }}>
+    <div
+      ref={wrapperRef}
+      className={
+        isFullscreen
+          ? "fixed inset-0 z-[9999] flex flex-col bg-background/98 p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-200"
+          : "relative w-full rounded-lg overflow-hidden border border-border/40"
+      }
+      style={{ height: isFullscreen ? "100svh" : height }}
+    >
+      {/* Top Header bar in Fullscreen mode */}
+      {isFullscreen && (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/80 bg-card/80 px-3 py-2 rounded-t-lg backdrop-blur mb-2">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-[14px] text-foreground font-mono">
+              {spec.label}
+            </span>
+            {latestBar && (
+              <span className={`font-mono text-[13px] font-semibold ${latestBar.close >= latestBar.open ? "text-emerald-400" : "text-red-400"}`}>
+                {latestBar.close.toFixed(dec)}
+              </span>
+            )}
+            {title && (
+              <span className="hidden sm:inline-block text-[12px] text-muted-foreground border-l border-border/60 pl-2">
+                {title}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={fitContent}
+              title="Reset Zoom / Fit Content"
+              className="flex items-center gap-1 h-7 rounded-md border border-border bg-card/80 px-2 text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+            >
+              <RotateCcw size={12} /> Fit View
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              title="Exit Full Screen (Esc)"
+              className="flex items-center gap-1 h-7 rounded-md border border-primary bg-primary px-2.5 text-[11px] font-semibold text-primary-foreground shadow-sm hover:opacity-90 transition-opacity"
+            >
+              <Minimize2 size={12} /> Exit Full Screen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Top-Right Action Controls (when not fullscreen) */}
+      {!isFullscreen && (
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+          <button
+            title="Reset Zoom / Fit Content"
+            onClick={fitContent}
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card/90 text-muted-foreground hover:text-foreground hover:border-foreground/40 shadow-sm transition-colors"
+          >
+            <RotateCcw size={13} />
+          </button>
+          <button
+            title="Full Screen View"
+            onClick={toggleFullscreen}
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card/90 text-muted-foreground hover:text-foreground hover:border-foreground/40 shadow-sm transition-colors"
+          >
+            <Maximize2 size={13} />
+          </button>
+        </div>
+      )}
+
       {/* Drawing toolbar — overlaid top-left */}
-      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+      <div className={`absolute ${isFullscreen ? "top-14" : "top-2"} left-2 z-10 flex flex-col gap-1`}>
         {(["cursor", "hline", "trendline", "zone"] as DrawTool[]).map((tool) => (
           <button
             key={tool}
@@ -457,10 +635,10 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
               e.preventDefault();
               showToolLabel(tool);
             }}
-            className={`flex h-7 w-7 items-center justify-center rounded-md border text-[13px] font-bold transition-colors ${
+            className={`flex h-7 w-7 items-center justify-center rounded-md border text-[13px] font-bold shadow-sm transition-colors ${
               activeTool === tool
                 ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card/80 text-muted-foreground hover:text-foreground hover:border-foreground/40"
+                : "border-border bg-card/90 text-muted-foreground hover:text-foreground hover:border-foreground/40"
             }`}
           >
             {TOOL_ICONS[tool]}
@@ -476,12 +654,7 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
           <button
             title="Clear my drawings"
             onClick={() => { setUserDrawings([]); setPendingPoint(null); }}
-            className="flex h-7 w-7 items-center justify-center rounded-sm border transition-colors"
-            style={{
-              borderColor: "oklch(var(--gz-neg) / 0.40)",
-              background: "oklch(var(--gz-s2) / 0.85)",
-              color: "oklch(var(--gz-neg))",
-            }}
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-red-500/40 bg-card/90 text-red-400 hover:text-red-300 shadow-sm transition-colors"
           >
             <X size={13} strokeWidth={2.5} />
           </button>
@@ -491,13 +664,7 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
       {/* Pending point indicator */}
       {pendingPoint && (
         <div
-          className="absolute top-2 right-2 z-10 rounded-sm px-2 py-1 text-[11px] fx-zoom"
-          style={{
-            border: "1px solid oklch(var(--gz-p) / 0.40)",
-            background: "oklch(var(--gz-s2) / 0.92)",
-            color: "oklch(var(--gz-p))",
-            fontFamily: "var(--font-mono)",
-          }}
+          className={`absolute ${isFullscreen ? "top-14" : "top-2"} right-12 z-10 rounded-md px-2.5 py-1 text-[11px] font-mono border border-primary/40 bg-card/95 text-primary shadow-md`}
         >
           Click second point… (Esc to cancel)
         </div>
@@ -505,11 +672,12 @@ export function LWChart({ bars, drawings = [], height = 480, loading, storageKey
 
       <div
         ref={containerRef}
+        className="w-full flex-1 min-h-0"
         style={{
-          width: "100%", height: "100%", cursor: cursorStyle,
+          height: isFullscreen ? "calc(100% - 48px)" : "100%",
+          cursor: cursorStyle,
           background: "oklch(var(--gz-bg))",
         }}
-        onKeyDown={(e) => { if (e.key === "Escape") { setPendingPoint(null); setActiveTool("cursor"); } }}
         tabIndex={0}
       />
 

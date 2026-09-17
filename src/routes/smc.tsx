@@ -5,7 +5,7 @@ import {
   Upload, Camera, Sparkles, CheckCircle2, XCircle, MessageSquare,
   RefreshCw, Clock, Activity, ChevronDown, ChevronUp, Trash2,
   Globe, Monitor, TrendingUp as IndicatorIcon, Image, Search, Scale, FileCheck,
-  Loader, CheckCheck, Cpu, Layers, Settings2,
+  Loader, CheckCheck, Cpu, Layers, Settings2, X, Maximize2, Minimize2, ZoomIn,
 } from "lucide-react";
 import { Badge, Button, Card } from "@/components/terminal/ui";
 import { LWChart, type OHLCBar } from "@/components/terminal/lwchart";
@@ -573,6 +573,39 @@ function GizzyFxCoPilotAnalyzingCard({ submittedAt, reviewId }: { submittedAt: n
   );
 }
 
+function ImageLightbox({ src, label, onClose }: { src: string; label?: string; onClose: () => void }) {
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-black/95 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div className="absolute top-4 right-4 flex items-center gap-2 z-10" onClick={(e) => e.stopPropagation()}>
+        {label && <span className="text-xs text-white/80 font-mono mr-2">{label}</span>}
+        <button
+          onClick={onClose}
+          className="flex h-8 items-center gap-1.5 rounded-md border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20 shadow-lg transition-colors cursor-pointer"
+        >
+          <X size={14} /> Close
+        </button>
+      </div>
+      <img
+        src={src}
+        alt={label ?? "Fullscreen chart"}
+        className="max-h-[88svh] max-w-[95vw] rounded-lg border border-white/10 object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
 function AnalysisChart({
   pair, timeframe, structure, levels, channel, height = 360,
 }: {
@@ -611,7 +644,7 @@ function AnalysisChart({
       <p className="text-[12px] text-muted-foreground mb-2 flex items-center gap-1">
         <TrendingUp size={11} /> GizzyFx Co-Pilot's Marked-Up Chart — trend, order blocks &amp; entry/SL/TP drawn from the actual analysis
       </p>
-      <LWChart bars={bars} drawings={drawings} height={height} loading={loading} pair={pair} />
+      <LWChart bars={bars} drawings={drawings} height={height} loading={loading} pair={pair} title={`GizzyFx Co-Pilot · ${pair} · ${timeframe}`} />
     </div>
   );
 }
@@ -620,6 +653,7 @@ function AnalysisChart({
 function ReviewScreenshots({ reviewId }: { reviewId: string }) {
   const [shots, setShots] = React.useState<ScreenshotRow[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [selectedShot, setSelectedShot] = React.useState<{ src: string; label?: string } | null>(null);
 
   React.useEffect(() => {
     setLoading(true);
@@ -638,19 +672,29 @@ function ReviewScreenshots({ reviewId }: { reviewId: string }) {
   if (shots.length === 0) return null;
   return (
     <div>
+      {selectedShot && (
+        <ImageLightbox src={selectedShot.src} label={selectedShot.label} onClose={() => setSelectedShot(null)} />
+      )}
       <p className="text-[12px] text-muted-foreground mb-2 flex items-center gap-1">
-        <Camera size={11} /> Raw TradingView Screenshots ({shots.length}) — unmarked, for price/EMA context
+        <Camera size={11} /> Raw TradingView Screenshots ({shots.length}) — click to view full screen
       </p>
       <div className="grid gap-2" style={{ gridTemplateColumns: shots.length > 1 ? "1fr 1fr" : "1fr" }}>
         {shots.map((s) => (
-          <div key={s.id}>
+          <div key={s.id} className="relative group cursor-pointer" onClick={() => setSelectedShot({ src: s.data, label: s.label ?? `Chart ${s.step + 1}` })}>
             {s.label && <p className="text-[10px] text-muted-foreground mb-1">{s.label}</p>}
-            <img
-              src={s.data}
-              alt={s.label ?? `Chart ${s.step + 1}`}
-              className="w-full rounded-md border border-white/10 shadow"
-              style={{ maxHeight: 280, objectFit: "contain", background: "#000" }}
-            />
+            <div className="relative overflow-hidden rounded-md border border-white/10 shadow">
+              <img
+                src={s.data}
+                alt={s.label ?? `Chart ${s.step + 1}`}
+                className="w-full transition-transform group-hover:scale-[1.02]"
+                style={{ maxHeight: 280, objectFit: "contain", background: "#000" }}
+              />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-white bg-black/70 px-2.5 py-1 rounded-md border border-white/20">
+                  <Maximize2 size={12} /> View Full Screen
+                </span>
+              </div>
+            </div>
           </div>
         ))}
       </div>
@@ -678,6 +722,7 @@ function SMCPage() {
   const [userImage, setUserImage]             = useState<string | null>(null);
   const [imagePreview, setImagePreview]       = useState<string | null>(null);
   const [submitting, setSubmitting]           = useState(false);
+  const [lightboxImage, setLightboxImage]     = useState<{ src: string; label?: string } | null>(null);
 
   // Live Hermes status
   const [hermesStatus, setHermesStatus] = useState<{
@@ -1639,13 +1684,23 @@ function SMCPage() {
                       {r.user_image && (
                         <div>
                           <p className="text-[12px] text-muted-foreground mb-1 flex items-center gap-1">
-                            <Camera size={11} /> Your Chart
+                            <Camera size={11} /> Your Chart — click to view full screen
                           </p>
-                          <img
-                            src={r.user_image}
-                            alt="User chart"
-                            className="max-w-full rounded-md border border-white/10 shadow"
-                          />
+                          <div
+                            className="relative group cursor-pointer inline-block overflow-hidden rounded-md border border-white/10 shadow max-w-full"
+                            onClick={() => setLightboxImage({ src: r.user_image!, label: "Your Chart Screenshot" })}
+                          >
+                            <img
+                              src={r.user_image}
+                              alt="User chart"
+                              className="max-w-full transition-transform group-hover:scale-[1.02]"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <span className="flex items-center gap-1 text-[11px] font-semibold text-white bg-black/70 px-2.5 py-1 rounded-md border border-white/20">
+                                <Maximize2 size={12} /> View Full Screen
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       )}
 
@@ -1961,6 +2016,10 @@ function SMCPage() {
             )}
           </Card>
         </>
+      )}
+
+      {lightboxImage && (
+        <ImageLightbox src={lightboxImage.src} label={lightboxImage.label} onClose={() => setLightboxImage(null)} />
       )}
     </div>
   );

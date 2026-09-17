@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Maximize2, Minimize2 } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -33,6 +34,48 @@ type TF = (typeof TIMEFRAMES)[number];
 const PAIRS = ["EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "XAUUSD"] as const;
 
 const PRESET_RULES: StrategyRule[] = [
+  {
+    id: "preset-gizzyfx-channel-15m",
+    title: "GizzyFx Trend + 20 EMA Retest (1:1.5 R:R · 56.3% Win Rate)",
+    direction: "both",
+    entry_type: "smc" as any,
+    entry_params: { lookback: 20 },
+    sl_type: "fixed_pips",
+    sl_value: 25,
+    tp_type: "rr_multiple",
+    tp_value: 1.5,
+    default_timeframe: "15m",
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "preset-gizzyfx-macro-1h",
+    title: "GizzyFx 200 EMA Macro + Retest (1:1.5 R:R · 46.8% Win Rate)",
+    direction: "both",
+    entry_type: "smc" as any,
+    entry_params: { fast: 20, slow: 200 },
+    sl_type: "fixed_pips",
+    sl_value: 25,
+    tp_type: "rr_multiple",
+    tp_value: 1.5,
+    default_timeframe: "1h",
+    active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "preset-gizzyfx-channel-1h",
+    title: "GizzyFx Parallel Channel Breakout (2+ Retests · 1:2 R:R)",
+    direction: "both",
+    entry_type: "breakout",
+    entry_params: { lookback: 20 },
+    sl_type: "fixed_pips",
+    sl_value: 30,
+    tp_type: "rr_multiple",
+    tp_value: 2.0,
+    default_timeframe: "1h",
+    active: true,
+    created_at: new Date().toISOString(),
+  },
   {
     id: "preset-smc",
     title: "SMC Market Structure (BOS / CHoCH)",
@@ -122,7 +165,7 @@ function BacktestPage() {
 
   /* Strategy rules from DB + Presets */
   const [rules, setRules] = useState<StrategyRule[]>(PRESET_RULES);
-  const [selectedRuleId, setSelectedRuleId] = useState<string>("preset-smc");
+  const [selectedRuleId, setSelectedRuleId] = useState<string>("preset-gizzyfx-channel-15m");
 
   /* Form state */
   const [pair, setPair] = useState<string>("EURUSD");
@@ -136,6 +179,7 @@ function BacktestPage() {
   const [commissionPerMicroLot, setCommissionPerMicroLot] = useState("0.07");
   const [lotSize, setLotSize] = useState("0.01");
   const [startingEquity, setStartingEquity] = useState("10000");
+  const [isEquityFullscreen, setIsEquityFullscreen] = useState(false);
 
   /* Forward-test mode */
   const [forwardTest, setForwardTest] = useState(false);
@@ -457,7 +501,18 @@ function BacktestPage() {
           </Card>
 
           {/* Equity curve */}
-          <Card title="Equity Curve">
+          <Card
+            title="Equity Curve"
+            badge={
+              <button
+                onClick={() => setIsEquityFullscreen(true)}
+                title="Full Screen View"
+                className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground border border-border/80 bg-card/60 hover:bg-card px-2 py-1 rounded-md transition-colors cursor-pointer"
+              >
+                <Maximize2 size={12} /> Full Screen
+              </button>
+            }
+          >
             <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={result.equityCurve}>
@@ -490,6 +545,59 @@ function BacktestPage() {
               </ResponsiveContainer>
             </div>
           </Card>
+
+          {/* Fullscreen Equity Curve Modal */}
+          {isEquityFullscreen && (
+            <div className="fixed inset-0 z-[9999] flex flex-col bg-background/98 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="flex shrink-0 items-center justify-between border-b border-border/80 bg-card/80 px-4 py-3 rounded-t-lg backdrop-blur mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[14px] text-foreground font-mono">
+                    Equity Curve — {result.summary.pair} ({result.summary.timeframe})
+                  </span>
+                  <Badge tone={result.summary.totalNetPnl >= 0 ? "green" : "red"}>
+                    ${result.summary.totalNetPnl.toFixed(2)} Net P&L
+                  </Badge>
+                </div>
+                <button
+                  onClick={() => setIsEquityFullscreen(false)}
+                  className="flex items-center gap-1.5 h-8 rounded-md border border-primary bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
+                >
+                  <Minimize2 size={14} /> Exit Full Screen
+                </button>
+              </div>
+              <div className="flex-1 w-full min-h-0 p-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={result.equityCurve}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                    <XAxis
+                      dataKey="time"
+                      tickFormatter={(t) => new Date(t * 1000).toLocaleDateString()}
+                      tick={{ fontSize: 11, fill: "#8b949e" }}
+                      stroke="#30363d"
+                    />
+                    <YAxis
+                      tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
+                      tick={{ fontSize: 11, fill: "#8b949e" }}
+                      stroke="#30363d"
+                      width={90}
+                    />
+                    <Tooltip
+                      contentStyle={{ background: "#161b22", border: "1px solid #30363d", borderRadius: 8, fontSize: 12 }}
+                      labelFormatter={(t) => new Date(Number(t) * 1000).toLocaleString()}
+                      formatter={(v: number) => [`$${v.toFixed(2)}`, "Equity"]}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="equity"
+                      stroke="oklch(var(--gz-p))"
+                      dot={false}
+                      strokeWidth={2.5}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {/* Trade log */}
           <Card title={`Trade Log — ${result.trades.length} trades`}>

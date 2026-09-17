@@ -63,7 +63,7 @@ export function buildSmcDrawings(
       p2time: channel.baseLine[1]!.time, p2price: channel.baseLine[1]!.price,
       color: "#60a5fa",
       style: "dashed",
-      label: `${channel.type} channel base`,
+      label: `${channel.type === "ascending" ? "Asc." : "Desc."} Base`,
     });
     // The actual breakout boundary — the tradeable level.
     drawings.push({
@@ -71,9 +71,11 @@ export function buildSmcDrawings(
       p1time: breakout[0]!.time, p1price: breakout[0]!.price,
       p2time: breakout[1]!.time, p2price: breakout[1]!.price,
       color: dirColor,
-      label: `Breakout boundary (${channel.retestCount} retest${channel.retestCount === 1 ? "" : "s"})`,
+      label: `Breakout (${channel.retestCount}T)`,
     });
-    for (const r of (channel.retests ?? []).slice(-8)) {
+    const retestList = (channel.retests ?? []).slice(-6);
+    for (let i = 0; i < retestList.length; i++) {
+      const r = retestList[i];
       if (r && r.time != null) {
         drawings.push({
           type: "marker",
@@ -81,7 +83,7 @@ export function buildSmcDrawings(
           position: channel.direction === "long" ? "aboveBar" : "belowBar",
           markerType: "circle",
           color: dirColor,
-          label: "retest",
+          label: `T${i + 1}`,
         });
       }
     }

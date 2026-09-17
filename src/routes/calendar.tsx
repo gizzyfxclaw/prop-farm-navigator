@@ -360,6 +360,7 @@ function CalendarPage() {
 
   const tradingBlocked = critical.length > 0 || warning.length > 0;
   const tradingCaution = caution.length > 0 && !tradingBlocked;
+  const nextHighEvent = liveEvents.find((e) => e.impact === "high" && e.secondsUntil > 0);
   const nextEvent = liveEvents.find((e) => e.secondsUntil > 0);
 
   return (
@@ -1173,11 +1174,15 @@ function CalendarPage() {
           </p>
           <p className="alert-body">
             No high-impact news in the next 3 hours.{" "}
-            {nextEvent && (
-              <span className="font-mono tabular-nums">
-                Next event in {formatCountdown(nextEvent.secondsUntil)}
+            {nextHighEvent ? (
+              <span className="font-mono tabular-nums font-semibold text-foreground">
+                Next HIGH impact: {nextHighEvent.event.slice(0, 28)} in {formatCountdown(nextHighEvent.secondsUntil)}
               </span>
-            )}
+            ) : nextEvent ? (
+              <span className="font-mono tabular-nums text-muted-foreground">
+                (Next minor event in {formatCountdown(nextEvent.secondsUntil)})
+              </span>
+            ) : null}
           </p>
         </div>
       )}

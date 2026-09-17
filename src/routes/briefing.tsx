@@ -66,6 +66,7 @@ function DailyBriefingPage() {
   const defaultItems = {
     1: [
       "I have checked Economic Calendar — NO high-impact news in the danger window (±30 min)",
+      "No late entries after 3:00 PM ET / 8:00 PM WAT — prevents rollover spread widening & night slippage",
       "Trading during an active session overlap or major market hours with solid liquidity",
       "Exness FIRST → Prop SECOND — CRITICAL execution: always Exness first, wait for green, then Prop",
       "Check Live MT5 tab before trading — CRITICAL execution: verify Live MT5 tab shows balance before trading",
@@ -76,6 +77,7 @@ function DailyBriefingPage() {
     ],
     2: [
       "I have checked Economic Calendar — NO high-impact news in the danger window (±30 min)",
+      "No late entries after 3:00 PM ET / 8:00 PM WAT — prevents rollover spread widening & night slippage",
       "Trading during an active session overlap or major market hours with solid liquidity",
       "Exness FIRST → Prop SECOND — CRITICAL execution: always Exness first, wait for green, then Prop",
       "Check Live MT5 tab before trading — CRITICAL execution: verify Live MT5 tab shows balance before trading",

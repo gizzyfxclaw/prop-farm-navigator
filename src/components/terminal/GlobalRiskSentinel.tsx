@@ -260,6 +260,34 @@ export function useRiskSentinel() {
       }
     }
 
+    // 7b. Late-Day Cutoff & Rollover Defense (3:00 PM - 7:00 PM ET / 8:00 PM - 12:00 AM WAT)
+    const isLateAfternoon = etSec >= 15 * 3600 && etSec < 19 * 3600;
+    const isNightRollover = etSec >= 16.5 * 3600 && etSec < 18 * 3600;
+
+    if (isNightRollover) {
+      messages.push({
+        id: "rollover-danger",
+        level: "red",
+        title: "ROLLOVER SPREAD DANGER",
+        message: "5:00 PM ET (10:00 PM WAT) broker rollover active. Extreme spread widening & swap! Trading blocked.",
+        page: "Calendar",
+        timestamp: Date.now(),
+      });
+      bumpLevel("red");
+      if (!coachingTip) coachingTip = "5 PM rollover active. Spreads widen up to 10x. Wait for Asian session.";
+    } else if (isLateAfternoon) {
+      messages.push({
+        id: "late-cutoff",
+        level: "amber",
+        title: "LATE DAY CUTOFF",
+        message: "Past 3:00 PM ET (8:00 PM WAT). High risk of rollover spread widening & overnight slippage.",
+        page: "Calendar",
+        timestamp: Date.now(),
+      });
+      bumpLevel("amber");
+      if (!coachingTip) coachingTip = "Past 3 PM ET cutoff. Avoid new entries to protect against night slippage.";
+    }
+
     // 8. Phase 2 warning
     if (engine.phase === 2) {
       messages.push({
@@ -411,8 +439,9 @@ export function GlobalRiskSentinel() {
         <div
           style={{
             position: "fixed",
-            top: "calc(var(--cmdbar-h, 90px) + 8px)",
-            right: 8,
+            ...(isMobile
+              ? { bottom: 74, right: 12 }
+              : { top: "calc(var(--cmdbar-h, 90px) + 8px)", right: 16 }),
             zIndex: 99990,
             display: "flex",
             alignItems: "center",
@@ -445,11 +474,10 @@ export function GlobalRiskSentinel() {
           <div
             style={{
               position: "fixed",
-              top: "calc(var(--cmdbar-h, 90px) + 52px)",
-              right: 8,
-              left: 8,
+              ...(isMobile
+                ? { bottom: 120, left: 12, right: 12, maxHeight: "55vh" }
+                : { top: "calc(var(--cmdbar-h, 90px) + 52px)", right: 16, width: 380, maxHeight: "50vh" }),
               zIndex: 99989,
-              maxHeight: "50vh",
               overflowY: "auto",
               background: "oklch(var(--gz-s1))",
               border: `1.5px solid ${colors.border}`,
@@ -678,6 +706,9 @@ export function useGreenCheckRequired(): { canTrade: boolean; reason: string } {
   if (recovery.bufferDepleted) return { canTrade: false, reason: "Buffer depleted — deposit required." };
   if (recovery.adjustedRemainingLosses <= 2 && recovery.adjustedRemainingLosses > 0) return { canTrade: false, reason: "Critical legs — near blowout." };
   if (!meta.token || !meta.exnessAccountId) return { canTrade: false, reason: "MT5 not connected." };
+
+  const isNightRollover = etSec >= 16.5 * 3600 && etSec < 18 * 3600;
+  if (isNightRollover) return { canTrade: false, reason: "Rollover danger zone (4:30–6:00 PM ET / 9:30–11:00 PM WAT). Extreme spread widening." };
 
   // Check tradeable sessions & overlaps
   const et = getEasternTime();

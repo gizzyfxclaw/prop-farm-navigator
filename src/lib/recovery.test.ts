@@ -34,6 +34,7 @@ function trade(
   propPnl: number,
   exPnl: number,
   rr = 2,
+  baseExnessWinTarget?: number,
 ): JournalTrade {
   return {
     id,
@@ -45,7 +46,12 @@ function trade(
     propPnl,
     exPnl,
     netPnl: propPnl + exPnl,
-    details: { entry: 1.085, propSl: 1.082, propTp: 1.091, exSl: 1.091, exTp: 1.082, propLots: 0.17, exLots: 1.59, rr, phase: 1 },
+    details: {
+      entry: 1.085, propSl: 1.082, propTp: 1.091, exSl: 1.091, exTp: 1.082,
+      propLots: 0.17, exLots: 1.59, rr, phase: 1,
+      baseExnessWinTarget: baseExnessWinTarget ?? (28.6 / 6),
+      propRiskAtLog: 50,
+    },
   };
 }
 
@@ -241,6 +247,99 @@ describe("Targeted Slippage Martingale (TSM)", () => {
     expect(rec.recoveryShortfall).toBeCloseTo(28.6, 4);
     // Certainly not a false 50% from using gross wins
     expect(rec.recoveryShortfall).not.toBeCloseTo(28.6 - 14.3, 4);
+  });
+
+  it("Dynamic Leg Expansion (Defensive Mode): lowering prop risk expands legs and drops Exness win target", () => {
+    // Baseline: $50 prop risk on $5000 account (DD $300, Fee $28.60)
+    const baseResult = calculate(base);
+    expect(baseResult.lossesToBlow).toBe(6);
+    expect(baseResult.exnessWinTarget).toBeCloseTo(28.6 / 6, 4); // ~4.7667
+
+    const baseRec = computeRecovery(baseResult, []);
+    expect(baseRec.isDefensiveMode).toBe(false);
+
+    // Defensive mode: User lowers risk from $50 to $30
+    const defResult = calculate({ ...base, propRiskUsd: 30 });
+    // Losses to blow expands to 300 / 30 = 10 legs
+    expect(defResult.lossesToBlow).toBe(10);
+    // Exness win target drops to 28.6 / 10 = 2.86
+    expect(defResult.exnessWinTarget).toBeCloseTo(28.6 / 10, 4);
+
+    const defRec = computeRecovery(defResult, []);
+    expect(defRec.isDefensiveMode).toBe(true);
+    expect(defRec.expandedLossesToBlow).toBe(10);
+
+    // Restoring back to $50 turns off defensive mode
+    const restoredResult = calculate({ ...base, propRiskUsd: 50 });
+    expect(restoredResult.lossesToBlow).toBe(6);
+    expect(restoredResult.exnessWinTarget).toBeCloseTo(28.6 / 6, 4);
+
+    const restoredRec = computeRecovery(restoredResult, []);
+    expect(restoredRec.isDefensiveMode).toBe(false);
+  });
+
+  it("Preserves Slippage Debt during Dynamic Risk Change: $0.62 debt + $2.86 base = $3.48 next target", () => {
+    // 1. Initial trade at $50 risk: Prop WIN with slippage debt of $0.62
+    const baseResult = calculate(base);
+    const expectedLoss = (28.6 / 6) * 2; // $9.5333
+    const actualLoss = expectedLoss + 0.62; // $10.1533
+    const journal = [trade("1", "WIN", 100, -actualLoss, 2)];
+
+    // At $50 risk: Base target is 4.77, debt is 0.62 -> Next target is 5.39
+    const recAt50 = computeRecovery(baseResult, journal);
+    expect(recAt50.slippageDebt).toBeCloseTo(0.62, 2);
+    expect(recAt50.baseExnessWinTarget).toBeCloseTo(4.7667, 4);
+    expect(recAt50.newExnessWinTarget).toBeCloseTo(4.7667 + 0.62, 2);
+
+    // 2. User tactically lowers Prop Risk to $30 (Defensive Mode):
+    // The debt ($0.62) MUST be preserved, combined with new base ($2.86) to make $3.48
+    const defBase = calculate({ ...base, propRiskUsd: 30 });
+    const recAt30 = computeRecovery(defBase, journal);
+    expect(recAt30.slippageDebt).toBeCloseTo(0.62, 2);
+    expect(recAt30.baseExnessWinTarget).toBeCloseTo(2.86, 2);
+    expect(recAt30.newExnessWinTarget).toBeCloseTo(2.86 + 0.62, 2); // exactly $3.48
+
+    // 3. Engine calculates lot sizes with the combined $3.48 target
+    const engineWithRecovery = calculate({
+      ...base,
+      propRiskUsd: 30,
+      exnessWinTargetOverride: recAt30.newExnessWinTarget,
+    });
+    expect(engineWithRecovery.exnessWinTarget).toBeCloseTo(3.48, 2);
+    // Exness loss on a prop win is $3.48 * 2 = $6.96 (instead of $13.46 at $50 risk!)
+    expect(engineWithRecovery.exnessWinTarget * 2).toBeCloseTo(6.96, 2);
+
+    // 4. Trade 2: Log Exness WIN of $3.48 (Prop LOSS at $30 risk)
+    const journalAfterHeal = [
+      ...journal,
+      trade("2", "LOSS", -30, 3.48, 2, 2.86),
+    ];
+    const recAfterHeal = computeRecovery(defBase, journalAfterHeal);
+    // Debt is wiped to 0!
+    expect(recAfterHeal.slippageDebt).toBe(0);
+    expect(recAfterHeal.newExnessWinTarget).toBeCloseTo(2.86, 2);
+
+    // 5. User switches Prop Risk back to $50:
+    const restoredResult = calculate({ ...base, propRiskUsd: 50 });
+    const recRestored = computeRecovery(restoredResult, journalAfterHeal);
+    expect(recRestored.slippageDebt).toBe(0);
+    expect(recRestored.newExnessWinTarget).toBeCloseTo(4.7667, 4);
+    expect(recRestored.isDefensiveMode).toBe(false);
+  });
+
+  it("Historical Prop Slippage does not inflate when switching to lowered risk", () => {
+    // Trade 1 logged at $50 risk, lost $51 ($1 prop slippage)
+    const baseResult = calculate(base);
+    const journal = [
+      trade("1", "LOSS", -51, baseResult.exnessWinTarget, 2, 28.6 / 6),
+    ];
+    const recAt50 = computeRecovery(baseResult, journal);
+    expect(recAt50.totalPropSlippage).toBeCloseTo(1.0, 2);
+
+    // Switch to $30 risk: totalPropSlippage MUST remain $1.00 (not $51 - $30 = $21.00)
+    const defResult = calculate({ ...base, propRiskUsd: 30 });
+    const recAt30 = computeRecovery(defResult, journal);
+    expect(recAt30.totalPropSlippage).toBeCloseTo(1.0, 2);
   });
 });
 

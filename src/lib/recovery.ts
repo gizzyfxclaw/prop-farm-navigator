@@ -43,10 +43,15 @@ export interface RecoveryState {
 
   totalPropSlippage: number;
   rePacedExnessTarget: number;
+  dynamicBaseTarget: number;
   adjustedRemainingLosses: number;
   recoveryShortfall: number;
   effectiveBaseTarget: number;
   exnessWinsNeeded: number;
+
+  isDefensiveMode: boolean;
+  standardPropRisk: number;
+  expandedLossesToBlow: number;
 }
 
 function expectedExnessPnl(
@@ -58,6 +63,9 @@ function expectedExnessPnl(
   let baseTarget: number;
   if (trade?.details?.baseExnessWinTarget != null && trade.details.baseExnessWinTarget > 0) {
     baseTarget = trade.details.baseExnessWinTarget;
+  } else if (trade?.details?.propRiskAtLog != null && trade.details.propRiskAtLog > 0) {
+    const legsAtLog = Math.max(1, Math.floor(r.maxDdUsd / trade.details.propRiskAtLog));
+    baseTarget = (r.propFee + (r.phase === 2 ? r.trueDeficit : 0)) / legsAtLog;
   } else if (trade?.details?.phase != null) {
     const chain = trade.details.phase === 1 ? r.phase1 : r.phase2;
     baseTarget = chain.exnessWinTarget;
@@ -105,14 +113,18 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
   // Real-time Current Exness balance = Initial Deposit + Net Exness PnL made so far
   const actualExnessBalance = initialExnessDeposit + actualExnessPnl;
 
-  const propRiskPerTrade = r.lossesToBlow > 0 ? r.maxDdUsd / r.lossesToBlow : r.propWinPerTrade;
+  const currentRiskPerTrade = r.cappedPropRisk > 0 ? r.cappedPropRisk : (r.lossesToBlow > 0 ? r.maxDdUsd / r.lossesToBlow : r.propWinPerTrade);
   const totalPropSlippage = closed
-    .filter((t) => t.result === "LOSS" && Math.abs(t.propPnl) > propRiskPerTrade)
-    .reduce((s, t) => s + (Math.abs(t.propPnl) - propRiskPerTrade), 0);
+    .filter((t) => t.result === "LOSS")
+    .reduce((s, t) => {
+      const riskAtTrade = t.details?.propRiskAtLog ?? currentRiskPerTrade;
+      const actualLoss = Math.abs(t.propPnl);
+      return s + (actualLoss > riskAtTrade ? actualLoss - riskAtTrade : 0);
+    }, 0);
 
   const adjustedRemainingLosses = remainingDrawdown <= 0
     ? 0
-    : Math.max(0, Math.floor(remainingDrawdown / propRiskPerTrade));
+    : Math.max(0, Math.floor(remainingDrawdown / currentRiskPerTrade));
 
   // Use NET retained (wins minus losses) — gross wins overstate recovery because
   // Exness loses money on every prop win, erasing prior gains.
@@ -159,10 +171,20 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
   const activeChain = r.phase === 1 ? r.phase1 : r.phase2;
   const baseExnessWinTarget = Math.max(0, activeChain.exnessWinTarget);
   const baseExnessLossTarget = baseExnessWinTarget * r.rr;
-  const effectiveBaseTarget = totalPropSlippage > 0 ? rePacedExnessTarget : baseExnessWinTarget;
+
+  // Defensive Mode: Triggered when user manually lowers Prop Risk below the standard baseline (1% of account size)
+  const standardPropRisk = r.account?.size ? r.account.size * 0.01 : 50;
+  const isDefensiveMode = r.cappedPropRisk < standardPropRisk - 0.001;
+  const expandedLossesToBlow = adjustedRemainingLosses > 0 ? adjustedRemainingLosses : r.lossesToBlow;
+
+  // Dynamic Base Target: When trades are logged and re-pacing / defensive mode is active, use rePacedExnessTarget
+  const dynamicBaseTarget = (closed.length > 0 && adjustedRemainingLosses > 0 && (totalPropSlippage > 0 || isDefensiveMode))
+    ? rePacedExnessTarget
+    : baseExnessWinTarget;
+  const effectiveBaseTarget = dynamicBaseTarget;
   const newExnessWinTarget  = effectiveBaseTarget + slippageDebt;
   const newExnessLossTarget = newExnessWinTarget * r.rr;
-  const adjustmentNeeded    = slippageDebt > 0.005 || totalPropSlippage > 0;
+  const adjustmentNeeded    = slippageDebt > 0.005 || totalPropSlippage > 0 || (isDefensiveMode && closed.length > 0 && Math.abs(newExnessWinTarget - baseExnessWinTarget) > 0.005);
 
   const pureDynamicCapital     = newExnessLossTarget * r.winsToPass;
   const bufferMultiplier       = 1 + r.bufferPct / 100;
@@ -222,9 +244,13 @@ export function computeRecovery(r: EngineResult, journal: JournalTrade[]): Recov
     phase: r.phase,
     totalPropSlippage,
     rePacedExnessTarget,
+    dynamicBaseTarget,
     adjustedRemainingLosses,
     recoveryShortfall,
     effectiveBaseTarget,
     exnessWinsNeeded,
+    isDefensiveMode,
+    standardPropRisk,
+    expandedLossesToBlow,
   };
 }

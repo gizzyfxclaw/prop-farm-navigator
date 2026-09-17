@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
+import { BarChart3, ArrowRight } from "lucide-react";
 import { Alert, Badge, Button, Card, Field, Row, Select, Stat } from "@/components/terminal/ui";
 import { TradingViewChart } from "@/components/terminal/tradingview-chart";
 import { LWChart, type Drawing, type OHLCBar } from "@/components/terminal/lwchart";
@@ -794,7 +795,7 @@ function HermesPage() {
           {chartMode === "tv" ? (
             <TradingViewChart pair={chartPair} height="100%" />
           ) : (
-            <LWChart bars={bars} drawings={[...drawings, ...smcDrawings]} height="100%" loading={barsLoading} storageKey={chartPair} pair={chartPair} />
+            <LWChart bars={bars} drawings={[...drawings, ...smcDrawings]} height="100%" loading={barsLoading} storageKey={chartPair} pair={chartPair} title={`Hermes Analysis · ${chartPair} · ${chartInterval}`} />
           )}
         </div>
 
@@ -1220,7 +1221,20 @@ function HermesPage() {
       })()}
 
       {backtests.length > 0 && (
-        <Card title="Backtest results" badge={<Badge tone="neutral">{backtests.length}</Badge>}>
+        <Card
+          title="Backtest results"
+          badge={
+            <div className="flex items-center gap-2">
+              <Badge tone="neutral">{backtests.length}</Badge>
+              <Link
+                to="/backtest"
+                className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+              >
+                <BarChart3 size={12} /> Open Mechanical Backtester <ArrowRight size={11} />
+              </Link>
+            </div>
+          }
+        >
           <div className="space-y-3">
             {backtests.map((b) => (
               <div key={b.id} className="rounded-xl border border-border p-3">

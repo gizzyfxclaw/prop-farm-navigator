@@ -75,10 +75,16 @@ const RULES: Rule[] = [
     detail: "Suggested: 08:13, 10:42, 14:05. Never trade on the hour.",
   },
   {
+    id: "late-cutoff",
+    category: "execution",
+    text: "No Late Entries After 3:00 PM ET / 8:00 PM WAT (Night Slippage Defense)",
+    detail: "Spreads widen heavily around 5:00 PM ET rollover (10:00 PM WAT). Stop new entries by 3:00 PM ET to protect against nighttime slippage.",
+  },
+  {
     id: "sl-pips",
     category: "execution",
-    text: "Vary SL pips: 28, 35, 22",
-    detail: "Rotate to avoid prop AI detection.",
+    text: "Vary SL pips: 20, 25, 30, 35, 40",
+    detail: "Rotate around your 30 pip strategy SL to avoid prop AI detection.",
   },
   {
     id: "order-exec",
@@ -232,11 +238,11 @@ export function RulesAlertPanel() {
     const inActiveSession = inLondon || inNY || inTokyo || inSydney;
     const inTradeableWindow = inAnyOverlap || inActiveSession;
 
-    // Suggested entry time (next odd-minute time from the list)
+    // Suggested entry time (strictly capped before 3:00 PM ET / 8:00 PM WAT cutoff)
     const suggestedTimes = [
       { h: 8, m: 13 }, { h: 9, m: 37 }, { h: 10, m: 42 },
       { h: 11, m: 8 }, { h: 13, m: 17 }, { h: 14, m: 5 },
-      { h: 14, m: 51 }, { h: 15, m: 23 },
+      { h: 14, m: 51 },
     ];
     const currentETMinutes = et.hours * 60 + et.minutes;
     const nextSuggested = suggestedTimes.find(t => t.h * 60 + t.m > currentETMinutes);
@@ -244,12 +250,16 @@ export function RulesAlertPanel() {
       ? `${String(nextSuggested.h).padStart(2, "0")}:${String(nextSuggested.m).padStart(2, "0")} ET`
       : `${String(suggestedTimes[0]!.h).padStart(2, "0")}:${String(suggestedTimes[0]!.m).padStart(2, "0")} ET (tomorrow)`;
 
-    // SL rotation suggestion
-    const slOptions = [28, 35, 22];
+    // Late Day & Rollover Check (protect against 5 PM ET rollover spread widening & night slippage)
+    const isLateAfternoon = etSec >= 15 * 3600 && etSec < 19 * 3600; // 3:00 PM - 7:00 PM ET (8:00 PM - 12:00 AM WAT)
+    const isNightRollover = etSec >= 16.5 * 3600 && etSec < 18 * 3600; // 4:30 PM - 6:00 PM ET (Rollover peak danger)
+
+    // SL rotation suggestion — includes standard 30 pip strategy SL + common rotations
+    const slOptions = [20, 25, 30, 35, 40];
     const currentSlIndex = slOptions.indexOf(r.propSlPips);
     const suggestedSl = currentSlIndex >= 0
       ? slOptions[(currentSlIndex + 1) % slOptions.length]
-      : slOptions[Math.floor(Math.random() * slOptions.length)];
+      : 30;
 
     // News analysis — uses shared classifyHazard logic (same as Calendar)
     const classifiedEvents = newsEvents.map((e) => ({
@@ -364,19 +374,37 @@ export function RulesAlertPanel() {
 
       // 5. Entry times — dynamic suggestion
       {
-        rule: RULES[4]!,
-        status: inTradeableWindow ? "ok" as const : "info" as const,
-        message: inTradeableWindow
+        rule: RULES.find(ru => ru.id === "entry-time")!,
+        status: inTradeableWindow && !isLateAfternoon ? "ok" as const : "info" as const,
+        message: inTradeableWindow && !isLateAfternoon
           ? `Next suggested entry: ${suggestedStr}`
+          : isLateAfternoon
+          ? `Outside safe entry window (after 3 PM ET) — next suggested: ${suggestedStr}`
           : `Outside trade window — next entry: ${suggestedStr}`,
         countdown: nextSuggested
           ? formatCountdown((nextSuggested.h * 3600 + nextSuggested.m * 60) - etSec)
           : undefined,
       },
 
+      // 5b. Late Day Cutoff & Rollover Defense (No new entries after 3:00 PM ET / 8:00 PM WAT)
+      {
+        rule: RULES.find(ru => ru.id === "late-cutoff")!,
+        status: isNightRollover ? ("critical" as const) : isLateAfternoon ? ("warning" as const) : ("ok" as const),
+        message: isNightRollover
+          ? "ROLLOVER SPREAD DANGER (4:30–6:00 PM ET): Extreme broker spreads & swap! DO NOT ENTER."
+          : isLateAfternoon
+          ? "LATE DAY WARNING: After 3:00 PM ET (8:00 PM WAT) — spreads widen approaching 5 PM rollover! Avoid new entries."
+          : "Safe entry window (before 3:00 PM ET / 8:00 PM WAT cutoff) — spreads tight",
+        countdown: isLateAfternoon
+          ? formatCountdown(19 * 3600 - etSec)
+          : etSec < 15 * 3600
+          ? formatCountdown(15 * 3600 - etSec)
+          : undefined,
+      },
+
       // 6. SL pips — rotation suggestion
       {
-        rule: RULES[5]!,
+        rule: RULES.find(ru => ru.id === "sl-pips")!,
         status: slOptions.includes(r.propSlPips) ? "ok" as const : "warning" as const,
         message: slOptions.includes(r.propSlPips)
           ? `Current: ${r.propSlPips} pips ✓ — next rotation: ${suggestedSl} pips`
@@ -385,21 +413,21 @@ export function RulesAlertPanel() {
 
       // 7. Exness FIRST — reads from Daily Briefing checklist
       {
-        rule: RULES[6]!,
+        rule: RULES.find(ru => ru.id === "order-exec")!,
         status: localStorage.getItem("gizzyfx.checklist.exnessFirst") === "true" ? "ok" : "info",
         message: "Manual check — always Exness first, wait for green, then Prop",
       },
 
       // 8. MT5 check — reads from Daily Briefing checklist
       {
-        rule: RULES[7]!,
+        rule: RULES.find(ru => ru.id === "mt5-check")!,
         status: localStorage.getItem("gizzyfx.checklist.mt5Check") === "true" ? "ok" : "info",
         message: "Check Live MT5 tab shows balance before trading",
       },
 
       // 9. P&L signs
       {
-        rule: RULES[8]!,
+        rule: RULES.find(ru => ru.id === "signs")!,
         status: badTrade ? "critical" : "ok",
         message: badTrade
           ? `BAD DATA: Trade #${badTrade.id} — Exness positive on Prop Win!`
@@ -408,7 +436,7 @@ export function RulesAlertPanel() {
 
       // 10. Margin call lock
       {
-        rule: RULES[11]!,
+        rule: RULES.find(ru => ru.id === "margin-call")!,
         status: marginCallLocked ? "critical" as const : "ok" as const,
         message: marginCallLocked
           ? `Exness buffer too low — deposit $${recovery.depositNeeded.toFixed(2)} to unlock execution`
@@ -417,7 +445,7 @@ export function RulesAlertPanel() {
 
       // 11. Critical legs warning
       {
-        rule: RULES[12]!,
+        rule: RULES.find(ru => ru.id === "critical-legs")!,
         status: criticalLegs ? "critical" as const : "ok" as const,
         message: criticalLegs
           ? `Prop account near blowout — ${recovery.adjustedRemainingLosses} legs left. Exness target at maximum capacity.`
@@ -503,9 +531,21 @@ export function RulesAlertPanel() {
   else if (!inTradingWindow) verdict = "WAIT_SESSION";
   else if (hasWarning) verdict = "CAUTION";
 
+  // Dynamic caution subtext based on active warning rules
+  const warningRules = liveRules.filter((r) => r.status === "warning");
+  let dynamicCautionSub = "Conditions require caution. Enter only if setup is strong.";
+  if (warningRules.length > 0) {
+    const newsWarn = warningRules.find((r) => r.rule.id === "news" || r.rule.id === "news-gap");
+    if (newsWarn) {
+      dynamicCautionSub = newsWarn.message;
+    } else {
+      dynamicCautionSub = warningRules[0]!.message;
+    }
+  }
+
   const verdictConfig = {
     GO: { icon: <ShieldCheck size={20} />, label: "CLEAR TO TRADE", bg: "oklch(var(--gz-pos) / 0.12)", border: "oklch(var(--gz-pos) / 0.3)", color: "oklch(var(--gz-pos))", sub: "All conditions met. Follow your entry rules." },
-    CAUTION: { icon: <ShieldAlert size={20} />, label: "TRADE WITH CAUTION", bg: "oklch(var(--gz-warn) / 0.1)", border: "oklch(var(--gz-warn) / 0.25)", color: "oklch(var(--gz-warn))", sub: "News approaching. Enter only if setup is strong." },
+    CAUTION: { icon: <ShieldAlert size={20} />, label: "TRADE WITH CAUTION", bg: "oklch(var(--gz-warn) / 0.1)", border: "oklch(var(--gz-warn) / 0.25)", color: "oklch(var(--gz-warn))", sub: dynamicCautionSub },
     WAIT_NEWS: { icon: <ShieldX size={20} />, label: "DO NOT TRADE — NEWS", bg: "oklch(var(--gz-neg) / 0.12)", border: "oklch(var(--gz-neg) / 0.3)", color: "oklch(var(--gz-neg))", sub: "High-impact news within 30 minutes. Wait." },
     WAIT_SESSION: { icon: <Clock size={20} />, label: "WAIT FOR SESSION", bg: "oklch(var(--gz-warn) / 0.08)", border: "oklch(var(--gz-warn) / 0.2)", color: "oklch(var(--gz-warn))", sub: "Outside trading window. Wait for London or NY." },
     WAIT_BUFFER: { icon: <ShieldX size={20} />, label: "DO NOT TRADE — BUFFER", bg: "oklch(var(--gz-neg) / 0.12)", border: "oklch(var(--gz-neg) / 0.3)", color: "oklch(var(--gz-neg))", sub: "Exness buffer depleted. Deposit to continue." },

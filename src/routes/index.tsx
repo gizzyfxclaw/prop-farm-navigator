@@ -316,6 +316,30 @@ function EnginePage() {
 
       <LiveAccountsPanel live={liveAccounts} result={r} account={selectedAccount} />
 
+      {/* ── DEFENSIVE MODE BANNER ─────────────────────────────── */}
+      {recovery.isDefensiveMode && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-300 shadow-md animate-in fade-in duration-200">
+          <div className="flex items-start sm:items-center gap-3">
+            <span className="text-2xl shrink-0">🛡️</span>
+            <div>
+              <p className="text-[13px] font-bold tracking-tight text-amber-200">
+                DEFENSIVE MODE: Risk reduced to ${r.cappedPropRisk.toFixed(2)}. Losses to Blow expanded to {recovery.adjustedRemainingLosses || r.lossesToBlow}. Exness target adjusted down to ${(recovery.newExnessWinTarget || r.exnessWinTarget).toFixed(2)} to protect buffer.
+              </p>
+              <p className="text-[11px] text-amber-300/80 mt-0.5">
+                Dynamic Leg Expansion active — {recovery.adjustedRemainingLosses || r.lossesToBlow} recovery legs safely absorb prop slippage and protect Exness from drawdown.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setEngine({ propRiskUsd: recovery.standardPropRisk })}
+            className="self-start sm:self-center shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/20 px-3 py-1.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/30 transition-colors cursor-pointer"
+            title={`Restore standard risk (${money(recovery.standardPropRisk)})`}
+          >
+            Restore Normal (${recovery.standardPropRisk.toFixed(0)})
+          </button>
+        </div>
+      )}
+
       {/* ── INPUTS + MIRROR TICKET ──────────────────────────────── */}
       <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
         <Card
@@ -427,8 +451,57 @@ function EnginePage() {
               </div>
             </div>
 
-            <Field label="Prop risk per trade ($)">
-              <TextInput type="number" step="0.01" value={engine.propRiskUsd} onChange={(e) => setEngine({ propRiskUsd: Number(e.target.value) })} />
+            <Field
+              label="Prop risk per trade ($)"
+              hint={
+                recovery.isDefensiveMode
+                  ? `🛡️ Defensive Mode: ${recovery.adjustedRemainingLosses || r.lossesToBlow} losses to blow`
+                  : `Standard baseline: ${money(recovery.standardPropRisk)} (1% of size)`
+              }
+            >
+              <div className="space-y-2">
+                <TextInput
+                  type="number"
+                  step="0.01"
+                  value={engine.propRiskUsd}
+                  onChange={(e) => setEngine({ propRiskUsd: Number(e.target.value) })}
+                />
+                <div className="flex flex-wrap gap-1.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setEngine({ propRiskUsd: recovery.standardPropRisk })}
+                    className={`rounded-md px-2 py-0.5 border transition-colors cursor-pointer ${
+                      !recovery.isDefensiveMode
+                        ? "border-primary bg-primary/20 text-primary font-semibold"
+                        : "border-border bg-card/60 text-muted-foreground hover:text-foreground hover:bg-card"
+                    }`}
+                  >
+                    ⚡ Standard (${recovery.standardPropRisk.toFixed(0)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEngine({ propRiskUsd: Number((recovery.standardPropRisk * 0.6).toFixed(0)) })}
+                    className={`rounded-md px-2 py-0.5 border transition-colors cursor-pointer ${
+                      engine.propRiskUsd === Number((recovery.standardPropRisk * 0.6).toFixed(0))
+                        ? "border-emerald-500 bg-emerald-500/20 text-emerald-300 font-semibold"
+                        : "border-border bg-card/60 text-muted-foreground hover:text-foreground hover:bg-card"
+                    }`}
+                  >
+                    🛡️ Defensive (${(recovery.standardPropRisk * 0.6).toFixed(0)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEngine({ propRiskUsd: Number((recovery.standardPropRisk * 0.4).toFixed(0)) })}
+                    className={`rounded-md px-2 py-0.5 border transition-colors cursor-pointer ${
+                      engine.propRiskUsd === Number((recovery.standardPropRisk * 0.4).toFixed(0))
+                        ? "border-emerald-500 bg-emerald-500/20 text-emerald-300 font-semibold"
+                        : "border-border bg-card/60 text-muted-foreground hover:text-foreground hover:bg-card"
+                    }`}
+                  >
+                    🛡️ Ultra (${(recovery.standardPropRisk * 0.4).toFixed(0)})
+                  </button>
+                </div>
+              </div>
             </Field>
             <Field label="R:R rotation (1:1.5 – 1:3)">
               <Select value={engine.rr} onChange={(e) => setEngine({ rr: Number(e.target.value) })}>
@@ -589,9 +662,23 @@ function EnginePage() {
           </Card>
 
           {/* ── RISK PER TRADE ──────────────────────────────────── */}
-          <Card title="Risk per trade">
+          <Card
+            title="Risk per trade"
+            badge={
+              recovery.isDefensiveMode ? (
+                <Badge tone="amber">🛡️ DEFENSIVE MODE ({recovery.adjustedRemainingLosses || r.lossesToBlow} Legs)</Badge>
+              ) : (
+                <Badge tone="green">⚡ NORMAL MODE</Badge>
+              )
+            }
+          >
             <Row label="Prop risk (SL hit)" value={money(-r.cappedPropRisk)} tone="neg" />
             <Row label="Prop reward (TP hit)" value={money(r.cappedPropRisk * r.rr, true)} tone="pos" />
+            {recovery.isDefensiveMode && (
+              <div className="mt-2 rounded border border-amber-500/40 bg-amber-500/10 p-2 text-[10px] text-amber-300">
+                🛡️ <strong>Defensive Mode Active:</strong> Risk reduced to ${r.cappedPropRisk.toFixed(2)}. Losses to Blow expanded to <strong>{recovery.adjustedRemainingLosses || r.lossesToBlow}</strong>, adjusting Exness win target down to <strong>${(recovery.newExnessWinTarget || r.exnessWinTarget).toFixed(2)}</strong> to protect buffer.
+              </div>
+            )}
             {r.riskCapped && (
               <div className="mt-2 rounded border border-amber-500/50 bg-amber-500/10 p-2 text-[10px] text-amber-400">
                 Daily profit cap active — Prop Risk reduced from ${engine.propRiskUsd.toFixed(2)} to ${r.cappedPropRisk.toFixed(2)} so the ${money(r.cappedPropRisk * r.rr)} reward stays under the ${money(selectedAccount.dailyProfitCap ?? 0)} daily cap.

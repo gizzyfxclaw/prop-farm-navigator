@@ -19,7 +19,7 @@ import { PAIRS } from "@/lib/engine/pairs";
 import { fetchHistoryDeals, fetchOpenState } from "@/lib/metaapi.functions";
 import { useStore, type JournalTrade } from "@/lib/store";
 import { useEngineWithRecovery } from "@/lib/useEngine";
-import { Bot, AlertTriangle, CheckCircle, XCircle, RefreshCcw } from "lucide-react";
+import { Bot, AlertTriangle, CheckCircle, XCircle, RefreshCcw, Maximize2, Minimize2 } from "lucide-react";
 
 export const Route = createFileRoute("/journal")({
   head: () => ({
@@ -101,6 +101,7 @@ function JournalPage() {
   const [settleExPnl, setSettleExPnl] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [fullscreenChart, setFullscreenChart] = useState<"curve" | "distribution" | null>(null);
   const [pendingDeal, setPendingDeal] = useState<{
     id: string;
     time: string;
@@ -771,7 +772,21 @@ function JournalPage() {
 
       {/* ── EQUITY CURVE + WIN/LOSS ─────────────────────────────────── */}
       <div className="grid gap-5 lg:grid-cols-3">
-        <Card title="Equity curve" className="lg:col-span-2">
+        <Card
+          title="Equity curve"
+          className="lg:col-span-2"
+          badge={
+            curve.length ? (
+              <button
+                onClick={() => setFullscreenChart("curve")}
+                title="Full Screen View"
+                className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground border border-border/80 bg-card/60 hover:bg-card px-2 py-1 rounded-md transition-colors cursor-pointer"
+              >
+                <Maximize2 size={12} /> Full Screen
+              </button>
+            ) : undefined
+          }
+        >
           <div className="h-64">
             {curve.length ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -788,7 +803,20 @@ function JournalPage() {
             )}
           </div>
         </Card>
-        <Card title="Win / loss">
+        <Card
+          title="Win / loss"
+          badge={
+            closed.length ? (
+              <button
+                onClick={() => setFullscreenChart("distribution")}
+                title="Full Screen View"
+                className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground border border-border/80 bg-card/60 hover:bg-card px-2 py-1 rounded-md transition-colors cursor-pointer"
+              >
+                <Maximize2 size={12} /> Full Screen
+              </button>
+            ) : undefined
+          }
+        >
           <div className="h-64">
             {closed.length ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -807,6 +835,47 @@ function JournalPage() {
           </div>
         </Card>
       </div>
+
+      {/* Fullscreen Journal Chart Modal */}
+      {fullscreenChart && (
+        <div className="fixed inset-0 z-[9999] flex flex-col bg-background/98 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="flex shrink-0 items-center justify-between border-b border-border/80 bg-card/80 px-4 py-3 rounded-t-lg backdrop-blur mb-3">
+            <span className="font-bold text-[14px] text-foreground font-mono">
+              {fullscreenChart === "curve" ? "Equity Curve — Performance History" : "Win / Loss Distribution"}
+            </span>
+            <button
+              onClick={() => setFullscreenChart(null)}
+              className="flex items-center gap-1.5 h-8 rounded-md border border-primary bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
+            >
+              <Minimize2 size={14} /> Exit Full Screen
+            </button>
+          </div>
+          <div className="flex-1 w-full min-h-0 p-2">
+            {fullscreenChart === "curve" ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={curve}>
+                  <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
+                  <XAxis dataKey="i" stroke="var(--color-muted-foreground)" fontSize={12} />
+                  <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
+                  <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 13 }} />
+                  <Line type="monotone" dataKey="equity" stroke="var(--color-primary)" strokeWidth={2.5} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={distribution} dataKey="value" nameKey="name" innerRadius={80} outerRadius={150} label>
+                    {distribution.map((d) => (
+                      <Cell key={d.name} fill={d.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 13 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── TRADES TABLE ────────────────────────────────────────────── */}
       <Card
