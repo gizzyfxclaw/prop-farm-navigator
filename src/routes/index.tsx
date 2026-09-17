@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { AlertOctagon, AlertTriangle, ExternalLink, Lock, RotateCw, Shield, ShieldAlert, ShieldCheck, Zap, Activity, Wallet } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ExternalLink, Lock, RotateCw, Shield, ShieldAlert, ShieldCheck, Zap, Activity, Wallet, Copy, Check, Sparkles, ArrowRight } from "lucide-react";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { ActualExnessBalance } from "@/components/terminal/ActualExnessBalance";
 import { RulesAlertPanel } from "@/components/terminal/RulesAlertPanel";
@@ -106,6 +106,25 @@ function EnginePage() {
 
   // Combined execution lock (uses same data as Coach)
   const executionLocked = dailyCapLocked || marginCallLocked || r.verdict.level === "red" || !market.open || engineBlocked;
+
+  const [copiedProp, setCopiedProp] = useState(false);
+  const [copiedExness, setCopiedExness] = useState(false);
+
+  const copyPropTicket = useCallback(() => {
+    const text = `PROP FIRM PENDING ORDER:\nPair: ${engine.pair}\nType: ORDER_TYPE_${engine.pendingOrderType}\nPrice: ${formatPrice(r.entryPrice, dec)}\nLots: ${r.propLots.toFixed(2)}\nSL: ${formatPrice(r.propSl, dec)} (${r.propSlPips} pips)\nTP: ${formatPrice(r.propTp, dec)} (${r.propTpPips} pips)`;
+    navigator.clipboard.writeText(text);
+    setCopiedProp(true);
+    toast.success("Prop ticket copied! Enter on your phone MT5 app at the exact same price.");
+    setTimeout(() => setCopiedProp(false), 2000);
+  }, [engine.pair, engine.pendingOrderType, r.entryPrice, r.propLots, r.propSl, r.propSlPips, r.propTp, r.propTpPips, dec]);
+
+  const copyExnessTicket = useCallback(() => {
+    const text = `EXNESS PENDING ORDER:\nPair: ${symbol}\nType: ORDER_TYPE_${mirrorPendingOrder(engine.pendingOrderType)}\nPrice: ${formatPrice(r.entryPrice, dec)}\nLots: ${r.exnessLots.toFixed(2)} (${engine.exnessAccountType})\nSL: ${formatPrice(r.exnessSl, dec)}\nTP: ${formatPrice(r.exnessTp, dec)}`;
+    navigator.clipboard.writeText(text);
+    setCopiedExness(true);
+    toast.success("Exness ticket copied!");
+    setTimeout(() => setCopiedExness(false), 2000);
+  }, [symbol, engine.pendingOrderType, r.entryPrice, r.exnessLots, engine.exnessAccountType, r.exnessSl, r.exnessTp, dec]);
 
   const live = livePrice.price != null
     ? { price: livePrice.price, label: `${symbol} bid ${livePrice.bid} / ask ${livePrice.ask}` }
@@ -600,7 +619,24 @@ function EnginePage() {
 
         {/* ── MIRROR TICKET ──────────────────────────────────────── */}
         <div className="space-y-5 w-full">
-          <Card title="Mirror ticket" accent="highlight" flush>
+          <Card
+            title="Mirror ticket"
+            accent="highlight"
+            badge={
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={copyPropTicket}
+                  title="1-Tap Copy Prop Ticket to Clipboard"
+                  className="flex items-center gap-1 h-7 rounded-md border border-primary/50 bg-primary/20 px-2.5 text-[11px] font-semibold text-primary hover:bg-primary/30 transition-colors cursor-pointer"
+                >
+                  {copiedProp ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                  {copiedProp ? "Copied Prop!" : "Copy Prop Ticket"}
+                </button>
+              </div>
+            }
+            flush
+          >
             {/* Mobile: kv layout */}
             <div className="sm:hidden" style={{ padding: "0.7rem" }}>
               {[
@@ -661,6 +697,44 @@ function EnginePage() {
                 </tr>
               </DataGrid>
             </div>
+
+            {/* Quick 1-tap copy actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-muted/20 border-t border-border/60">
+              <button
+                type="button"
+                onClick={copyPropTicket}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-primary bg-primary/10 border border-primary/30 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+              >
+                {copiedProp ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                {copiedProp ? "Copied Prop Order!" : "Copy Prop Ticket for Phone"}
+              </button>
+              <button
+                type="button"
+                onClick={copyExnessTicket}
+                className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground bg-card/60 border border-border/80 hover:bg-card px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+              >
+                {copiedExness ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                {copiedExness ? "Copied Exness!" : "Copy Exness Ticket"}
+              </button>
+            </div>
+
+            {/* Cent account micro-lot recommendation */}
+            {engine.exnessAccountType === "Standard" && (r.exnessLots < 0.05 || recovery.isDefensiveMode) && (
+              <div className="m-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 flex items-center justify-between gap-2 text-[11px] text-amber-300">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-amber-400 shrink-0" />
+                  <span><strong>Cent Account Recommended:</strong> Sizing is small (${recovery.newExnessWinTarget.toFixed(2)} target). Cent account provides 100% exact penny precision.</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEngine({ exnessAccountType: "Cent" })}
+                  className="shrink-0 font-semibold px-2 py-1 rounded bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/30 text-amber-200 transition-colors cursor-pointer"
+                >
+                  Switch to Cent
+                </button>
+              </div>
+            )}
+
             {Number(r.exnessLots.toFixed(2)) < 0.01 && (
               <div className="alert alert-red" style={{ margin: "0.5rem 0.7rem" }}>
                 <p className="alert-title">Lot size too small</p>
@@ -782,6 +856,15 @@ function EnginePage() {
           </div>
           <p className="mt-2 text-[10px] text-muted-foreground">
             Real cash spent: the prop fee plus the net Exness fuel burn. Money still sitting in the Exness tank ({money(recovery.actualExnessBalance)}) is returnable principal, not lost.
+          </p>
+        </div>
+        <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-[11px] text-emerald-300">
+          <div className="flex items-center gap-1.5 font-semibold text-emerald-200 mb-1">
+            <ShieldCheck size={14} className="text-emerald-400" />
+            <span>Upfront Buffer Protection Envelope: {money(recovery.adjustmentNeeded ? recovery.dynamicExnessCapital : (r.phase === 1 ? r.phase1.bufferedExnessCapital : r.phase2.bufferedExnessCapital))}</span>
+          </div>
+          <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+            Depositing this upfront amount covers all {r.winsToPass} consecutive Prop wins with zero extra refills needed. When the challenge passes, your prop payout refunds this fuel completely.
           </p>
         </div>
         <p className="mt-2 text-[10px] text-muted-foreground">
