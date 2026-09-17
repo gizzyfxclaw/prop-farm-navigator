@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertOctagon, AlertTriangle, ExternalLink, Lock, RotateCw, ShieldAlert, Wallet } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ExternalLink, Lock, RotateCw, Shield, ShieldAlert, ShieldCheck, Zap, Activity, Wallet } from "lucide-react";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { ActualExnessBalance } from "@/components/terminal/ActualExnessBalance";
 import { RulesAlertPanel } from "@/components/terminal/RulesAlertPanel";
@@ -320,11 +320,14 @@ function EnginePage() {
       {recovery.isDefensiveMode && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-300 shadow-md animate-in fade-in duration-200">
           <div className="flex items-start sm:items-center gap-3">
-            <span className="text-2xl shrink-0">🛡️</span>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400">
+              <ShieldAlert size={20} />
+            </div>
             <div>
-              <p className="text-[13px] font-bold tracking-tight text-amber-200">
-                DEFENSIVE MODE: Risk reduced to ${r.cappedPropRisk.toFixed(2)}. Losses to Blow expanded to {recovery.adjustedRemainingLosses || r.lossesToBlow}. Exness target adjusted down to ${(recovery.newExnessWinTarget || r.exnessWinTarget).toFixed(2)} to protect buffer.
-              </p>
+              <div className="flex items-center gap-1.5 font-bold tracking-tight text-amber-200 text-[13px]">
+                <Shield size={14} className="text-amber-400" />
+                <span>DEFENSIVE MODE: Risk reduced to ${r.cappedPropRisk.toFixed(2)}. Losses to Blow expanded to {recovery.adjustedRemainingLosses || r.lossesToBlow}. Exness target adjusted down to ${(recovery.newExnessWinTarget || r.exnessWinTarget).toFixed(2)} to protect buffer.</span>
+              </div>
               <p className="text-[11px] text-amber-300/80 mt-0.5">
                 Dynamic Leg Expansion active — {recovery.adjustedRemainingLosses || r.lossesToBlow} recovery legs safely absorb prop slippage and protect Exness from drawdown.
               </p>
@@ -332,9 +335,10 @@ function EnginePage() {
           </div>
           <button
             onClick={() => setEngine({ propRiskUsd: recovery.standardPropRisk })}
-            className="self-start sm:self-center shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/20 px-3 py-1.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/30 transition-colors cursor-pointer"
+            className="flex items-center gap-1 self-start sm:self-center shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/20 px-3 py-1.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/30 transition-colors cursor-pointer"
             title={`Restore standard risk (${money(recovery.standardPropRisk)})`}
           >
+            <Zap size={12} />
             Restore Normal (${recovery.standardPropRisk.toFixed(0)})
           </button>
         </div>
@@ -454,9 +458,15 @@ function EnginePage() {
             <Field
               label="Prop risk per trade ($)"
               hint={
-                recovery.isDefensiveMode
-                  ? `🛡️ Defensive Mode: ${recovery.adjustedRemainingLosses || r.lossesToBlow} losses to blow`
-                  : `Standard baseline: ${money(recovery.standardPropRisk)} (1% of size)`
+                recovery.isDefensiveMode ? (
+                  <span className="flex items-center gap-1 text-amber-400 font-medium">
+                    <ShieldAlert size={12} /> Defensive Mode Active: {recovery.adjustedRemainingLosses || r.lossesToBlow} losses to blow
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <ShieldCheck size={12} className="text-emerald-400" /> Standard baseline: {money(recovery.standardPropRisk)} (1% of size)
+                  </span>
+                )
               }
             >
               <div className="space-y-2">
@@ -470,35 +480,38 @@ function EnginePage() {
                   <button
                     type="button"
                     onClick={() => setEngine({ propRiskUsd: recovery.standardPropRisk })}
-                    className={`rounded-md px-2 py-0.5 border transition-colors cursor-pointer ${
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-all cursor-pointer font-medium ${
                       !recovery.isDefensiveMode
-                        ? "border-primary bg-primary/20 text-primary font-semibold"
-                        : "border-border bg-card/60 text-muted-foreground hover:text-foreground hover:bg-card"
+                        ? "border-primary bg-primary/20 text-primary font-semibold shadow-sm"
+                        : "border-border bg-card/70 text-muted-foreground hover:text-foreground hover:bg-card"
                     }`}
                   >
-                    ⚡ Standard (${recovery.standardPropRisk.toFixed(0)})
+                    <Zap size={12} className={!recovery.isDefensiveMode ? "text-primary" : "text-muted-foreground"} />
+                    Standard (${recovery.standardPropRisk.toFixed(0)})
                   </button>
                   <button
                     type="button"
                     onClick={() => setEngine({ propRiskUsd: Number((recovery.standardPropRisk * 0.6).toFixed(0)) })}
-                    className={`rounded-md px-2 py-0.5 border transition-colors cursor-pointer ${
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-all cursor-pointer font-medium ${
                       engine.propRiskUsd === Number((recovery.standardPropRisk * 0.6).toFixed(0))
-                        ? "border-emerald-500 bg-emerald-500/20 text-emerald-300 font-semibold"
-                        : "border-border bg-card/60 text-muted-foreground hover:text-foreground hover:bg-card"
+                        ? "border-amber-500/60 bg-amber-500/20 text-amber-300 font-semibold shadow-sm"
+                        : "border-border bg-card/70 text-muted-foreground hover:text-foreground hover:bg-card"
                     }`}
                   >
-                    🛡️ Defensive (${(recovery.standardPropRisk * 0.6).toFixed(0)})
+                    <Shield size={12} className={engine.propRiskUsd === Number((recovery.standardPropRisk * 0.6).toFixed(0)) ? "text-amber-400" : "text-muted-foreground"} />
+                    Defensive (${(recovery.standardPropRisk * 0.6).toFixed(0)})
                   </button>
                   <button
                     type="button"
                     onClick={() => setEngine({ propRiskUsd: Number((recovery.standardPropRisk * 0.4).toFixed(0)) })}
-                    className={`rounded-md px-2 py-0.5 border transition-colors cursor-pointer ${
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-all cursor-pointer font-medium ${
                       engine.propRiskUsd === Number((recovery.standardPropRisk * 0.4).toFixed(0))
-                        ? "border-emerald-500 bg-emerald-500/20 text-emerald-300 font-semibold"
-                        : "border-border bg-card/60 text-muted-foreground hover:text-foreground hover:bg-card"
+                        ? "border-amber-500/60 bg-amber-500/20 text-amber-300 font-semibold shadow-sm"
+                        : "border-border bg-card/70 text-muted-foreground hover:text-foreground hover:bg-card"
                     }`}
                   >
-                    🛡️ Ultra (${(recovery.standardPropRisk * 0.4).toFixed(0)})
+                    <ShieldAlert size={12} className={engine.propRiskUsd === Number((recovery.standardPropRisk * 0.4).toFixed(0)) ? "text-amber-400" : "text-muted-foreground"} />
+                    Ultra (${(recovery.standardPropRisk * 0.4).toFixed(0)})
                   </button>
                 </div>
               </div>
@@ -666,17 +679,28 @@ function EnginePage() {
             title="Risk per trade"
             badge={
               recovery.isDefensiveMode ? (
-                <Badge tone="amber">🛡️ DEFENSIVE MODE ({recovery.adjustedRemainingLosses || r.lossesToBlow} Legs)</Badge>
+                <Badge tone="amber">
+                  <span className="flex items-center gap-1">
+                    <ShieldAlert size={11} /> DEFENSIVE ({recovery.adjustedRemainingLosses || r.lossesToBlow} Legs)
+                  </span>
+                </Badge>
               ) : (
-                <Badge tone="green">⚡ NORMAL MODE</Badge>
+                <Badge tone="green">
+                  <span className="flex items-center gap-1">
+                    <Zap size={11} /> NORMAL MODE
+                  </span>
+                </Badge>
               )
             }
           >
             <Row label="Prop risk (SL hit)" value={money(-r.cappedPropRisk)} tone="neg" />
             <Row label="Prop reward (TP hit)" value={money(r.cappedPropRisk * r.rr, true)} tone="pos" />
             {recovery.isDefensiveMode && (
-              <div className="mt-2 rounded border border-amber-500/40 bg-amber-500/10 p-2 text-[10px] text-amber-300">
-                🛡️ <strong>Defensive Mode Active:</strong> Risk reduced to ${r.cappedPropRisk.toFixed(2)}. Losses to Blow expanded to <strong>{recovery.adjustedRemainingLosses || r.lossesToBlow}</strong>, adjusting Exness win target down to <strong>${(recovery.newExnessWinTarget || r.exnessWinTarget).toFixed(2)}</strong> to protect buffer.
+              <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-[11px] text-amber-300">
+                <ShieldAlert size={14} className="shrink-0 text-amber-400 mt-0.5" />
+                <div>
+                  <strong>Defensive Mode Active:</strong> Risk reduced to ${r.cappedPropRisk.toFixed(2)}. Losses to Blow expanded to <strong>{recovery.adjustedRemainingLosses || r.lossesToBlow}</strong>, adjusting Exness win target down to <strong>${(recovery.newExnessWinTarget || r.exnessWinTarget).toFixed(2)}</strong> to protect buffer.
+                </div>
               </div>
             )}
             {r.riskCapped && (
