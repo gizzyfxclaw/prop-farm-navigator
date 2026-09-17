@@ -89,7 +89,7 @@
   top: 0;
   left: 0;
   right: 0;
-  z-index: 40;
+  z-index: 1000;
   width: 100%;
   /* More transparent — professional glass terminal look */
   background: oklch(var(--gz-bg) / 0.72);
@@ -98,7 +98,7 @@
   border-bottom: var(--gz-hair) solid oklch(var(--gz-p) / 0.18);
   box-shadow: 0 1px 0 oklch(var(--gz-p) / 0.08),
               0 12px 40px -8px oklch(0 0 0 / 0.75);
-  contain: layout style;
+  overflow: visible;
 }
 
 /* Hairline of accent across the very top — terminal signature. */
