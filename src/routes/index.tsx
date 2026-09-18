@@ -614,13 +614,31 @@ function EnginePage() {
                 <Field label="Prop stop loss (pips)" hint="When Prop risks 10 pips, Exness targets 10 pips">
                   <TextInput type="number" step="1" value={engine.slPips} onChange={(e) => setEngine({ slPips: Number(e.target.value) })} />
                 </Field>
-                <Field label="R:R rotation (1:1.5 – 1:3)" hint="1:2 R:R = Prop targets 20 pips, Exness risks 20 pips">
-                  <Select value={engine.rr} onChange={(e) => setEngine({ rr: Number(e.target.value) })}>
-                    <option value={1.5}>1 : 1.5 (Prop 1:1.5 ⇄ Exness 1.5:1)</option>
-                    <option value={2}>1 : 2 (Prop 1:2 ⇄ Exness 2:1)</option>
-                    <option value={2.5}>1 : 2.5 (Prop 1:2.5 ⇄ Exness 2.5:1)</option>
-                    <option value={3}>1 : 3 (Prop 1:3 ⇄ Exness 3:1)</option>
-                  </Select>
+                <Field label="Inverted Mirror R:R selection" hint="1:2 R:R = Prop targets 20 pips, Exness risks 20 pips">
+                  <div className="space-y-2">
+                    <Select value={engine.rr} onChange={(e) => setEngine({ rr: Number(e.target.value) })}>
+                      <option value={1.5}>1 : 1.5 (Prop 1:1.5 ⇄ Exness 1.5:1)</option>
+                      <option value={2}>1 : 2 (Prop 1:2 ⇄ Exness 2:1)</option>
+                      <option value={2.5}>1 : 2.5 (Prop 1:2.5 ⇄ Exness 2.5:1)</option>
+                      <option value={3}>1 : 3 (Prop 1:3 ⇄ Exness 3:1)</option>
+                    </Select>
+                    <div className="flex flex-wrap gap-1.5 text-[11px]">
+                      {[1.5, 2, 2.5, 3].map((ratio) => (
+                        <button
+                          key={ratio}
+                          type="button"
+                          onClick={() => setEngine({ rr: ratio })}
+                          className={`flex items-center gap-1 rounded-lg px-2.5 py-1 border transition-all cursor-pointer font-medium ${
+                            Math.abs(engine.rr - ratio) < 0.05
+                              ? "border-primary bg-primary/20 text-primary font-semibold shadow-sm"
+                              : "border-border bg-card/70 text-muted-foreground hover:text-foreground hover:bg-card"
+                          }`}
+                        >
+                          1 : {ratio} {Math.abs(engine.rr - ratio) < 0.05 ? "✓" : ""}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </Field>
               </>
             ) : (
@@ -639,6 +657,55 @@ function EnginePage() {
                     value={r.propSl}
                     onChange={(e) => setEngine({ stopPrice: Number(e.target.value) })}
                   />
+                </Field>
+                <Field
+                  label="Inverted Mirror R:R selection"
+                  hint={`Current: Prop 1:${r.rr.toFixed(2)} (Risk ${r.propSlPips.toFixed(1)} pips) ⇄ Exness ${r.rr.toFixed(2)}:1 (Risk ${r.exnessSlPips.toFixed(1)} pips)`}
+                >
+                  <div className="space-y-2">
+                    <Select
+                      value={engine.rr}
+                      onChange={(e) => {
+                        const newRr = Number(e.target.value);
+                        const slDist = Math.abs(engine.entryPrice - (engine.stopPrice ?? r.propSl));
+                        const long = engine.direction === "LONG";
+                        const newTp = long ? engine.entryPrice + slDist * newRr : engine.entryPrice - slDist * newRr;
+                        setEngine({
+                          rr: newRr,
+                          tpPrice: Number(newTp.toFixed(dec)),
+                        });
+                      }}
+                    >
+                      <option value={1.5}>1 : 1.5 (Prop 1:1.5 ⇄ Exness 1.5:1)</option>
+                      <option value={2}>1 : 2 (Prop 1:2 ⇄ Exness 2:1)</option>
+                      <option value={2.5}>1 : 2.5 (Prop 1:2.5 ⇄ Exness 2.5:1)</option>
+                      <option value={3}>1 : 3 (Prop 1:3 ⇄ Exness 3:1)</option>
+                    </Select>
+                    <div className="flex flex-wrap gap-1.5 text-[11px]">
+                      {[1.5, 2, 2.5, 3].map((ratio) => (
+                        <button
+                          key={ratio}
+                          type="button"
+                          onClick={() => {
+                            const slDist = Math.abs(engine.entryPrice - (engine.stopPrice ?? r.propSl));
+                            const long = engine.direction === "LONG";
+                            const newTp = long ? engine.entryPrice + slDist * ratio : engine.entryPrice - slDist * ratio;
+                            setEngine({
+                              rr: ratio,
+                              tpPrice: Number(newTp.toFixed(dec)),
+                            });
+                          }}
+                          className={`flex items-center gap-1 rounded-lg px-2.5 py-1 border transition-all cursor-pointer font-medium ${
+                            Math.abs(r.rr - ratio) < 0.05
+                              ? "border-primary bg-primary/20 text-primary font-semibold shadow-sm"
+                              : "border-border bg-card/70 text-muted-foreground hover:text-foreground hover:bg-card"
+                          }`}
+                        >
+                          1 : {ratio} {Math.abs(r.rr - ratio) < 0.05 ? "✓" : ""}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </Field>
                 <Field
                   label="Prop take profit price"
