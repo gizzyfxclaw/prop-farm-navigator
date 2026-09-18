@@ -234,5 +234,56 @@ describe("engine", () => {
       expect(r.propTpPips).toBe(60);
       expect(r.rr).toBe(3);
     });
+
+    it("strictly clamps R:R to MAX_RR (3.0) so Exness risk never inflates if wide TP is entered", () => {
+      const r = calculate({
+        ...base,
+        calcMode: "price",
+        direction: "LONG",
+        entryPrice: 1.085,
+        stopPrice: 1.083, // 20 pips SL
+        tpPrice: 1.105,  // 200 pips TP (1:10 R:R if unbounded)
+      });
+
+      // Must be safely clamped to MAX_RR (3.0)
+      expect(r.rr).toBe(3.0);
+      // Exness loss target must be safely bounded to baseWinTarget * 3
+      expect(r.exnessLossTarget).toBeCloseTo(r.exnessWinTarget * 3, 6);
+    });
+
+    it("strictly enforces safe minimum SL floor to prevent lot size explosion", () => {
+      const r = calculate({
+        ...base,
+        calcMode: "price",
+        direction: "LONG",
+        entryPrice: 1.085,
+        stopPrice: 1.0849, // 1 pip SL (unsafe if unclamped)
+        tpPrice: 1.091,
+      });
+
+      // Must enforce safe floor of at least 5 pips
+      expect(r.propSlPips).toBeGreaterThanOrEqual(5);
+      expect(r.exnessTpPips).toBeGreaterThanOrEqual(5);
+    });
+
+    it("verifies Holy Trinity no-loss balance: Exness win recovers exact fee share", () => {
+      const r = calculate({
+        ...base,
+        calcMode: "price",
+        entryPrice: 1.085,
+        stopPrice: 1.082,
+        tpPrice: 1.091,
+      });
+
+      // In 6 losses, Exness recovers full fee: 6 * 4.7667 = $28.60
+      const totalExnessRecovery = r.exnessWinTarget * r.lossesToBlow;
+      expect(totalExnessRecovery).toBeCloseTo(account.fee, 2);
+
+      // On a Prop win ($100), Exness loses only $9.53, netting +$90.47 profit
+      const propWinReward = r.propWinPerTrade; // $100
+      const exnessLoss = r.exnessLossTarget;   // $9.53
+      const netProfitOnWin = propWinReward - exnessLoss;
+      expect(netProfitOnWin).toBeGreaterThan(90);
+    });
   });
 });
