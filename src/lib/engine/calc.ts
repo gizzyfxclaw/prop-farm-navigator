@@ -185,27 +185,39 @@ export function calculate(input: EngineInputs): EngineResult {
   if (calcMode === "price" && input.stopPrice != null && num(input.stopPrice) > 0) {
     const rawStopPrice = num(input.stopPrice);
     const slDist = Math.abs(entryPrice - rawStopPrice);
-    const rawSlPips = slDist > 0 ? slDist / spec.pipSize : num(input.slPips, 30);
-    // Safe floor: minimum 5 pips to prevent lot size / risk explosion
-    slPips = Math.max(5, roundPrice(rawSlPips, 1));
+    const rawSlPips = slDist / spec.pipSize;
 
-    let rawTpPrice: number;
-    if (input.tpPrice != null && num(input.tpPrice) > 0) {
-      rawTpPrice = num(input.tpPrice);
-      const tpDist = Math.abs(rawTpPrice - entryPrice);
-      const rawTpPips = tpDist > 0 ? tpDist / spec.pipSize : slPips * num(input.rr, 2);
-      const calculatedRR = slPips > 0 ? rawTpPips / slPips : num(input.rr, 2);
-      // Clamp R:R to safe strategy range [1.0, MAX_RR]
-      rr = Math.min(MAX_RR, Math.max(1.0, roundPrice(calculatedRR, 2)));
-    } else {
+    // If stop price is stale or absurdly far away (> 120 pips), fallback to input.slPips (e.g. 30 pips)
+    if (rawSlPips > 120 || rawSlPips < 1) {
+      slPips = Math.min(100, Math.max(5, num(input.slPips, 30)));
       rr = Math.min(MAX_RR, Math.max(1.0, num(input.rr, 2)));
-      rawTpPrice = long ? entryPrice + slPips * rr * spec.pipSize : entryPrice - slPips * rr * spec.pipSize;
+      const slDistance = slPips * spec.pipSize;
+      const tpDistance = slPips * rr * spec.pipSize;
+      propSl = roundPrice(long ? entryPrice - slDistance : entryPrice + slDistance, spec.decimals);
+      propTp = roundPrice(long ? entryPrice + tpDistance : entryPrice - tpDistance, spec.decimals);
+    } else {
+      slPips = Math.min(100, Math.max(5, roundPrice(rawSlPips, 1)));
+      let rawTpPrice: number;
+      if (input.tpPrice != null && num(input.tpPrice) > 0) {
+        rawTpPrice = num(input.tpPrice);
+        const tpDist = Math.abs(rawTpPrice - entryPrice);
+        const rawTpPips = tpDist / spec.pipSize;
+        if (rawTpPips > 250 || rawTpPips < 1) {
+          rr = Math.min(MAX_RR, Math.max(1.0, num(input.rr, 2)));
+          rawTpPrice = long ? entryPrice + slPips * rr * spec.pipSize : entryPrice - slPips * rr * spec.pipSize;
+        } else {
+          const calculatedRR = rawTpPips / slPips;
+          rr = Math.min(MAX_RR, Math.max(1.0, roundPrice(calculatedRR, 2)));
+        }
+      } else {
+        rr = Math.min(MAX_RR, Math.max(1.0, num(input.rr, 2)));
+        rawTpPrice = long ? entryPrice + slPips * rr * spec.pipSize : entryPrice - slPips * rr * spec.pipSize;
+      }
+      propSl = roundPrice(rawStopPrice, spec.decimals);
+      propTp = roundPrice(rawTpPrice, spec.decimals);
     }
-
-    propSl = roundPrice(rawStopPrice, spec.decimals);
-    propTp = roundPrice(rawTpPrice, spec.decimals);
   } else {
-    slPips = Math.max(5, num(input.slPips, 30));
+    slPips = Math.min(100, Math.max(5, num(input.slPips, 30)));
     rr = Math.min(MAX_RR, Math.max(1.0, num(input.rr, 2)));
 
     const slDistance = slPips * spec.pipSize;

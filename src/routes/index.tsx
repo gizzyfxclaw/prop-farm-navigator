@@ -629,14 +629,14 @@ function EnginePage() {
                   label="Prop stop loss price"
                   hint={
                     engine.direction === "LONG"
-                      ? "Must be below entry for LONG (buy) orders"
-                      : "Must be above entry for SHORT (sell) orders"
+                      ? `Must be below entry for LONG (buy) orders — currently ${r.propSlPips.toFixed(1)} pips`
+                      : `Must be above entry for SHORT (sell) orders — currently ${r.propSlPips.toFixed(1)} pips`
                   }
                 >
                   <TextInput
                     type="number"
                     step={engine.pair === "USDJPY" ? "0.001" : "0.00001"}
-                    value={engine.stopPrice ?? r.propSl}
+                    value={r.propSl}
                     onChange={(e) => setEngine({ stopPrice: Number(e.target.value) })}
                   />
                 </Field>
@@ -644,14 +644,14 @@ function EnginePage() {
                   label="Prop take profit price"
                   hint={
                     engine.direction === "LONG"
-                      ? "Must be above entry for LONG (buy) orders"
-                      : "Must be below entry for SHORT (sell) orders"
+                      ? `Must be above entry for LONG (buy) orders — currently ${r.propTpPips.toFixed(1)} pips`
+                      : `Must be below entry for SHORT (sell) orders — currently ${r.propTpPips.toFixed(1)} pips`
                   }
                 >
                   <TextInput
                     type="number"
                     step={engine.pair === "USDJPY" ? "0.001" : "0.00001"}
-                    value={engine.tpPrice ?? r.propTp}
+                    value={r.propTp}
                     onChange={(e) => setEngine({ tpPrice: Number(e.target.value) })}
                   />
                 </Field>
