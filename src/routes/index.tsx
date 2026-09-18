@@ -611,25 +611,17 @@ function EnginePage() {
 
             {engine.calcMode !== "price" ? (
               <>
-                <Field label="Prop stop loss (pips)">
+                <Field label="Prop stop loss (pips)" hint="When Prop risks 10 pips, Exness targets 10 pips">
                   <TextInput type="number" step="1" value={engine.slPips} onChange={(e) => setEngine({ slPips: Number(e.target.value) })} />
                 </Field>
-                <Field label="R:R rotation (1:1.5 – 1:3)">
+                <Field label="R:R rotation (1:1.5 – 1:3)" hint="1:2 R:R = Prop targets 20 pips, Exness risks 20 pips">
                   <Select value={engine.rr} onChange={(e) => setEngine({ rr: Number(e.target.value) })}>
-                    <option value={1.5}>1 : 1.5</option>
-                    <option value={2}>1 : 2</option>
-                    <option value={2.5}>1 : 2.5</option>
-                    <option value={3}>1 : 3</option>
+                    <option value={1.5}>1 : 1.5 (Prop 1:1.5 ⇄ Exness 1.5:1)</option>
+                    <option value={2}>1 : 2 (Prop 1:2 ⇄ Exness 2:1)</option>
+                    <option value={2.5}>1 : 2.5 (Prop 1:2.5 ⇄ Exness 2.5:1)</option>
+                    <option value={3}>1 : 3 (Prop 1:3 ⇄ Exness 3:1)</option>
                   </Select>
                 </Field>
-                <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs flex items-center justify-between">
-                  <span className="text-muted-foreground">Generated Levels:</span>
-                  <div className="flex gap-2 font-mono">
-                    <span className="text-red-400">SL: {formatPrice(r.propSl, dec)}</span>
-                    <span className="text-muted-foreground">·</span>
-                    <span className="text-emerald-400">TP: {formatPrice(r.propTp, dec)}</span>
-                  </div>
-                </div>
               </>
             ) : (
               <>
@@ -663,39 +655,78 @@ function EnginePage() {
                     onChange={(e) => setEngine({ tpPrice: Number(e.target.value) })}
                   />
                 </Field>
-                <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs font-semibold text-foreground">
-                    <span className="flex items-center gap-1 text-primary">
-                      <Sparkles size={13} />
-                      Engine Calculation (in Pips & R:R)
-                    </span>
-                    <Badge tone="blue">R:R 1 : {r.rr.toFixed(2)}</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 font-mono text-xs pt-1">
-                    <div className="bg-background/50 rounded-lg p-2 border border-border/40">
-                      <span className="text-[10px] text-muted-foreground uppercase block font-sans">Stop Loss</span>
-                      <span className="font-bold text-red-400">{r.propSlPips.toFixed(1)} pips</span>
-                      <span className="text-[10px] text-muted-foreground block mt-0.5">{formatPrice(r.propSl, dec)}</span>
-                    </div>
-                    <div className="bg-background/50 rounded-lg p-2 border border-border/40">
-                      <span className="text-[10px] text-muted-foreground uppercase block font-sans">Take Profit</span>
-                      <span className="font-bold text-emerald-400">{r.propTpPips.toFixed(1)} pips</span>
-                      <span className="text-[10px] text-muted-foreground block mt-0.5">{formatPrice(r.propTp, dec)}</span>
-                    </div>
-                  </div>
-                  {engine.direction === "LONG" && (engine.stopPrice != null && engine.stopPrice >= engine.entryPrice) && (
-                    <p className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-1">
-                      <AlertTriangle size={11} /> Warning: SL is at or above Entry for a LONG order
-                    </p>
-                  )}
-                  {engine.direction === "SHORT" && (engine.stopPrice != null && engine.stopPrice <= engine.entryPrice) && (
-                    <p className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-1">
-                      <AlertTriangle size={11} /> Warning: SL is at or below Entry for a SHORT order
-                    </p>
-                  )}
-                </div>
               </>
             )}
+
+            {/* ── INVERTED MIRROR HEDGE SUMMARY ─────────────────── */}
+            <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+                <span className="flex items-center gap-1 text-primary">
+                  <ShieldCheck size={14} className="text-emerald-400" />
+                  Inverted Mirror Hedge Geometry
+                </span>
+                <Badge tone="blue">Prop 1 : {r.rr.toFixed(2)} ⇄ Exness {r.rr.toFixed(2)} : 1</Badge>
+              </div>
+
+              {/* Side-by-side Account Geometry */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-xs">
+                {/* Prop Firm Column */}
+                <div className="bg-background/60 rounded-lg p-2.5 border border-border/50 space-y-1">
+                  <div className="flex items-center justify-between text-[11px] font-sans font-bold text-foreground pb-0.5 border-b border-border/40">
+                    <span>Prop Firm ({r.propDirection})</span>
+                    <span className="text-primary font-mono">${r.cappedPropRisk.toFixed(0)} risk</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-muted-foreground font-sans">Stop Loss:</span>
+                    <span className="text-red-400 font-semibold">{r.propSlPips.toFixed(1)} pips ({formatPrice(r.propSl, dec)})</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-muted-foreground font-sans">Take Profit:</span>
+                    <span className="text-emerald-400 font-semibold">{r.propTpPips.toFixed(1)} pips ({formatPrice(r.propTp, dec)})</span>
+                  </div>
+                </div>
+
+                {/* Exness Real Column */}
+                <div className="bg-background/60 rounded-lg p-2.5 border border-border/50 space-y-1">
+                  <div className="flex items-center justify-between text-[11px] font-sans font-bold text-foreground pb-0.5 border-b border-border/40">
+                    <span>Exness Real ({r.exnessDirection})</span>
+                    <span className="text-emerald-400 font-mono">${r.exnessWinTarget.toFixed(2)} target</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-muted-foreground font-sans">Stop Loss:</span>
+                    <span className="text-red-400 font-semibold">{r.exnessSlPips.toFixed(1)} pips ({formatPrice(r.exnessSl, dec)})</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-muted-foreground font-sans">Take Profit:</span>
+                    <span className="text-emerald-400 font-semibold">{r.exnessTpPips.toFixed(1)} pips ({formatPrice(r.exnessTp, dec)})</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Exact P&L Outcomes */}
+              <div className="text-[11px] font-sans space-y-0.5 pt-0.5 text-muted-foreground">
+                <div className="flex justify-between text-emerald-400 font-medium">
+                  <span>🎯 On Prop LOSS (-{r.propSlPips.toFixed(0)} pips):</span>
+                  <span>Exness hits TP (+{r.exnessTpPips.toFixed(0)} pips) → +${r.exnessWinTarget.toFixed(2)} Recovery</span>
+                </div>
+                <div className="flex justify-between text-blue-400 font-medium">
+                  <span>🚀 On Prop WIN (+{r.propTpPips.toFixed(0)} pips):</span>
+                  <span>Exness hits SL (-{r.exnessSlPips.toFixed(0)} pips) → Net +${(r.propWinPerTrade - r.exnessWinTarget * r.rr).toFixed(2)} Profit</span>
+                </div>
+              </div>
+
+              {/* Warnings if in Price Mode with invalid direction */}
+              {engine.calcMode === "price" && engine.direction === "LONG" && (engine.stopPrice != null && engine.stopPrice >= engine.entryPrice) && (
+                <p className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-1">
+                  <AlertTriangle size={11} /> Warning: SL is at or above Entry for a LONG order
+                </p>
+              )}
+              {engine.calcMode === "price" && engine.direction === "SHORT" && (engine.stopPrice != null && engine.stopPrice <= engine.entryPrice) && (
+                <p className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-1">
+                  <AlertTriangle size={11} /> Warning: SL is at or below Entry for a SHORT order
+                </p>
+              )}
+            </div>
 
             <Field label="Desired profit on blow ($)">
               <TextInput type="number" step="1" value={engine.desiredProfit} onChange={(e) => setEngine({ desiredProfit: Number(e.target.value) })} />
