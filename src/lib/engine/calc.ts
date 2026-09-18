@@ -14,6 +14,7 @@ export const MAX_RR = 3;
 export type DrawdownType = "Static" | "Trailing";
 export type Direction = "LONG" | "SHORT";
 export type ExnessAccountType = "Standard" | "Cent";
+export type CalculationMode = "pips" | "price";
 
 export interface PropAccount {
   id: string;
@@ -43,6 +44,12 @@ export interface EngineInputs {
   direction: Direction;
   entryPrice: number;
   exnessAccountType: ExnessAccountType;
+  /** Calculation mode: 'pips' (SL pips & R:R) or 'price' (entry price, stop price, tp price). Default 'pips'. */
+  calcMode?: CalculationMode;
+  /** Prop Stop loss price when calcMode is 'price'. */
+  stopPrice?: number | null;
+  /** Prop Take profit price when calcMode is 'price'. */
+  tpPrice?: number | null;
   /** Actual Exness account balance (user-entered, overrides calculated) */
   actualExnessBalance?: number | null;
   /** Actual Exness losses from journal (sum of absolute Exness P&L). */
@@ -73,8 +80,13 @@ export interface EngineResult {
   propWinPerTrade: number;
   lossesToBlow: number;
   winsToPass: number;
-  /** Selected R:R multiplier (1.5 / 2 / 2.5 / 3). */
+  /** Selected or calculated R:R multiplier. */
   rr: number;
+
+  // calculation mode & price inputs
+  calcMode: CalculationMode;
+  stopPrice: number;
+  tpPrice: number;
 
   // pips / prices
   pipValue: number;
@@ -156,14 +168,53 @@ function buildChain(totalRecovery: number, lossesToBlow: number, winsToPass: num
 export function calculate(input: EngineInputs): EngineResult {
   const spec = pairSpec(String(input.pair));
   const account = input.account;
+  const calcMode: CalculationMode = input.calcMode === "price" ? "price" : "pips";
 
   const size = Math.max(0, num(account.size));
   const fee = Math.max(0, num(account.fee));
   const bufferPct = Math.max(0, num(input.bufferPct));
   const desiredProfit = Math.max(0, num(input.desiredProfit));
-  const rr = num(input.rr, 2) > 0 ? num(input.rr, 2) : 2;
-  const slPips = Math.max(0.1, num(input.slPips, 30));
   const entryPrice = num(input.entryPrice);
+  const long = input.direction === "LONG";
+
+  let slPips: number;
+  let rr: number;
+  let propSl: number;
+  let propTp: number;
+
+  if (calcMode === "price" && input.stopPrice != null && num(input.stopPrice) > 0) {
+    const rawStopPrice = num(input.stopPrice);
+    const slDist = Math.abs(entryPrice - rawStopPrice);
+    slPips = slDist > 0 ? roundPrice(slDist / spec.pipSize, 2) : Math.max(0.1, num(input.slPips, 30));
+
+    let rawTpPrice: number;
+    if (input.tpPrice != null && num(input.tpPrice) > 0) {
+      rawTpPrice = num(input.tpPrice);
+      const tpDist = Math.abs(rawTpPrice - entryPrice);
+      const tpPips = tpDist > 0 ? roundPrice(tpDist / spec.pipSize, 2) : roundPrice(slPips * (num(input.rr, 2) > 0 ? num(input.rr, 2) : 2), 2);
+      rr = slPips > 0 ? roundPrice(tpPips / slPips, 4) : (num(input.rr, 2) > 0 ? num(input.rr, 2) : 2);
+    } else {
+      rr = num(input.rr, 2) > 0 ? num(input.rr, 2) : 2;
+      rawTpPrice = long ? entryPrice + slPips * rr * spec.pipSize : entryPrice - slPips * rr * spec.pipSize;
+    }
+
+    propSl = roundPrice(rawStopPrice, spec.decimals);
+    propTp = roundPrice(rawTpPrice, spec.decimals);
+  } else {
+    slPips = Math.max(0.1, num(input.slPips, 30));
+    rr = num(input.rr, 2) > 0 ? num(input.rr, 2) : 2;
+
+    const slDistance = slPips * spec.pipSize;
+    const tpDistance = slPips * rr * spec.pipSize;
+
+    propSl = roundPrice(long ? entryPrice - slDistance : entryPrice + slDistance, spec.decimals);
+    propTp = roundPrice(long ? entryPrice + tpDistance : entryPrice - tpDistance, spec.decimals);
+  }
+
+  const propSlPips = roundPrice(slPips, 1);
+  const propTpPips = roundPrice(slPips * rr, 1);
+  const exnessSlPips = propTpPips;
+  const exnessTpPips = propSlPips;
 
   const targetUsd = (size * num(account.targetPct)) / 100;
   const maxDdUsd = (size * num(account.ddPct)) / 100;
@@ -221,24 +272,19 @@ export function calculate(input: EngineInputs): EngineResult {
     input.phase === 1
       ? [
           { label: "Prop challenge fee", value: fee },
-          { label: `Exness fuel (R:R 1:${rr})`, value: phase1.pureExnessCapital },
+          { label: `Exness fuel (R:R 1:${Number(rr.toFixed(2))})`, value: phase1.pureExnessCapital },
           { label: `Safety buffer (${bufferPct}%)`, value: phase1.bufferedExnessCapital - phase1.pureExnessCapital },
           { label: "Total capital needed", value: totalRequiredCapital },
         ]
       : [
           { label: "Phase 1 total already spent", value: phase1TotalSpent },
           { label: "Phase 1 leftover Exness balance", value: -phase1Leftover },
-          { label: `Phase 2 Exness fuel (R:R 1:${rr})`, value: phase2.pureExnessCapital },
+          { label: `Phase 2 Exness fuel (R:R 1:${Number(rr.toFixed(2))})`, value: phase2.pureExnessCapital },
           { label: `Safety buffer (${bufferPct}%)`, value: phase2.bufferedExnessCapital - phase2.pureExnessCapital },
           { label: "Total capital needed", value: totalRequiredCapital },
         ];
 
   // ---- Live trade geometry (selected R:R) ----
-  const propSlPips = slPips;
-  const propTpPips = slPips * rr;
-  const exnessSlPips = propTpPips;
-  const exnessTpPips = propSlPips;
-
   // Exact for USD-quote pairs (EURUSD, GBPUSD) regardless of rate; for
   // USD-base pairs (USDJPY) derived from the live entry price instead of a
   // static approximation that drifts as the real rate moves — see pairs.ts.
@@ -275,13 +321,8 @@ export function calculate(input: EngineInputs): EngineResult {
         : phase1TotalSpent + (effectiveBufferedCapital - phase1Leftover))
     : totalRequiredCapital;
 
-  const slDistance = propSlPips * spec.pipSize;
-  const tpDistance = propTpPips * spec.pipSize;
-  const long = input.direction === "LONG";
-  const propSl = roundPrice(long ? entryPrice - slDistance : entryPrice + slDistance, spec.decimals);
-  const propTp = roundPrice(long ? entryPrice + tpDistance : entryPrice - tpDistance, spec.decimals);
-  const exnessSl = roundPrice(long ? entryPrice + tpDistance : entryPrice - tpDistance, spec.decimals);
-  const exnessTp = roundPrice(long ? entryPrice - slDistance : entryPrice + slDistance, spec.decimals);
+  const exnessSl = propTp;
+  const exnessTp = propSl;
 
   // ---- Final P&L (respects current phase) ----
   const propPayout = targetUsd * (num(account.splitPct) / 100);
@@ -324,6 +365,9 @@ export function calculate(input: EngineInputs): EngineResult {
     lossesToBlow,
     winsToPass,
     rr,
+    calcMode,
+    stopPrice: propSl,
+    tpPrice: propTp,
     pipValue,
     exnessPipValue,
     pipSize: spec.pipSize,
@@ -359,14 +403,14 @@ export function calculate(input: EngineInputs): EngineResult {
       ? (input.phase === 1
           ? [
               { label: "Prop challenge fee", value: fee },
-              { label: `Exness fuel — adjusted (R:R 1:${rr})`, value: effectivePureCapital },
+              { label: `Exness fuel — adjusted (R:R 1:${Number(rr.toFixed(2))})`, value: effectivePureCapital },
               { label: `Safety buffer (${bufferPct}%)`, value: effectiveBufferedCapital - effectivePureCapital },
               { label: "Total capital needed (adjusted)", value: effectiveTotalRequired },
             ]
           : [
               { label: "Phase 1 total already spent", value: phase1TotalSpent },
               { label: "Phase 1 leftover Exness balance", value: -phase1Leftover },
-              { label: `Phase 2 Exness fuel — adjusted (R:R 1:${rr})`, value: effectivePureCapital },
+              { label: `Phase 2 Exness fuel — adjusted (R:R 1:${Number(rr.toFixed(2))})`, value: effectivePureCapital },
               { label: `Safety buffer (${bufferPct}%)`, value: effectiveBufferedCapital - effectivePureCapital },
               { label: "Total capital needed (adjusted)", value: effectiveTotalRequired },
             ])

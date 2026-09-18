@@ -160,4 +160,79 @@ describe("engine", () => {
     expect(pendingOrderType("SHORT", 1.1, 1.09)).toBe("ORDER_TYPE_SELL_LIMIT");
     expect(pendingOrderType("SHORT", 1.08, 1.09)).toBe("ORDER_TYPE_SELL_STOP");
   });
+
+  describe("price-based calculation mode", () => {
+    it("calculates pips, R:R and mirrored levels from entry, stop price, and TP price for LONG", () => {
+      const r = calculate({
+        ...base,
+        calcMode: "price",
+        entryPrice: 1.085,
+        stopPrice: 1.082,
+        tpPrice: 1.091,
+        direction: "LONG",
+      });
+
+      expect(r.calcMode).toBe("price");
+      expect(r.propSlPips).toBe(30);
+      expect(r.propTpPips).toBe(60);
+      expect(r.rr).toBe(2);
+      expect(r.propSl).toBeCloseTo(1.082, 5);
+      expect(r.propTp).toBeCloseTo(1.091, 5);
+      expect(r.exnessSl).toBeCloseTo(1.091, 5);
+      expect(r.exnessTp).toBeCloseTo(1.082, 5);
+      expect(r.propLots).toBeCloseTo(50 / (30 * 10), 6);
+    });
+
+    it("calculates pips, R:R and mirrored levels for SHORT direction", () => {
+      const r = calculate({
+        ...base,
+        calcMode: "price",
+        direction: "SHORT",
+        entryPrice: 1.085,
+        stopPrice: 1.0875,
+        tpPrice: 1.08,
+      });
+
+      expect(r.propSlPips).toBe(25);
+      expect(r.propTpPips).toBe(50);
+      expect(r.rr).toBe(2);
+      expect(r.propSl).toBeCloseTo(1.0875, 5);
+      expect(r.propTp).toBeCloseTo(1.08, 5);
+      expect(r.exnessSl).toBeCloseTo(1.08, 5);
+      expect(r.exnessTp).toBeCloseTo(1.0875, 5);
+    });
+
+    it("calculates correctly on USDJPY with pip size 0.01", () => {
+      const r = calculate({
+        ...base,
+        pair: "USDJPY",
+        calcMode: "price",
+        direction: "LONG",
+        entryPrice: 155.5,
+        stopPrice: 155.2,
+        tpPrice: 156.1,
+      });
+
+      expect(r.propSlPips).toBe(30);
+      expect(r.propTpPips).toBe(60);
+      expect(r.rr).toBe(2);
+      expect(r.propSl).toBeCloseTo(155.2, 3);
+      expect(r.propTp).toBeCloseTo(156.1, 3);
+    });
+
+    it("handles custom R:R calculated from arbitrary price targets", () => {
+      const r = calculate({
+        ...base,
+        calcMode: "price",
+        direction: "LONG",
+        entryPrice: 1.085,
+        stopPrice: 1.083, // 20 pips SL
+        tpPrice: 1.091,  // 60 pips TP (1:3 R:R)
+      });
+
+      expect(r.propSlPips).toBe(20);
+      expect(r.propTpPips).toBe(60);
+      expect(r.rr).toBe(3);
+    });
+  });
 });

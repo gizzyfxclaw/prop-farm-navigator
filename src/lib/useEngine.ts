@@ -30,6 +30,9 @@ export function useEngine(): EngineResult {
       actualExnessLosses,
       carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
       carryPhase1Leftover: engine.carryPhase1Leftover,
+      calcMode: engine.calcMode,
+      stopPrice: engine.stopPrice,
+      tpPrice: engine.tpPrice,
     });
 
     // Compute recovery and re-run with the adjusted win target when needed.
@@ -52,6 +55,9 @@ export function useEngine(): EngineResult {
       actualExnessLosses,
       carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
       carryPhase1Leftover: engine.carryPhase1Leftover,
+      calcMode: engine.calcMode,
+      stopPrice: engine.stopPrice,
+      tpPrice: engine.tpPrice,
       exnessWinTargetOverride: recovery.newExnessWinTarget,
     });
   }, [account, engine, journal]);
@@ -84,6 +90,9 @@ export function useEngineWithRecovery(): { result: EngineResult; recovery: Recov
       actualExnessLosses,
       carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
       carryPhase1Leftover: engine.carryPhase1Leftover,
+      calcMode: engine.calcMode,
+      stopPrice: engine.stopPrice,
+      tpPrice: engine.tpPrice,
     });
     const recovery = computeRecovery(base, journal);
 
@@ -105,6 +114,9 @@ export function useEngineWithRecovery(): { result: EngineResult; recovery: Recov
             actualExnessLosses,
             carryPhase1TotalSpent: engine.carryPhase1TotalSpent,
             carryPhase1Leftover: engine.carryPhase1Leftover,
+            calcMode: engine.calcMode,
+            stopPrice: engine.stopPrice,
+            tpPrice: engine.tpPrice,
             exnessWinTargetOverride: recovery.newExnessWinTarget,
           })
         : base;

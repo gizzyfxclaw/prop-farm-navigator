@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { AlertOctagon, AlertTriangle, ExternalLink, Lock, RotateCw, Shield, ShieldAlert, ShieldCheck, Zap, Activity, Wallet, Copy, Check, Sparkles, ArrowRight } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ExternalLink, Lock, RotateCw, Shield, ShieldAlert, ShieldCheck, Zap, Activity, Wallet, Copy, Check, Sparkles, ArrowRight, Target, DollarSign } from "lucide-react";
 import { LiveAccountsPanel } from "@/components/terminal/LiveAccounts";
 import { ActualExnessBalance } from "@/components/terminal/ActualExnessBalance";
 import { RulesAlertPanel } from "@/components/terminal/RulesAlertPanel";
@@ -271,7 +271,7 @@ function EnginePage() {
           label="Prop risk (SL hit)"
           value={<CountUp value={-r.cappedPropRisk} format={(v) => money(v)} />}
           tone="c-neg"
-          sub={r.riskCapped ? "Cap applied" : `${engine.slPips} pip SL`}
+          sub={r.riskCapped ? "Cap applied" : `${r.propSlPips} pip SL`}
           accessory={r.riskCapped
             ? <Badge tone="amber">CAPPED</Badge>
             : undefined}
@@ -280,7 +280,7 @@ function EnginePage() {
           label="Prop reward (TP hit)"
           value={<CountUp value={r.cappedPropRisk * r.rr} format={(v) => money(v, true)} />}
           tone="c-pos"
-          sub={`R:R 1:${r.rr}`}
+          sub={`R:R 1:${Number(r.rr.toFixed(2))}`}
         />
         <Stat
           label="Next Exness target"
@@ -535,17 +535,165 @@ function EnginePage() {
                 </div>
               </div>
             </Field>
-            <Field label="R:R rotation (1:1.5 – 1:3)">
-              <Select value={engine.rr} onChange={(e) => setEngine({ rr: Number(e.target.value) })}>
-                <option value={1.5}>1 : 1.5</option>
-                <option value={2}>1 : 2</option>
-                <option value={2.5}>1 : 2.5</option>
-                <option value={3}>1 : 3</option>
-              </Select>
+            <Field
+              label="Calculation mode"
+              hint={
+                engine.calcMode === "price"
+                  ? "Calculate using exact Stop Loss, Entry & Take Profit prices"
+                  : "Calculate using Stop Loss pips and R:R multiplier"
+              }
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEngine({
+                      calcMode: "pips",
+                      slPips: Math.round(r.propSlPips) || 30,
+                      rr: Number(r.rr.toFixed(2)) || 2,
+                    });
+                  }}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 border text-xs font-semibold transition-all cursor-pointer ${
+                    engine.calcMode !== "price"
+                      ? "border-primary bg-primary/20 text-primary shadow-sm"
+                      : "border-white/10 bg-white/[0.02] text-muted-foreground hover:text-foreground hover:bg-white/[0.05]"
+                  }`}
+                >
+                  <Target size={13} className={engine.calcMode !== "price" ? "text-primary" : "text-muted-foreground"} />
+                  By Pips & R:R
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEngine({
+                      calcMode: "price",
+                      stopPrice: engine.stopPrice || r.propSl,
+                      tpPrice: engine.tpPrice || r.propTp,
+                    });
+                  }}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 border text-xs font-semibold transition-all cursor-pointer ${
+                    engine.calcMode === "price"
+                      ? "border-primary bg-primary/20 text-primary shadow-sm"
+                      : "border-white/10 bg-white/[0.02] text-muted-foreground hover:text-foreground hover:bg-white/[0.05]"
+                  }`}
+                >
+                  <DollarSign size={13} className={engine.calcMode === "price" ? "text-primary" : "text-muted-foreground"} />
+                  By Exact Prices
+                </button>
+              </div>
             </Field>
-            <Field label="Prop stop loss (pips)">
-              <TextInput type="number" step="1" value={engine.slPips} onChange={(e) => setEngine({ slPips: Number(e.target.value) })} />
+
+            <Field
+              label="Entry price"
+              hint={
+                livePrice.error && liveMode
+                  ? `Live price unavailable: ${livePrice.error}`
+                  : !liveMode
+                    ? "Paused on your typed value — click Resume live price to track the market again"
+                    : live
+                      ? `${live.label} (updating automatically)`
+                      : "Add MetaApi credentials in Settings for a live price, or type one"
+              }
+            >
+              <TextInput
+                type="number"
+                step={engine.pair === "USDJPY" ? "0.001" : "0.00001"}
+                value={engine.entryPrice}
+                onChange={(e) => {
+                  setLiveMode(false);
+                  setEngine({ entryPrice: Number(e.target.value) });
+                }}
+              />
             </Field>
+
+            {engine.calcMode !== "price" ? (
+              <>
+                <Field label="Prop stop loss (pips)">
+                  <TextInput type="number" step="1" value={engine.slPips} onChange={(e) => setEngine({ slPips: Number(e.target.value) })} />
+                </Field>
+                <Field label="R:R rotation (1:1.5 – 1:3)">
+                  <Select value={engine.rr} onChange={(e) => setEngine({ rr: Number(e.target.value) })}>
+                    <option value={1.5}>1 : 1.5</option>
+                    <option value={2}>1 : 2</option>
+                    <option value={2.5}>1 : 2.5</option>
+                    <option value={3}>1 : 3</option>
+                  </Select>
+                </Field>
+                <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs flex items-center justify-between">
+                  <span className="text-muted-foreground">Generated Levels:</span>
+                  <div className="flex gap-2 font-mono">
+                    <span className="text-red-400">SL: {formatPrice(r.propSl, dec)}</span>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="text-emerald-400">TP: {formatPrice(r.propTp, dec)}</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <Field
+                  label="Prop stop loss price"
+                  hint={
+                    engine.direction === "LONG"
+                      ? "Must be below entry for LONG (buy) orders"
+                      : "Must be above entry for SHORT (sell) orders"
+                  }
+                >
+                  <TextInput
+                    type="number"
+                    step={engine.pair === "USDJPY" ? "0.001" : "0.00001"}
+                    value={engine.stopPrice ?? r.propSl}
+                    onChange={(e) => setEngine({ stopPrice: Number(e.target.value) })}
+                  />
+                </Field>
+                <Field
+                  label="Prop take profit price"
+                  hint={
+                    engine.direction === "LONG"
+                      ? "Must be above entry for LONG (buy) orders"
+                      : "Must be below entry for SHORT (sell) orders"
+                  }
+                >
+                  <TextInput
+                    type="number"
+                    step={engine.pair === "USDJPY" ? "0.001" : "0.00001"}
+                    value={engine.tpPrice ?? r.propTp}
+                    onChange={(e) => setEngine({ tpPrice: Number(e.target.value) })}
+                  />
+                </Field>
+                <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+                    <span className="flex items-center gap-1 text-primary">
+                      <Sparkles size={13} />
+                      Engine Calculation (in Pips & R:R)
+                    </span>
+                    <Badge tone="blue">R:R 1 : {r.rr.toFixed(2)}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 font-mono text-xs pt-1">
+                    <div className="bg-background/50 rounded-lg p-2 border border-border/40">
+                      <span className="text-[10px] text-muted-foreground uppercase block font-sans">Stop Loss</span>
+                      <span className="font-bold text-red-400">{r.propSlPips.toFixed(1)} pips</span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">{formatPrice(r.propSl, dec)}</span>
+                    </div>
+                    <div className="bg-background/50 rounded-lg p-2 border border-border/40">
+                      <span className="text-[10px] text-muted-foreground uppercase block font-sans">Take Profit</span>
+                      <span className="font-bold text-emerald-400">{r.propTpPips.toFixed(1)} pips</span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">{formatPrice(r.propTp, dec)}</span>
+                    </div>
+                  </div>
+                  {engine.direction === "LONG" && (engine.stopPrice != null && engine.stopPrice >= engine.entryPrice) && (
+                    <p className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-1">
+                      <AlertTriangle size={11} /> Warning: SL is at or above Entry for a LONG order
+                    </p>
+                  )}
+                  {engine.direction === "SHORT" && (engine.stopPrice != null && engine.stopPrice <= engine.entryPrice) && (
+                    <p className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-1">
+                      <AlertTriangle size={11} /> Warning: SL is at or below Entry for a SHORT order
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
             <Field label="Desired profit on blow ($)">
               <TextInput type="number" step="1" value={engine.desiredProfit} onChange={(e) => setEngine({ desiredProfit: Number(e.target.value) })} />
             </Field>
@@ -581,28 +729,6 @@ function EnginePage() {
             </Field>
             <Field label="Actual Exness balance ($)" hint="Your live Exness account balance (overrides calculated)">
               <ActualExnessBalance />
-            </Field>
-            <Field
-              label="Entry price"
-              hint={
-                livePrice.error && liveMode
-                  ? `Live price unavailable: ${livePrice.error}`
-                  : !liveMode
-                    ? "Paused on your typed value — click Resume live price to track the market again"
-                    : live
-                      ? `${live.label} (updating automatically)`
-                      : "Add MetaApi credentials in Settings for a live price, or type one"
-              }
-            >
-              <TextInput
-                type="number"
-                step={engine.pair === "USDJPY" ? "0.001" : "0.00001"}
-                value={engine.entryPrice}
-                onChange={(e) => {
-                  setLiveMode(false);
-                  setEngine({ entryPrice: Number(e.target.value) });
-                }}
-              />
             </Field>
             {engine.phase === 2 && (
               <>

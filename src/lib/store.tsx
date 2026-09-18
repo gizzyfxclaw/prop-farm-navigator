@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Direction, ExnessAccountType, PropAccount } from "./engine/calc";
+import type { CalculationMode, Direction, ExnessAccountType, PropAccount } from "./engine/calc";
 import type { PairSymbol } from "./engine/pairs";
 import {
   loadJournal,
@@ -93,6 +93,12 @@ export interface EngineSettings {
   pendingOrderType: PendingOrderType;
   entryPrice: number;
   exnessAccountType: ExnessAccountType;
+  /** Calculation mode: 'pips' (use SL pips & R:R) or 'price' (use entry, stop price, tp price). Default 'pips'. */
+  calcMode?: CalculationMode;
+  /** Prop Stop loss price when calcMode is 'price'. */
+  stopPrice?: number;
+  /** Prop Take profit price when calcMode is 'price'. */
+  tpPrice?: number;
   /** Actual Exness account balance (user-entered or synced from MetaApi) */
   actualExnessBalance: number;
   carryPhase1TotalSpent: number | null;
@@ -186,6 +192,9 @@ const defaultEngine = (accountId: string): EngineSettings => ({
   direction: "LONG",
   pendingOrderType: "BUY_STOP",
   entryPrice: 1.085,
+  calcMode: "pips",
+  stopPrice: 1.082,
+  tpPrice: 1.091,
   exnessAccountType: "Cent",
   actualExnessBalance: 0,
   carryPhase1TotalSpent: null,

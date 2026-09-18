@@ -7,7 +7,7 @@ import { TradingViewChart } from "@/components/terminal/tradingview-chart";
 import { LWChart, type Drawing, type OHLCBar } from "@/components/terminal/lwchart";
 import { WinRateBadge } from "@/components/terminal/WinRateBadge";
 import { buildSmcDrawings } from "@/lib/smc-drawings";
-import { PAIRS, PAIR_SPECS, formatPrice } from "@/lib/engine/pairs";
+import { PAIRS, PAIR_SPECS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
 import type { Direction } from "@/lib/engine/calc";
 import { useStore } from "@/lib/store";
 import { extractPdfText } from "@/lib/pdf-extract";
@@ -461,16 +461,20 @@ function HermesPage() {
   function promptAddToEngine(setup: HermesSetup) {
     const dec = PAIR_SPECS[setup.pair as keyof typeof PAIR_SPECS]?.decimals ?? 5;
     toast(`Hermes setup: ${setup.direction.toUpperCase()} ${setup.pair} @ ${formatPrice(setup.entry, dec)}`, {
-      description: "Add this entry price and direction to the Engine calculator? SL/TP and lot size are not touched, and no trade is placed.",
+      description: `SL: ${formatPrice(setup.sl, dec)} · TP: ${formatPrice(setup.tp1, dec)}. Add these exact prices to the Engine calculator in Price mode?`,
       duration: 30_000,
       action: {
         label: "Add to Engine",
         onClick: () => {
           setEngine({
             entryPrice: setup.entry,
+            stopPrice: setup.sl,
+            tpPrice: setup.tp1,
+            calcMode: "price",
+            pair: setup.pair as PairSymbol,
             direction: setup.direction.toUpperCase() as Direction,
           });
-          toast.success(`Engine updated: ${setup.direction.toUpperCase()} entry ${formatPrice(setup.entry, dec)}.`);
+          toast.success(`Engine updated: ${setup.direction.toUpperCase()} ${setup.pair} with entry, SL & TP in Price mode.`);
         },
       },
       cancel: { label: "Decline", onClick: () => {} },
