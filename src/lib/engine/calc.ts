@@ -185,24 +185,28 @@ export function calculate(input: EngineInputs): EngineResult {
   if (calcMode === "price" && input.stopPrice != null && num(input.stopPrice) > 0) {
     const rawStopPrice = num(input.stopPrice);
     const slDist = Math.abs(entryPrice - rawStopPrice);
-    slPips = slDist > 0 ? roundPrice(slDist / spec.pipSize, 2) : Math.max(0.1, num(input.slPips, 30));
+    const rawSlPips = slDist > 0 ? slDist / spec.pipSize : num(input.slPips, 30);
+    // Safe floor: minimum 5 pips to prevent lot size / risk explosion
+    slPips = Math.max(5, roundPrice(rawSlPips, 1));
 
     let rawTpPrice: number;
     if (input.tpPrice != null && num(input.tpPrice) > 0) {
       rawTpPrice = num(input.tpPrice);
       const tpDist = Math.abs(rawTpPrice - entryPrice);
-      const tpPips = tpDist > 0 ? roundPrice(tpDist / spec.pipSize, 2) : roundPrice(slPips * (num(input.rr, 2) > 0 ? num(input.rr, 2) : 2), 2);
-      rr = slPips > 0 ? roundPrice(tpPips / slPips, 4) : (num(input.rr, 2) > 0 ? num(input.rr, 2) : 2);
+      const rawTpPips = tpDist > 0 ? tpDist / spec.pipSize : slPips * num(input.rr, 2);
+      const calculatedRR = slPips > 0 ? rawTpPips / slPips : num(input.rr, 2);
+      // Clamp R:R to safe strategy range [1.0, MAX_RR]
+      rr = Math.min(MAX_RR, Math.max(1.0, roundPrice(calculatedRR, 2)));
     } else {
-      rr = num(input.rr, 2) > 0 ? num(input.rr, 2) : 2;
+      rr = Math.min(MAX_RR, Math.max(1.0, num(input.rr, 2)));
       rawTpPrice = long ? entryPrice + slPips * rr * spec.pipSize : entryPrice - slPips * rr * spec.pipSize;
     }
 
     propSl = roundPrice(rawStopPrice, spec.decimals);
     propTp = roundPrice(rawTpPrice, spec.decimals);
   } else {
-    slPips = Math.max(0.1, num(input.slPips, 30));
-    rr = num(input.rr, 2) > 0 ? num(input.rr, 2) : 2;
+    slPips = Math.max(5, num(input.slPips, 30));
+    rr = Math.min(MAX_RR, Math.max(1.0, num(input.rr, 2)));
 
     const slDistance = slPips * spec.pipSize;
     const tpDistance = slPips * rr * spec.pipSize;

@@ -193,8 +193,6 @@ const defaultEngine = (accountId: string): EngineSettings => ({
   pendingOrderType: "BUY_STOP",
   entryPrice: 1.085,
   calcMode: "pips",
-  stopPrice: 1.082,
-  tpPrice: 1.091,
   exnessAccountType: "Cent",
   actualExnessBalance: 0,
   carryPhase1TotalSpent: null,

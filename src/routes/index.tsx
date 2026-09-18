@@ -311,7 +311,10 @@ function EnginePage() {
       <Card title="Live MT5 feed" badge={<Badge tone={livePrice.configured ? (live ? "green" : "amber") : "blue"}>{livePrice.configured ? (live ? "LIVE" : "CONNECTING") : "SETUP"}</Badge>}>
         <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <Field label="Symbol">
-            <Select value={engine.pair} onChange={(e) => setEngine({ pair: e.target.value as PairSymbol })}>
+            <Select value={engine.pair} onChange={(e) => {
+              const newPair = e.target.value as PairSymbol;
+              setEngine({ pair: newPair, stopPrice: undefined, tpPrice: undefined });
+            }}>
               {PAIRS.map((p) => (
                 <option key={p} value={p}>{PAIR_SPECS[p].label}</option>
               ))}
@@ -567,8 +570,8 @@ function EnginePage() {
                   onClick={() => {
                     setEngine({
                       calcMode: "price",
-                      stopPrice: engine.stopPrice || r.propSl,
-                      tpPrice: engine.tpPrice || r.propTp,
+                      stopPrice: r.propSl,
+                      tpPrice: r.propTp,
                     });
                   }}
                   className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 border text-xs font-semibold transition-all cursor-pointer ${
