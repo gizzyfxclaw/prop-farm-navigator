@@ -73,6 +73,7 @@ export interface PhaseChain {
 
 export interface EngineResult {
   // account level
+  account: PropAccount;
   targetUsd: number;
   maxDdUsd: number;
   /** Challenge fee paid upfront (real cash). */
@@ -117,6 +118,7 @@ export interface EngineResult {
   phase1TotalSpent: number;
   phase1Leftover: number;
   phase2RefillRequired: number;
+  trueDeficit: number;
 
   // active phase figures
   phase: 1 | 2;
@@ -374,6 +376,7 @@ export function calculate(input: EngineInputs): EngineResult {
   }
 
   return {
+    account,
     targetUsd,
     maxDdUsd,
     propFee: fee,
@@ -408,6 +411,7 @@ export function calculate(input: EngineInputs): EngineResult {
     phase1TotalSpent,
     phase1Leftover,
     phase2RefillRequired,
+    trueDeficit,
     phase: input.phase,
     exnessWinTarget: activeExnessWinTarget,
     exnessLossTarget: activeExnessLossTarget,

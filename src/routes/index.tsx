@@ -229,9 +229,11 @@ function EnginePage() {
         exTp: r.exnessTp,
         propLots: isProp ? volume : Number(r.propLots.toFixed(2)),
         exLots: isProp ? Number(r.exnessLots.toFixed(2)) : volume,
-        rr: engine.rr,
+        rr: r.rr,
         phase: engine.phase,
         leg,
+        baseExnessWinTarget: r.phase === 1 ? r.phase1.exnessWinTarget : r.phase2.exnessWinTarget,
+        propRiskAtLog: r.cappedPropRisk,
       },
     });
     toast.success(`${legLabel} pending order placed and logged in the journal.`);

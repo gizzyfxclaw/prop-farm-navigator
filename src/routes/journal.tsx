@@ -199,7 +199,7 @@ function JournalPage() {
   }, [journal, recovery.initialExnessDeposit]);
 
   function log(result: "WIN" | "LOSS") {
-    const derived = tradePnl(r, result === "WIN", engine.rr);
+    const derived = tradePnl(r, result === "WIN", r.rr);
     const propPnl = actualPropPnl !== "" ? Number(actualPropPnl) : derived.propPnl;
     const exPnl = actualExPnl !== "" ? Number(actualExPnl) : derived.exPnl;
     const netPnl = propPnl + exPnl;
@@ -224,7 +224,7 @@ function JournalPage() {
         exTp: r.exnessTp,
         propLots: r.propLots,
         exLots: r.exnessLots,
-        rr: engine.rr,
+        rr: r.rr,
         phase: r.phase,
         baseExnessWinTarget: r.phase === 1 ? r.phase1.exnessWinTarget : r.phase2.exnessWinTarget,
         propRiskAtLog: r.cappedPropRisk,
