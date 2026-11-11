@@ -321,6 +321,8 @@ export const placePendingOrder = createServerFn({ method: "POST" })
   .handler(
     async ({ data }): Promise<ApiResult<{ orderId: string; positionId?: string | undefined; message?: string | undefined }>> =>
       guard(async () => {
+        // Demo-only safety guard: hard-block live/real accounts before placing.
+        await assertDemoAccount(data.token, data.accountId);
         const response = await clientApi<Record<string, unknown>>(data, "/trade", {
           method: "POST",
           body: {
@@ -346,6 +348,8 @@ export const cancelPendingOrder = createServerFn({ method: "POST" })
   .validator((input: unknown) => credentials.extend({ orderId: z.string().min(1) }).parse(input))
   .handler(async ({ data }): Promise<ApiResult<{ message?: string | undefined }>> =>
     guard(async () => {
+      // Demo-only safety guard: hard-block live/real accounts before cancelling.
+      await assertDemoAccount(data.token, data.accountId);
       const response = await clientApi<Record<string, unknown>>(data, "/trade", {
         method: "POST",
         body: { actionType: "ORDER_CANCEL", orderId: data.orderId },
@@ -359,6 +363,8 @@ export const closePosition = createServerFn({ method: "POST" })
   .validator((input: unknown) => credentials.extend({ positionId: z.string().min(1) }).parse(input))
   .handler(async ({ data }): Promise<ApiResult<{ message?: string | undefined }>> =>
     guard(async () => {
+      // Demo-only safety guard: hard-block live/real accounts before closing.
+      await assertDemoAccount(data.token, data.accountId);
       const response = await clientApi<Record<string, unknown>>(data, "/trade", {
         method: "POST",
         body: { actionType: "POSITION_CLOSE_ID", positionId: data.positionId },
