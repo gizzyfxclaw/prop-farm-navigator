@@ -10,7 +10,7 @@ import {
 import { Badge, Button, Card } from "@/components/terminal/ui";
 import { LWChart, type OHLCBar } from "@/components/terminal/lwchart";
 import { WinRateBadge } from "@/components/terminal/WinRateBadge";
-import { pairSpec } from "@/lib/engine/pairs";
+import { PAIR_SPECS, tryPairSpec } from "@/lib/engine/pairs";
 import { buildSmcDrawings, type DrawableLevels, type SmcChannel } from "@/lib/smc-drawings";
 import { generateSnapshotPineScript } from "@/lib/pine-snapshot-generator";
 import SmcStrategyConfig from "@/components/terminal/SmcStrategyConfig";
@@ -1020,7 +1020,7 @@ function SMCPage() {
   }
 
   function fmt(val: unknown, decimals?: number): string {
-    const spec = pairSpec(pair);
+    const spec = tryPairSpec(pair) ?? PAIR_SPECS.EURUSD /* display-only fallback; sizing throws on unknown pairs */;
     const dec = decimals ?? spec.decimals;
     return safeNum(val).toFixed(dec);
   }

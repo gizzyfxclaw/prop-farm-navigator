@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getCFEnv } from "@/lib/cloudflare-env";
-import { pairSpec } from "@/lib/engine/pairs";
+import { PAIR_SPECS, tryPairSpec } from "@/lib/engine/pairs";
 import { summarizeSMC } from "@/lib/smc-engine";
 import { fetchBarsWithRetry, type Bar } from "@/lib/tvremix";
 
@@ -350,7 +350,7 @@ function buildStrategyLevels(
   breakoutConfirmed5m: boolean,
   tvTechnicals?: TVTechnicalsSummary | null,
 ): DrawableLevels {
-  const spec = pairSpec(pairSymbol);
+  const spec = tryPairSpec(pairSymbol) ?? PAIR_SPECS.EURUSD /* display-only fallback; sizing throws on unknown pairs */;
   const SL_PIPS = 30;
 
   // 1. Asia Sweep Reversals

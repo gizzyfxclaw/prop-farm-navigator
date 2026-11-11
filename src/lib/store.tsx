@@ -47,6 +47,8 @@ export interface JournalTrade {
     phase: 1 | 2;
     /** Which side of the hedge this order was placed on. */
     leg?: "exness" | "prop";
+    /** Shared id joining the two legs of one mirror execution (see mirror-execution.ts). */
+    mirrorId?: string;
     /** Base exnessWinTarget at the time this trade was logged (NOT martingale-bumped).
      *  Used by recovery.ts to compute correct slippage even after a phase change. */
     baseExnessWinTarget?: number;

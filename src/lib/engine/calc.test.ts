@@ -46,7 +46,8 @@ describe("engine", () => {
     expect(r.propTp).toBeCloseTo(1.091, 5);
     expect(r.exnessSl).toBeCloseTo(1.091, 5);
     expect(r.exnessTp).toBeCloseTo(1.082, 5);
-    expect(r.propLots).toBeCloseTo(50 / (30 * 10), 6);
+    expect(r.propLotsUnrounded).toBeCloseTo(50 / (30 * 10), 6);
+    expect(r.propLots).toBe(0.17);
   });
 
   it("uses 3 decimals and a rate-derived pip value for JPY", () => {
@@ -63,51 +64,76 @@ describe("engine", () => {
     expect(r.pipValue).toBe(9);
   });
 
-  it("sizes phase 1 capital for the SELECTED R:R of 1.5 (not worst-case)", () => {
+  it("sizes phase 1 capital for WORST-CASE R:R 1:2, not the selected 1.5 (audit §5.1)", () => {
     const r = calculate({ ...base, rr: 1.5 });
     const win = 28.6 / 6;
-    // At 1:1.5 it takes 4 wins to clear the $300 target.
+    // At 1:1.5 it takes 4 wins to clear the $300 target (live sizing).
     expect(r.winsToPass).toBe(4);
     expect(r.phase1.exnessWinTarget).toBeCloseTo(win, 6);
-    // Capital sized for the SELECTED R:R of 1.5.
-    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 1.5, 6);
-    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 1.5 * 4, 6);
-    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 1.5 * 4 * 1.2, 6);
-    expect(r.phase1TotalSpent).toBeCloseTo(28.6 + win * 1.5 * 4 * 1.2, 6);
-    expect(r.phase1Leftover).toBeCloseTo(win * 1.5 * 4 * 0.2, 6);
+    // But the SHIELD is funded at 1:2: 3 wins × $9.53 loss = $28.60 pure,
+    // so trading the legs at 1:2 later still fits the funded capital.
+    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 2, 6);
+    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 2 * 3, 6);
+    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 2 * 3 * 1.2, 6);
+    expect(r.phase1TotalSpent).toBeCloseTo(28.6 + win * 2 * 3 * 1.2, 6);
+    expect(r.phase1Leftover).toBeCloseTo(win * 2 * 3 * 0.2, 6);
+    // Live trade figures still use the selected R:R.
+    expect(r.exnessLossTarget).toBeCloseTo(win * 1.5, 6);
   });
 
-  it("at 1:2.5 selection: 3 prop wins needed, capital sized for selected R:R of 2.5", () => {
+  it("at 1:2.5 selection: 3 prop wins needed, shield still funded at 1:2", () => {
     const r = calculate({ ...base, rr: 2.5 });
     const win = 28.6 / 6;
     // $300 / ($50 × 2.5 = $125) = 2.4 → 3 wins
     expect(r.winsToPass).toBe(3);
     expect(r.phase1.exnessWinTarget).toBeCloseTo(win, 6);
-    // Capital sized for the SELECTED R:R of 2.5.
-    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 2.5, 6);
-    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 2.5 * 3, 6);
-    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 2.5 * 3 * 1.2, 6);
+    // Shield funded at worst-case 1:2, not selected 2.5.
+    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 2, 6);
+    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 2 * 3, 6);
+    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 2 * 3 * 1.2, 6);
+    expect(r.exnessLossTarget).toBeCloseTo(win * 2.5, 6);
   });
 
-  it("at 1:3 selection: 2 prop wins needed, capital sized for selected R:R of 3", () => {
+  it("at 1:3 selection: 2 prop wins needed, shield still funded at 1:2", () => {
     const r = calculate({ ...base, rr: 3 });
     const win = 28.6 / 6;
     // $300 / ($50 × 3 = $150) = 2
     expect(r.winsToPass).toBe(2);
     expect(r.phase1.exnessWinTarget).toBeCloseTo(win, 6);
-    // Capital sized for the SELECTED R:R of 3.
-    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 3, 6);
-    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 3 * 2, 6);
-    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 3 * 2 * 1.2, 6);
+    // Shield funded at worst-case 1:2, not selected 3.
+    expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 2, 6);
+    expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 2 * 3, 6);
+    expect(r.phase1.bufferedExnessCapital).toBeCloseTo(win * 2 * 3 * 1.2, 6);
+    expect(r.exnessLossTarget).toBeCloseTo(win * 3, 6);
   });
 
-  it("at 1:2 selection: 3 prop wins needed, capital sized for selected R:R of 2", () => {
+  it("at 1:2 selection: 3 prop wins needed, shield funded at 1:2", () => {
     const r = calculate({ ...base, rr: 2 });
     const win = 28.6 / 6;
     expect(r.winsToPass).toBe(3);
-    // Capital sized for the SELECTED R:R of 2.
     expect(r.phase1.exnessLossTarget).toBeCloseTo(win * 2, 6);
     expect(r.phase1.pureExnessCapital).toBeCloseTo(win * 2 * 3, 6);
+  });
+
+  it("rounds lots to 2 decimals inside calculate() and warns on big rounding loss (audit §5.12)", () => {
+    const r = calculate(base);
+    // Unrounded prop lots 0.1667 → 0.17, Exness 1.5889 → 1.59.
+    expect(r.propLots).toBe(0.17);
+    expect(r.exnessLots).toBe(1.59);
+    expect(r.propLotsUnrounded).toBeCloseTo(50 / (30 * 10), 6);
+    expect(r.lotRoundingWarning).toBeNull();
+  });
+
+  it("warns when rounding loses >5% of a leg (0.014 → 0.01 loses ~29%)", () => {
+    const tiny = calculate({ ...base, exnessWinTargetOverride: 0.042 });
+    expect(tiny.exnessLotsUnrounded).toBeCloseTo(0.014, 3);
+    expect(tiny.exnessLots).toBe(0.01);
+    expect(tiny.lotRoundingWarning).toMatch(/29%/);
+  });
+
+  it("throws on unknown pairs instead of silently using EURUSD specs (audit §5.14)", () => {
+    expect(() => calculate({ ...base, pair: "GBPJPY", entryPrice: 211.9 })).toThrow(/Unknown pair "GBPJPY"/);
+    expect(() => calculate({ ...base, pair: "BTCUSD", entryPrice: 74000 })).toThrow(/Unknown pair "BTCUSD"/);
   });
 
   it("carries phase 1 into phase 2 without recharging the fee", () => {
@@ -180,7 +206,8 @@ describe("engine", () => {
       expect(r.propTp).toBeCloseTo(1.091, 5);
       expect(r.exnessSl).toBeCloseTo(1.091, 5);
       expect(r.exnessTp).toBeCloseTo(1.082, 5);
-      expect(r.propLots).toBeCloseTo(50 / (30 * 10), 6);
+      expect(r.propLotsUnrounded).toBeCloseTo(50 / (30 * 10), 6);
+    expect(r.propLots).toBe(0.17);
     });
 
     it("calculates pips, R:R and mirrored levels for SHORT direction", () => {

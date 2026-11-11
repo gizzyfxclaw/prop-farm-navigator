@@ -3,13 +3,20 @@ import { livePipValue, pairSpec, roundPrice, type PairSymbol } from "./pairs";
 /**
  * GizzyFx mathematical engine.
  *
- * Capital-requirement numbers are sized for the SELECTED R:R multiplier,
- * so the user sees exact capital needs for each R:R ratio (1:1.5 / 1:2 /
- * 1:2.5 / 1:3). The UI clamps at 1:3.
+ * Shield capital is sized for the WORST-CASE R:R of 1:2, regardless of the
+ * R:R the user selected (audit §5.1). The capital only covers the trade if
+ * every trade uses exactly the selected R:R when it is sized for that R:R —
+ * e.g. at 1:1.5 the engine funded $34.32, but trading those legs at 1:2
+ * burns $9.53 per prop win and needs $38.13 to pass. Sizing the shield at
+ * 1:2 (3 wins to pass on the $5k preset) funds $28.60 pure / $34.32 buffered
+ * for ANY consistent R:R, because wins-to-pass falls as R:R rises.
  *
- * Live trade sizing (lots, SL/TP prices) uses the R:R actually selected.
+ * Live trade sizing (lots, SL/TP prices, prop win/loss per trade) still uses
+ * the R:R actually selected.
  */
 export const MAX_RR = 3;
+/** R:R the shield capital is sized for, regardless of selection. */
+export const WORST_CASE_RR = 2;
 
 export type DrawdownType = "Static" | "Trailing";
 export type Direction = "LONG" | "SHORT";
@@ -107,6 +114,11 @@ export interface EngineResult {
   exnessTp: number;
   propLots: number;
   exnessLots: number;
+  /** Lots before the 2-decimal broker rounding (for transparency). */
+  propLotsUnrounded: number;
+  exnessLotsUnrounded: number;
+  /** Warning when 2-decimal rounding loses >5% of an intended leg, or null. */
+  lotRoundingWarning: string | null;
   /** Prop risk actually used (may be reduced by daily profit cap). */
   cappedPropRisk: number;
   /** True when daily profit cap forced a risk reduction. */
@@ -254,20 +266,21 @@ export function calculate(input: EngineInputs): EngineResult {
   const effectivePropWinPerTrade = effectivePropRisk * rr;
 
   // Full losses the prop account can absorb before the drawdown floor is hit.
+  // These describe the trade at the SELECTED R:R (live sizing, wins to pass).
   const lossesToBlow = Math.max(1, Math.floor(maxDdUsd / effectivePropRisk) || 1);
   const winsToPass = Math.max(1, Math.ceil(targetUsd / effectivePropWinPerTrade) || 1);
 
-  // ---- Escalating shield (sized by selected R:R) ----
-  const phase1 = buildChain(fee + desiredProfit, lossesToBlow, winsToPass, bufferPct, rr);
-  const phase1TotalSpent =
-    input.phase === 2 && input.carryPhase1TotalSpent != null && input.carryPhase1TotalSpent > 0
-      ? num(input.carryPhase1TotalSpent)
-      : fee + phase1.bufferedExnessCapital;
-  const phase1Leftover =
-    input.phase === 2 && input.carryPhase1Leftover != null
-      ? num(input.carryPhase1Leftover)
-      : phase1.leftoverIfPassed;
-
+  // ---- Escalating shield (sized for WORST-CASE R:R 1:2, audit §5.1) ----
+  // Shield losses/wins are computed at WORST_CASE_RR with the risk the
+  // daily cap would allow at that R:R, so the funded capital covers any
+  // consistent R:R the user actually trades at.
+  const shieldRisk =
+    dailyCap > 0 && propRiskUsd * WORST_CASE_RR > dailyCap
+      ? Math.floor((dailyCap / WORST_CASE_RR) * 100) / 100
+      : propRiskUsd;
+  const shieldLossesToBlow = Math.max(1, Math.floor(maxDdUsd / Math.max(0.01, shieldRisk)) || 1);
+  const shieldWinsToPass = Math.max(1, Math.ceil(targetUsd / (Math.max(0.01, shieldRisk) * WORST_CASE_RR)) || 1);
+  const phase1 = buildChain(fee + desiredProfit, shieldLossesToBlow, shieldWinsToPass, bufferPct, WORST_CASE_RR);
   // Phase 2 recovery target: Deficit-Based Recovery
   // Recovers Prop Fee + ALL exhausted fuel (planned burn + martingale slippage)
   // trueDeficit = fee + actualExnessLosses (from journal)
@@ -279,7 +292,16 @@ export function calculate(input: EngineInputs): EngineResult {
     : phase1.exnessBurnIfPassed; // fallback: assume planned burn
   const totalExhaustedFuel = Math.max(0, actualExnessLosses);
   const trueDeficit = Math.max(0, fee + totalExhaustedFuel);
-  const phase2 = buildChain(trueDeficit + desiredProfit, lossesToBlow, winsToPass, bufferPct, rr);
+  const phase2 = buildChain(trueDeficit + desiredProfit, shieldLossesToBlow, shieldWinsToPass, bufferPct, WORST_CASE_RR);
+  const phase1TotalSpent =
+    input.phase === 2 && input.carryPhase1TotalSpent != null && input.carryPhase1TotalSpent > 0
+      ? num(input.carryPhase1TotalSpent)
+      : fee + phase1.bufferedExnessCapital;
+  const phase1Leftover =
+    input.phase === 2 && input.carryPhase1Leftover != null
+      ? num(input.carryPhase1Leftover)
+      : phase1.leftoverIfPassed;
+
   const phase2RefillRequired = phase2.bufferedExnessCapital - phase1Leftover;
 
   const active = input.phase === 1 ? phase1 : phase2;
@@ -290,14 +312,14 @@ export function calculate(input: EngineInputs): EngineResult {
     input.phase === 1
       ? [
           { label: "Prop challenge fee", value: fee },
-          { label: `Exness fuel (R:R 1:${Number(rr.toFixed(2))})`, value: phase1.pureExnessCapital },
+          { label: `Exness fuel (worst-case R:R 1:2)`, value: phase1.pureExnessCapital },
           { label: `Safety buffer (${bufferPct}%)`, value: phase1.bufferedExnessCapital - phase1.pureExnessCapital },
           { label: "Total capital needed", value: totalRequiredCapital },
         ]
       : [
           { label: "Phase 1 total already spent", value: phase1TotalSpent },
           { label: "Phase 1 leftover Exness balance", value: -phase1Leftover },
-          { label: `Phase 2 Exness fuel (R:R 1:${Number(rr.toFixed(2))})`, value: phase2.pureExnessCapital },
+          { label: `Phase 2 Exness fuel (worst-case R:R 1:2)`, value: phase2.pureExnessCapital },
           { label: `Safety buffer (${bufferPct}%)`, value: phase2.bufferedExnessCapital - phase2.pureExnessCapital },
           { label: "Total capital needed", value: totalRequiredCapital },
         ];
@@ -309,12 +331,31 @@ export function calculate(input: EngineInputs): EngineResult {
   const pipValue = livePipValue(input.pair, entryPrice);
   const exnessPipValue = input.exnessAccountType === "Cent" ? pipValue / 100 : pipValue;
 
-  const propLots = effectivePropRisk / (propSlPips * pipValue);
+  const propLotsUnrounded = effectivePropRisk / (propSlPips * pipValue);
   const effectiveWinTarget =
     input.exnessWinTargetOverride != null && input.exnessWinTargetOverride > 0
       ? input.exnessWinTargetOverride
       : active.exnessWinTarget;
-  const exnessLots = effectiveWinTarget / (exnessTpPips * exnessPipValue);
+  const exnessLotsUnrounded = effectiveWinTarget / (exnessTpPips * exnessPipValue);
+
+  // ---- Lot rounding (audit §5.12) ----
+  // Lots are rounded to the broker's 2-decimal step HERE, inside calculate(),
+  // so the sizing the engine reports is the sizing that will actually be
+  // placed — rounding down 0.014 → 0.01 used to silently lose ~29% of a leg,
+  // which then showed up as fake "slippage" in recovery.
+  const roundLot = (v: number) => Math.round(v * 100) / 100;
+  const propLots = roundLot(propLotsUnrounded);
+  const exnessLots = roundLot(exnessLotsUnrounded);
+  const roundingLossPct = (unrounded: number, rounded: number) =>
+    unrounded > 0 ? (unrounded - rounded) / unrounded : 0;
+  const worstRoundingLoss = Math.max(
+    roundingLossPct(propLotsUnrounded, propLots),
+    roundingLossPct(exnessLotsUnrounded, exnessLots),
+  );
+  const lotRoundingWarning =
+    worstRoundingLoss > 0.05
+      ? `Lot rounding loses ${(worstRoundingLoss * 100).toFixed(0)}% of an intended leg (e.g. ${propLotsUnrounded.toFixed(4)} → ${propLots.toFixed(2)} lots). The rounded size is what will be placed; recovery will see the smaller leg, not slippage.`
+      : null;
 
   // When a recovery override is active, recalculate the capital figures using
   // the effective win target so that "Total Capital Needed" and "Exness risk"
@@ -329,7 +370,10 @@ export function calculate(input: EngineInputs): EngineResult {
     input.exnessWinTargetOverride != null && input.exnessWinTargetOverride > 0;
 
   const activeExnessWinTarget  = overrideActive ? effectiveWinTarget    : active.exnessWinTarget;
-  const activeExnessLossTarget = overrideActive ? effectiveLossTarget   : active.exnessLossTarget;
+  // The loss on a prop win is at the SELECTED R:R, not the shield R:R —
+  // the shield chain (1:2) only sizes the capital, it does not change what
+  // a trade at the selected R:R actually risks.
+  const activeExnessLossTarget = activeExnessWinTarget * rr;
   const activeRequiredCapital  = overrideActive ? effectiveBufferedCapital : active.bufferedExnessCapital;
 
   // Rebuild totalRequiredCapital with the effective capital when override is on.
@@ -360,6 +404,13 @@ export function calculate(input: EngineInputs): EngineResult {
       title: "Strategy Broken: Trailing Drawdown",
       detail:
         "The loss floor trails open profit, so the inverted mirror cannot guarantee recovery. Do not trade this account.",
+    };
+  } else if (propLots < 0.01 || exnessLots < 0.01) {
+    verdict = {
+      level: "red",
+      title: "Lot Size Below Broker Minimum",
+      detail:
+        `A leg rounds below the 0.01 broker minimum (prop ${propLots.toFixed(2)}, Exness ${exnessLots.toFixed(2)}). Increase the recovery target or the prop risk.`,
     };
   } else if (netProfitIfPassed < 20) {
     verdict = {
@@ -404,6 +455,9 @@ export function calculate(input: EngineInputs): EngineResult {
     exnessTp,
     propLots,
     exnessLots,
+    propLotsUnrounded,
+    exnessLotsUnrounded,
+    lotRoundingWarning,
     cappedPropRisk: effectivePropRisk,
     riskCapped,
     phase1,
@@ -423,14 +477,14 @@ export function calculate(input: EngineInputs): EngineResult {
       ? (input.phase === 1
           ? [
               { label: "Prop challenge fee", value: fee },
-              { label: `Exness fuel — adjusted (R:R 1:${Number(rr.toFixed(2))})`, value: effectivePureCapital },
+              { label: `Exness fuel — adjusted (worst-case R:R 1:2)`, value: effectivePureCapital },
               { label: `Safety buffer (${bufferPct}%)`, value: effectiveBufferedCapital - effectivePureCapital },
               { label: "Total capital needed (adjusted)", value: effectiveTotalRequired },
             ]
           : [
               { label: "Phase 1 total already spent", value: phase1TotalSpent },
               { label: "Phase 1 leftover Exness balance", value: -phase1Leftover },
-              { label: `Phase 2 Exness fuel — adjusted (R:R 1:${Number(rr.toFixed(2))})`, value: effectivePureCapital },
+              { label: `Phase 2 Exness fuel — adjusted (worst-case R:R 1:2)`, value: effectivePureCapital },
               { label: `Safety buffer (${bufferPct}%)`, value: effectiveBufferedCapital - effectivePureCapital },
               { label: "Total capital needed (adjusted)", value: effectiveTotalRequired },
             ])

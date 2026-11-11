@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { assertDemoAccountType } from "./demo-guard";
 
 /**
  * Thin MetaApi Cloud REST proxy.
@@ -405,16 +406,12 @@ async function fetchAccountMeta(token: string, accountId: string): Promise<Accou
 /**
  * Throw if the account is NOT a demo account.
  * Checks MetaApi's `accountType` field. Absent field → assumed real (fail-safe).
+ * Exported for testing (mock the provisioning fetch); the live check still
+ * needs real demo credentials — see engine-fixes-2026-11-11.md.
  */
-async function assertDemoAccount(token: string, accountId: string): Promise<void> {
+export async function assertDemoAccount(token: string, accountId: string): Promise<void> {
   const meta = await fetchAccountMeta(token, accountId);
-  const type = (meta.accountType ?? "").toLowerCase();
-  if (type !== "demo") {
-    throw new Error(
-      `Safety block: only demo accounts are permitted. This account reports type="${meta.accountType ?? "unknown"}". ` +
-      `Disconnect and connect a MetaApi demo account to proceed.`
-    );
-  }
+  assertDemoAccountType(meta.accountType);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

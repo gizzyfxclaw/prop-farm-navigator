@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculate, type EngineInputs, type PropAccount } from "./engine/calc";
-import { computeRecovery } from "./recovery";
+import { computeRecovery, localToday } from "./recovery";
 import type { JournalTrade } from "./store";
 
 const account: PropAccount = {
@@ -125,16 +125,21 @@ describe("Targeted Slippage Martingale (TSM)", () => {
     expect(rec.slippageDebt).toBeCloseTo(0.30, 4);
   });
 
-  it("Consecutive prop WIN slips stack: $0.74 + $1.20 = $1.94 debt", () => {
+  it("Consecutive prop WIN slips: debt = first slip + excess over the BUMPED loss target (audit §5.11)", () => {
     const r = calculate({ ...base, rr: 1.5 });
     const expectedLoss = (28.6 / 6) * 1.5; // 7.15
     const journal = [
-      trade("1", "WIN", r.propWinPerTrade, -(expectedLoss + 0.74), 1.5), // +0.74
-      trade("2", "WIN", r.propWinPerTrade, -(expectedLoss + 1.20), 1.5), // +1.20
+      trade("1", "WIN", r.propWinPerTrade, -(expectedLoss + 0.74), 1.5), // +0.74 debt
+      // Trade 2 was placed with the martingale bump, so its Exness loss
+      // target is (4.7667 + 0.74) × 1.5 = 8.26, not the base 7.15.
+      // Actual 8.35 exceeds it by only 0.09 — that is the NEW slip.
+      // The old 0.74 is still owed (nothing recovered it), so debt = 0.83.
+      // Adding 1.20 again would double-count the debt already in the bump.
+      trade("2", "WIN", r.propWinPerTrade, -(expectedLoss + 1.20), 1.5),
     ];
     const rec = computeRecovery(r, journal);
-    expect(rec.slippageDebt).toBeCloseTo(0.74 + 1.20, 4); // stacks, no amortize
-    expect(rec.totalSlippageAccrued).toBeCloseTo(1.94, 4);
+    expect(rec.slippageDebt).toBeCloseTo(0.74 + 0.09, 4);
+    expect(rec.totalSlippageAccrued).toBeCloseTo(0.83, 4);
   });
 
   it("Exness win with NO outstanding debt: noop, target stays at base", () => {
@@ -193,8 +198,10 @@ describe("Targeted Slippage Martingale (TSM)", () => {
 
     const bumped = calculate({ ...base, rr: 1.5, exnessWinTargetOverride: rec.newExnessWinTarget });
     // Lot scaling = (baseWin + debt) / baseWin = nextWinTarget / baseWin.
+    // Compare UNROUNDED lots for the exact ratio — rounded lots (2dp) can
+    // shift the ratio by ~0.002 (audit §5.12 rounding).
     const expectedScale = rec.newExnessWinTarget / r.exnessWinTarget;
-    expect(bumped.exnessLots / r.exnessLots).toBeCloseTo(expectedScale, 4);
+    expect(bumped.exnessLotsUnrounded / r.exnessLotsUnrounded).toBeCloseTo(expectedScale, 4);
     expect(bumped.exnessLots).toBeGreaterThan(r.exnessLots);
     // Prop lot is unaffected — the TSM bumps only the Exness side.
     expect(bumped.propLots).toBeCloseTo(r.propLots, 6);
@@ -340,6 +347,96 @@ describe("Targeted Slippage Martingale (TSM)", () => {
     const defResult = calculate({ ...base, propRiskUsd: 30 });
     const recAt30 = computeRecovery(defResult, journal);
     expect(recAt30.totalPropSlippage).toBeCloseTo(1.0, 2);
+  });
+});
+
+describe("Audit fixes — totalMoneyLost, real daily cap, Phase 2 fee, legs-left, debt shortfall", () => {
+  it("totalMoneyLost = Exness fuel exhausted + prop fee (audit §5.9, was always $0)", () => {
+    const r = calculate(base);
+    // One prop WIN: Exness loses $9.53 → fuel exhausted $9.53, fee $28.60.
+    const journal = [trade("1", "WIN", 100, -9.5333)];
+    const rec = computeRecovery(r, journal);
+    expect(rec.exnessFuelExhausted).toBeCloseTo(9.5333, 3);
+    expect(rec.totalMoneyLost).toBeCloseTo(9.5333 + 28.6, 3);
+  });
+
+  it("totalMoneyLost is $28.60 (fee only) on a clean journal", () => {
+    const r = calculate(base);
+    const rec = computeRecovery(r, []);
+    expect(rec.totalMoneyLost).toBeCloseTo(28.6, 6);
+  });
+
+  it("real $ daily cap: two $60 prop wins ($120) lock the day; one $60 win does not (audit §5.8)", () => {
+    const today = localToday();
+    const r = calculate({ ...base, account: { ...account, dailyProfitCap: 100 } });
+    const mk = (id: string, propPnl: number): JournalTrade => ({
+      id, date: today, time: "00:00:00", pair: "EURUSD", dir: "LONG", result: "WIN",
+      propPnl, exPnl: -9.53, netPnl: propPnl - 9.53,
+      details: {
+        entry: 1.085 + Number(id) * 0.001, propSl: 1.082, propTp: 1.091, exSl: 1.091, exTp: 1.082,
+        propLots: 0.17, exLots: 1.59, rr: 2, phase: 1,
+        baseExnessWinTarget: 28.6 / 6, propRiskAtLog: 50,
+      },
+    });
+    const one = computeRecovery(r, [mk("1", 60)]);
+    expect(one.dailyPropPnl).toBeCloseTo(60, 6);
+    expect(one.dailyCapLocked).toBe(false);
+    const two = computeRecovery(r, [mk("1", 60), mk("2", 60)]);
+    expect(two.dailyPropPnl).toBeCloseTo(120, 6);
+    expect(two.dailyCapLocked).toBe(true);
+    expect(two.dailyProfitCap).toBe(100);
+  });
+
+  it("daily P&L dedupes mirror legs — one trade logged per leg counts once", () => {
+    const today = localToday();
+    const r = calculate({ ...base, account: { ...account, dailyProfitCap: 100 } });
+    // Same trade, two leg entries, identical date/pair/entry/result.
+    const leg = trade("1", "WIN", 60, -9.53);
+    const journal = [{ ...leg, date: today }, { ...leg, id: "1b", date: today }];
+    const rec = computeRecovery(r, journal);
+    expect(rec.dailyPropPnl).toBeCloseTo(60, 6);
+    expect(rec.dailyCapLocked).toBe(false);
+  });
+
+  it("Phase 2 recovery target does not double-count the fee (audit §5.7)", () => {
+    // Clean case: fee $28.60, planned burn $28.60 → trueDeficit $57.20.
+    // Old code: (fee + trueDeficit) / 6 = $14.30. Fixed: $57.20 / 6 = $9.53.
+    const r = calculate({ ...base, phase: 2 });
+    expect(r.trueDeficit).toBeCloseTo(57.2, 4);
+    expect(r.exnessWinTarget).toBeCloseTo(57.2 / 6, 4);
+  });
+
+  it("legs-left is one dollar-based definition: two $57 losses leave 3 legs, not 4 (audit §5.10)", () => {
+    const r = calculate(base);
+    const journal = [
+      trade("1", "LOSS", -57.16, 4.7667),
+      trade("2", "LOSS", -55.83, 4.7667),
+    ];
+    const rec = computeRecovery(r, journal);
+    // $300 drawdown − $112.99 lost = $187.01 left; $187.01 / $50 = 3.74 → 3 legs.
+    expect(rec.remainingLosses).toBe(3);
+    expect(rec.adjustedRemainingLosses).toBe(3);
+  });
+
+  it("Exness win of exactly the base with debt outstanding leaves the debt, not double it (audit §5.11)", () => {
+    const r = calculate({ ...base, rr: 1.5 });
+    const burned = (28.6 / 6) * 1.5 + 0.74; // $0.74 debt
+    const journal = [
+      trade("1", "WIN", r.propWinPerTrade, -burned, 1.5),
+      // Prop LOSS, Exness wins exactly the base 4.7667 — the bumped
+      // obligation was 5.5067, so $0.74 is still owed, not $1.48.
+      trade("2", "LOSS", -50, r.exnessWinTarget, 1.5),
+    ];
+    const rec = computeRecovery(r, journal);
+    expect(rec.slippageDebt).toBeCloseTo(0.74, 4);
+  });
+
+  it("anomalous mirror trades (prop WIN and Exness WIN) are counted, not silently skipped", () => {
+    const r = calculate(base);
+    const journal = [trade("1", "WIN", 100, 5)];
+    const rec = computeRecovery(r, journal);
+    expect(rec.anomalousMirrorTrades).toBe(1);
+    expect(rec.slippageDebt).toBe(0);
   });
 });
 

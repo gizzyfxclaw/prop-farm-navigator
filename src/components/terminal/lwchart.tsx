@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { X, Maximize2, Minimize2, RotateCcw } from "lucide-react";
 import { chartTheme, onThemeChange } from "@/lib/chart-theme";
-import { pairSpec } from "@/lib/engine/pairs";
+import { PAIR_SPECS, tryPairSpec } from "@/lib/engine/pairs";
 
 declare global {
   interface Window {
@@ -186,7 +186,7 @@ function applyDrawings(
 
 export function LWChart({ bars, drawings = [], height = 480, loading, storageKey, pair, title }: Props) {
   const pairName = pair ?? storageKey ?? "EURUSD";
-  const spec = pairSpec(pairName);
+  const spec = tryPairSpec(pairName) ?? PAIR_SPECS.EURUSD /* display-only fallback; sizing throws on unknown pairs */;
   const dec = spec.decimals;
 
   const wrapperRef = useRef<HTMLDivElement>(null);

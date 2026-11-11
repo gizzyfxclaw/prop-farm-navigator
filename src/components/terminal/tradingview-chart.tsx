@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { chartTheme } from "@/lib/chart-theme";
-import { pairSpec } from "@/lib/engine/pairs";
+import { PAIR_SPECS, tryPairSpec } from "@/lib/engine/pairs";
 
 interface Props {
   pair: string;
@@ -28,7 +28,7 @@ export function TradingViewChart({ pair, height = 480, lazy = false }: Props) {
   const [active, setActive] = useState(!lazy);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const spec = pairSpec(pair);
+  const spec = tryPairSpec(pair) ?? PAIR_SPECS.EURUSD /* display-only fallback; sizing throws on unknown pairs */;
 
   const toggleFullscreen = useCallback(() => {
     setIsFullscreen((prev) => {

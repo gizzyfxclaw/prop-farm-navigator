@@ -32,7 +32,7 @@ function HelpPage() {
       {/* ── SECTION 1: WHAT IS GIZZYFX HOLY TRINITY STRATEGY ─────────────── */}
       <Section title="What is GizzyFx Holy Trinity Strategy?" icon={<BookOpen size={16} />} id="what">
         <p style={{ color: "oklch(var(--gz-txt))", fontSize: 13, lineHeight: 1.7 }}>
-          The <strong>GizzyFx Holy Trinity Strategy</strong> is a three-part prop farming system designed to pass funded trading challenges with zero net loss. It combines <strong>Dynamic Exness Re-Pacing</strong> (handles Prop slippage), <strong>Targeted Slippage Martingale</strong> (handles Exness slippage), and <strong>Real-Time Risk Sentinel</strong> (monitors everything). Together, they form a self-healing loop that recovers your prop fee even when slippage occurs.
+          The <strong>GizzyFx Holy Trinity Strategy</strong> is a three-part prop farming system designed to pass funded trading challenges while recovering your prop fee even when slippage occurs. It combines <strong>Dynamic Exness Re-Pacing</strong> (handles Prop slippage), <strong>Targeted Slippage Martingale</strong> (handles Exness slippage), and <strong>Real-Time Risk Sentinel</strong> (monitors everything). Together, they form a self-healing loop that recovers your prop fee even when slippage occurs. <strong>Honest note:</strong> it is not "zero net loss" per trade — on the $5,000 example below a Prop win nets +$90.47 and a Prop loss nets −$45.23. The fee is recovered across the run, not on every trade.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <InfoCard icon={<Shield size={16} />} title="Trinity Part 1: Re-Pacing" items={["Handles Prop slippage", "Recalculates target for fewer legs", "Prevents fee recovery shortfall"]} />
@@ -156,7 +156,7 @@ function HelpPage() {
             ["Check Live MT5 tab before trading", "CRITICAL execution", "May trade with wrong balance"],
             ["Wait for green confirmation", "Execution", "Premature Prop entry = risk"],
             ["Same price on both accounts", "Execution", "Price mismatch = P&L gap"],
-            ["NO trading ±30min red news", "Compliance", "Spread blowout = slippage"],
+            ["NO trading 2h before to 30min after red news", "Compliance", "Spread blowout = slippage"],
             ["Vary entry times", "Compliance", "Round numbers = prop AI flag"],
             ["Vary SL pips (28, 35, 22)", "Compliance", "Consistency = prop AI flag"],
             ["Log trades immediately", "Journal", "Bad data = wrong calculations"],
@@ -176,7 +176,7 @@ function HelpPage() {
             ["Check Live MT5 tab", "Verify MetaApi is connected and shows live balance before trading."],
             ["Execute Exness via button", "Use the Engine's Execute button — it calculates everything."],
             ["Prop on phone at EXACT price", "Same entry price as Exness. No deviation."],
-            ["Daily cap rule", "If you win today. STOP. Come back tomorrow."],
+            ["Daily cap rule", "Stop when today's Prop P&L reaches the $100 daily profit cap — not after any win, however small."],
             ["Log loss in Journal", "If Prop loses, log it. System recalculates Exness target."],
             ["Funded lot size confirmed", "Phase 2 only: Verify lot size matches funded rules."],
             ["Drawdown limit not breached", "Phase 2 only: Check you haven't exceeded max drawdown."],
@@ -189,10 +189,16 @@ function HelpPage() {
         <Table
           headers={["Scenario", "What Happens", "System Response"]}
           rows={[
-            ["Prop loses $50 (normal)", "Exness wins $4.33", "Recovery loop continues as planned"],
-            ["Prop loses $56 (slippage)", "Exness wins $4.33", "Re-Pacing: target increases to $4.79"],
-            ["Exness wins $4.10 (short)", "Prop loses $50", "Martingale: $0.23 debt added to next target"],
-            ["Both happen at once", "Prop -$56, Exness +$4.10", "Combined: target = $4.79 + $0.23 = $5.02"],
+            // Numbers verified against the engine (calc.ts / recovery.ts) on the
+            // $5,000 example: fee $28.60, $50 risk, 1:2, 30 pips.
+            // Base Exness win target = $28.60 / 6 legs = $4.77.
+            ["Prop loses $50 (normal)", "Exness wins $4.77", "Recovery loop continues as planned"],
+            // Prop slippage $6 leaves 4 legs: re-paced = ($28.60 − $4.77 retained) / 4 = $5.96.
+            ["Prop loses $56 (slippage)", "Exness wins $4.77", "Re-Pacing: target increases to $5.96"],
+            // Exness wins $4.10, $0.67 short of the $4.77 target: $0.67 debt.
+            ["Exness wins $4.10 (short)", "Prop loses $50", "Martingale: $0.67 debt added to next target ($5.43)"],
+            // Both: re-paced $6.13 + $0.67 debt = $6.79 combined target.
+            ["Both happen at once", "Prop -$56, Exness +$4.10", "Combined: target = $6.13 + $0.67 = $6.79"],
             ["0 legs remaining", "Account near blowout", "CRITICAL WARNING — trade with extreme caution"],
           ]}
         />
@@ -213,7 +219,7 @@ function HelpPage() {
             ["After green", "Place Prop trade on phone at exact price", "Phone app"],
             ["After trade", "Log result in Journal", "Journal"],
             ["After log", "System recalculates → Ready for next trade", "Engine"],
-            ["After win", "STOP trading for the day (Daily Cap Rule)", "Any"],
+            ["After cap hit", "STOP trading for the day once today's Prop P&L reaches the $100 daily cap", "Any"],
           ]}
         />
       </Section>
@@ -227,7 +233,7 @@ function HelpPage() {
             ["Can't switch to Phase 2", "Challenge not passed yet", "Reach profit target first"],
             ["Exness target too high", "Multiple slippage events", "Trade carefully — don't add more slippage"],
             ["Buffer depleted warning", "Exness balance too low", "Deposit to Exness → Update balance in Settings"],
-            ["Daily cap lock active", "Already won today", "Wait until tomorrow (UTC midnight)"],
+            ["Daily cap lock active", "Today's Prop P&L reached the $100 daily profit cap", "Wait until tomorrow (UTC midnight)"],
             ["MT5 not connecting", "Wrong MetaApi credentials", "Check Settings → Verify token & account ID"],
             ["Bad journal data warning", "Wrong P&L signs logged", "Clear journal → Re-log with correct signs"],
             ["Off-peak warning", "Outside London/NY overlap", "Wait for 13:00 EST (17:00 UTC)"],
