@@ -31,10 +31,31 @@ export const PAIR_SPECS: Record<PairSymbol, PairSpec> = {
   XAUUSD: { symbol: "XAUUSD", label: "XAU/USD", pipValue: 1, pipSize: 0.01, decimals: 2, quoteCurrencyIsUsd: true },
 };
 
+/** Supported pairs — anything else has no verified pip spec in this engine. */
+export const SUPPORTED_PAIRS = [...PAIRS] as const;
+
 export function pairSpec(symbol: string): PairSpec {
   const key = symbol.replace(/[^A-Za-z]/g, "").toUpperCase();
   const normalized = PAIRS.find((p) => key.startsWith(p));
-  return PAIR_SPECS[normalized ?? "EURUSD"];
+  if (!normalized) {
+    // Audit §5.14: unknown pairs used to silently fall back to EURUSD specs
+    // (GBPJPY and BTCUSD were sized with pipValue $10 / pipSize 0.0001).
+    // Fail loudly instead — a wrong size is worse than no size.
+    throw new Error(
+      `Unknown pair "${symbol}" — no pip spec in this engine. Supported pairs: ${PAIRS.join(", ")}. ` +
+        `Add a verified pipSize/pipValue/decimals entry to PAIR_SPECS before trading it.`,
+    );
+  }
+  return PAIR_SPECS[normalized];
+}
+
+/** Non-throwing lookup for callers that need to check support first. */
+export function tryPairSpec(symbol: string): PairSpec | null {
+  try {
+    return pairSpec(symbol);
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -318,9 +318,16 @@ function BacktestPage() {
     }
     if (!selectedRule) return;
 
-    // Place the most recent signal as a live demo pending order
+    // Place the most recent signal as a live demo pending order.
+    // Audit §5.13: the entry price MUST be the signal's entry price.
+    // The old code used lastTrade.tp as openPrice — the order would open
+    // exactly at its own take-profit and close instantly at a ~$0 result.
     const lastTrade = result.trades[result.trades.length - 1];
     if (!lastTrade) { toast.error("No trades in backtest result."); return; }
+    if (!lastTrade.entryPrice || lastTrade.entryPrice <= 0) {
+      toast.error("Last signal has no valid entry price — cannot forward-test.");
+      return;
+    }
     const symbol = pair + (meta.exnessSymbolSuffix ?? "");
     const actionType =
       lastTrade.direction === "long" ? "ORDER_TYPE_BUY_STOP" : "ORDER_TYPE_SELL_STOP";
@@ -333,7 +340,7 @@ function BacktestPage() {
         actionType,
         symbol,
         volume:     parseFloat(lotSize) || 0.01,
-        openPrice:  lastTrade.tp, // re-entry near last TP level
+        openPrice:  lastTrade.entryPrice, // the signal's entry — never its TP
         stopLoss:   lastTrade.sl,
         takeProfit: lastTrade.tp,
         comment:    `GizzyFx BT ${selectedRule.title.slice(0, 10)}`,

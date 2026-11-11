@@ -14,7 +14,8 @@ import { money, type Direction, type ExnessAccountType } from "@/lib/engine/calc
 import { mirrorPendingOrder, directionFromPendingOrder, type PendingOrderType } from "@/lib/store";
 import { useNotifications } from "@/lib/notifications";
 import { PAIR_SPECS, PAIRS, formatPrice, type PairSymbol } from "@/lib/engine/pairs";
-import { placePendingOrder } from "@/lib/metaapi.functions";
+import { placePendingOrder, cancelPendingOrder } from "@/lib/metaapi.functions";
+import { executeMirror, openMirrorAlerts, type LegOrder } from "@/lib/mirror-execution";
 import { marketStatus } from "@/lib/market-hours";
 import { useRiskSentinel, useGreenCheckRequired } from "@/components/terminal/GlobalRiskSentinel";
 import { computeRecovery } from "@/lib/recovery";
@@ -43,7 +44,7 @@ function EnginePage() {
   const { addNotification } = useNotifications();
   const liveAccounts = useLiveAccounts();
   const [status, setStatus] = useState<{ tone: "green" | "red" | "amber"; text: string } | null>(null);
-  const [busy, setBusy] = useState<"trade" | "trade-prop" | null>(null);
+  const [busy, setBusy] = useState<"trade" | "trade-prop" | "trade-mirror" | null>(null);
   const [liveMode, setLiveMode] = useState(true);
   const liveModeRef = useRef(liveMode);
   const lastRiskCapped = useRef(false);
@@ -87,11 +88,11 @@ function EnginePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [livePrice.price, livePrice.updatedAt]);
 
-  // ── DAILY CAP LOCK ──────────────────────────────────────────────────────
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const wonToday = journal.some((t) => t.date === today && t.result === "WIN");
-  const dailyCapLocked = wonToday && selectedAccount.dailyProfitCap != null;
+  // ── DAILY CAP LOCK (audit §5.8) ─────────────────────────────────────────
+  // Real $ daily cap from recovery: locked only when today's prop P&L
+  // reaches the account's daily profit cap — NOT after any win, however
+  // small. The old rule locked the whole day after a $4.77 win.
+  const dailyCapLocked = recovery.dailyCapLocked;
 
   // ── MARGIN CALL LOCK ────────────────────────────────────────────────────
   const marginCallLocked = recovery.bufferDepleted;
@@ -102,7 +103,11 @@ function EnginePage() {
   // ── Use the same risk analysis as Coach (GlobalRiskSentinel) ─────────
   const sentinel = useRiskSentinel();
   const greenCheck = useGreenCheckRequired();
-  const engineBlocked = sentinel.currentLevel === "red" || sentinel.currentLevel === "amber";
+  // Audit §5.4: amber = "proceed with care", NOT a block. Amber used to
+  // block execution, so Phase 2 (permanently amber) and any slippage debt
+  // (amber until cleared by trading) locked Execute forever — a deadlock.
+  // Only red blocks.
+  const engineBlocked = sentinel.currentLevel === "red";
 
   // Combined execution lock (uses same data as Coach)
   const executionLocked = dailyCapLocked || marginCallLocked || r.verdict.level === "red" || !market.open || engineBlocked;
@@ -237,6 +242,95 @@ function EnginePage() {
       },
     });
     toast.success(`${legLabel} pending order placed and logged in the journal.`);
+  }
+
+  /* ── Mirror execution: both legs, one confirm, rollback on failure ── */
+  // Audit §5.5 (atomicity). True cross-broker atomicity is impossible —
+  // see mirror-execution.ts — but this is the closest the Terminal can get:
+  // one confirm, Exness FIRST then Prop SECOND immediately, and if the Prop
+  // leg fails the Exness order is cancelled automatically. Only available
+  // when BOTH legs are MetaApi accounts; the user's Prop leg is MatchTrader
+  // (E8), which has no MetaApi path, so for him the Prop leg stays manual.
+  async function onExecuteMirror() {
+    if (executionLocked) {
+      toast.error("Execution is locked — check the Risk Sentinel.");
+      return;
+    }
+    if (r.verdict.level === "red") {
+      toast.error("Validator verdict is RED — execution blocked.");
+      return;
+    }
+    if (!live) {
+      toast.error("Fetch the live price first so the pending order type can be resolved.");
+      return;
+    }
+    if (!meta.propAccountId) {
+      toast.error("Mirror execution needs a MetaApi prop account ID in Settings. Your Prop leg is MatchTrader — place it manually on your phone.");
+      return;
+    }
+    const exnessLeg: LegOrder = {
+      accountId: meta.exnessAccountId,
+      actionType: `ORDER_TYPE_${mirrorPendingOrder(engine.pendingOrderType)}` as LegOrder["actionType"],
+      symbol,
+      volume: r.exnessLots,
+      openPrice: r.entryPrice,
+      stopLoss: r.exnessSl,
+      takeProfit: r.exnessTp,
+      comment: "GizzyFx",
+    };
+    const propLeg: LegOrder = {
+      accountId: meta.propAccountId,
+      actionType: `ORDER_TYPE_${engine.pendingOrderType}` as LegOrder["actionType"],
+      symbol,
+      volume: r.propLots,
+      openPrice: r.entryPrice,
+      stopLoss: r.propSl,
+      takeProfit: r.propTp,
+      comment: "GizzyFx",
+    };
+    const summary = `MIRROR ${symbol} @ ${formatPrice(r.entryPrice, dec)} · Exness ${r.exnessDirection} ${r.exnessLots.toFixed(2)} lots (SL ${formatPrice(r.exnessSl, dec)} / TP ${formatPrice(r.exnessTp, dec)}) · Prop ${r.propDirection} ${r.propLots.toFixed(2)} lots (SL ${formatPrice(r.propSl, dec)} / TP ${formatPrice(r.propTp, dec)})`;
+    if (!window.confirm(`Place BOTH hedge legs now?\n\n${summary}\n\nExness goes first, Prop second, immediately. If the Prop leg fails, the Exness order is cancelled automatically.`)) return;
+
+    setBusy("trade-mirror");
+    const res = await executeMirror(
+      exnessLeg,
+      propLeg,
+      async (leg) => {
+        const placed = await placePendingOrder({ data: { token: meta.token, accountId: leg.accountId, actionType: leg.actionType, symbol: leg.symbol, volume: leg.volume, openPrice: leg.openPrice, stopLoss: leg.stopLoss, takeProfit: leg.takeProfit, comment: leg.comment } });
+        return placed.ok ? { ok: true as const, orderId: placed.data.orderId } : { ok: false as const, error: placed.error };
+      },
+      async (accountId, orderId) => {
+        const cancelled = await cancelPendingOrder({ data: { token: meta.token, accountId, orderId } });
+        return cancelled.ok ? { ok: true as const } : { ok: false as const, error: cancelled.error };
+      },
+    );
+    setBusy(null);
+    setStatus({ tone: res.status === "both-placed" ? "green" : "red", text: res.message });
+    if (res.status === "both-placed") {
+      const now = new Date();
+      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const baseDetails = {
+        entry: r.entryPrice,
+        propSl: r.propSl, propTp: r.propTp, exSl: r.exnessSl, exTp: r.exnessTp,
+        propLots: r.propLots, exLots: r.exnessLots, rr: r.rr, phase: engine.phase,
+        baseExnessWinTarget: r.phase === 1 ? r.phase1.exnessWinTarget : r.phase2.exnessWinTarget,
+        propRiskAtLog: r.cappedPropRisk,
+        mirrorId: res.mirrorId,
+      };
+      addTrade({
+        id: `${now.getTime()}-ex`, date: localDate, time: now.toTimeString().slice(0, 8),
+        pair: engine.pair, dir: engine.direction, result: "OPEN", propPnl: 0, exPnl: 0, netPnl: 0,
+        ...(res.exnessOrderId ? { ticket: res.exnessOrderId } : {}), details: { ...baseDetails, leg: "exness" },
+      });
+      addTrade({
+        id: `${now.getTime()}-prop`, date: localDate, time: now.toTimeString().slice(0, 8),
+        pair: engine.pair, dir: engine.direction, result: "OPEN", propPnl: 0, exPnl: 0, netPnl: 0,
+        ...(res.propOrderId ? { ticket: res.propOrderId } : {}), details: { ...baseDetails, leg: "prop" },
+      });
+      toast.success("Mirror placed — both legs logged in the journal under one mirror ID.");
+    } else {
+      toast.error(res.message);
+    }
   }
 
   return (
@@ -1097,7 +1191,7 @@ function EnginePage() {
           </p>
         </div>
         <p className="mt-2 text-[10px] text-muted-foreground">
-          Capital is sized for the selected R:R (currently 1:{engine.rr}). Switching the R:R selector dynamically recalculates the fuel requirement. Buffer applied: {engine.bufferPct}%.
+          Capital is sized for worst-case R:R 1:2 (audit fix) — the live trade still uses the selected R:R (currently 1:{engine.rr}). Switching the R:R selector dynamically recalculates the fuel requirement. Buffer applied: {engine.bufferPct}%.
         </p>
       </Card>
 
@@ -1148,11 +1242,37 @@ function EnginePage() {
             {busy === "trade-prop" ? "Placing…" : `Execute prop ${r.propDirection} ${r.propLots.toFixed(2)}`}
           </Button>
         </div>
+        <div className="mt-2">
+          <Button onClick={() => void onExecuteMirror()} disabled={busy !== null || executionLocked || !meta.propAccountId} title={meta.propAccountId ? "Place both legs at once: Exness first, Prop second, with automatic rollback if the Prop leg fails" : "Mirror execution needs a MetaApi prop account ID. Your Prop leg is MatchTrader (E8) — place it manually on your phone."}>
+            {busy === "trade-mirror" ? "Placing mirror…" : "Execute Mirror — both legs at once"}
+          </Button>
+        </div>
         {!meta.propAccountId && (
           <p className="mt-2 text-[10px] text-muted-foreground">
-            Only the Exness leg can be placed — add your prop firm's MetaApi account ID in Settings to enable the prop leg. Each leg is placed separately so you stay in control of the order they go on.
+            Only the Exness leg can be placed — add your prop firm's MetaApi account ID in Settings to enable the prop leg. Each leg is placed separately so you stay in control of the order they go on. Mirror execution (both legs at once, with rollback) is unavailable while the Prop leg is MatchTrader — place it manually on your phone at the exact same price.
           </p>
         )}
+        {(() => {
+          // Mirror-close monitor (audit §5.5): approach-zone / hit alerts for
+          // OPEN mirror trades, from the live price. The close itself is
+          // still manual — no auto-close watcher exists yet.
+          if (!live || !livePrice.price) return null;
+          const alerts = openMirrorAlerts(
+            journal.filter((t) => t.result === "OPEN" && t.pair === engine.pair),
+            livePrice.price,
+            5 * r.pipSize,
+          );
+          if (alerts.length === 0) return null;
+          return (
+            <div className="mt-3 space-y-2">
+              {alerts.map((a) => (
+                <Alert key={a.tradeId} level={a.urgent ? "red" : "amber"} title={a.urgent ? "Mirror boundary hit — close BOTH legs now" : "Mirror approach zone"}>
+                  {a.text}
+                </Alert>
+              ))}
+            </div>
+          );
+        })()}
         <p className="mt-2 text-[10px] text-muted-foreground">
           Order type is resolved from the mirrored direction versus the live market price (BUY/SELL LIMIT or STOP). Fetch the live price first; the trade is logged to the journal on success.
         </p>

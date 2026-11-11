@@ -66,7 +66,13 @@ describe("Comprehensive Backtest — Full Lifecycle", () => {
       ];
       const recovery = computeRecovery(r, journal);
       expect(recovery.challengePassed).toBe(true);
-      expect(recovery.slippageDebt).toBeCloseTo(9.31, 2);
+      // Audit §5.11: trade 1 slips 15.90 − 9.53 = 6.37. After that the
+      // martingale bumps the next Exness loss target to
+      // (4.7667 + 6.37) × 2 = 22.27, and trades 2–3 lose far less than
+      // that, so no NEW slip accrues — debt stays 6.37. The old 9.31
+      // (= 6.37 + 2.48 + 0.47) measured every trade against the base
+      // target and double-counted debt already priced into the bump.
+      expect(recovery.slippageDebt).toBeCloseTo(6.37, 2);
     });
 
     it("1.3: Heavy slippage ($53 total loss)", () => {
@@ -174,7 +180,11 @@ describe("Comprehensive Backtest — Full Lifecycle", () => {
       for (const rr of [1.5, 2, 2.5, 3] as const) {
         const r = calculate({ ...baseInputs, rr });
         expect(r.rr).toBe(rr);
-        expect(r.phase1.exnessLossTarget).toBeCloseTo(r.phase1.exnessWinTarget * rr, 6);
+        // Audit §5.1: the SHIELD chain is funded at worst-case 1:2 whatever
+        // the selected R:R is, so its loss target is always win × 2.
+        expect(r.phase1.exnessLossTarget).toBeCloseTo(r.phase1.exnessWinTarget * 2, 6);
+        // The LIVE trade's loss target still follows the selected R:R.
+        expect(r.exnessLossTarget).toBeCloseTo(r.exnessWinTarget * rr, 6);
       }
     });
 

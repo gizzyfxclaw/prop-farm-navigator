@@ -48,8 +48,6 @@ export function useRiskSentinel() {
 
   const market = marketStatus();
   const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const wonToday = journal.some((t) => t.date === today && t.result === "WIN");
 
   // ── Fetch economic calendar events for news check ──
   const [newsEvents, setNewsEvents] = useState<NewsEvent[]>([]);
@@ -114,18 +112,20 @@ export function useRiskSentinel() {
       return { messages, currentLevel, coachingTip };
     }
 
-    // 2. Daily cap lock
-    if (wonToday && selectedAccount?.dailyProfitCap != null) {
+    // 2. Daily cap lock (audit §5.8) — real $ cap, not "any win today".
+    // Old rule locked the whole day after a $4.77 win; now it locks only
+    // when today's prop P&L reaches the account's daily profit cap.
+    if (recovery.dailyCapLocked) {
       messages.push({
         id: "daily-cap",
         level: "red",
         title: "DAILY CAP LOCK",
-        message: `Won today. Do not trade until tomorrow.`,
+        message: `Daily profit cap reached: $${recovery.dailyPropPnl.toFixed(2)} today (cap $${recovery.dailyProfitCap.toFixed(2)}). Do not trade until tomorrow.`,
         page: "Journal",
         timestamp: Date.now(),
       });
       bumpLevel("red");
-      coachingTip = "You already won today. Close the laptop.";
+      coachingTip = "Daily profit cap reached. Close the laptop.";
     }
 
     // 3. Buffer depleted
@@ -156,7 +156,9 @@ export function useRiskSentinel() {
       coachingTip = "Near blowout. Only A+ setups.";
     }
 
-    // 5. Slippage debt
+    // 5. Slippage debt — amber warning only (audit §5.4). Amber no longer
+    // blocks execution, so debt can be cleared by trading the bumped
+    // target instead of deadlocking: debt → amber → locked → no trade.
     if (recovery.slippageDebt > 0) {
       messages.push({
         id: "slippage-debt",
@@ -288,17 +290,19 @@ export function useRiskSentinel() {
       if (!coachingTip) coachingTip = "Past 3 PM ET cutoff. Avoid new entries to protect against night slippage.";
     }
 
-    // 8. Phase 2 warning
+    // 8. Phase 2 note (audit §5.4) — INFORMATIONAL ONLY. Phase 2 used to
+    // raise amber on every render, and amber used to block execution, so
+    // Execute appeared permanently locked in Phase 2. It no longer bumps
+    // the level: Phase 2 is a state, not a hazard.
     if (engine.phase === 2) {
       messages.push({
         id: "phase2",
-        level: "amber",
+        level: "green",
         title: "FUNDED PHASE",
         message: "Phase 2 active. Verify lot size and risk parameters.",
         page: "Engine",
         timestamp: Date.now(),
       });
-      bumpLevel("amber");
     }
 
     // 9. No MT5 connection
@@ -336,7 +340,7 @@ export function useRiskSentinel() {
     }
 
     return { messages, currentLevel, coachingTip };
-  }, [tick, engine, journal, accounts, meta, recovery, r, selectedAccount, wonToday, newsEvents, now]);
+  }, [tick, engine, journal, accounts, meta, recovery, r, selectedAccount, newsEvents, now]);
 
   return analysis;
 }
@@ -691,8 +695,6 @@ export function useGreenCheckRequired(): { canTrade: boolean; reason: string } {
   })();
 
   const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const wonToday = journal.some((t) => t.date === today && t.result === "WIN");
   const day = now.getUTCDay();
   const hour = now.getUTCHours();
   const isWeekend = (day === 5 && hour >= 22) || day === 6 || (day === 0 && hour < 22);
@@ -706,7 +708,7 @@ export function useGreenCheckRequired(): { canTrade: boolean; reason: string } {
   const etSec = et.totalSeconds;
 
   if (isWeekend) return { canTrade: false, reason: "Market closed (weekend)." };
-  if (wonToday && selectedAccount?.dailyProfitCap != null) return { canTrade: false, reason: "Daily cap lock — already won today." };
+  if (recovery.dailyCapLocked) return { canTrade: false, reason: `Daily profit cap reached — $${recovery.dailyPropPnl.toFixed(2)} today (cap $${recovery.dailyProfitCap.toFixed(2)}).` };
   if (recovery.bufferDepleted) return { canTrade: false, reason: "Buffer depleted — deposit required." };
   if (recovery.adjustedRemainingLosses <= 2 && recovery.adjustedRemainingLosses > 0) return { canTrade: false, reason: "Critical legs — near blowout." };
   if (!meta.token || !meta.exnessAccountId) return { canTrade: false, reason: "MT5 not connected." };
